@@ -8,3 +8,4 @@ Format contracts for the HIP kernels we write. Not engine dispatch.
 | [w8a8-mxfp4.md](w8a8-mxfp4.md) | W8A8 = `sdot4` i32-through-K; mxfp4 = unpack then `fdot2` | W8A16-FP8 on the fork is LUT→`fdot2`, not this W8A8 path |
 
 Do not conflate W8A16 / W8A16-FP8 (`fdot2`) with W8A8 (`sdot4`).
+| [sage-qk.md](sage-qk.md) | QK = `sdot4`, PV = `fdot2` | Prefill only. Paper + dispatch: [engine/sage-attention.md](../engine/sage-attention.md) |
