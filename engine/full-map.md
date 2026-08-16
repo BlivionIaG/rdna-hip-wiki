@@ -10,9 +10,9 @@ A request is two programs that share a KV cache. Prefill is a fat GEMM (compute-
 
 Official vLLM and SGLang do **not** list gfx1030. Forced build = Triton attention + rocBLAS + Triton AWQ. Custom HIP paged-decode and skinny GEMM **never launch** (`on_gfx1x` = gfx11/12). AITER/CK FA is CDNA-only.
 
-The work is not "port AITER." Write Wave32 paged-decode + skinny GEMM + DOT-based W4A16/W8A8, keep weights quantized on device, colocate P+D with a measured token budget. Treat PD / TP-for-speed / streaming decode-KV over PCIe as the wrong physics.
+The work is not "port AITER." Write Wave32 paged-decode + skinny GEMM + DOT-based quant GEMMs, keep weights quantized on device, colocate P+D with a measured token budget. Treat PD / TP-for-speed / streaming decode-KV over PCIe as the wrong physics.
 
-Live kernels in the fork (not paged-decode first): W4A16 / W8A8 / mxfp4 and `fa_rdna2`. See [kernels/](../kernels/README.md) and [attention-dispatch.md](attention-dispatch.md).
+**Live in the fork** (not paged-decode first): W4A16 / W8A16 / W8A16-FP8 (LUT→`fdot2`) and `fa_rdna2`. **Not shipping:** W8A8/`sdot4`, mxfp4 — those are format contracts, not launched kernels. See [kernels/](../kernels/README.md) and [attention-dispatch.md](attention-dispatch.md).
 
 ## Technique table
 
@@ -35,13 +35,13 @@ Live kernels in the fork (not paged-decode first): W4A16 / W8A8 / mxfp4 and `fa_
 2. Matching `reshape_and_cache` writer.
 3. Head-64 decode tile (Triton hole).
 4. Skinny GEMM / GEMV Wave32 for QKV+FFN decode.
-5. Sage-style INT8 QK via sdot4 on **prefill only**, after FA2 occupancy is clean.
+5. Sage-style INT8 QK via sdot4 on **prefill only**, after FA2 occupancy is clean. Do not list sdot4 as shipping.
 6. MLA fat tile (q>1) before mix or MTP.
 7. Do not start with shuffled KV / `pa_fwd_asm` / AITER MLA.
 
 ## Cache / RCCL (one-liners)
 
-HIP default loads stay. No persist / IC bypass / prefetch on gfx1030. Single-GPU: only 7B W4/mxfp4 fit a layer in 128 MB IC. TP=4: 7B all formats; 27B W4/mxfp4; 27B W8A8 ~7 MiB over. Leftover IC is hundreds of KV tokens, not the full cache. Details: [silicon/cache-policy.md](../silicon/cache-policy.md).
+HIP default loads stay. No persist / IC bypass / prefetch on gfx1030. Single-GPU: only 7B W4/mxfp4 fit a layer in 128 MB IC. TP=4: 7B all formats; 27B W4/mxfp4 fit; 27B W8A8 ~7 MiB over (format-size note, not a live kernel). Leftover IC is hundreds of KV tokens, not the full cache. Details: [silicon/cache-policy.md](../silicon/cache-policy.md).
 
 4× V620 is PCIe 4.0 x16 only. `HSA_FORCE_FINE_GRAIN_PCIE=1` + large BAR. Ring n=4 algbw ≤ ~21 GB/s if the bus is perfect. W4A16 does not shrink all-reduce. Do not write gfx1030 custom AR until BAR=32G, `hipDeviceCanAccessPeer==1`, measured `hipMemcpyPeer`. Details: [silicon/rccl-p2p.md](../silicon/rccl-p2p.md).
 
