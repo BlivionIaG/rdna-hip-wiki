@@ -20,3 +20,9 @@ OffloadingConnector is GPU→CPU, not PD. Streaming decode KV over PCIe every to
 
 - Specdec / FP8-KV quality on gfx1030.
 - Whether any fused INT8-KV + fa_rdna2 path exists in the unpushed tree.
+
+## Kiely addendum (Jan 2026)
+
+Sensitivity ladder, least → most: weights (linears) < activations < KV < attention/softmax. Leave embed / lm_head and softmax wide. KV quant’s extra win is more resident cache and cheaper prefix/PD movement, not raw FLOPS. Storage hierarchy G1 GPU → G2 host ↓ G3 local SSD → G4 networked SSD; keep hot blocks high.
+
+On this chip the book’s “FP8 is the production sweet spot / integers are local-only” does not apply (`supports_fp8()` false). INT8 + fused dequant stays the honest KV path. Offload stays prefix/preempt, not per-token decode H2D.

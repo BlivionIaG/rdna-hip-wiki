@@ -55,3 +55,7 @@ Sweep 512, 2048, 4096, 8192, 16384. Report p50/p99 TTFT, ITL, TPS, KV usage, pre
 - [Anatomy of vLLM](https://vllm.ai/blog/2025-09-05-anatomy-of-vllm)
 - [vLLM V1 guide](https://docs.vllm.ai/en/latest/usage/v1_guide/)
 - [SGLang mixed-chunk](https://github.com/sgl-project/sglang/discussions/1163)
+
+## Kiely addendum (Jan 2026)
+
+Reusable prefix **ends at the first novel token**. Put stable context first (system, repo, RAG, history) and unique user tokens last. Incomplete last page is not reusable (vLLM hashes complete 16-token blocks). Chunked prefill is also the long-ISL interleave so decode is not stalled. Still **measure MBT** on V620; do not copy Instinct 8k/16k.
