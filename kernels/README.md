@@ -1,0 +1,10 @@
+# Kernels
+
+Format contracts for the HIP kernels we write. Not engine dispatch.
+
+| Page | Inner loop | Notes |
+|---|---|---|
+| [w4a16.md](w4a16.md) | `fdot2` after ExLlama nibble dequant | Live on the fork (dense + MoE) |
+| [w8a8-mxfp4.md](w8a8-mxfp4.md) | W8A8 = `sdot4` i32-through-K; mxfp4 = unpack then `fdot2` | W8A16-FP8 on the fork is LUT→`fdot2`, not this W8A8 path |
+
+Do not conflate W8A16 / W8A16-FP8 (`fdot2`) with W8A8 (`sdot4`).
