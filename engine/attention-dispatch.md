@@ -38,17 +38,15 @@ Split-K (Flash-Decoding): extra parallel axis = KV partitions + LSE reduce.
 
 ## Sage
 
-SageAttention (INT8 QK + FP16 PV) is a **prefill** idea on this chip: QK is compute-bound, sdot4 is the IU8 pipe (512 ops/clock/CU). Decode is GDDR6-bound; INT8 QK does not cut the KV read. Do not import NVIDIA TC INT8 MMA.
+Locked. Full page: [sage-attention.md](sage-attention.md).
 
-Sage INT8 QK is **absent** in the live tree (QK is fdot2). vLLM FA3 SageAttention2 two-level FP32 accum is Hopper FA3, not this tree. SGLang sage_attn PR #17679 closed draft.
-
-RDNA2_Researcher owns whether QK is actually sdot4. Engine owns when to dispatch it: prefill only, after FA2 occupancy is clean.
+INT8 QK via `sdot4` (pack 4×i8, `D%4==0`, i32 through K, scale in epilogue). PV stays `fdot2`. **Prefill only**, after occupancy. Decode stays `fa_rdna2`. Absent in the live tree today. Do not port FA3 / Sage2 / Sage3.
 
 ## Write order
 
 1. Keep MHA 128/256 decode split-K + prefill Br tiles (already live). Occupancy flip is a ticket, not a direct edit of `perf/rdna2_w4a16`.
 2. Head-64 decode tile.
-3. Sage-style INT8 QK via sdot4 on prefill only.
+3. Sage-style INT8 QK via sdot4 on prefill only. See [sage-attention.md](sage-attention.md).
 4. MLA fat tile (q>1) before mix or MTP.
 
 ## Unknowns
