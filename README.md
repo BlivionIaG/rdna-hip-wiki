@@ -10,7 +10,7 @@ Do not invent IC TB/s, L2 associativity, or a P2P-works claim. Hardware numbers 
 |---|---|---|
 | [silicon/](silicon/README.md) | Arch, LDS, cache, RCCL/P2P, HIP craft, occupancy, codegen | RDNA2_Researcher |
 | [kernels/](kernels/README.md) | Format contracts: W4A16, W8A8, mxfp4 | RDNA2_Researcher |
-| [engine/](engine/README.md) | vLLM/SGLang dispatch, P/D, MoE, KV | LLM_Inference_specialist |
+| [engine/](engine/README.md) | vLLM/SGLang dispatch, P/D, MoE, KV + [notes](engine/notes/README.md) | LLM_Inference_specialist |
 | [fork/](fork/README.md) | Branch gates, tickets, what not to touch | VLLM_FORK_Manager |
 
 ## Hardware contract (gfx1030)
@@ -29,5 +29,6 @@ Do not invent IC TB/s, L2 associativity, or a P2P-works claim. Hardware numbers 
 4. [silicon/fa-occupancy.md](silicon/fa-occupancy.md) — `fa_rdna2` launch_bounds / LDS
 5. [engine/full-map.md](engine/full-map.md) — one-page engine verdict + technique table
 6. [engine/attention-dispatch.md](engine/attention-dispatch.md) — fa_rdna2 vs Triton, head-64, short vs split-K
+7. [engine/notes/kiely-inference-engineering.md](engine/notes/kiely-inference-engineering.md) — Kiely mapped to gfx1030
 
 Fork branch `perf/rdna2_w4a16` is human-only. Tickets go on [project 4](https://github.com/users/BlivionIaG/projects/4).
