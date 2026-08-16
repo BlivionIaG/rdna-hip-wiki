@@ -10,7 +10,7 @@ Honest one-box huge-MoE design: CPU-resident experts + GPU attention/hot set (kt
 
 Decode MoE is many tiny GEMMs — terrible even on RDNA3 (7900 XTX: Triton-unfused 8.5 → native HIP 48.8 tok/s).
 
-Live enablement path is the user's W4A16 / W8A8 / mxfp4 dense+MoE (PR #52391). Nothing first-class ships. Format contracts: [kernels/w4a16.md](../kernels/w4a16.md), [kernels/w8a8-mxfp4.md](../kernels/w8a8-mxfp4.md).
+**Live in the fork:** W4A16 / W8A16 / W8A16-FP8 (LUT→`fdot2`). **Not shipping:** W8A8/`sdot4`, mxfp4 (format contracts; PR #52391 is enablement, not a launched gfx1030 MoE). Nothing first-class ships. Format contracts: [kernels/w4a16.md](../kernels/w4a16.md), [kernels/w8a8-mxfp4.md](../kernels/w8a8-mxfp4.md).
 
 MoE tile: A (activations) in LDS; stream B (weights). Token-major + small BLOCK_M at decode. Under TP>1 write unreduced rows (do not fuse reduce-before-allreduce). Do not copy AITER W8A8 CK (MFMA, AGPR, CDNA).
 
