@@ -18,5 +18,6 @@ Do not invent tok/s, IC TB/s, or a P2P-works claim.
 | [kv-quant-offload.md](kv-quant-offload.md) | FP8-KV is not a vLLM path here |
 | [moe.md](moe.md) | Expert offload + gfx10xx whitelist |
 | [alt-engines.md](alt-engines.md) | What to steal from llama.cpp / ExLlama / ktransformers |
+| [notes/](notes/README.md) | Source digests (Kiely, …). Not the contract. |
 
 Fork branch `perf/rdna2_w4a16` is human-only. Tickets go on [project 4](https://github.com/users/BlivionIaG/projects/4).
