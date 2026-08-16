@@ -34,3 +34,9 @@ vLLM PR #21496 enabled V1 specdec on ROCm (Instinct). AITER FA q=1 kernel wrong 
 - [vLLM specdec](https://docs.vllm.ai/en/latest/features/speculative_decoding/)
 - [SGLang specdec](https://docs.sglang.io/docs/advanced_features/speculative_decoding)
 - [AITER q>1](https://github.com/vllm-project/vllm/issues/31625)
+
+## Kiely addendum (Jan 2026)
+
+Verify is ITL / perceived TPS only, not TTFT. Draft should be ≷10× smaller (params), same family/tokenizer. Accept falls with depth and with high temperature. Disable when the batch is already compute-bound. N-gram / lookahead wins when output ≈ input (code). EAGLE is the general trained-head default in the book.
+
+Verdict stays **later**. Need a q>1 / short-extend kernel first.

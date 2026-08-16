@@ -51,3 +51,9 @@ Both sides must match: architecture, dtype, KV heads, head size, layers, attn ba
 - [MoRI](https://docs.vllm.ai/en/latest/features/moriio_connector_usage/)
 - [SGLang PD](https://docs.sglang.ai/advanced_features/pd_disaggregation.html)
 - [NIXL](https://github.com/ai-dynamo/nixl)
+
+## Kiely addendum (Jan 2026)
+
+Three gates, all wanted, before PD pays: volume on the order of 1e8–1e9 tok/day; model ≳100B; prefill-heavy, long, diverse ISL. If any fail, extra GPUs are better as replicas. Conditional PD: decode does local prefill on short ISL or prefix-hit and skips the transfer. New bottlenecks if you do it anyway: prefill queue and decode KV capacity.
+
+This box still fails interconnect (PCIe, no XGMI) and is a few-GPU lab. Verdict stays **skip as a win**.
