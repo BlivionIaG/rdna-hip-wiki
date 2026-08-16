@@ -27,5 +27,7 @@ Do not invent IC TB/s, L2 associativity, or a P2P-works claim. Hardware numbers 
 2. [silicon/hip-craft.md](silicon/hip-craft.md) — waitcnt, occupancy, builtins
 3. [kernels/w4a16.md](kernels/w4a16.md) — the live dense/MoE path
 4. [silicon/fa-occupancy.md](silicon/fa-occupancy.md) — `fa_rdna2` launch_bounds / LDS
+5. [engine/full-map.md](engine/full-map.md) — one-page engine verdict + technique table
+6. [engine/attention-dispatch.md](engine/attention-dispatch.md) — fa_rdna2 vs Triton, head-64, short vs split-K
 
 Fork branch `perf/rdna2_w4a16` is human-only. Tickets go on [project 4](https://github.com/users/BlivionIaG/projects/4).
