@@ -12,6 +12,7 @@ Do not invent tok/s, IC TB/s, or a P2P-works claim.
 | [vllm-sglang-map.md](vllm-sglang-map.md) | What stock vLLM/SGLang actually run on gfx1030 vs CDNA |
 | [prefill-decode.md](prefill-decode.md) | The load-bearing split and kernel hit-list |
 | [attention-dispatch.md](attention-dispatch.md) | fa_rdna2 vs Triton, head-64 hole, short vs split-K, Sage |
+| [sage-attention.md](sage-attention.md) | Sage INT8 QK / sdot4 — prefill only, check vs impl later |
 | [batching.md](batching.md) | Continuous batching, chunked prefill, MBT |
 | [pd-disagg.md](pd-disagg.md) | Why PD is not a win on this box |
 | [specdec.md](specdec.md) | Verify is extend; skip until q>1 exists |
