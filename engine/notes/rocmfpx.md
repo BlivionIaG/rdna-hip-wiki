@@ -2,6 +2,8 @@
 
 Date: 2026-08-17. Sourced from [charlie12345/ROCmFPX](https://github.com/charlie12345/ROCmFPX). Their tok/s stay here. Occupancy still first.
 
+**Contracts:** [../rocmfpx.md](../rocmfpx.md) (leverage), [../llamacpp-rocmfpx.md](../llamacpp-rocmfpx.md) (V620 side project), `kernels/rocmfpx.md` (silicon). Stock GGUF in vLLM is a loader for Q4_0/K/IQ*, not these types.
+
 **Verdict:** do **not** port this into vLLM. It is a **llama.cpp GGUF family** (CPU + HIP + Vulkan), tuned on Strix Halo `gfx1151`. There is a `scripts/build-rdna2.sh` (gfx1030), not a vLLM backend, not a HIP FA/GEMM we can drop in.
 
 Steal one silicon lesson. Ignore the rest as an engine.
@@ -43,7 +45,7 @@ NVFP4 rematch they document: same UE4M3, **7/8 codebook levels**; top mag is 12 
 
 | Piece | Why not |
 |---|---|
-| Engine | GGUF + ggml graphs. vLLM is safetensors / compressed-tensors / AWQ. |
+| Engine | Custom GGUF types. Stock vLLM GGUF loader accepts Q4_0/K/IQ*, not `Q4_0_ROCMFP4`. |
 | Kernels | MMVQ/MMQ + their FA thread-group knobs, occupancy-tuned for **gfx1151**. |
 | MTP | llama.cpp `--spec-type draft-mtp`. We already block on fat tile `q>1`. |
 | KV | TurboQuant / q8 — separate from weights; not a vLLM dtype. |
@@ -57,7 +59,7 @@ A “port” would be: new quant key + loader + codebook→`sdot4` GEMM **after 
 2. **UE4M3 arithmetic scale** — they rejected a scale LUT on HIP. Same instinct as our NVFP4 E4M3 bit-trick.
 3. **Don’t A-quant decode** — their MMVQ is W×Q8; we already said W4A4 decode stays W4A16.
 
-No new card unless someone names a vLLM checkpoint. Occupancy still first.
+Side project, not a vLLM card: [../llamacpp-rocmfpx.md](../llamacpp-rocmfpx.md). Occupancy still first.
 
 ## Sources
 
