@@ -14,6 +14,9 @@ Companion notes already on disk (not re-derived here):
 
 Lead with the facts that decide the kernel, not the Instinct brochure.
 
+**Attested (this box, 2026-08-17):** PCIe P2P works on the operator’s 4× V620. Treat P2P as available here. Do **not** invent a GB/s figure until a `hipMemcpyPeer` bench is pasted. Sources below still describe the general Radeon failure modes.
+
+
 | Claim | Status on this SKU | Source |
 |---|---|---|
 | Host interconnect | **PCIe 4.0 x16 only.** No GPU-to-GPU fabric on the card. | AMD product page: Bus Type `PCIe® 4.0 x16`. Partner datasheet: `PCI Express® Interface PCIe® Gen4 x16`. |
@@ -29,7 +32,7 @@ Lead with the facts that decide the kernel, not the Instinct brochure.
 | Ring all-reduce, n=4, if the bus is B | Time `t = (S/B) × 2(n−1)/n = 1.5 S/B`. Ceiling **algbw = B/1.5**. If B = 31.508 GB/s, **algbw ≤ 21.005 GB/s**. | NCCL-tests PERFORMANCE.md. |
 | W4A16 vs all-reduce | **Does not shrink the collective.** TP all-reduce is residual / row-parallel output, still **FP16** (2 B/elem). Weight quant is local. | Megatron-style TP; vLLM `RowParallelLinear`. |
 | Instinct vs this box | Instinct GPU–GPU P2P is **XGMI** and “don’t use PCI/PCIe for peer-to-peer DMA”. Navi 21 P2P is **PCIe BAR + large-BAR + chipset**, optional, often broken. | amdgpu IOMMU page. |
-| Custom gfx1030 AR | **Do not write one until P2P is proven** (`hipDeviceCanAccessPeer==1` and a measured `hipMemcpyPeer` near PCIe). vLLM itself disables custom AR for 4+ non-fully-connected GPUs even on CUDA. | `custom_all_reduce.py` `should_custom_ar`. |
+| Custom gfx1030 AR | **P2P is attested on this 4× V620 box** (operator, 2026-08-17). Still no measured `hipMemcpyPeer` GB/s in this wiki. A gfx1030 custom AR is no longer blocked on “does P2P exist”; it is blocked on a bandwidth number and on vLLM’s 4+ GPU custom-AR policy. | Operator attestation in GFX1030 Inference. `custom_all_reduce.py` `should_custom_ar`. |
 
 That is the whole box. The rest of this note is the evidence and the cost model.
 
