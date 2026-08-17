@@ -6,7 +6,7 @@ Date: 2026-08-17. Progress map. Tip of human branch: `perf/rdna2_w4a16` @ `add17
 
 Inner ops we actually have: `fdot2` (FP16 256), `sdot4` (IU8 512), `V_DOT8_I32_I4` (IU4 1024). No WMMA / MFMA / FP8 / FP4 / bf16 matrix. `supports_fp8()` is false. `v_dot2_f32_bf16` is RDNA3+ — gfx1030 dots stay fp16.
 
-Silicon contracts: [kernels/](../kernels/README.md). Dispatch: [attention-dispatch.md](attention-dispatch.md), [sage-attention.md](sage-attention.md). NVFP4 spec: [nvfp4.md](nvfp4.md).
+Silicon contracts: [kernels/](../kernels/README.md). Dispatch: [attention-dispatch.md](attention-dispatch.md), [sage-attention.md](sage-attention.md). NVFP4: [nvfp4.md](nvfp4.md). INT8 KV: [kv-int8.md](kv-int8.md).
 
 ## Weight × activation GEMM
 
@@ -41,13 +41,13 @@ Silicon contracts: [kernels/](../kernels/README.md). Dispatch: [attention-dispat
 | Short vs split-K | Ticket (blocked) | Fill vs LDS, not occupancy |
 | HIP paged-decode (`attention.cu`) | **Dead** stock | `on_gfx1x` = gfx11/12. fa_rdna2 is the replacement |
 | Skinny GEMM / `skinny_gemms.cu` | **Live sources** | In-tree. Occupancy ticket, not a from-scratch Must. |
-| `reshape_and_cache` match | Must | Writer for the layout we gather |
+| `reshape_and_cache` match | Must | Writer for the layout we gather. INT8 writer is [kv-int8.md](kv-int8.md). |
 | AITER / CK FA / shuffle | **Dead** | CDNA |
 | FA3 / Sage2 / Sage3 | **Dead** | Hopper / INT4 / FP4 |
 | MLA sparse (Triton fp16) | **Live** | `add17dd7`. Default DSv4 path. Mix/spec off. |
 | MLA sparse HIP | Opt-in **blocked** | `sparse_mla_rdna2.cu` is bf16 in/out. Do **not** set `VLLM_USE_RDNA2_MLA=1` until that kernel is fp16. Not a promote. |
 | MLA fat tile q>1 | Must / Later | Before mix or MTP |
-| INT8 KV + fused dequant | Must / Later | After paged-decode is solid |
+| INT8 KV + fused dequant | Must / queued | `int8_per_token_head` only. Fused into `fa_rdna2`. Spec: [kv-int8.md](kv-int8.md). After occupancy. |
 | FP8 KV | **Dead** as a vLLM dtype path | `supports_fp8()` false. |
 | INT4 KV | Later | After INT8 KV |
 
@@ -61,6 +61,7 @@ Triton is fine for bring-up. Autotune/compile makes it slow to *use*.
 | `kernel_paged_attention_2d` (head-64) | Head-64 `fa_rdna2` tile | v2 write #3 |
 | Triton prefill `_fwd_kernel` | Extend `fa_rdna2_prefill_*` | After occupancy |
 | Triton AWQ / GPTQ / WNA16 / MoE | `q_gemm_rdna2` / `moe_q_gemm_rdna2` | **Do not rewrite those GEMMs** |
+| Triton INT8 reshape / attn | HIP writer + `fa_rdna2` gather | After occupancy. [kv-int8.md](kv-int8.md) |
 
 Do not HIP-rewrite unused Triton (AITER FA, FA3, Marlin).
 
@@ -75,4 +76,4 @@ Never rewrite `q_gemm_rdna2` / `moe_q_gemm_rdna2`. Never: Instinct FP8 MMA, FA3,
 
 ## Progress
 
-Locked 2026-08-17 with RDNA2_Researcher v2 order. HIP MLA gate locked the same day: default Triton fp16; `VLLM_USE_RDNA2_MLA=1` blocked until HIP is fp16. NVFP4 spec queued: [nvfp4.md](nvfp4.md). VLLM_FORK_Manager owns the board; this page is the index.
+Locked 2026-08-17 with RDNA2_Researcher v2 order. HIP MLA gate locked the same day: default Triton fp16; `VLLM_USE_RDNA2_MLA=1` blocked until HIP is fp16. Queued specs: [nvfp4.md](nvfp4.md), [kv-int8.md](kv-int8.md). VLLM_FORK_Manager owns the board; this page is the index.
