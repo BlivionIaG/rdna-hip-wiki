@@ -25,6 +25,7 @@ Upstream on gfx1030: Triton / `torch.nn.functional.linear` / rocBLAS. AITER, CUT
 | NVFP4 | FlashInfer / CUTLASS Blackwell. | **Not on the branch.** | Todo | [nvfp4.md](nvfp4.md) |
 | INT2 / W2A16 | None. | **Not on the branch.** | Todo | [int2.md](int2.md) + [kernels/int2.md](../kernels/int2.md) |
 | Mixed INT2/INT4 MoE | None. | **Not on the branch.** | Todo | same [int2.md](int2.md) — two unpackers, one DOT |
+| W4A4 integer `sdot8` | FlashInfer MXFP4 W4A4 = E2M1 / SM100. | **Not on the branch.** | Todo / explore | [w4a4.md](w4a4.md) — i4×i4 only, after W8A8 |
 
 ## Attention / DSv4
 
@@ -88,5 +89,6 @@ Reuse a card if it already exists. In-tree → In Progress. Spec-only → Todo.
 20. Qwen3.5 / Gemma RMSNorm `(1+w)` — Todo — [qwen35.md](qwen35.md)
 21. Qwen3.5 AWQ-vd recipe — Todo — same page
 22. Qwen3.5 GDN linear-attn — Later — same page
+23. W4A4 integer `sdot8` — Explore — [w4a4.md](w4a4.md) (not MXFP4/NVFP4 A4)
 
 Occupancy still first. No tok/s invented here.
