@@ -10,3 +10,4 @@ Format contracts for the HIP kernels we write. Not engine dispatch.
 Do not conflate W8A16 / W8A16-FP8 (`fdot2`) with W8A8 (`sdot4`).
 | [sage-qk.md](sage-qk.md) | QK = `sdot4`, PV = `fdot2` | Prefill only. Paper + dispatch: [engine/sage-attention.md](../engine/sage-attention.md) |
 | [nvfp4.md](nvfp4.md) | E2M1 unpack + E4M3 mul + `fdot2` | Same DOT as mxfp4. Scale is **not** E8M0. Engine: [engine/nvfp4.md](../engine/nvfp4.md) |
+| [kv-int8.md](kv-int8.md) | i8 load + cvt + `fdot2` | Fused into `fa_rdna2`. Not Sage. Engine: [engine/kv-int8.md](../engine/kv-int8.md) |
