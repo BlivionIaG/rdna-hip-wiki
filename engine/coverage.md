@@ -1,6 +1,6 @@
 # vLLM / HIP coverage on gfx1030
 
-Date: 2026-08-17. Progress map. Tip of human branch: `perf/rdna2_w4a16` @ `9a344444` (read-only). Tickets stay on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not invent tok/s. Do not edit that branch from this page.
+Date: 2026-08-17. Progress map. Tip of human branch: `perf/rdna2_w4a16` @ `8496f4ca` (read-only). Tickets stay on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not invent tok/s. Do not edit that branch from this page.
 
 **Live** = in the fork today. **Must** = HIP we write. **Fallback** = Triton / `torch.nn.functional.linear` / rocBLAS, not a win. **Dead** = no unit, CUDA-only, or wrong physics. **Later** = possible after Must.
 
@@ -30,7 +30,7 @@ Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/s
 | compressed-tensors W8A8 INT8 | CUDA / CDNA | Must (same as W8A8 sdot4) | Format is the checkpoint; kernel is sdot4. |
 | Marlin / Machete / FlashInfer | CUDA MMA | **Dead** | Includes vendor NVFP4. |
 | bitsandbytes | CUDA | **Dead** on this box | Official AMD column is ❌ |
-| GGUF | llama.cpp HIP | Out of vLLM | Steal MMVQ (fused dequant+dot). |
+| GGUF (stock Q4_0 / K / IQ*) | vLLM loader / plugin | Live loader | Not ggml MMVQ. Custom ROCmFPX types are not this. [rocmfpx.md](rocmfpx.md) |
 | Ternary / BitNet 1.58 | LUT or pack + `V_DOT8`? | Later | No ternary unit. Research after DOT kernels exist. Not a first ticket. |
 
 ## Attention
@@ -48,8 +48,10 @@ Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/s
 | AITER / CK FA / shuffle | **Dead** | CDNA |
 | FA3 / Sage2 / Sage3 | **Dead** | Hopper / INT4 / FP4 |
 | MLA sparse (Triton fp16) | **Live** | Default if env unset. Mix/spec off. |
-| MLA sparse HIP decode | Opt-in **silicon-ok** | `9a344444`: fp16 q/out, H-generic. ISA: scalar fp32 FMA after FP8 unpack, not `fdot2`. `VLLM_USE_RDNA2_MLA=1` is a policy flip. `fdot2` later (same card). Prefill still Triton. |
-| MLA fat tile q>1 | Must / Later | Before mix, MTP, DFlash, DSpark |
+| MLA sparse HIP decode | Opt-in **silicon-ok** | `9a344444`: fp16 q/out, H-generic. ISA: scalar fp32 FMA after FP8 unpack, not `fdot2`. `VLLM_USE_RDNA2_MLA=1`. `fdot2` later. |
+| MLA sparse HIP prefill | Opt-in **on branch** | `66bb24d7`: `sparse_mla_prefill_rdna2`. Same wave32 / 4-heads-per-CTA / scalar FMA. KV is plain fp16 `[skv, D]` (no fp8 slots). Grid `(T, H/4)` — many Q rows, **not** fat tile `q>1`. |
+| Indexer HIP radix top-k | Opt-in **on branch** | `8496f4ca`: `ops.top_k_per_row_decode` replaces `torch.topk` on the RDNA2 indexer decode path. |
+| MLA fat tile q>1 | Must / Later | Before mix, MTP, DFlash, DSpark. HIP prefill does not unlock this. |
 | MTP | Later / queued | Native heads. Fat tile first. [mtp.md](mtp.md) |
 | DFlash | Later / queued | Parallel block draft. Same gate. [dflash.md](dflash.md) |
 | DSpark | Later / queued | DFlash + Markov + confidence. Same gate. [dspark.md](dspark.md) |
@@ -64,7 +66,7 @@ Triton is fine for bring-up. Autotune/compile makes it slow to *use*.
 | Still Triton | HIP replacement | When |
 |---|---|---|
 | Sparse MLA Triton decode | HIP MLA decode fp16 @ `9a344444` | Env flip is silicon-ok. `fdot2` later. |
-| Sparse MLA Triton prefill | HIP prefill | Not in `9a344444`. Later. |
+| Sparse MLA Triton prefill | HIP prefill @ `66bb24d7` | Env flip same as decode. `fdot2` later. |
 | `kernel_paged_attention_2d` (head-64) | Head-64 `fa_rdna2` tile | v2 write #3 |
 | Triton prefill `_fwd_kernel` | Extend `fa_rdna2_prefill_*` | After occupancy |
 | Triton AWQ / GPTQ / WNA16 / MoE | `q_gemm_rdna2` / `moe_q_gemm_rdna2` | **Do not rewrite those GEMMs** |
@@ -85,4 +87,4 @@ Never rewrite `q_gemm_rdna2` / `moe_q_gemm_rdna2`. Never: Instinct FP8 MMA, FA3,
 
 ## Progress
 
-Locked 2026-08-17 with RDNA2_Researcher v2 order. Tip `9a344444`: HIP MLA decode fp16 is silicon-ok; env flip is policy; `fdot2` later. `sdot4` explore: W8A8, Sage, W4A8. W4A4 integer explore: [w4a4.md](w4a4.md). Occupancy still first for `fa_rdna2`. Queued specs: [nvfp4.md](nvfp4.md), [kv-int8.md](kv-int8.md), [int2.md](int2.md), [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md). VLLM_FORK_Manager owns the board; this page is the index.
+Locked 2026-08-17 with RDNA2_Researcher v2 order. Tip `8496f4ca`: HIP MLA decode + prefill + indexer radix top-k are on the branch (`66bb24d7` / `8496f4ca`); env flip is policy; `fdot2` later; fat tile still Later. `sdot4` explore: W8A8, Sage, W4A8. W4A4 integer explore: [w4a4.md](w4a4.md). Occupancy still first for `fa_rdna2`. Queued specs: [nvfp4.md](nvfp4.md), [kv-int8.md](kv-int8.md), [int2.md](int2.md), [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md). VLLM_FORK_Manager owns the board; this page is the index.
