@@ -48,8 +48,8 @@ Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/s
 | AITER / CK FA / shuffle | **Dead** | CDNA |
 | FA3 / Sage2 / Sage3 | **Dead** | Hopper / INT4 / FP4 |
 | MLA sparse (Triton fp16) | **Live** | Default if env unset. Mix/spec off. |
-| MLA sparse HIP decode | Opt-in **silicon-ok** | `9a344444`: fp16 q/out, H-generic. ISA: scalar fp32 FMA after FP8 unpack, not `fdot2`. `VLLM_USE_RDNA2_MLA=1`. `fdot2` later. |
-| MLA sparse HIP prefill | Opt-in **on branch** | `66bb24d7`: `sparse_mla_prefill_rdna2`. Same wave32 / 4-heads-per-CTA / scalar FMA. KV is plain fp16 `[skv, D]` (no fp8 slots). Grid `(T, H/4)` — many Q rows, **not** fat tile `q>1`. |
+| MLA sparse HIP decode | Opt-in **silicon-ok** | `9a344444`: fp16 q/out, H-generic. ISA: scalar fp32 FMA after FP8 unpack, not `fdot2`. `VLLM_USE_RDNA2_MLA=1`. Decode `fdot2` after unpack is gone. |
+| MLA sparse HIP prefill | Opt-in **on branch** | `66bb24d7`: `sparse_mla_prefill_rdna2`. `__launch_bounds__(32)` (no `(1,1)` trap). Grid `(T, H/4)`, 14+2 split, scalar FMA. KV plain fp16 `[skv,512]`. **OOB in `load_row`** (gate before `fdot2`). First place `fdot2` pays (both sides already half). Not fat tile `q>1`. |
 | Indexer HIP radix top-k | Opt-in **on branch** | `8496f4ca`: `ops.top_k_per_row_decode` replaces `torch.topk` on the RDNA2 indexer decode path. |
 | MLA fat tile q>1 | Must / Later | Before mix, MTP, DFlash, DSpark. HIP prefill does not unlock this. |
 | MTP | Later / queued | Native heads. Fat tile first. [mtp.md](mtp.md) |
@@ -65,8 +65,8 @@ Triton is fine for bring-up. Autotune/compile makes it slow to *use*.
 
 | Still Triton | HIP replacement | When |
 |---|---|---|
-| Sparse MLA Triton decode | HIP MLA decode fp16 @ `9a344444` | Env flip is silicon-ok. `fdot2` later. |
-| Sparse MLA Triton prefill | HIP prefill @ `66bb24d7` | Env flip same as decode. `fdot2` later. |
+| Sparse MLA Triton decode | HIP MLA decode fp16 @ `9a344444` | Env flip is silicon-ok. `fdot2` after unpack is gone. |
+| Sparse MLA Triton prefill | HIP prefill @ `66bb24d7` | Env flip same as decode. **OOB first**, then `fdot2` (both sides half). |
 | `kernel_paged_attention_2d` (head-64) | Head-64 `fa_rdna2` tile | v2 write #3 |
 | Triton prefill `_fwd_kernel` | Extend `fa_rdna2_prefill_*` | After occupancy |
 | Triton AWQ / GPTQ / WNA16 / MoE | `q_gemm_rdna2` / `moe_q_gemm_rdna2` | **Do not rewrite those GEMMs** |
@@ -79,7 +79,7 @@ Do not HIP-rewrite unused Triton (AITER FA, FA3, Marlin).
 1. Occupancy flip: `fa_rdna2` + `skinny_gemms.cu`. Current subject.
 2. Sage QK prefill (`sdot4`).
 3. Head-64 paged HIP.
-4. Then: W8A8 `sdot4`, INT8 KV, MLA fat tile, W4A8, NVFP4 unpack→`fdot2`. HIP MLA `fdot2` inner-loop is a note on the MLA card, not this list.
+4. Then: W8A8 `sdot4`, INT8 KV, MLA fat tile, W4A8, NVFP4 unpack→`fdot2`. HIP MLA: **OOB on prefill `load_row`**, then `fdot2` on prefill first (both sides half). Decode `fdot2` after FP8 unpack is gone. Note on the MLA card, not this list.
 5. After fat tile: MTP / DFlash / DSpark (engine only — no new DOT). INT2 / mixed MoE is a GEMM unpack, not this attention list.
 6. After W8A8: integer W4A4 `sdot8` ([w4a4.md](w4a4.md)). MXFP4/NVFP4 A4 is not this.
 
@@ -87,4 +87,4 @@ Never rewrite `q_gemm_rdna2` / `moe_q_gemm_rdna2`. Never: Instinct FP8 MMA, FA3,
 
 ## Progress
 
-Locked 2026-08-17 with RDNA2_Researcher v2 order. Tip `8496f4ca`: HIP MLA decode + prefill + indexer radix top-k are on the branch (`66bb24d7` / `8496f4ca`); env flip is policy; `fdot2` later; fat tile still Later. `sdot4` explore: W8A8, Sage, W4A8. W4A4 integer explore: [w4a4.md](w4a4.md). Occupancy still first for `fa_rdna2`. Queued specs: [nvfp4.md](nvfp4.md), [kv-int8.md](kv-int8.md), [int2.md](int2.md), [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md). VLLM_FORK_Manager owns the board; this page is the index.
+Locked 2026-08-17 with RDNA2_Researcher v2 order. Tip `8496f4ca`: HIP MLA decode + prefill + indexer radix top-k are on the branch (`66bb24d7` / `8496f4ca`); env flip is policy; prefill `load_row` OOB is a correctness gate; `fdot2` first on prefill (both sides half); fat tile still Later. Occupancy still first for `fa_rdna2` (prefill is `__launch_bounds__(32)`, no `(1,1)` trap). Queued specs: [nvfp4.md](nvfp4.md), [kv-int8.md](kv-int8.md), [int2.md](int2.md), [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md). VLLM_FORK_Manager owns the board; this page is the index.
