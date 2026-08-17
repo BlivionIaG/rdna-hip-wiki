@@ -17,6 +17,7 @@ Do not invent tok/s, IC TB/s, or a P2P-works claim.
 | [mtp.md](mtp.md) | MTP — native heads, fat tile first, no new DOT |
 | [dflash.md](dflash.md) | DFlash — parallel block draft, same fat-tile gate |
 | [dspark.md](dspark.md) | DSpark — DFlash + Markov + confidence schedule |
+| [qwen35.md](qwen35.md) | Qwen3.5 hybrid GDN + Gemma `(1+w)` — steal gates, not their Triton AWQ |
 | [vllm-sglang-map.md](vllm-sglang-map.md) | What stock vLLM/SGLang actually run on gfx1030 vs CDNA |
 | [prefill-decode.md](prefill-decode.md) | The load-bearing split and kernel hit-list |
 | [attention-dispatch.md](attention-dispatch.md) | fa_rdna2 vs Triton, head-64 hole, short vs split-K, Sage |
@@ -27,6 +28,6 @@ Do not invent tok/s, IC TB/s, or a P2P-works claim.
 | [kv-quant-offload.md](kv-quant-offload.md) | FP8-KV is not a vLLM path here |
 | [moe.md](moe.md) | Expert offload + gfx10xx whitelist |
 | [alt-engines.md](alt-engines.md) | What to steal from llama.cpp / ExLlama / ktransformers |
-| [notes/](notes/README.md) | Source digests (Kiely, …). Not the contract. |
+| [notes/](notes/README.md) | Source digests (Kiely, ikantkode, …). Not the contract. |
 
 Fork branch `perf/rdna2_w4a16` is human-only. Tickets go on [project 4](https://github.com/users/BlivionIaG/projects/4).
