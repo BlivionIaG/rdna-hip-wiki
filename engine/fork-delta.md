@@ -20,7 +20,7 @@ Upstream on gfx1030: Triton / `torch.nn.functional.linear` / rocBLAS. AITER, CUT
 | W8A16-FP8 dense + MoE | CUTLASS FP8 = CDNA. | LUT→`fdot2`. One-time transpose fix in `9ac015d0`. | In Progress | GPU verify of all shapes. Storage looks FP8; compute is `fdot2`. |
 | W8A8-FP8 dense | CUTLASS / AITER FP8 MMA. | `750ca545` bit-trick→`fdot2`. | In Progress | GPU correctness pending (commit says so). Not `sdot4`. |
 | mxfp4 dense + MoE | CUTLASS MX / Marlin = CDNA/CUDA. | `290715e6` unpack→`fdot2`. | In Progress | GPU smoke pending. |
-| Skinny GEMM `skinny_gemms.cu` | rocBLAS / Triton. | In-tree. MFMA path compiled out. | In Progress | `waves_per_eu(1,1)` — **same occupancy card** as FA. |
+| Skinny GEMM `skinny_gemms.cu` | rocBLAS / Triton. | In-tree. MFMA path compiled out. | In Progress | `waves_per_eu(1,1)` — **same occupancy card** as FA. LLMM1 gfx1030 gate is a note on this card ([qwen35.md](qwen35.md)). |
 | W8A8 INT8 `sdot4` | AITER CK CDNA. | **Not on the branch.** | Todo | [kernels/w8a8-mxfp4.md](../kernels/w8a8-mxfp4.md) |
 | NVFP4 | FlashInfer / CUTLASS Blackwell. | **Not on the branch.** | Todo | [nvfp4.md](nvfp4.md) |
 | INT2 / W2A16 | None. | **Not on the branch.** | Todo | [int2.md](int2.md) + [kernels/int2.md](../kernels/int2.md) |
@@ -43,6 +43,17 @@ Upstream on gfx1030: Triton / `torch.nn.functional.linear` / rocBLAS. AITER, CUT
 | DFlash | method `dflash`. | **Not on the branch.** | Todo | [dflash.md](dflash.md) — same gate |
 | DSpark | method `dspark`. | **Off** (gate). | Todo | [dspark.md](dspark.md) — same gate |
 
+## Sourced, not in this fork (ikantkode overlay)
+
+File-mounts on `blivioniag/vllm-rdna:v0.26.0`. Digest: [notes/ikantkode-qwen35.md](notes/ikantkode-qwen35.md). Contract: [qwen35.md](qwen35.md). Do not copy their tok/s here.
+
+| Feature | Their tree | Our take | Status |
+|---|---|---|---|
+| LLMM1 gfx1030 + wvSplitK off | `utils.py` arch-gate | Confirm vs `skinny_gemms.cu`. wvSplitK stays off. | Todo — **same skinny/occupancy family** |
+| Qwen3.5 / Gemma RMSNorm `(1+w)` | Triton fuse | After occupancy. HIP optional. | Todo |
+| Qwen3.5 AWQ-vd recipe | `requant/quant.py` | Checkpoint post-pass, not a DOT. | Todo |
+| Qwen3.5 GDN linear-attn | none (stock FLA) | Later. No HIP. | Todo / later |
+
 ## Engine glue (not kernels)
 
 | Feature | Upstream | Fork | Status |
@@ -61,7 +72,7 @@ Reuse a card if it already exists. In-tree → In Progress. Spec-only → Todo.
 4. W8A16-FP8
 5. W8A8-FP8 dense
 6. mxfp4 dense + MoE
-7. Skinny GEMM — **same occupancy card** as `fa_rdna2`
+7. Skinny GEMM — **same occupancy card** as `fa_rdna2` (LLMM1 gfx1030 note)
 8. `fa_rdna2` / occupancy — current subject
 9. Triton fp16 MLA + HIP MLA decode — **same MLA card** (`fdot2` later)
 10. Lightning Indexer HIP
@@ -74,5 +85,8 @@ Reuse a card if it already exists. In-tree → In Progress. Spec-only → Todo.
 17. MTP — already on the board (Todo) — [mtp.md](mtp.md)
 18. DFlash — already on the board (Todo) — [dflash.md](dflash.md)
 19. DSpark — already on the board (Todo) — [dspark.md](dspark.md)
+20. Qwen3.5 / Gemma RMSNorm `(1+w)` — Todo — [qwen35.md](qwen35.md)
+21. Qwen3.5 AWQ-vd recipe — Todo — same page
+22. Qwen3.5 GDN linear-attn — Later — same page
 
 Occupancy still first. No tok/s invented here.
