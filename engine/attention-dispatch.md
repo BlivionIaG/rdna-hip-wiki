@@ -14,8 +14,9 @@ Date: 2026-08-17. Engine slice. Occupancy / LDS / VGPR live in [silicon/fa-occup
 | Short extend | small q (2–32) | 128/256 | — | fa_rdna2 short (not the 256-thread decode bounds) |
 | Prefill | large q | 128/256 | — | fa_rdna2_prefill Br=16/32 |
 | Prefill / decode | any | other | — | Triton |
-| MLA | 1 | ragged | 16 CTAs/query, WG=32 | sparse MLA only. Mix/spec off. |
-| MLA | q>1 | — | — | no fat tile yet; separate prefill step. Blocks MTP / DFlash / DSpark. |
+| MLA decode | 1 | ragged / fp8_ds_mla | 16 CTAs/query, WG=32 | HIP `sparse_mla_decode_rdna2` if `VLLM_USE_RDNA2_MLA=1`, else Triton. Mix/spec off. |
+| MLA prefill | T queries | plain fp16 `[skv,D]` | grid `(T, H/4)`, WG=32 | HIP `sparse_mla_prefill_rdna2` @ `66bb24d7` (same env). Many Q rows ≠ fat tile. |
+| MLA | q>1 verify / draft | — | — | no fat tile yet. Blocks MTP / DFlash / DSpark. |
 
 Stock HIP `attention.cu` instantiates 64 and 128 but gfx1030 never launches it (`on_gfx1x` = 11/12). gfx11 runtime gate is head==128 only. Head 256: HIP has no instantiation; fa_rdna2 claims D=256 decode (DeepSeek/MLA-adjacent). Keep it.
 
@@ -47,7 +48,7 @@ INT8 QK via `sdot4` (pack 4×i8, `D%4==0`, i32 through K, scale in epilogue). PV
 1. Keep MHA 128/256 decode split-K + prefill Br tiles (already live). Occupancy flip is a ticket, not a direct edit of `perf/rdna2_w4a16`.
 2. Head-64 decode tile.
 3. Sage-style INT8 QK via sdot4 on prefill only. See [sage-attention.md](sage-attention.md).
-4. MLA fat tile (q>1) before mix, MTP, DFlash, or DSpark. Specs: [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md).
+4. MLA fat tile (q>1) before mix, MTP, DFlash, or DSpark. HIP sparse prefill (`66bb24d7`) does not unlock this. Specs: [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md).
 
 ## Unknowns
 
