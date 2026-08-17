@@ -12,6 +12,7 @@ Format contracts for the HIP kernels we write. Not engine dispatch. Feature inde
 | [skinny-gemm.md](skinny-gemm.md) | no MFMA on gfx1030 | Incomplete. `waves_per_eu(1,1)` — same FA ticket |
 | [mla-sparse.md](mla-sparse.md) | scalar fp32 FMA (later `fdot2`) | Incomplete. Env-gated decode |
 | [lightning-indexer.md](lightning-indexer.md) | scalar half FMA | Incomplete |
+| [sdot4-explore.md](sdot4-explore.md) | when `sdot4` is legal | Explore: W8A8 INT8, Sage QK, W4A8 |
 | [w8a8-mxfp4.md](w8a8-mxfp4.md) | W8A8 INT8 = `sdot4` | **Spec / not added** |
 | [sage-qk.md](sage-qk.md) | QK `sdot4`, PV `fdot2` | Spec |
 | [nvfp4.md](nvfp4.md) | E2M1 + E4M3 mul → `fdot2` | Spec |
