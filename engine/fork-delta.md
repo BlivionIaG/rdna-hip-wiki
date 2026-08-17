@@ -1,6 +1,6 @@
 # Fork vs upstream — gfx1030 features
 
-Date: 2026-08-17. Tip `perf/rdna2_w4a16` @ `9a344444` (read-only). Index of **features this fork added** vs stock vLLM. Completeness bar: **W4A16 dense**. On the branch = **In Progress**. Spec-only = **Todo**. Tickets: one card per row on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not edit that branch from this page.
+Date: 2026-08-17. Tip `perf/rdna2_w4a16` @ `8496f4ca` (read-only). Index of **features this fork added** vs stock vLLM. Completeness bar: **W4A16 dense**. On the branch = **In Progress**. Spec-only = **Todo**. Tickets: one card per row on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not edit that branch from this page.
 
 **Most complete** = W4A16 dense (still In Progress — leftover tile/occupancy).
 **In Progress** = sources are on the branch. Not done.
@@ -34,8 +34,9 @@ Upstream on gfx1030: Triton / `torch.nn.functional.linear` / rocBLAS. AITER, CUT
 | `fa_rdna2` / `RDNA_ATTN` | ROCM_ATTN is gfx11+ `attention.cu`. Triton FA. | Standalone backend, D=128/256. | In Progress | Occupancy (`launch_bounds` / `waves_per_eu`). Head-64 hole. Default path still often Triton. |
 | `VLLM_USE_RDNA2_FA` gate | gfx11-only. | Opens gfx10x + Triton autotune. | In Progress | Gate ≠ FA kernel firing. |
 | Triton fp16 sparse MLA | CDNA bf16 AITER MLA. | `add17dd7` default DSv4 path. | In Progress | Compile tax. Mix/spec off. No fat tile. |
-| HIP sparse MLA decode | AITER / gfx950 HIP. | `9a344444` fp16 + H-generic. Env `VLLM_USE_RDNA2_MLA=1`. | In Progress | Prefill still Triton. Inner loop scalar FMA, not `fdot2`. Env not default. |
-| Lightning Indexer HIP | AITER paged-MQA (CDNA). | `paged_mqa_logits_decode_rdna2` + int64 slot fix. | In Progress | H/D specialization, topk is `torch.topk`. |
+| HIP sparse MLA decode | AITER / gfx950 HIP. | `9a344444` fp16 + H-generic. Env `VLLM_USE_RDNA2_MLA=1`. | In Progress | Inner loop scalar FMA, not `fdot2`. Env not default. |
+| HIP sparse MLA prefill | Triton ragged prefill. | `66bb24d7` `sparse_mla_prefill_rdna2`. Same env. | In Progress | Plain fp16 KV (no fp8). Same scalar FMA. **Not** fat tile `q>1`. |
+| Lightning Indexer HIP | AITER paged-MQA (CDNA). | `paged_mqa_logits_decode_rdna2` + int64 slot + `8496f4ca` radix top-k. | In Progress | H/D specialization. |
 | DSv4 gfx10x routing | `deepseek_v4/amd/rocm.py` AITER/bf16. | `on_gfx10x()` → rdna2 module, fp16 workspace, inv-RoPE Triton. | In Progress | MTP off (`VLLM_DISABLE_DSPARK_MTP`). Mix off. |
 | MHC fp16 | tilelang / bf16. | gfx10x fp16 gate. | In Progress | Not the load-bearing path. |
 | Sage INT8 QK | None. | **Not on the branch.** | Todo | [sage-attention.md](sage-attention.md) |
@@ -75,8 +76,8 @@ Reuse a card if it already exists. In-tree → In Progress. Spec-only → Todo.
 6. mxfp4 dense + MoE
 7. Skinny GEMM — **same occupancy card** as `fa_rdna2` (LLMM1 gfx1030 note)
 8. `fa_rdna2` / occupancy — current subject
-9. Triton fp16 MLA + HIP MLA decode — **same MLA card** (`fdot2` later)
-10. Lightning Indexer HIP
+9. Triton + HIP MLA decode + HIP MLA prefill — **same MLA card** (`66bb24d7`; `fdot2` later; fat tile still Later)
+10. Lightning Indexer HIP — includes `8496f4ca` radix top-k
 11. DSv4 gfx10x routing (inv-RoPE / workspace / MTP gate)
 12. NVFP4 — already on the board (Todo)
 13. INT8 KV — already on the board (Todo)
