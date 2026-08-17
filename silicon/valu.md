@@ -1,6 +1,6 @@
 # gfx1030 VALU sheet (HIP)
 
-Engine will add a “we fire” column. Occupancy still first. Companions: [hip-craft.md](hip-craft.md), [architecture.md](architecture.md).
+Engine “we fire” column filled 2026-08-17. Occupancy still first. Companions: [hip-craft.md](hip-craft.md), [architecture.md](architecture.md). Engine index: [coverage.md](../engine/coverage.md).
 
 **How to read.** Enc = microcode class. Size = instruction dwords in I$ (VOP2 = 1, VOP3/VOP3P = 2). Issue = VALU issues per clock **per SIMD32** — **unknown** in the ISA for DOT; the GPUOpen **ops/clk/CU** column is the sourced peak (2 SIMD32/CU). Dual-issue (VOPD) is **gfx11+**, not gfx1030.
 
@@ -10,11 +10,11 @@ Rate math that matches GPUOpen RX 6950 XT: 1 DOT/clk/SIMD × 2 SIMD/CU × 32 lan
 
 | HIP / builtin | ISA | Enc | Size | Issue | Peak ops/clk/CU | Acc | We fire |
 |---|---|---|---|---|---|---|---|
-| `__builtin_amdgcn_fdot2` | `V_DOT2C_F32_F16` (prefer) / `V_DOT2_F32_F16` | VOP2 / VOP3 | 1 / 2 | 1/SIMD (inferred) | **256** FP16 | f32 | **W4A16, W8A16, W8A16-FP8, W8A8-FP8, mxfp4, NVFP4, `fa_rdna2` QK** |
-| `__hfma2` / `v_fma_f32` | `V_FMA_F32` / `V_PK_FMA_F16` | VOP3 / VOP3P | 2 | 1/SIMD (typical VALU) | 128 FMA = 256 FLOP if packed | f32 / f16 | **HIP MLA decode, Lightning indexer, ikantkode GEMV** (scalar / `tl.sum`) |
-| `__builtin_amdgcn_sdot4` | `V_DOT4C_I32_I8` / `V_DOT4_I32_I8` | VOP2 / VOP3 | 1 / 2 | 1/SIMD (inferred) | **512** IU8 | i32 | **W8A8 INT8, Sage QK** (spec) |
+| `__builtin_amdgcn_fdot2` | `V_DOT2C_F32_F16` (prefer) / `V_DOT2_F32_F16` | VOP2 / VOP3 | 1 / 2 | 1/SIMD (inferred) | **256** FP16 | f32 | **Live:** W4A16, W8A16, W8A16-FP8, W8A8-FP8, mxfp4, `fa_rdna2` QK. **Queued:** NVFP4, INT2/W2A16, mixed INT2/INT4 MoE, INT8 KV (after cvt). |
+| `__hfma2` / `v_fma_f32` | `V_FMA_F32` / `V_PK_FMA_F16` | VOP3 / VOP3P | 2 | 1/SIMD (typical VALU) | 128 FMA = 256 FLOP if packed | f32 / f16 | **HIP MLA decode, Lightning indexer** (later `fdot2`). ikantkode GEMV is Triton `tl.sum` — do not port. |
+| `__builtin_amdgcn_sdot4` | `V_DOT4C_I32_I8` / `V_DOT4_I32_I8` | VOP2 / VOP3 | 1 / 2 | 1/SIMD (inferred) | **512** IU8 | i32 | **Spec:** W8A8 INT8, Sage QK, W4A8 (after W→i8 unpack). |
 | `__builtin_amdgcn_udot4` | `V_DOT4_U32_U8` | VOP3 | 2 | same class | 512 IU8 | u32 | unused (signed weights) |
-| `__builtin_amdgcn_sdot8` | `V_DOT8_I32_I4` | VOP3 | 2 | 1/SIMD (inferred) | **1024** IU4 | i32 | **W4A4 integer** (explore). Not W4A8. |
+| `__builtin_amdgcn_sdot8` | `V_DOT8_I32_I4` | VOP3 | 2 | 1/SIMD (inferred) | **1024** IU4 | i32 | **Explore:** W4A4 integer only. Not W4A8. Not E2M1. |
 | `__builtin_amdgcn_udot8` | `V_DOT8_U32_U4` | VOP3 | 2 | same class | 1024 IU4 | u32 | unused |
 | `__int2half_rn` / `v_cvt_f16_i16` | cvt | VOP1 / VOP3 | 1–2 | **unknown** | — | — | W8A16 unpack |
 | `fp8_e4m3_to_fp16_bits` / `__hip_cvt_fp8_to_halfraw` | **software** | — | — | — | — | — | W8A16-FP8, W8A8-FP8, MLA K_nope. No FP8 unit. |
@@ -48,12 +48,12 @@ WMMA does **not** beat DOT4/DOT8 on INT8/INT4 (same 512/1024). It only doubles *
 
 | Kernel | gfx1030 op |
 |---|---|
-| W4A16 / W8A16 / FP8-storage / mxfp4 / NVFP4 | `fdot2` |
-| `fa_rdna2` QK | `fdot2` |
+| W4A16 / W8A16 / FP8-storage / mxfp4 / NVFP4 / INT2 | `fdot2` |
+| `fa_rdna2` QK / INT8 KV (after i8→fp16) | `fdot2` |
 | HIP MLA / indexer (today) | scalar FMA — later `fdot2` |
-| W8A8 INT8 / Sage QK | `sdot4` |
+| W8A8 INT8 / Sage QK / W4A8 | `sdot4` |
 | W4A4 integer | `sdot8` |
-| W4A8 | unpack → `sdot4`, **not** `sdot8` |
+| MXFP4/NVFP4 “W4A4” | dequant A → `fdot2`, **not** `sdot8` |
 
 ## Sources
 
