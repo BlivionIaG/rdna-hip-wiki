@@ -23,6 +23,8 @@ Upstream on gfx1030: Triton / `torch.nn.functional.linear` / rocBLAS. AITER, CUT
 | Skinny GEMM `skinny_gemms.cu` | rocBLAS / Triton. | In-tree. MFMA path compiled out. | In Progress | `waves_per_eu(1,1)` — **same occupancy card** as FA. |
 | W8A8 INT8 `sdot4` | AITER CK CDNA. | **Not on the branch.** | Todo | [kernels/w8a8-mxfp4.md](../kernels/w8a8-mxfp4.md) |
 | NVFP4 | FlashInfer / CUTLASS Blackwell. | **Not on the branch.** | Todo | [nvfp4.md](nvfp4.md) |
+| INT2 / W2A16 | None. | **Not on the branch.** | Todo | [int2.md](int2.md) + [kernels/int2.md](../kernels/int2.md) |
+| Mixed INT2/INT4 MoE | None. | **Not on the branch.** | Todo | same [int2.md](int2.md) — two unpackers, one DOT |
 
 ## Attention / DSv4
 
@@ -37,6 +39,9 @@ Upstream on gfx1030: Triton / `torch.nn.functional.linear` / rocBLAS. AITER, CUT
 | MHC fp16 | tilelang / bf16. | gfx10x fp16 gate. | In Progress | Not the load-bearing path. |
 | Sage INT8 QK | None. | **Not on the branch.** | Todo | [sage-attention.md](sage-attention.md) |
 | INT8 KV | Triton `int8_per_token*`. FP8 KV on MI. | **Not on the branch.** | Todo | [kv-int8.md](kv-int8.md) |
+| MTP | method `mtp`. | **Off** (gate). | Todo | [mtp.md](mtp.md) — fat tile first |
+| DFlash | method `dflash`. | **Not on the branch.** | Todo | [dflash.md](dflash.md) — same gate |
+| DSpark | method `dspark`. | **Off** (gate). | Todo | [dspark.md](dspark.md) — same gate |
 
 ## Engine glue (not kernels)
 
@@ -64,5 +69,10 @@ Reuse a card if it already exists. In-tree → In Progress. Spec-only → Todo.
 12. NVFP4 — already on the board (Todo)
 13. INT8 KV — already on the board (Todo)
 14. Sage QK — already on the board (Todo)
+15. INT2 / W2A16 — already on the board (Todo) — [int2.md](int2.md)
+16. Mixed INT2/INT4 MoE — already on the board (Todo) — same page
+17. MTP — already on the board (Todo) — [mtp.md](mtp.md)
+18. DFlash — already on the board (Todo) — [dflash.md](dflash.md)
+19. DSpark — already on the board (Todo) — [dspark.md](dspark.md)
 
 Occupancy still first. No tok/s invented here.
