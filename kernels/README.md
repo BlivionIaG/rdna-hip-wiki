@@ -20,3 +20,4 @@ Format contracts for the HIP kernels we write. Not engine dispatch. Feature inde
 | [kv-int8.md](kv-int8.md) | i8 load + cvt → `fdot2` | Spec |
 
 Do not conflate W8A16 / W8A16-FP8 / W8A8-FP8 (`fdot2`) with spec W8A8 INT8 (`sdot4`).
+| [ikantkode-gfx1030.md](ikantkode-gfx1030.md) | sourced overlay (Triton, not HIP) | Steal LLMM1 gate + RMSNorm; do not port GEMV |
