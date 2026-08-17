@@ -12,13 +12,13 @@ Silicon contracts: [kernels/](../kernels/README.md). Dispatch: [attention-dispat
 
 | Scheme | Inner op | Status | Notes |
 |---|---|---|---|
-| FP16 × FP16 | `fdot2` / rocBLAS | Fallback | Stock linear. Skinny decode GEMV is a Must (gated `on_gfx1x`). |
+| FP16 × FP16 | `fdot2` / rocBLAS | Fallback | Stock linear. Skinny decode GEMV is in-tree — see Attention table. |
 | **W4A16** | dequant → `fdot2` | **Live** | Dense + MoE. [kernels/w4a16.md](../kernels/w4a16.md) |
 | **W8A16** | LUT → `fdot2` | **Live** | Not the IU8 path. Do not call this W8A8. |
 | **W8A16-FP8** | LUT → `fdot2` | **Live** | Shipping. Weight storage is FP8-looking; compute is still LUT+`fdot2`. |
 | **W8A8-FP8** (dense) | FP8 bytes → fp16 bit-trick → `fdot2` | **Live** | `750ca545`. Act dequant at LDS staging, not inner loop. Not `sdot4`. Not Instinct FP8 MMA. GPU verify pending per commit. |
 | **W8A8** INT8×INT8 | `sdot4`, i32 through K, scale epilogue | Must | [kernels/w8a8-mxfp4.md](../kernels/w8a8-mxfp4.md). Tile seed 64×64×64. No `sudot4`. |
-| **mxfp4** (E2M1+UE8M0) | unpack → `fdot2` | **Live sources** | `290715e6` + `d67577d6`: dense + fused MoE. No FP4 unit. GPU smoke pending per commit. |
+| **mxfp4** (E2M1+UE8M0) | unpack → `fdot2` | **Live sources** | `290715e6` + `d67577d6`. RDNA2_Researcher: `mxfp4_dot2_common.cuh` is 4× `fdot2` over 8 K. GPU smoke pending per commit. |
 | W4A8 | W4→i8 + `sdot4` A8 | Later | After W8A8 sdot4. Same IU8 pipe, half the weight bytes. |
 | W4A4 / NVFP4 / MXFP4-native | — | **Dead** | No FP4 unit. Quark W4A4: dequant A to fp16 or refuse. mxfp4-via-unpack above is the live substitute. |
 | FP8 W8A8 / PTPC-FP8 (Instinct) | FP8 MMA | **Dead** | No FP8 unit. Do not confuse with W8A8-FP8 `fdot2` above. |
@@ -35,13 +35,13 @@ Silicon contracts: [kernels/](../kernels/README.md). Dispatch: [attention-dispat
 
 | Path | Status | Notes |
 |---|---|---|
-| `fa_rdna2` FA2 + `fdot2` D=128/256 | **Live** | Prefill Br=16/32, decode paged split-K. **Not in `add17dd7` diff.** Occupancy ticket stands. |
-| Occupancy flip | Ticket | Drop second `launch_bounds`, `amdgpu_waves_per_eu(4,8)` |
+| `fa_rdna2` FA2 + `fdot2` D=128/256 | **Live** | Prefill Br=16/32, decode paged split-K. Occupancy ticket stands. |
+| Occupancy flip | Ticket | `fa_rdna2` **and** `skinny_gemms.cu`. Same trap: `amdgpu_waves_per_eu(1, 1)` / HIP second `launch_bounds` arg. Fix: drop min-blocks, `amdgpu_waves_per_eu(4, 8)` on decode-class kernels. |
 | Head-64 FA2 tile | Ticket / Must | Triton hole |
 | Short vs split-K | Ticket (blocked) | Fill vs LDS, not occupancy |
 | Sage INT8 QK `sdot4` | Ticket / Must | Prefill only. [sage-attention.md](sage-attention.md) + [kernels/sage-qk.md](../kernels/sage-qk.md) |
 | HIP paged-decode (`attention.cu`) | **Dead** stock | `on_gfx1x` = gfx11/12. fa_rdna2 is the replacement |
-| Skinny GEMM / `wvSplitK` | Must | Decode QKV+FFN. Gated off gfx10 |
+| Skinny GEMM / `skinny_gemms.cu` | **Live sources** | In-tree on `add17dd7`. One kernel pinned `waves_per_eu(1, 1)` — occupancy ticket, not a from-scratch Must. |
 | `reshape_and_cache` match | Must | Writer for the layout we gather |
 | AITER / CK FA / shuffle | **Dead** | CDNA |
 | FA3 / Sage2 / Sage3 | **Dead** | Hopper / INT4 / FP4 |
@@ -67,10 +67,10 @@ Silicon contracts: [kernels/](../kernels/README.md). Dispatch: [attention-dispat
 
 ## Write order (engine)
 
-1. Occupancy flip (ticket). Still not in tip.
-2. Keep live W4A16 / W8A16 / W8A16-FP8 / W8A8-FP8 / mxfp4 sources / fa_rdna2 128/256 / Triton fp16 MLA.
+1. Occupancy flip (ticket): `fa_rdna2` **and** `skinny_gemms.cu`. Still not in tip.
+2. Keep live W4A16 / W8A16 / W8A16-FP8 / W8A8-FP8 / mxfp4 sources / fa_rdna2 128/256 / Triton fp16 MLA / skinny sources.
 3. Head-64 FA2.
-4. Skinny GEMM + matching cache writer.
+4. Matching `reshape_and_cache` writer. Dispatch/verify skinny after occupancy — do not rewrite it.
 5. W8A8 `sdot4` dense+MoE (INT8×INT8 — not the FP8-byte path).
 6. Sage QK prefill.
 7. GPU-verify mxfp4 + W8A8-FP8 (sources are in; smoke was pending at commit time).
@@ -81,4 +81,4 @@ Never: Instinct FP8 MMA, FA3, Marlin, AITER, W4A4-native, streaming decode-KV ov
 
 ## Progress
 
-Refreshed 2026-08-17 against `add17dd7`. Occupancy/`fa_rdna2` unchanged. VLLM_FORK_Manager owns the board; this page is the map.
+Refreshed 2026-08-17 against `add17dd7` + RDNA2_Researcher silicon read (mxfp4 = 4×`fdot2`; skinny in-tree, `waves_per_eu(1,1)`). VLLM_FORK_Manager owns the board; this page is the map.
