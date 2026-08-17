@@ -13,6 +13,10 @@ Do not invent tok/s, IC TB/s, or a P2P-works claim.
 | [fork-delta.md](fork-delta.md) | Each added feature vs upstream — most incomplete, W4A16 dense is the bar |
 | [nvfp4.md](nvfp4.md) | NVFP4 engine spec — unpack E2M1→fp16→`fdot2`, E4M3×16 scale |
 | [kv-int8.md](kv-int8.md) | INT8 KV spec — fused dequant in `fa_rdna2`, per-token-head |
+| [int2.md](int2.md) | INT2 + mixed INT2/INT4 MoE — unpack→`fdot2`, bitwidth grouped outside K |
+| [mtp.md](mtp.md) | MTP — native heads, fat tile first, no new DOT |
+| [dflash.md](dflash.md) | DFlash — parallel block draft, same fat-tile gate |
+| [dspark.md](dspark.md) | DSpark — DFlash + Markov + confidence schedule |
 | [vllm-sglang-map.md](vllm-sglang-map.md) | What stock vLLM/SGLang actually run on gfx1030 vs CDNA |
 | [prefill-decode.md](prefill-decode.md) | The load-bearing split and kernel hit-list |
 | [attention-dispatch.md](attention-dispatch.md) | fa_rdna2 vs Triton, head-64 hole, short vs split-K, Sage |
