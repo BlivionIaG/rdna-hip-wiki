@@ -6,7 +6,7 @@ Date: 2026-08-17. Progress map. Tip of human branch: `perf/rdna2_w4a16` @ `add17
 
 Inner ops we actually have: `fdot2` (FP16 256), `sdot4` (IU8 512), `V_DOT8_I32_I4` (IU4 1024). No WMMA / MFMA / FP8 / FP4 / bf16 matrix. `supports_fp8()` is false. `v_dot2_f32_bf16` is RDNA3+ — gfx1030 dots stay fp16.
 
-Silicon contracts: [kernels/](../kernels/README.md). Dispatch: [attention-dispatch.md](attention-dispatch.md), [sage-attention.md](sage-attention.md).
+Silicon contracts: [kernels/](../kernels/README.md). Dispatch: [attention-dispatch.md](attention-dispatch.md), [sage-attention.md](sage-attention.md). NVFP4 spec: [nvfp4.md](nvfp4.md).
 
 ## Weight × activation GEMM
 
@@ -19,12 +19,13 @@ Silicon contracts: [kernels/](../kernels/README.md). Dispatch: [attention-dispat
 | **W8A8-FP8** (dense) | FP8 bytes → fp16 bit-trick → `fdot2` | **Live** | `750ca545`. Act dequant at LDS staging, not inner loop. Not `sdot4`. Not Instinct FP8 MMA. GPU verify pending per commit. |
 | **W8A8** INT8×INT8 | `sdot4`, i32 through K, scale epilogue | Must | [kernels/w8a8-mxfp4.md](../kernels/w8a8-mxfp4.md). Tile seed 64×64×64. No `sudot4`. |
 | **mxfp4** (E2M1+UE8M0) | unpack → `fdot2` | **Live sources** | `290715e6` + `d67577d6`. RDNA2_Researcher: `mxfp4_dot2_common.cuh` is 4× `fdot2` over 8 K. GPU smoke pending per commit. |
+| **NVFP4** (E2M1+E4M3×16) | unpack → `fdot2` | Must / queued | Same E2M1 LUT as mxfp4; scale is E4M3/16 + optional FP32. Spec: [nvfp4.md](nvfp4.md). Not Blackwell MMA. |
 | W4A8 | W4→i8 + `sdot4` A8 | Later | After W8A8 sdot4. Same IU8 pipe, half the weight bytes. |
-| W4A4 / NVFP4 / MXFP4-native | — | **Dead** | No FP4 unit. Quark W4A4: dequant A to fp16 or refuse. mxfp4-via-unpack above is the live substitute. |
+| W4A4-native / MXFP4-native | FP4 MMA | **Dead** | No FP4 unit. Quark/NVFP4 W4A4: dequant A to fp16 or refuse. |
 | FP8 W8A8 / PTPC-FP8 (Instinct) | FP8 MMA | **Dead** | No FP8 unit. Do not confuse with W8A8-FP8 `fdot2` above. |
 | AWQ / GPTQ / WNA16 Triton | Triton | Fallback | **Do not rewrite.** Dispatch to `q_gemm_rdna2` / `moe_q_gemm_rdna2`. |
 | compressed-tensors W8A8 INT8 | CUDA / CDNA | Must (same as W8A8 sdot4) | Format is the checkpoint; kernel is sdot4. |
-| Marlin / Machete / FlashInfer | CUDA MMA | **Dead** | |
+| Marlin / Machete / FlashInfer | CUDA MMA | **Dead** | Includes vendor NVFP4. |
 | bitsandbytes | CUDA | **Dead** on this box | Official AMD column is ❌ |
 | GGUF | llama.cpp HIP | Out of vLLM | Steal MMVQ (fused dequant+dot). |
 | Ternary / BitNet 1.58 | LUT or pack + `V_DOT8`? | Later | No ternary unit. Research after DOT kernels exist. Not a first ticket. |
@@ -68,10 +69,10 @@ Do not HIP-rewrite unused Triton (AITER FA, FA3, Marlin).
 1. Occupancy flip: `fa_rdna2` + `skinny_gemms.cu`. Current subject.
 2. Sage QK prefill (`sdot4`).
 3. Head-64 paged HIP.
-4. Then: W8A8 `sdot4`, INT8 KV, MLA fat tile, W4A8. HIP MLA fp16 dtype flip is a later rewrite, not this list.
+4. Then: W8A8 `sdot4`, INT8 KV, MLA fat tile, W4A8, NVFP4 unpack→`fdot2`. HIP MLA fp16 dtype flip is a later rewrite, not this list.
 
 Never rewrite `q_gemm_rdna2` / `moe_q_gemm_rdna2`. Never: Instinct FP8 MMA, FA3, Marlin, AITER, W4A4-native, streaming decode-KV over PCIe. Never flip `VLLM_USE_RDNA2_MLA=1` while the HIP kernel is bf16.
 
 ## Progress
 
-Locked 2026-08-17 with RDNA2_Researcher v2 order. HIP MLA gate locked the same day: default Triton fp16; `VLLM_USE_RDNA2_MLA=1` blocked until HIP is fp16. VLLM_FORK_Manager owns the board; this page is the index.
+Locked 2026-08-17 with RDNA2_Researcher v2 order. HIP MLA gate locked the same day: default Triton fp16; `VLLM_USE_RDNA2_MLA=1` blocked until HIP is fp16. NVFP4 spec queued: [nvfp4.md](nvfp4.md). VLLM_FORK_Manager owns the board; this page is the index.
