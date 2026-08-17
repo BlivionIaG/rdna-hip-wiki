@@ -22,9 +22,9 @@ Silicon contracts: [kernels/](../kernels/README.md). Dispatch: [attention-dispat
 | W4A8 | W4→i8 + `sdot4` A8 | Later | After W8A8 sdot4. Same IU8 pipe, half the weight bytes. |
 | W4A4 / NVFP4 / MXFP4-native | — | **Dead** | No FP4 unit. Quark W4A4: dequant A to fp16 or refuse. mxfp4-via-unpack above is the live substitute. |
 | FP8 W8A8 / PTPC-FP8 (Instinct) | FP8 MMA | **Dead** | No FP8 unit. Do not confuse with W8A8-FP8 `fdot2` above. |
-| AWQ W4A16 | Triton dequant + GEMM | Fallback | Forced-build path. `VLLM_USE_TRITON_AWQ=1`. Same math as W4A16; win is a HIP kernel, not the checkpoint name. |
-| GPTQ W4A16 / W8A16 | Triton / gfx1100 HIP | Fallback | `gptq_gemm_rdna3` is gfx1100. PR #52391 only opens Triton W4A16 via `on_gfx10x()`. |
-| compressed-tensors WNA16 | ExllamaLinear / Triton | Fallback | ROCm enable is “not Marlin” (#27187). Same W4A16/W8A16 math. |
+| AWQ W4A16 | Triton dequant + GEMM | Fallback | Same math as live W4A16 HIP. Prefer the HIP kernel; Triton compile is the tax. |
+| GPTQ W4A16 / W8A16 | Triton / gfx1100 HIP | Fallback | `gptq_gemm_rdna3` is gfx1100. Route gfx1030 to live W4A16/W8A16 HIP. |
+| compressed-tensors WNA16 | ExllamaLinear / Triton | Fallback | Same W4A16/W8A16 math — dispatch to live HIP. |
 | compressed-tensors W8A8 INT8 | CUDA / CDNA | Must (same as W8A8 sdot4) | Format is the checkpoint; kernel is sdot4. |
 | Marlin / Machete / FlashInfer | CUDA MMA | **Dead** | |
 | bitsandbytes | CUDA | **Dead** on this box | Official AMD column is ❌ |
@@ -46,11 +46,26 @@ Silicon contracts: [kernels/](../kernels/README.md). Dispatch: [attention-dispat
 | AITER / CK FA / shuffle | **Dead** | CDNA |
 | FA3 / Sage2 / Sage3 | **Dead** | Hopper / INT4 / FP4 |
 | MLA sparse (Triton fp16) | **Live** | `add17dd7`: gfx1030 path, no bf16 `fdot2`. Indexer `slot_base` int64 + page_id guard. Mix/spec off (`VLLM_DISABLE_DSPARK_MTP`). |
-| MLA sparse HIP | Opt-in | `VLLM_USE_RDNA2_MLA=1`. Not the occupancy ticket. |
+| MLA sparse HIP | Opt-in | `VLLM_USE_RDNA2_MLA=1`. Promote after occupancy — this is the compile-tax kill for DSv4. |
 | MLA fat tile q>1 | Must / Later | Before mix or MTP |
 | INT8 KV + fused dequant | Must / Later | Capacity. Unfused erases the win. After paged-decode is solid |
-| FP8 KV | **Dead** as a vLLM dtype path | `supports_fp8()` false. (A K192 snapshot mentioned fp8 KV — not a gfx1030 unit.) |
+| FP8 KV | **Dead** as a vLLM dtype path | `supports_fp8()` false. |
 | INT4 KV | Later | After INT8 KV |
+
+## Triton → HIP (compile tax)
+
+Triton is fine for bring-up. Autotune/compile makes it slow to *use*. Goal: HIP on every hot launch so a cold start does not JIT-compile shapes.
+
+| Still Triton | Why it hurts | HIP replacement | When |
+|---|---|---|---|
+| Sparse MLA (`rocm_rdna2_mla_sparse.py`) | DSv4 e2e path on `add17dd7` | Opt-in HIP MLA already in tree | After occupancy; promote `VLLM_USE_RDNA2_MLA=1` |
+| `kernel_paged_attention_2d` (head-64 / other D) | Every non-128/256 MHA | Head-64 `fa_rdna2` tile | Existing ticket |
+| Triton prefill `_fwd_kernel` | Other head dims | Extend `fa_rdna2_prefill_*` | After 128/256 occupancy |
+| Triton AWQ | Compile per shape | Live W4A16 HIP | Dispatch, not a new kernel |
+| GPTQ / compressed-tensors WNA16 Triton | Same | Live W4A16 / W8A16 HIP | Dispatch |
+| Triton MoE | gfx10xx whitelist dead | Live MoE HIP (W4/W8/mxfp4) | Already the path |
+
+Do not HIP-rewrite unused Triton (AITER FA, FA3, Marlin). Occupancy flip still blocks FA/skinny first.
 
 ## Engine features (not new GEMM ISA)
 
@@ -68,12 +83,12 @@ Silicon contracts: [kernels/](../kernels/README.md). Dispatch: [attention-dispat
 ## Write order (engine)
 
 1. Occupancy flip (ticket): `fa_rdna2` **and** `skinny_gemms.cu`. Still not in tip.
-2. Keep live W4A16 / W8A16 / W8A16-FP8 / W8A8-FP8 / mxfp4 sources / fa_rdna2 128/256 / Triton fp16 MLA / skinny sources.
-3. Head-64 FA2.
-4. Matching `reshape_and_cache` writer. Dispatch/verify skinny after occupancy — do not rewrite it.
+2. Keep live W4A16 / W8A16 / W8A16-FP8 / W8A8-FP8 / mxfp4 sources / fa_rdna2 128/256 / skinny sources.
+3. Promote HIP MLA (kill Triton compile on DSv4). Head-64 FA2 (kill Triton paged).
+4. Matching `reshape_and_cache` writer. Dispatch AWQ/GPTQ/WNA16 to live HIP.
 5. W8A8 `sdot4` dense+MoE (INT8×INT8 — not the FP8-byte path).
 6. Sage QK prefill.
-7. GPU-verify mxfp4 + W8A8-FP8 (sources are in; smoke was pending at commit time).
+7. GPU-verify mxfp4 + W8A8-FP8.
 8. INT8 KV fused into paged-decode.
 9. W4A8, then maybe ternary / INT4 KV.
 
@@ -81,4 +96,4 @@ Never: Instinct FP8 MMA, FA3, Marlin, AITER, W4A4-native, streaming decode-KV ov
 
 ## Progress
 
-Refreshed 2026-08-17 against `add17dd7` + RDNA2_Researcher silicon read (mxfp4 = 4×`fdot2`; skinny in-tree, `waves_per_eu(1,1)`). VLLM_FORK_Manager owns the board; this page is the map.
+Refreshed 2026-08-17: Triton→HIP section added (compile tax). Occupancy still first. VLLM_FORK_Manager owns the board; this page is the index.
