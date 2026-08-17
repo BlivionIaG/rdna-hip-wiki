@@ -14,6 +14,7 @@ Do not invent tok/s, IC TB/s, or a P2P-works claim.
 | [nvfp4.md](nvfp4.md) | NVFP4 engine spec — unpack E2M1→fp16→`fdot2`, E4M3×16 scale |
 | [kv-int8.md](kv-int8.md) | INT8 KV spec — fused dequant in `fa_rdna2`, per-token-head |
 | [int2.md](int2.md) | INT2 + mixed INT2/INT4 MoE — unpack→`fdot2`, bitwidth grouped outside K |
+| [w4a4.md](w4a4.md) | W4A4 explore — integer `sdot8` i4×i4; MXFP4/NVFP4 A4 stays `fdot2` |
 | [mtp.md](mtp.md) | MTP — native heads, fat tile first, no new DOT |
 | [dflash.md](dflash.md) | DFlash — parallel block draft, same fat-tile gate |
 | [dspark.md](dspark.md) | DSpark — DFlash + Markov + confidence schedule |
