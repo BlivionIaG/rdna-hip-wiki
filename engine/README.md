@@ -11,7 +11,13 @@ Do not invent tok/s, IC TB/s, or a P2P-works claim.
 | [full-map.md](full-map.md) | One-page verdict + technique table |
 | [coverage.md](coverage.md) | Feature / quant / HIP kernel coverage + progress |
 | [fork-delta.md](fork-delta.md) | Each added feature vs upstream — most incomplete, W4A16 dense is the bar |
+| [baseline-order.md](baseline-order.md) | Stock-first research order: harness → Triton map → skinny → FA → HIP A/B → FlyDSL |
+| [triton-rocm.md](triton-rocm.md) | Stock Triton / ROCM_ATTN / skinny dispatch on gfx1030 |
+| [triton-flash-attention.md](triton-flash-attention.md) | Stock Triton FA configs (ROCM_ATTN is Triton/Triton here) |
+| [triton-tuning.md](triton-tuning.md) | Tuning knobs only — never overwrite stock |
+| [flydsl.md](flydsl.md) | FlyDSL gfx1030 gates — compiler yes, shipped MFMA/WMMA kernels no |
 | [fp16-moe.md](fp16-moe.md) | Native HIP FP16 MoE draft — decode skinny + prefill grouped, `fdot2` |
+| [int8-moe.md](int8-moe.md) | Dual-route INT8 MoE — W8A16 `fdot2` + W8A8 `sdot4` |
 | [nvfp4.md](nvfp4.md) | NVFP4 engine spec — unpack E2M1→fp16→`fdot2`, E4M3×16 scale |
 | [kv-int8.md](kv-int8.md) | INT8 KV spec — fused dequant in `fa_rdna2`, per-token-head |
 | [int2.md](int2.md) | INT2 + mixed INT2/INT4 MoE — unpack→`fdot2`, bitwidth grouped outside K |
