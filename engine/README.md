@@ -10,6 +10,7 @@ Do not invent tok/s, IC TB/s, or a P2P-works claim.
 |---|---|
 | [full-map.md](full-map.md) | One-page verdict + technique table |
 | [coverage.md](coverage.md) | Feature / quant / HIP kernel coverage + progress |
+| [nvfp4.md](nvfp4.md) | NVFP4 engine spec — unpack E2M1→fp16→`fdot2`, E4M3×16 scale |
 | [vllm-sglang-map.md](vllm-sglang-map.md) | What stock vLLM/SGLang actually run on gfx1030 vs CDNA |
 | [prefill-decode.md](prefill-decode.md) | The load-bearing split and kernel hit-list |
 | [attention-dispatch.md](attention-dispatch.md) | fa_rdna2 vs Triton, head-64 hole, short vs split-K, Sage |
