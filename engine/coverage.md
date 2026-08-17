@@ -14,7 +14,8 @@ Silicon contracts: [kernels/](../kernels/README.md). Dispatch: [attention-dispat
 |---|---|---|---|
 | FP16 × FP16 | `fdot2` / rocBLAS | Fallback | Stock linear. Skinny decode GEMV is a Must (gated `on_gfx1x`). |
 | **W4A16** | dequant → `fdot2` | **Live** | Dense + MoE. [kernels/w4a16.md](../kernels/w4a16.md) |
-| **W8A16** / W8A16-FP8 | LUT → `fdot2` | **Live** | Not the IU8 path. Do not call this W8A8. |
+| **W8A16** | LUT → `fdot2` | **Live** | Not the IU8 path. Do not call this W8A8. |
+| **W8A16-FP8** | LUT → `fdot2` | **Live** | Shipping. Weight storage is FP8-looking; compute is still LUT+`fdot2`. Not an FP8 unit path. |
 | **W8A8** | `sdot4`, i32 through K, scale epilogue | Must | [kernels/w8a8-mxfp4.md](../kernels/w8a8-mxfp4.md). Tile seed 64×64×64. No `sudot4`. |
 | **mxfp4** (E2M1+E8M0) | unpack → `fdot2` | Must | No FP4 unit. `supports_mx()` is gfx950. |
 | W4A8 | W4→i8 + `sdot4` A8 | Later | After W8A8. Same IU8 pipe, half the weight bytes. |
@@ -65,7 +66,7 @@ Silicon contracts: [kernels/](../kernels/README.md). Dispatch: [attention-dispat
 ## Write order (engine)
 
 1. Occupancy flip (ticket).
-2. Keep live W4A16 / W8A16 / fa_rdna2 128/256.
+2. Keep live W4A16 / W8A16 / W8A16-FP8 / fa_rdna2 128/256.
 3. Head-64 FA2.
 4. Skinny GEMM + matching cache writer.
 5. W8A8 `sdot4` dense+MoE.
@@ -74,7 +75,7 @@ Silicon contracts: [kernels/](../kernels/README.md). Dispatch: [attention-dispat
 8. INT8 KV fused into paged-decode.
 9. W4A8, then maybe ternary / INT4 KV.
 
-Never: FP8, FA3, Marlin, AITER, W4A4-native, streaming decode-KV over PCIe.
+Never: FP8 unit path, FA3, Marlin, AITER, W4A4-native, streaming decode-KV over PCIe.
 
 ## Progress
 
