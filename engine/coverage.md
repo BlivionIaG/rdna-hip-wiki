@@ -6,7 +6,7 @@ Date: 2026-08-17. Progress map. Tip of human branch: `perf/rdna2_w4a16` @ `9a344
 
 Inner ops we actually have: `fdot2` (FP16 256), `sdot4` (IU8 512), `V_DOT8_I32_I4` (IU4 1024). No WMMA / MFMA / FP8 / FP4 / bf16 matrix. `supports_fp8()` is false. `v_dot2_f32_bf16` is RDNA3+ — gfx1030 dots stay fp16.
 
-Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/sdot4-explore.md](../kernels/sdot4-explore.md) (W8A8, Sage QK, W4A8). Dispatch: [attention-dispatch.md](attention-dispatch.md), [sage-attention.md](sage-attention.md). NVFP4: [nvfp4.md](nvfp4.md). INT8 KV: [kv-int8.md](kv-int8.md). INT2: [int2.md](int2.md). MTP / DFlash / DSpark: [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md).
+Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/sdot4-explore.md](../kernels/sdot4-explore.md) (W8A8, Sage QK, W4A8). W4A4 integer: [w4a4.md](w4a4.md). Dispatch: [attention-dispatch.md](attention-dispatch.md), [sage-attention.md](sage-attention.md). NVFP4: [nvfp4.md](nvfp4.md). INT8 KV: [kv-int8.md](kv-int8.md). INT2: [int2.md](int2.md). MTP / DFlash / DSpark: [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md).
 
 ## Weight × activation GEMM
 
@@ -23,7 +23,8 @@ Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/s
 | **INT2 / W2A16** | unpack 16×i2 → `fdot2` | Must / queued | No i2 DOT. Spec: [int2.md](int2.md) + [kernels/int2.md](../kernels/int2.md). Not INT2 KV. |
 | **Mixed INT2/INT4 MoE** | two unpackers, one `fdot2` | Must / queued | Bitwidth grouped outside K. Same [int2.md](int2.md). |
 | W4A8 | W4→i8 + `sdot4` A8 | Later / explore | After W8A8. `sdot8` is W4A4 only. [sdot4-explore.md](../kernels/sdot4-explore.md) |
-| W4A4-native / MXFP4-native | FP4 MMA | **Dead** | No FP4 unit. Quark/NVFP4 W4A4: dequant A to fp16 or refuse. |
+| **W4A4 integer** i4×i4 | `sdot8`, i32 through K | Later / explore | After W8A8. Prefill first; decode stays W4A16 unless measured. Spec: [w4a4.md](w4a4.md). Not E2M1. |
+| W4A4-native / MXFP4-native | FP4 MMA | **Dead** | No FP4 unit. Quark/NVFP4 W4A4: dequant A to fp16 or refuse. Do not `sdot8` E2M1. |
 | FP8 W8A8 / PTPC-FP8 (Instinct) | FP8 MMA | **Dead** | No FP8 unit. Do not confuse with W8A8-FP8 `fdot2` above. |
 | AWQ / GPTQ / WNA16 Triton | Triton | Fallback | **Do not rewrite.** Dispatch to `q_gemm_rdna2` / `moe_q_gemm_rdna2`. |
 | compressed-tensors W8A8 INT8 | CUDA / CDNA | Must (same as W8A8 sdot4) | Format is the checkpoint; kernel is sdot4. |
@@ -78,9 +79,10 @@ Do not HIP-rewrite unused Triton (AITER FA, FA3, Marlin).
 3. Head-64 paged HIP.
 4. Then: W8A8 `sdot4`, INT8 KV, MLA fat tile, W4A8, NVFP4 unpack→`fdot2`. HIP MLA `fdot2` inner-loop is a note on the MLA card, not this list.
 5. After fat tile: MTP / DFlash / DSpark (engine only — no new DOT). INT2 / mixed MoE is a GEMM unpack, not this attention list.
+6. After W8A8: integer W4A4 `sdot8` ([w4a4.md](w4a4.md)). MXFP4/NVFP4 A4 is not this.
 
-Never rewrite `q_gemm_rdna2` / `moe_q_gemm_rdna2`. Never: Instinct FP8 MMA, FA3, Marlin, AITER, W4A4-native, streaming decode-KV over PCIe.
+Never rewrite `q_gemm_rdna2` / `moe_q_gemm_rdna2`. Never: Instinct FP8 MMA, FA3, Marlin, AITER, W4A4-native FP4 MMA, streaming decode-KV over PCIe.
 
 ## Progress
 
-Locked 2026-08-17 with RDNA2_Researcher v2 order. Tip `9a344444`: HIP MLA decode fp16 is silicon-ok; env flip is policy; `fdot2` later. `sdot4` explore: W8A8, Sage, W4A8. Occupancy still first for `fa_rdna2`. Queued specs: [nvfp4.md](nvfp4.md), [kv-int8.md](kv-int8.md), [int2.md](int2.md), [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md). VLLM_FORK_Manager owns the board; this page is the index.
+Locked 2026-08-17 with RDNA2_Researcher v2 order. Tip `9a344444`: HIP MLA decode fp16 is silicon-ok; env flip is policy; `fdot2` later. `sdot4` explore: W8A8, Sage, W4A8. W4A4 integer explore: [w4a4.md](w4a4.md). Occupancy still first for `fa_rdna2`. Queued specs: [nvfp4.md](nvfp4.md), [kv-int8.md](kv-int8.md), [int2.md](int2.md), [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md). VLLM_FORK_Manager owns the board; this page is the index.
