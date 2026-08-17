@@ -10,6 +10,7 @@ Do not invent tok/s, IC TB/s, or a P2P-works claim.
 |---|---|
 | [full-map.md](full-map.md) | One-page verdict + technique table |
 | [coverage.md](coverage.md) | Feature / quant / HIP kernel coverage + progress |
+| [fork-delta.md](fork-delta.md) | Each added feature vs upstream — most incomplete, W4A16 dense is the bar |
 | [nvfp4.md](nvfp4.md) | NVFP4 engine spec — unpack E2M1→fp16→`fdot2`, E4M3×16 scale |
 | [kv-int8.md](kv-int8.md) | INT8 KV spec — fused dequant in `fa_rdna2`, per-token-head |
 | [vllm-sglang-map.md](vllm-sglang-map.md) | What stock vLLM/SGLang actually run on gfx1030 vs CDNA |
