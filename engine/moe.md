@@ -1,6 +1,6 @@
 # MoE expert offloading
 
-Date: 2026-08-17. Sourced only.
+Date: 2026-08-17. Sourced only. DeepEP / asymmetric A2A insight: [deepep.md](deepep.md).
 
 ## Verdict on gfx1030
 
@@ -10,9 +10,9 @@ Honest one-box huge-MoE design: CPU-resident experts + GPU attention/hot set (kt
 
 Decode MoE is many tiny GEMMs — terrible even on RDNA3 (7900 XTX: Triton-unfused 8.5 → native HIP 48.8 tok/s).
 
-**Live in the fork:** W4A16 / W8A16 / W8A16-FP8 (LUT→`fdot2`). **Not shipping:** W8A8/`sdot4`, mxfp4 (format contracts; PR #52391 is enablement, not a launched gfx1030 MoE). **Queued spec:** INT2 + mixed INT2/INT4 experts — [int2.md](int2.md). Nothing first-class ships. Format contracts: [kernels/w4a16.md](../kernels/w4a16.md), [kernels/w8a8-mxfp4.md](../kernels/w8a8-mxfp4.md), [kernels/int2.md](../kernels/int2.md).
+**Live in the fork:** W4A16 / W8A16 / W8A16-FP8 (LUT→`fdot2`). **Not shipping:** W8A8/`sdot4`, mxfp4 (format contracts; PR #52391 is enablement, not a launched gfx1030 MoE). **Queued spec:** INT2 + mixed INT2/INT4 experts — [int2.md](int2.md). Native FP16 / INT8 HIP MoE: [fp16-moe.md](fp16-moe.md), [int8-moe.md](int8-moe.md). Nothing first-class ships. Format contracts: [kernels/w4a16.md](../kernels/w4a16.md), [kernels/w8a8-mxfp4.md](../kernels/w8a8-mxfp4.md), [kernels/int2.md](../kernels/int2.md).
 
-MoE tile: A (activations) in LDS; stream B (weights). Token-major + small BLOCK_M at decode. Under TP>1 write unreduced rows (do not fuse reduce-before-allreduce). Do not copy AITER W8A8 CK (MFMA, AGPR, CDNA).
+MoE tile: A (activations) in LDS; stream B (weights). Token-major + small BLOCK_M at decode. Under TP>1 write unreduced rows (do not fuse reduce-before-allreduce). Do not copy AITER W8A8 CK (MFMA, AGPR, CDNA). `0c59068e` changes RCCL transport only; GEMM still does not own the collective ([deepep.md](deepep.md)).
 
 Mixed INT2/INT4: sort tokens by expert, **then** group by bitwidth. Two unpackers, one `fdot2`. Do not switch unpackers inside K.
 
@@ -20,7 +20,7 @@ Mixed INT2/INT4: sort tokens by expert, **then** group by bitwidth. Two unpacker
 
 DeepSeek-V3: 1 shared + 256 routed, 8 activated/token, 671B/37B. Prefill wants fat expert batches (EP32). Decode: one expert per GPU at EP320, batch/expert usually ≤256, memory-bound.
 
-AMD playbook: <1% activation density prefer no-EP (AllReduce); >3% prefer EP (AllToAll). MLA still wants DP+EP for KV reasons.
+AMD playbook: <1% activation density prefer no-EP (AllReduce); >3% prefer EP (AllToAll). MLA still wants DP+EP for KV reasons. DeepEP is a GPU-initiated AllToAll for the high-density case, not a reason to AllToAll a 4×PCIe box by default.
 
 ## vLLM
 
@@ -42,7 +42,7 @@ Grouped GEMM (prefill), skinny GEMV (decode), router/align-sort, combine, EP all
 
 ## Unknowns
 
-gfx1030 MoE kernel quality. Whether #37190 / #20126 merged later. llama.cpp compute vs H2D split. AITER fused MoE on any RDNA. Named INT2 / mixed-bitwidth checkpoint.
+gfx1030 MoE kernel quality. Whether #37190 / #20126 merged later. llama.cpp compute vs H2D split. AITER fused MoE on any RDNA. Named INT2 / mixed-bitwidth checkpoint. Whether 4×V620 has working `hipDeviceCanAccessPeer` after IOMMU/ACS.
 
 ## Sources
 
@@ -52,3 +52,4 @@ gfx1030 MoE kernel quality. Whether #37190 / #20126 merged later. llama.cpp comp
 - [ktransformers layerwise](https://ktransformers.net/en/docs/optimization-techniques/layerwise-prefill)
 - [llama.cpp --cpu-moe](https://github.com/ggml-org/llama.cpp/pull/15077)
 - [Triton MoE excludes gfx10xx](https://github.com/vllm-project/vllm/pull/37826)
+- [deepep.md](deepep.md)
