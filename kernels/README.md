@@ -5,6 +5,8 @@ Format contracts for the HIP kernels we write. Not engine dispatch. Feature inde
 | Page | Inner loop | Completeness |
 |---|---|---|
 | [fp16-moe.md](fp16-moe.md) | native fp16 `fdot2`, fp32 accum | Spec: tiny-M GEMM + grouped prefill |
+| [int8-moe.md](int8-moe.md) | W8A16 `fdot2` / W8A8 `sdot4` | Spec: dual route by expert rows/shape/scales |
+| [triton-skinny-gemm.md](triton-skinny-gemm.md) | stock dispatch baseline | Stock gfx1030 = BLAS; LLMM1/wvSplitK gate excludes gfx10 |
 | [w4a16.md](w4a16.md) | nibble dequant → `fdot2` | **Most complete** (dense). MoE incomplete |
 | [w8a16.md](w8a16.md) | i8 → fp16 → `fdot2` | Incomplete. MoE in-tree; dense `.cu` absent at tip |
 | [w8a16-fp8.md](w8a16-fp8.md) | E4M3 LUT/bit-trick → `fdot2` | Incomplete |
