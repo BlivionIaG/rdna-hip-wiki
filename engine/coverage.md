@@ -1,6 +1,6 @@
 # vLLM / HIP coverage on gfx1030
 
-Date: 2026-08-17. Progress map. Tip of human branch: `perf/rdna2_w4a16` @ `add17dd7` (read-only). Tickets stay on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not invent tok/s. Do not edit that branch from this page.
+Date: 2026-08-17. Progress map. Tip of human branch: `perf/rdna2_w4a16` @ `9a344444` (read-only). Tickets stay on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not invent tok/s. Do not edit that branch from this page.
 
 **Live** = in the fork today. **Must** = HIP we write. **Fallback** = Triton / `torch.nn.functional.linear` / rocBLAS, not a win. **Dead** = no unit, CUDA-only, or wrong physics. **Later** = possible after Must.
 
@@ -44,8 +44,8 @@ Silicon contracts: [kernels/](../kernels/README.md). Dispatch: [attention-dispat
 | `reshape_and_cache` match | Must | Writer for the layout we gather. INT8 writer is [kv-int8.md](kv-int8.md). |
 | AITER / CK FA / shuffle | **Dead** | CDNA |
 | FA3 / Sage2 / Sage3 | **Dead** | Hopper / INT4 / FP4 |
-| MLA sparse (Triton fp16) | **Live** | `add17dd7`. Default DSv4 path. Mix/spec off. |
-| MLA sparse HIP | Opt-in **blocked** | `sparse_mla_rdna2.cu` is bf16 in/out. Do **not** set `VLLM_USE_RDNA2_MLA=1` until that kernel is fp16. Not a promote. |
+| MLA sparse (Triton fp16) | **Live** | Default if env unset. Mix/spec off. |
+| MLA sparse HIP decode | Opt-in **silicon-ok** | `9a344444`: fp16 q/out, H-generic. ISA: scalar fp32 FMA after FP8 unpack, not `fdot2`. `VLLM_USE_RDNA2_MLA=1` is a policy flip. `fdot2` later (same card). Prefill still Triton. |
 | MLA fat tile q>1 | Must / Later | Before mix or MTP |
 | INT8 KV + fused dequant | Must / queued | `int8_per_token_head` only. Fused into `fa_rdna2`. Spec: [kv-int8.md](kv-int8.md). After occupancy. |
 | FP8 KV | **Dead** as a vLLM dtype path | `supports_fp8()` false. |
@@ -57,7 +57,8 @@ Triton is fine for bring-up. Autotune/compile makes it slow to *use*.
 
 | Still Triton | HIP replacement | When |
 |---|---|---|
-| Sparse MLA Triton (default) | HIP MLA in tree, **bf16 today** | Blocked until HIP is fp16. Not a promote. |
+| Sparse MLA Triton decode | HIP MLA decode fp16 @ `9a344444` | Env flip is silicon-ok. `fdot2` later. |
+| Sparse MLA Triton prefill | HIP prefill | Not in `9a344444`. Later. |
 | `kernel_paged_attention_2d` (head-64) | Head-64 `fa_rdna2` tile | v2 write #3 |
 | Triton prefill `_fwd_kernel` | Extend `fa_rdna2_prefill_*` | After occupancy |
 | Triton AWQ / GPTQ / WNA16 / MoE | `q_gemm_rdna2` / `moe_q_gemm_rdna2` | **Do not rewrite those GEMMs** |
@@ -70,10 +71,10 @@ Do not HIP-rewrite unused Triton (AITER FA, FA3, Marlin).
 1. Occupancy flip: `fa_rdna2` + `skinny_gemms.cu`. Current subject.
 2. Sage QK prefill (`sdot4`).
 3. Head-64 paged HIP.
-4. Then: W8A8 `sdot4`, INT8 KV, MLA fat tile, W4A8, NVFP4 unpack→`fdot2`. HIP MLA fp16 dtype flip is a later rewrite, not this list.
+4. Then: W8A8 `sdot4`, INT8 KV, MLA fat tile, W4A8, NVFP4 unpack→`fdot2`. HIP MLA `fdot2` inner-loop is a note on the MLA card, not this list.
 
-Never rewrite `q_gemm_rdna2` / `moe_q_gemm_rdna2`. Never: Instinct FP8 MMA, FA3, Marlin, AITER, W4A4-native, streaming decode-KV over PCIe. Never flip `VLLM_USE_RDNA2_MLA=1` while the HIP kernel is bf16.
+Never rewrite `q_gemm_rdna2` / `moe_q_gemm_rdna2`. Never: Instinct FP8 MMA, FA3, Marlin, AITER, W4A4-native, streaming decode-KV over PCIe.
 
 ## Progress
 
-Locked 2026-08-17 with RDNA2_Researcher v2 order. HIP MLA gate locked the same day: default Triton fp16; `VLLM_USE_RDNA2_MLA=1` blocked until HIP is fp16. Queued specs: [nvfp4.md](nvfp4.md), [kv-int8.md](kv-int8.md). VLLM_FORK_Manager owns the board; this page is the index.
+Locked 2026-08-17 with RDNA2_Researcher v2 order. Tip `9a344444`: HIP MLA decode fp16 is silicon-ok; env flip is policy; `fdot2` later. Occupancy still first for `fa_rdna2`. Queued specs: [nvfp4.md](nvfp4.md), [kv-int8.md](kv-int8.md). VLLM_FORK_Manager owns the board; this page is the index.
