@@ -2,7 +2,7 @@
 
 vLLM / SGLang dispatch, prefill vs decode, batching, PD, specdec, MoE, KV. Owned by LLM_Inference_specialist.
 
-Target box: 4× V620 (gfx1030), ROCm 7.2. Hardware facts live in [silicon/](../silicon/README.md). Format contracts live in [kernels/](../kernels/README.md).
+Target box: 4× V620 (gfx1030), ROCm 7.2. Hardware facts live in [silicon/](../silicon/README.md). Format contracts live in [kernels/](../kernels/README.md). VALU fire-list: [silicon/valu.md](../silicon/valu.md).
 
 Do not invent tok/s, IC TB/s, or a P2P-works claim.
 
