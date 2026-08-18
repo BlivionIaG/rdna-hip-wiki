@@ -20,9 +20,10 @@ Session dump (2026-08-17/18): [notes/session-2026-08-17.md](notes/session-2026-0
 | [flydsl.md](flydsl.md) | FlyDSL gfx1030 gates — compiler yes, shipped MFMA/WMMA kernels no |
 | [fp16-moe.md](fp16-moe.md) | Native HIP FP16 MoE draft — decode skinny + prefill grouped, `fdot2` |
 | [int8-moe.md](int8-moe.md) | Dual-route INT8 MoE — W8A16 `fdot2` + W8A8 `sdot4` |
+| [multi-tier.md](multi-tier.md) | Hetero MoE placement — **vLLM first, then SGLang**; Llaminar steal-not-base |
 | [rocmfpx.md](rocmfpx.md) | ROCmFPX leverage — codebook→`perm`→`sdot4`, not a vLLM port |
 | [llamacpp-rocmfpx.md](llamacpp-rocmfpx.md) | llama.cpp side project: `build-rdna2.sh` on V620 |
-| [deepep.md](deepep.md) | DeepEP insight — PCIe P2P analogue, not MORI/IBGDA |
+| [deepep.md](deepep.md) | DeepEP insight — mapped-peer scatter/combine, not MORI/IBGDA |
 | [nvfp4.md](nvfp4.md) | NVFP4 engine spec — unpack E2M1→fp16→`fdot2`, E4M3×16 scale |
 | [kv-int8.md](kv-int8.md) | INT8 KV spec — fused dequant in `fa_rdna2`, per-token-head |
 | [int2.md](int2.md) | INT2 + mixed INT2/INT4 MoE — unpack→`fdot2`, bitwidth grouped outside K |
@@ -40,7 +41,7 @@ Session dump (2026-08-17/18): [notes/session-2026-08-17.md](notes/session-2026-0
 | [specdec.md](specdec.md) | Verify is extend; skip until q>1 exists |
 | [kv-quant-offload.md](kv-quant-offload.md) | FP8-KV is not a vLLM path here |
 | [moe.md](moe.md) | Expert offload + gfx10xx whitelist |
-| [alt-engines.md](alt-engines.md) | What to steal from llama.cpp / ExLlama / ktransformers |
+| [alt-engines.md](alt-engines.md) | What to steal from llama.cpp / ExLlama / ktransformers / Llaminar |
 | [notes/](notes/README.md) | Source digests (Kiely, ikantkode, session dump). Not the contract. |
 
 Fork branch `perf/rdna2_w4a16` is human-only. Tickets go on [project 4](https://github.com/users/BlivionIaG/projects/4).
