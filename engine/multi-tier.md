@@ -1,69 +1,82 @@
-# Multi-tier MoE — Llaminar vs SGLang fork
+# Multi-tier MoE — placement vs engine base
 
-Date: 2026-08-18. Engine contract. Target topology (human plan):
+Date: 2026-08-18. Engine contract. **Product path (locked):** optimize **vLLM fork first**, then **SGLang**. Llaminar is a placement *model* to steal, **not** the repo we extend. Occupancy + V620 HIP MoE still first. Do not invent tok/s.
 
-- **Fast tier:** 2× W7800 48 GB (gfx1100) — attention, routing, active path
-- **Capacity tier:** 8× V620 32 GB (gfx1030) — parked experts
-- **Bus rule:** ship **activations only** (and maybe KV offload), not expert weight ping-pong
+Silicon: [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md). Related: [moe.md](moe.md), [deepep.md](deepep.md), [alt-engines.md](alt-engines.md), [pd-disagg.md](pd-disagg.md).
 
-Related: [moe.md](moe.md), [deepep.md](deepep.md) + [silicon/deepep-v620.md](../silicon/deepep-v620.md), [alt-engines.md](alt-engines.md), [pd-disagg.md](pd-disagg.md). Occupancy + HIP MoE on V620 still first. Do not invent tok/s.
+## Topology (human plan)
+
+- **Fast tier:** 2× W7800 48 GB (**gfx1100**) — attention, router, embeddings, LM head, **live KV**
+- **Capacity tier:** 8× V620 32 GB (**gfx1030**) — expert GEMMs only
+- **Bus rule:** ship **activations only** (fp16 on the hop unless both kernels consume a smaller dtype). Not expert-weight ping-pong.
+- **Later SKU:** V340L is a possible test box. Unpinned. Do not collapse it into gfx1030/gfx1100.
+
+This is **two HIP targets**, not one fat binary. gfx1100 may use WMMA/BF16 locally; V620 stays `fdot2`/`sdot4`. Do not park live KV on V620 — that makes decode a bigger PCIe read than the expert hop. Decode hop is tiny; **prefill is the bus**. Cross-SKU P2P (W7800↔V620) is **unmeasured** — assume host-staged copies until [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md) has a matrix.
 
 ## What this is (and is not)
 
-This is **heterogeneous expert placement / compute-offload MoE**, closer to ktransformers (attn+shared on fast device, routed experts on capacity) than to:
+Heterogeneous expert placement / compute-offload MoE (ktransformers-class: attn+shared on fast device, routed experts on capacity). Not:
 
 - layer PP (whole layers on a stage),
 - homogeneous EP (every GPU same role),
 - PD disagg (already **skip as a win** on a single PCIe box).
 
-Collective ownership stays in the engine. GEMM does not own RCCL. Intra-node A2A analogue is **mapped-peer scatter/combine over PCIe BARs**, not IBGDA/MORI/SDMA doorbells.
+Collective ownership stays in the engine. GEMM does not own RCCL. Intra-node A2A analogue is **mapped-peer scatter/combine over PCIe BARs**, not IBGDA/MORI/SDMA doorbells. Mixed-SKU may stay host-staged until peer access is measured.
 
-## Llaminar ([Llaminar/llaminar](https://github.com/Llaminar/llaminar))
+## Engine base (locked 2026-08-18)
 
-C++ kernel-centric runtime. Alpha. GGUF. Explicit strengths for *this* topology:
+| Order | Engine | Why |
+|---|---|---|
+| **1. Now** | **vLLM fork** (`perf/rdna2_w4a16`) | Stack that already compiles gfx1030 HIP. Occupancy, FA, MoE DOT, then placement glue. |
+| **2. Next** | **SGLang** | Radix / CB / serving after vLLM kernels exist. Same two HIP backends + a heterogeneous EP scheduler SGLang does not have for this topology. |
+| **Not the base** | Llaminar | Closer *architecture* (heterogeneous domains, TP/PP, prefix-cache exists). ROCm is **gfx906 only**. Continuous batching still a plan. Contributing still means new gfx1030 + gfx1100 HIP. |
+
+Do **not** block occupancy or HIP MoE on a runtime-shell choice.
+
+## Llaminar (steal, do not extend)
+
+[Llaminar/llaminar](https://github.com/Llaminar/llaminar) — C++ kernel-centric, alpha, GGUF.
 
 | Piece | Status |
 |---|---|
-| Heterogeneous domains (CPU / CUDA / ROCm in one plan) | Native design |
+| Heterogeneous domains (CPU / CUDA / ROCm in one plan) | Native design — **steal** |
 | TP / PP / MoE EP | EP WiP; TP/PP exercised |
-| Prefix cache | **Exists** (`--prefix-cache`, MoE placement-fingerprint policy) |
-| Continuous batching | **Plan / non-goal for V1 HTTP** (single-request queue first) |
-| ROCm GPU targets | **`gfx906` only** today |
-| Mixed CUDA+ROCm PP | Documented |
+| Prefix cache | **Exists** (`--prefix-cache`, MoE placement-fingerprint) |
+| Continuous batching | **Plan / non-goal for V1 HTTP** |
+| ROCm GPU targets | **`gfx906` only** |
 
-**Verdict:** closest *orchestration skeleton* for “fast GPU = active/routing, capacity = experts.” Real cost is still gfx1030 + gfx1100 HIP backends (DOT / FA / MoE) and a multi-request scheduler. Contributing without those kernels does not unlock the box.
+Their CUDA+ROCm examples are PP dense layers or host-staged TP, not attn-on-RDNA3 / experts-on-RDNA2.
 
-Do **not** assume “add prefix caching” is the Llaminar gap — that is outdated. The serving gap is continuous batching / dynamic batch.
-
-## SGLang fork
+## SGLang (after vLLM)
 
 | Piece | Status |
 |---|---|
 | Radix / prefix cache, continuous batching, serving | Strong |
 | ROCm path | Instinct / AITER / MORI-centric; RDNA is bridge work |
-| Heterogeneous EP (W7800 router + V620 experts) | **Not first-class** — you invent placement |
-| Custom HIP from our vLLM fork | Same class of port as today |
+| Heterogeneous EP (W7800 router + V620 experts) | **Not first-class** |
 
-**Verdict:** buy serving features, still build the tiering contract yourself. Prefer if **production multi-request** is the first product goal.
+## Implementation order (engine + silicon)
 
-## Locked recommendation (2026-08-18)
+1. `fa_rdna2` occupancy + V620 HIP MoE compute (already first).
+2. gfx1100 attention/router baseline on W7800 (stock, then HIP if needed).
+3. Measured W7800↔V620 peer/host activation matrix.
+4. Asymmetric activation dispatch/combine (PCIe BAR or host).
+5. Optional KV *overflow* park — never live-KV on V620.
+6. SGLang serving shell after the vLLM kernels exist.
 
-1. **Prototype placement + activation A2A** on Llaminar (or a thin custom runtime that steals its domain/collective model).
-2. **Keep SGLang / vLLM** for serving-kernel R&D and for shipping continuous batching / radix while the tiered path is immature.
-3. **Do not** pick one fork as “the” engine until gfx1030 HIP MoE compute + a measured peer-store matrix exist.
-4. **W7800 (gfx1100)** is a second HIP target (WMMA path exists upstream in places; our V620 work stays `fdot2`/`sdot4`). Do not collapse the two ISAs.
-5. KV split/offload is optional and secondary to activation-only expert dispatch. Same PCIe physics as [kv-quant-offload.md](kv-quant-offload.md) / PD skip.
-
-## Cards (for VLLM_FORK_Manager — Later / research)
+## Cards (for VLLM_FORK_Manager)
 
 Reuse if present. Occupancy still first.
 
-- Multi-tier MoE placement contract (W7800 active + V620 experts, activations only) — Later
-- Llaminar gfx1030 / gfx1100 backend spike — Later / side-project
-- SGLang heterogeneous EP spike — Later, only if serving-first
+- Multi-tier MoE placement (W7800 active + V620 experts, activations only, KV stays on W7800) — Later
+- W7800↔V620 activation matrix — Later, after occupancy + HIP MoE
+- SGLang hetero EP — Later, after vLLM
+- Llaminar contribution — **not a card** unless the product path changes
+- V340L — Later / unpinned
 
 ## Sources
 
-- https://github.com/Llaminar/llaminar README (prefix-cache flags; ROCm `gfx906`; CB plans in `docs/v2/projects/`)
-- Room lock 2026-08-18 (GFX1030 Inference)
+- Room lock 2026-08-18 (GFX1030 Inference): vLLM then SGLang; Llaminar not the base
+- [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md)
+- https://github.com/Llaminar/llaminar README
 - [deepep.md](deepep.md), [moe.md](moe.md)
