@@ -14,6 +14,7 @@ Session dump (2026-08-17/18): [notes/session-2026-08-17.md](notes/session-2026-0
 | [coverage.md](coverage.md) | Feature / quant / HIP kernel coverage + progress |
 | [fork-delta.md](fork-delta.md) | Each added feature vs upstream — most incomplete, W4A16 dense is the bar |
 | [baseline-order.md](baseline-order.md) | Stock-first research order: harness → Triton map → skinny → FA → HIP A/B → FlyDSL |
+| [fp16-rdna2.md](fp16-rdna2.md) | Fastest gfx1030 FP16 — explicit `fdot2` + occupancy, phase-split |
 | [triton-rocm.md](triton-rocm.md) | Stock Triton / ROCM_ATTN / skinny dispatch on gfx1030 |
 | [triton-flash-attention.md](triton-flash-attention.md) | Stock Triton FA configs (ROCM_ATTN is Triton/Triton here) |
 | [triton-tuning.md](triton-tuning.md) | Tuning knobs only — never overwrite stock |
