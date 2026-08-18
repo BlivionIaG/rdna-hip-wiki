@@ -13,3 +13,5 @@ How gfx1030 actually works, and what HIP can control.
 | [codegen-stack.md](codegen-stack.md) | Use HIP+DOT; ignore CK XDL, hipBLASLt, rocWMMA, AITER |
 | [valu.md](valu.md) | gfx1030 VALU: enc / size / issue / which DOT we fire. gfx1100 extras |
 | [flydsl-dot-atoms.md](flydsl-dot-atoms.md) | FlyDSL gfx1030 feasibility; formal `fdot2`/`sdot4` atoms and proof gates |
+| [deepep-v620.md](deepep-v620.md) | DeepEP insight → mapped-peer PCIe scatter, not IBGDA |
+| [hetero-moe-w7800-v620.md](hetero-moe-w7800-v620.md) | 2×W7800 + 8×V620: two ISAs, activations-only hop, KV stays on W7800 |
