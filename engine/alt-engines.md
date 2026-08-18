@@ -1,6 +1,6 @@
 # What to steal from other engines
 
-Date: 2026-08-18. Sourced only. Product path: **vLLM first, then SGLang**. Llaminar is steal-not-base: [multi-tier.md](multi-tier.md).
+Date: 2026-08-18. Sourced only. Product path: **vLLM first, then Llaminar**. SGLang demoted. [multi-tier.md](multi-tier.md).
 
 ## Copy
 
@@ -15,11 +15,11 @@ Date: 2026-08-18. Sourced only. Product path: **vLLM first, then SGLang**. Llami
 9. Prefix hashing / refcounted pages (ExLlama).
 10. Write HIP-portable kernels from day one.
 11. ROCmFPX codebook → `__builtin_amdgcn_perm` → i8 → `sdot4` vs A8 (lesson only). Contract: [rocmfpx.md](rocmfpx.md).
-12. Llaminar heterogeneous domains + explicit collective routing — placement *model* only. Not the repo we extend.
+12. Llaminar heterogeneous domains + explicit collective routing — **next engine after vLLM**, not just a model to skim.
 
 ## Ignore
 
-ExLlama / EXL3 / Marlin / FlashInfer / TRT-LLM kernels (CUDA). rocWMMA / MMA FA (RDNA3+/CDNA). FA page=256 as if optimal (Tri Dao: convenience). Intel AMX tiles. CUDA-graph-as-religion (HIP graph capture + alloc is fragile). Unified memory on dGPUs (llama.cpp: hurts non-iGPU). FlyDSL shipped MFMA/WMMA GEMM/MoE/FA ([flydsl.md](flydsl.md)). DeepEP IBGDA / MORI / NVLink ([deepep.md](deepep.md)). Porting ROCmFPX custom GGUF types into vLLM. Treating Llaminar gfx906 ROCm as a gfx1030/gfx1100 backend.
+ExLlama / EXL3 / Marlin / FlashInfer / TRT-LLM kernels (CUDA). rocWMMA / MMA FA (RDNA3+/CDNA). FA page=256 as if optimal (Tri Dao: convenience). Intel AMX tiles. CUDA-graph-as-religion (HIP graph capture + alloc is fragile). Unified memory on dGPUs (llama.cpp: hurts non-iGPU). FlyDSL shipped MFMA/WMMA GEMM/MoE/FA ([flydsl.md](flydsl.md)). DeepEP IBGDA / MORI / NVLink ([deepep.md](deepep.md)). Porting ROCmFPX custom GGUF types into vLLM. Treating Llaminar gfx906 ROCm as a gfx1030/gfx1100/gfx900 backend. Loading gfx906 DOT or gfx1030 `fdot2`/`sdot4` on V340L.
 
 ## llama.cpp
 
@@ -39,11 +39,11 @@ SOSP'25: attention+shared on GPU, routed experts in DRAM. PCIe 4.0 they quote vs
 
 ## Llaminar
 
-C++ graph runtime. Heterogeneous CPU/CUDA/ROCm domains, TP/PP, prefix-cache exists, continuous batching still a plan, ROCm **gfx906 only**. Steal the domain/collective split. Do **not** fork it as the product base (vLLM then SGLang).
+C++ graph runtime. Heterogeneous CPU/CUDA/ROCm domains, TP/PP, prefix-cache exists, continuous batching still a plan (we add it), ROCm **gfx906 only** today. **Product path #2 after the vLLM fork.** We write gfx1030 + gfx1100 HIP. gfx900/V340L is a third ISA (packed `mad_mix` / `v_pk_fma_f16`, no DL DOT) — Later.
 
 ## Others
 
-MLC-LLM: compile-to-target (steal: emit gfx1030 kernels). TRT-LLM / Sarathi: scheduler ideas only, not the CUDA. LightLLM TokenAttention: per-token table, less fragmentation.
+MLC-LLM: compile-to-target (steal: emit gfx1030 kernels). TRT-LLM / Sarathi: scheduler ideas only, not the CUDA. LightLLM TokenAttention: per-token table, less fragmentation. SGLang: radix/CB ideas only; not the next engine.
 
 ## Sources
 
@@ -52,3 +52,4 @@ MLC-LLM: compile-to-target (steal: emit gfx1030 kernels). TRT-LLM / Sarathi: sch
 - ktransformers SOSP'25 + layerwise-prefill docs
 - [charlie12345/ROCmFPX](https://github.com/charlie12345/ROCmFPX)
 - [Llaminar/llaminar](https://github.com/Llaminar/llaminar)
+- [multi-tier.md](multi-tier.md)
