@@ -1,6 +1,8 @@
 # MoE expert offloading
 
-Date: 2026-08-17. Sourced only. DeepEP / asymmetric A2A insight: [deepep.md](deepep.md).
+Date: 2026-08-18. Sourced only. DeepEP / asymmetric A2A: [deepep.md](deepep.md). Hetero placement (W7800 + V620): [multi-tier.md](multi-tier.md) + [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md).
+
+**Product path:** vLLM fork first, then SGLang. Llaminar is a placement model, not the base.
 
 ## Verdict on gfx1030
 
@@ -16,11 +18,13 @@ MoE tile: A (activations) in LDS; stream B (weights). Token-major + small BLOCK_
 
 Mixed INT2/INT4: sort tokens by expert, **then** group by bitwidth. Two unpackers, one `fdot2`. Do not switch unpackers inside K.
 
+Hetero later: attn+router+**live KV** on W7800 (gfx1100); experts on V620 (gfx1030); activations only; fp16 on the hop. Do not park live KV on V620.
+
 ## Basics
 
 DeepSeek-V3: 1 shared + 256 routed, 8 activated/token, 671B/37B. Prefill wants fat expert batches (EP32). Decode: one expert per GPU at EP320, batch/expert usually ≤256, memory-bound.
 
-AMD playbook: <1% activation density prefer no-EP (AllReduce); >3% prefer EP (AllToAll). MLA still wants DP+EP for KV reasons. DeepEP is a GPU-initiated AllToAll for the high-density case, not a reason to AllToAll a 4×PCIe box by default.
+AMD playbook: <1% activation density prefer no-EP (AllReduce); >3% prefer EP (AllToAll). MLA still wants DP+EP for KV reasons. DeepEP is a GPU-initiated AllToAll for the high-density case, not a reason to AllToAll a 4×PCIe box by default. V620 analogue: mapped-peer scatter/combine, not IBGDA.
 
 ## vLLM
 
@@ -30,7 +34,7 @@ Kernels: Triton, DeepGEMM, Marlin WNA16, rocm aiter moe (CDNA). `--cpu-offload-g
 
 ## SGLang
 
-`--moe-a2a-backend`: none / deepep / mooncake / nixl / mori (AMD, gfx942+, normal only). Hybrid with ktransformers kt-kernel shipped (CPU AMX experts). UVM offload PR #20126 open, CUDA-only.
+`--moe-a2a-backend`: none / deepep / mooncake / nixl / mori (AMD, gfx942+, normal only). Hybrid with ktransformers kt-kernel shipped (CPU AMX experts). UVM offload PR #20126 open, CUDA-only. Product path: after vLLM kernels exist.
 
 ## Offload policies
 
@@ -42,7 +46,7 @@ Grouped GEMM (prefill), skinny GEMV (decode), router/align-sort, combine, EP all
 
 ## Unknowns
 
-gfx1030 MoE kernel quality. Whether #37190 / #20126 merged later. llama.cpp compute vs H2D split. AITER fused MoE on any RDNA. Named INT2 / mixed-bitwidth checkpoint. Whether 4×V620 has working `hipDeviceCanAccessPeer` after IOMMU/ACS.
+gfx1030 MoE kernel quality. Whether #37190 / #20126 merged later. llama.cpp compute vs H2D split. AITER fused MoE on any RDNA. Named INT2 / mixed-bitwidth checkpoint. Whether 4×V620 has working `hipDeviceCanAccessPeer` after IOMMU/ACS. W7800↔V620 P2P unmeasured.
 
 ## Sources
 
@@ -52,4 +56,4 @@ gfx1030 MoE kernel quality. Whether #37190 / #20126 merged later. llama.cpp comp
 - [ktransformers layerwise](https://ktransformers.net/en/docs/optimization-techniques/layerwise-prefill)
 - [llama.cpp --cpu-moe](https://github.com/ggml-org/llama.cpp/pull/15077)
 - [Triton MoE excludes gfx10xx](https://github.com/vllm-project/vllm/pull/37826)
-- [deepep.md](deepep.md)
+- [deepep.md](deepep.md), [multi-tier.md](multi-tier.md)
