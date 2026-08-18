@@ -20,7 +20,7 @@ Session dump (2026-08-17/18): [notes/session-2026-08-17.md](notes/session-2026-0
 | [flydsl.md](flydsl.md) | FlyDSL gfx1030 gates — compiler yes, shipped MFMA/WMMA kernels no |
 | [fp16-moe.md](fp16-moe.md) | Native HIP FP16 MoE draft — decode skinny + prefill grouped, `fdot2` |
 | [int8-moe.md](int8-moe.md) | Dual-route INT8 MoE — W8A16 `fdot2` + W8A8 `sdot4` |
-| [multi-tier.md](multi-tier.md) | Hetero MoE placement — **vLLM first, then SGLang**; Llaminar steal-not-base |
+| [multi-tier.md](multi-tier.md) | Hetero MoE — **vLLM first, then Llaminar**; gfx900 is mix/FMA not DOT |
 | [rocmfpx.md](rocmfpx.md) | ROCmFPX leverage — codebook→`perm`→`sdot4`, not a vLLM port |
 | [llamacpp-rocmfpx.md](llamacpp-rocmfpx.md) | llama.cpp side project: `build-rdna2.sh` on V620 |
 | [deepep.md](deepep.md) | DeepEP insight — mapped-peer scatter/combine, not MORI/IBGDA |
