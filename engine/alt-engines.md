@@ -1,6 +1,6 @@
 # What to steal from other engines
 
-Date: 2026-08-17. Sourced only.
+Date: 2026-08-18. Sourced only. Product path: **vLLM first, then SGLang**. Llaminar is steal-not-base: [multi-tier.md](multi-tier.md).
 
 ## Copy
 
@@ -15,10 +15,11 @@ Date: 2026-08-17. Sourced only.
 9. Prefix hashing / refcounted pages (ExLlama).
 10. Write HIP-portable kernels from day one.
 11. ROCmFPX codebook → `__builtin_amdgcn_perm` → i8 → `sdot4` vs A8 (lesson only). Contract: [rocmfpx.md](rocmfpx.md).
+12. Llaminar heterogeneous domains + explicit collective routing — placement *model* only. Not the repo we extend.
 
 ## Ignore
 
-ExLlama / EXL3 / Marlin / FlashInfer / TRT-LLM kernels (CUDA). rocWMMA / MMA FA (RDNA3+/CDNA). FA page=256 as if optimal (Tri Dao: convenience). Intel AMX tiles. CUDA-graph-as-religion (HIP graph capture + alloc is fragile). Unified memory on dGPUs (llama.cpp: hurts non-iGPU). FlyDSL shipped MFMA/WMMA GEMM/MoE/FA ([flydsl.md](flydsl.md)). DeepEP IBGDA / MORI / NVLink ([deepep.md](deepep.md)). Porting ROCmFPX custom GGUF types into vLLM.
+ExLlama / EXL3 / Marlin / FlashInfer / TRT-LLM kernels (CUDA). rocWMMA / MMA FA (RDNA3+/CDNA). FA page=256 as if optimal (Tri Dao: convenience). Intel AMX tiles. CUDA-graph-as-religion (HIP graph capture + alloc is fragile). Unified memory on dGPUs (llama.cpp: hurts non-iGPU). FlyDSL shipped MFMA/WMMA GEMM/MoE/FA ([flydsl.md](flydsl.md)). DeepEP IBGDA / MORI / NVLink ([deepep.md](deepep.md)). Porting ROCmFPX custom GGUF types into vLLM. Treating Llaminar gfx906 ROCm as a gfx1030/gfx1100 backend.
 
 ## llama.cpp
 
@@ -34,7 +35,11 @@ V2 archived, V3 exists, ROCm is a TODO. Page size 256 because FA API requires a 
 
 ## ktransformers
 
-SOSP'25: attention+shared on GPU, routed experts in DRAM. PCIe 4.0 they quote vs DDR5. Layerwise prefill when tokens > threshold. Expert deferral decode-only. Long-context: KV parked in DRAM, sparse CPU attn so KV is not swapped back over PCIe. Only engine in this set that names PCIe as the prefill bottleneck.
+SOSP'25: attention+shared on GPU, routed experts in DRAM. PCIe 4.0 they quote vs DDR5. Layerwise prefill when tokens > threshold. Expert deferral decode-only. Long-context: KV parked in DRAM, sparse CPU attn so KV is not swapped back over PCIe. Only engine in this set that names PCIe as the prefill bottleneck. Closest *policy* cousin of W7800-attn / V620-experts ([multi-tier.md](multi-tier.md)) — still CPU+CUDA, not a ROCm backend.
+
+## Llaminar
+
+C++ graph runtime. Heterogeneous CPU/CUDA/ROCm domains, TP/PP, prefix-cache exists, continuous batching still a plan, ROCm **gfx906 only**. Steal the domain/collective split. Do **not** fork it as the product base (vLLM then SGLang).
 
 ## Others
 
@@ -46,3 +51,4 @@ MLC-LLM: compile-to-target (steal: emit gfx1030 kernels). TRT-LLM / Sarathi: sch
 - ExLlamaV2 `dynamic.md`; FA issue #828
 - ktransformers SOSP'25 + layerwise-prefill docs
 - [charlie12345/ROCmFPX](https://github.com/charlie12345/ROCmFPX)
+- [Llaminar/llaminar](https://github.com/Llaminar/llaminar)
