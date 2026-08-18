@@ -29,20 +29,37 @@ Closest existing tile: W4A8 after W8A8 ([sdot4-explore.md](sdot4-explore.md)). S
 
 `amdgcn_perm` = no LDS LUT (same llama.cpp #24438 rule as mxfp4).
 
-## gfx1030 vs their tune
+## gfx1030 vs their RDNA4 / Strix numbers
 
-They ship `scripts/build-rdna2.sh`. Hot-path knobs in the README (`RDNA35_NWARPS=2`, FA `KQ_NTHREADS`) are **gfx1151**. Do not copy those onto V620. Wave32 + `sdot4` is legal here; occupancy of *their* MMVQ is unknown until the dump.
+They ship `scripts/build-rdna2.sh`. Published “good results” are **RDNA4 / gfx1151 / Vulkan** (WMMA or their tuned FA), not a V620 ISA dump. Do not copy `RDNA35_NWARPS=2`, FA `KQ_NTHREADS`, or R9700 tok/s onto gfx1030.
 
-Standalone `rocmfp4_hip.cu` dequant is `decode_i8 * ue4m3 → f32` — that is the **unfused** path. The steal is the fused MMVQ/MMQ integer-dot.
+Wave32 + `sdot4` is the legal V620 compute path. Occupancy of *their* MMVQ is unknown until the dump. Standalone `rocmfp4_hip.cu` dequant is `decode_i8 * ue4m3 → f32` — unfused. The steal is fused MMVQ/MMQ integer-dot.
+
+## Concurrency is KV, not the codebook
+
+ROCmFP4 only shrinks **weights**. llama-server concurrency is still:
+
+```text
+slots = -np
+KV_bytes ≈ -np × -c × 2 × n_layer × n_kv_head × d_head × kv_elem
+```
+
+`--cache-prompt` / `-cb` reuse a **slot’s** KV for a longer prompt with the same prefix. They do not allocate shared paged blocks. A second system prompt needs another slot or you evict and redo prefill.
+
+On a 32 GB V620 the lever that changes `-np` is `-ctk`/`-ctv` (and `-c`), not switching Q4_K_M → ROCmFP4. Weight savings of ~10–15% vs Q4_K_M free a little KV, not a farm of slots. 35B-A3B-class FP4 still leaves most of the card in weights + one-context workspace; expect a **handful** of 8k slots unless KV is quantized.
+
+No extra silicon in the prefix-cache path: it is “don’t recompute K/V for the cached prefix,” not a new DOT.
 
 ## Done-when (side project)
 
 - [ ] ISA: `v_dot4c_i32_i8` (or document scalar FMA if that is what hipcc emitted)
 - [ ] `perm` in the expand, not a K$ LUT
 - [ ] One paragraph vs W4A8: keep codebook / drop pack
+- [ ] Record `-np`/`-c`/`-ctk` that actually fit 32 GB; do not quote RDNA4 tok/s
 
 ## Sources
 
 - `ggml/rocmfp4/rocmfp4_hip.cu`, `rocmfp4_hip_codebook.cuh`, `rocmfp4.h`
 - [silicon/valu.md](../silicon/valu.md)
 - Engine pages above
+- ROCmFPX README / `scripts/build-rdna2.sh`
