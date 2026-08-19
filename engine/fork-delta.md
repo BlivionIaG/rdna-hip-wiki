@@ -1,6 +1,6 @@
 # Fork vs upstream — gfx1030 features
 
-Date: 2026-08-17. Tip `perf/rdna2_w4a16` @ **`0c59068e`** (read-only). Index of **features this fork added** vs stock vLLM. Completeness bar: **W4A16 dense**. On the branch = **In Progress**. Spec-only = **Todo**. Tickets: one card per row on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not edit that branch from this page.
+Date: 2026-08-19. Tip **`rdna2_extras`** @ **`3e05abc9`** (read-only). Overlay of vLLM **v0.27.1** + gfx1030 work (`9ff87936` merge). Historical source: `perf/rdna2_w4a16`. Review: [rdna2-extras.md](rdna2-extras.md). Index of **features this fork added** vs stock vLLM. Completeness bar: **W4A16 dense**. On the branch = **In Progress**. Spec-only = **Todo**. Tickets: one card per row on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not edit that branch from this page.
 
 Session dump: [notes/session-2026-08-17.md](notes/session-2026-08-17.md).
 
@@ -11,6 +11,8 @@ Session dump: [notes/session-2026-08-17.md](notes/session-2026-08-17.md).
 Silicon index: [kernels/README.md](../kernels/README.md). W8A16 / W8A16-FP8 / W8A8-FP8 are all `fdot2` (W8A8-FP8 is **not** `sdot4`). No `q_gemm_w8a16_rdna2.cu` at tip.
 
 Upstream on gfx1030: Triton / `torch.nn.functional.linear` / rocBLAS. AITER, CUTLASS, Marlin, FlashInfer, hipBLASLt-as-required-HW, `supports_fp8()`, `supports_mx()` — all off or CUDA/CDNA. Stock skinny (`wvSplitK` / `LLMM1`) is **not** compiled in: `on_gfx9() or on_gfx1x()` only. [kernels/triton-skinny-gemm.md](../kernels/triton-skinny-gemm.md).
+
+**Dispatch watch (v0.27.1):** `on_rdna()` is gfx11/12 only. V620 is `on_gfx10x()`. New upstream `on_rdna()` gates skip gfx1030.
 
 ## GEMM
 
@@ -65,9 +67,9 @@ File-mounts on `blivioniag/vllm-rdna:v0.26.0`. Digest: [notes/ikantkode-qwen35.m
 | Feature | Upstream | Fork | Status |
 |---|---|---|---|
 | `RDNA_ATTN` enum / `--attention-backend` | missing | added | In Progress (backend itself In Progress) |
-| causal_conv1d padding (`total_entries`) | NULL_BLOCK_ID=0 collision | on the branch | In Progress |
+| causal_conv1d padding (`total_entries`) | NULL_BLOCK_ID=0 collision | on extras (bounds-check + upstream PDL) | In Progress |
 | W8A16 `weight_scale` alias | Marlin renamed to `_inv` | both names | In Progress (glue for W8A16-FP8) |
-| gfx1030/gfx1100 all-reduce bypass | `vllm::all_reduce` CUDA dispatcher (broken under Torch 2.12) | `0c59068e` → `_all_reduce_out_place` / PYNCCL | In Progress (glue). Transport only. Does not put RCCL inside MoE GEMM. |
+| gfx1030/gfx1100 all-reduce bypass | `vllm::all_reduce` CUDA dispatcher (broken under Torch 2.12) | `3e05abc9` → `_all_reduce_out_place` / PYNCCL (`use_custom_op_collectives` False, ROCm-wide) | In Progress (glue). Transport only. Does not put RCCL inside MoE GEMM. |
 
 ## Research / later (not fork features)
 
@@ -80,7 +82,7 @@ File-mounts on `blivioniag/vllm-rdna:v0.26.0`. Digest: [notes/ikantkode-qwen35.m
 
 ## Card list (for VLLM_FORK_Manager)
 
-Reuse a card if it already exists. In-tree → In Progress. Spec-only → Todo.
+Reuse a card if it already exists. In-tree → In Progress. Spec-only → Todo. Retip In Progress cards to `rdna2_extras` @ `3e05abc9`.
 
 1. W4A16 dense — bar; leftover tile/occupancy only
 2. W4A16 MoE
@@ -89,7 +91,7 @@ Reuse a card if it already exists. In-tree → In Progress. Spec-only → Todo.
 5. W8A8-FP8 dense
 6. mxfp4 dense + MoE
 7. Skinny GEMM — **same occupancy card** as `fa_rdna2` (LLMM1 gfx1030 note; stock is BLAS)
-8. `fa_rdna2` / occupancy — current subject
+8. `fa_rdna2` / occupancy — current subject (**not fixed by rebase**)
 9. Triton + HIP MLA decode + HIP MLA prefill — **same MLA card** (`66bb24d7`; **OOB first**, then `fdot2`; fat tile still Later)
 10. Lightning Indexer HIP — includes `8496f4ca` radix top-k
 11. DSv4 gfx10x routing (inv-RoPE / workspace / MTP gate)
@@ -107,9 +109,9 @@ Reuse a card if it already exists. In-tree → In Progress. Spec-only → Todo.
 23. W4A4 integer `sdot8` — Explore — [w4a4.md](w4a4.md) (not MXFP4/NVFP4 A4)
 24. Native HIP FP16 MoE — Todo — [fp16-moe.md](fp16-moe.md)
 25. Native HIP INT8 MoE (W8A16 + W8A8) — Todo — [int8-moe.md](int8-moe.md)
-26. `0c59068e` PYNCCL all-reduce bypass — In Progress (glue)
+26. `3e05abc9` PYNCCL all-reduce bypass — In Progress (glue)
 27. Baseline epic 0–5 (harness → stock map → skinny → Triton FA → HIP A/B → FlyDSL) — [baseline-order.md](baseline-order.md)
 28. llama.cpp ROCmFPX on V620 — Later / side-project — [llamacpp-rocmfpx.md](llamacpp-rocmfpx.md)
 29. DeepEP / PCIe A2A — Later, not a first ticket — [deepep.md](deepep.md)
 
-Occupancy still first. No tok/s invented here.
+Occupancy still first. Rebase did not fix occupancy, MLA `load_row` OOB, or the stock skinny gate. No tok/s invented here.
