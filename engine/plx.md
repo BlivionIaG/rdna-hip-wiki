@@ -4,6 +4,20 @@ Date: 2026-08-19. Engine page for **PEX88096** (Gen4) and **PEX8749** (Gen3). Si
 
 Companions: [silicon/plx-p2p-mmio.md](../silicon/plx-p2p-mmio.md), [silicon/rccl-p2p.md](../silicon/rccl-p2p.md), [deepep.md](deepep.md), [multi-tier.md](multi-tier.md).
 
+## Hardware on hand (2026-08-19)
+
+| Piece | Count | Note |
+|---|---|---|
+| 5-slot **x16 Gen4** 88096 backplane | **2** | Each is CPU x16 + 5× GPU x16 = **96 lanes exact** |
+| V620 (gfx1030) | **8** | Fits 5+3 or 4+4. Occupancy box can stay **4 on one board** |
+| V340L (gfx900) | **8 incoming** | Vega10, PCIe **3.0** x16, dual-die. **Separate host** |
+
+**Slots:** 10× x16. 8 V620 + 8 V340L = 16 cards — **cannot populate both sets**. Cross-board hop is `PHB` (two CPU roots) unless the two 88096s are cascaded (`PXB`). `lspci -tv` before assuming PIX across boards.
+
+**Do not mix V340L + V620 on one ROCm 7 host.** Toolbox: pre-gfx1030 in the same machine → `Failed to map remapped mmio page`. V340L is hippih/Later, mix/FMA, not extras. On an 88096 they will **LnkSta Gen3**.
+
+Two boards **do** give 2× W7800 + 8× V620 at **x16** (5+5). That was impossible on one 88096 (176 lanes). Cross-board still PHB/PXB, not one PIX domain.
+
 ## Why this is engine, not just silicon
 
 On this box every TP all-reduce and every future mapped-peer MoE A2A is **PCIe BAR traffic**. A PLX/PEX hop changes `NCCL_P2P_LEVEL` (`PIX` vs `PHB`/`PXB`), ACS policy, and the **generation ceiling**. GEMM still does not own RCCL. Live KV still does not ride the switch.
@@ -36,9 +50,9 @@ PCIe payload one way, 128b/130b ([silicon/rccl-p2p.md](../silicon/rccl-p2p.md)):
 | **8749 / Gen3** | **15.754 GB/s** | **10.503 GB/s** |
 | x8 at that gen | half | half |
 
-A V620 is Gen4 x16 **to the slot**. If the path is 8749, the **switch** is the gen drop. `lspci` **LnkSta** (not LnkCap) is the number that matters.
+A V620 is Gen4 x16 **to the slot**. If the path is 8749 (or a V340L), the **device or switch** is the gen drop. `lspci` **LnkSta** (not LnkCap) is the number that matters.
 
-**Lane budget (silicon):** one 88096 is 96 data lanes. CPU x16 + 4× V620 x16 = 80 (fits). CPU x16 + 2× W7800 x16 + 8× V620 x16 = 176 (**does not fit**). Hetero on one chip is x8 or a second 88096 (`PXB`). One 8749 cannot do 4× x16. Details: [silicon/plx-p2p-mmio.md](../silicon/plx-p2p-mmio.md).
+**Lane budget:** one 88096 = 96 data lanes = **one 5-slot x16 backplane** (CPU + 5 GPU). Two of those = 10× x16. One chip still cannot do 2+8 x16 alone (176). Two chips can (5+5). One 8749 cannot do 4× x16. [silicon/plx-p2p-mmio.md](../silicon/plx-p2p-mmio.md).
 
 ## What we use vs what we ignore
 
@@ -46,23 +60,23 @@ A V620 is Gen4 x16 **to the slot**. If the path is 8749, the **switch** is the g
 
 - Transparent cut-through + ACS **cleared** on switch downstream ports so peer TLPs stay in the switch (`PIX`).
 - Full x16 (or measured x8) to every V620 / W7800.
-- Large-BAR: BAR0 **32G** prefetchable, start **< 2^44**. Four V620s need **≥ 128 GiB** 64-bit MMIO before doorbells.
+- Large-BAR: BAR0 **32G** prefetchable, start **< 2^44**. Four V620s need **≥ 128 GiB** 64-bit MMIO before doorbells. Eight V620s **≥ 256 GiB**.
 - Linux: `CONFIG_HSA_AMD_P2P` + `CONFIG_PCI_P2PDMA` + `CONFIG_DMABUF_MOVE_NOTIFY` (already in `v620_toolbox`).
 - `HSA_FORCE_FINE_GRAIN_PCIE=1` for RCCL P2P. `amdgpu.pcie_p2p=1` (default).
-- `NCCL_P2P_LEVEL=PIX` when all GPUs hang off one switch. `PXB` if cascaded switches. `PHB` is CPU-root, not this plan.
+- `NCCL_P2P_LEVEL=PIX` **inside one backplane**. `PXB` if the two 88096s are cascaded. `PHB` if each has its own CPU root.
 
 **Ignore / Later (not the TP=4 path)**
 
 - **NTB / NT2.0** — multi-host memory domains. Single-root P2P does **not** need it.
 - **Switch DMA** — host/I-O any-to-any. Not GPU SDMA. Do not treat 48 DMA channels as DeepEP.
 - Synthetic / MPT / I/O-sharing / SR-IOV ACS-on BIOS — virt, not bare-metal TP.
-- Cascaded 88096 fabrics until one-switch PIX is measured.
+- Mixing V340L onto the V620 ROCm host.
 
 ## Linux / MMIO checklist (engine)
 
 | Check | Pass |
 |---|---|
-| `lspci -tv` | GPUs under the **same** PEX, not four CPU RPs |
+| `lspci -tv` | Which GPUs share **one** PEX vs two boards via CPU |
 | `lspci -s <gpu> -vv` BAR0 | `size=32G` prefetchable, not 256M |
 | `LnkSta` | Speed/Width you paid for (Gen4 x16 vs Gen3/x8) |
 | `ACSCtl` on switch ports | `SrcValid-` after `setpci … ECAP_ACS+0x6.w=0000` (re-apply after reboot) |
@@ -86,13 +100,13 @@ Do not expect `/dev/switchtec0` on a Broadcom 88096 in Base Mode — that node i
 1. Occupancy on extras still first. PLX tune is **Later** platform work.
 2. TP all-reduce stays **RCCL / PYNCCL**. No custom AR on gfx1030 until a measured PIX busbw exists.
 3. DeepEP steal is still **mapped-peer scatter/combine over BAR0**, not IBGDA, not switch DMA. [deepep.md](deepep.md).
-4. Hetero W7800↔V620: **activations only**; live KV stays on gfx1100. A 8749 hop **halves** the gen ceiling vs 88096.
+4. Hetero W7800↔V620: **activations only**; live KV stays on gfx1100.
 5. W4A16 does not shrink the AR (residual is still FP16).
 6. If RCCL “P2P” is hundreds of ms, ship `NCCL_P2P_DISABLE=1` (SHM). P2P-on can be worse than P2P-off.
 
 ## First measure (when we touch this)
 
-Pairwise `hipMemcpyPeer` + `all_reduce_perf` **with ACS clear vs ACS on**, on **88096 vs 8749** if both exist. Then set `NCCL_P2P_LEVEL`. No tok/s from this page.
+Pairwise `hipMemcpyPeer` + `all_reduce_perf` **with ACS clear vs ACS on**, **same-board PIX vs cross-board PHB**. Then set `NCCL_P2P_LEVEL`. No tok/s from this page.
 
 ## Cards
 
@@ -100,6 +114,7 @@ Later. One platform card: “PEX ACS + PIX matrix” after occupancy. @VLLM_FORK
 
 ## Sources
 
+- Room 2026-08-19: two 5-slot 88096 backplanes, 8 V620, 8 V340L incoming
 - https://docs.broadcom.com/doc/BC-0484EN (PEX88000 brief, 2019-07-17)
 - https://docs.broadcom.com/doc/BC00-0445EN (family table)
 - https://docs.broadcom.com/doc/12351856 (PEX8749 brief, 2011-08-22)

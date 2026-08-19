@@ -9,11 +9,15 @@ Silicon: [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md)
 - **Fast tier:** 2× W7800 48 GB (**gfx1100**) — attention, router, embeddings, LM head, **live KV**
 - **Capacity tier:** 8× V620 32 GB (**gfx1030**) — expert GEMMs only
 - **Bus rule:** ship **activations only** (fp16 on the hop unless both kernels consume a smaller dtype).
-- **Not this work:** V340L is **Vega10 / gfx900**, dual-die on one PCIe 3.0 x16. Later. [silicon/v340l.md](../silicon/v340l.md).
+- **V340L:** 8 incoming, Vega10 / **gfx900**, PCIe 3.0 x16 dual-die. **Later, separate host.** [silicon/v340l.md](../silicon/v340l.md).
 
-**Lane budget (locked):** one PEX88096 is 96 data lanes. CPU x16 + 4× V620 x16 = 80 (today’s box, fits). CPU x16 + 2× W7800 x16 + 8× V620 x16 = **176 — does not fit**. Hetero on one 88096 is **x8 everywhere** (exact 96) or a **second 88096** (`NCCL_P2P_LEVEL=PXB`). One 8749 cannot even do 4× x16. [plx.md](plx.md).
+**Hardware on hand:** two **5-slot x16 Gen4 88096** backplanes (10 GPU slots) + **8 V620**. Each board is CPU x16 + 5× GPU x16 = 96 lanes exact, PIX inside the board.
 
-This is **two HIP targets** for the W7800/V620 box (plus a third ISA if V340L is ever benched). gfx1100 may use WMMA/BF16 locally; V620 stays `fdot2`/`sdot4`. Do not park live KV on V620. Decode hop is tiny; **prefill is the bus**. W7800↔V620 P2P is **unmeasured** — bench later from [v620_toolbox](https://github.com/BlivionIaG/v620_toolbox) `pcie_p2p`.
+**Lane budget (corrected):** one 88096 still cannot do 2+8 x16 alone (176). **Two 5-slot boards can** (5+5 at x16). Cross-board is `PHB` unless the 88096s are cascaded (`PXB`). Occupancy box stays 4× V620 on **one** board. [plx.md](plx.md).
+
+**Do not mix V340L + V620 on the same ROCm 7 host** (toolbox: remapped MMIO map fail). 10 slots cannot hold 8+8 cards anyway. V340L is hippih gfx900 mix/FMA, not extras.
+
+This is **two HIP targets** for the W7800/V620 box (plus a third ISA on a **different** host if V340L is benched). gfx1100 may use WMMA/BF16 locally; V620 stays `fdot2`/`sdot4`. Do not park live KV on V620. Decode hop is tiny; **prefill is the bus**. W7800↔V620 P2P is **unmeasured** — bench later from [v620_toolbox](https://github.com/BlivionIaG/v620_toolbox) `pcie_p2p`.
 
 ## Engine base (locked 2026-08-19, corrected)
 
@@ -40,7 +44,7 @@ Vega10 **does not** have the Vega20 DL DOT set. LLVM `fdot2.ll`: gfx900 emits `v
 | MFMA / WMMA | **no** | no | no |
 | wave | 64 | 64 | 32 |
 
-**HIP:** do not call `__builtin_amdgcn_fdot2` / `sdot4` on gfx900. Old HIP-Clang notes that say “fdot2 on gfx9+” mean Vega20+. On V340L the honest inner loop is packed FMA / `mad_mix` into fp32 accum. Llaminar gfx906 DOT objects **will not load**. A V340L backend is a third ISA, after occupancy + V620 HIP MoE. hippih owns that third backend when we write it.
+**HIP:** do not call `__builtin_amdgcn_fdot2` / `sdot4` on gfx900. Old HIP-Clang notes that say “fdot2 on gfx9+” mean Vega20+. On V340L the honest inner loop is packed FMA / `mad_mix` into fp32 accum. Llaminar gfx906 DOT objects **will not load**. A V340L backend is a third ISA, after occupancy + V620 HIP MoE. hippih owns that third backend when we write it. **Separate host from the V620 ROCm 7 box.**
 
 @RDNA2_Researcher owns the silicon table; this is the engine dispatch constraint.
 
@@ -56,7 +60,7 @@ Vega10 **does not** have the Vega20 DL DOT set. LLVM `fdot2.ll`: gfx900 emits `v
 | Continuous batching | **Must add** (plan / V1 HTTP non-goal) |
 | ROCm | **gfx906 only** today |
 | gfx1030 / gfx1100 HIP | **we write** |
-| gfx900 / V340L | Later; packed mix/FMA, not their gfx906 DOT |
+| gfx900 / V340L | Later; packed mix/FMA, not their gfx906 DOT; **own host** |
 
 ## hippih (in-house, after Llaminar lessons)
 
@@ -64,29 +68,30 @@ Vega10 **does not** have the Vega20 DL DOT set. LLVM `fdot2.ll`: gfx900 emits `v
 
 ## Implementation order
 
-1. `fa_rdna2` occupancy + V620 HIP MoE (already first).
-2. gfx1100 attention/router baseline on W7800.
-3. Measured W7800↔V620 activation matrix (`v620_toolbox/pcie_p2p`). One-88096 hetero is **x8 or PXB**, not 10× x16.
-4. Asymmetric activation dispatch/combine.
-5. Optional KV overflow park — never live-KV on V620.
-6. **Llaminar** as the hetero serving/runtime shell (gfx1030 + gfx1100 backends + CB).
-7. **hippih** as the in-house engine (steal extras + Llaminar).
-8. V340L gfx900 packed-mix backend — Later, not a V620 or gfx906 drop-in.
+1. `fa_rdna2` occupancy + V620 HIP MoE (already first). 4× on **one** 5-slot 88096.
+2. 8× V620 on two boards (5+3 or 4+4) only after PIX vs PHB is measured.
+3. gfx1100 attention/router baseline on W7800 — 2+8 at x16 is now **two backplanes**, not one chip.
+4. Measured W7800↔V620 activation matrix (`v620_toolbox/pcie_p2p`).
+5. Asymmetric activation dispatch/combine.
+6. Optional KV overflow park — never live-KV on V620.
+7. **Llaminar** as the hetero serving/runtime shell (gfx1030 + gfx1100 backends + CB).
+8. **hippih** as the in-house engine (steal extras + Llaminar).
+9. V340L gfx900 packed-mix backend — Later, **separate host**, not a V620 or gfx906 drop-in.
 
 ## Cards (for VLLM_FORK_Manager)
 
 Occupancy still first.
 
-- Multi-tier W7800/V620 placement — Later; **one 88096 cannot do 2+8 at x16**
+- Multi-tier W7800/V620 — Later; **two 5-slot 88096s can do 2+8 at x16** (cross-board PHB/PXB)
+- V340L — Later, **own host**, do not mix with V620 on ROCm 7
 - Llaminar after vLLM (gfx1030/gfx1100 HIP + CB) — Later, **this is #2**
 - hippih in-house engine — Later, **this is #3** — [hippih.md](hippih.md)
-- V340L gfx900 packed-mix / mad_mix — Later; no DOT objects
 - SGLang — demoted, no first card
 
 ## Sources
 
 - Room 2026-08-18: “vllm fork then laminar”; V340L HIP check
-- Room 2026-08-19: hippih is the in-house engine, not a discard; 88096 lane budget
+- Room 2026-08-19: two 5-slot 88096 backplanes, 8 V620, 8 V340L incoming
 - LLVM gfx900 VOP3P: https://rocm.docs.amd.com/projects/llvm-project/en/latest/LLVM/llvm/html/AMDGPU/AMDGPUAsmGFX900.html
 - LLVM gfx906 VOP3P (DOT): https://rocm.docs.amd.com/projects/llvm-project/en/latest/LLVM/llvm/html/AMDGPU/AMDGPUAsmGFX906.html
 - LLVM `fdot2.ll` (gfx900 → mix/FMA, gfx906 → `v_dot2_f32_f16`)
