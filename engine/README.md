@@ -37,6 +37,7 @@ Session dump (2026-08-17/18): [notes/session-2026-08-17.md](notes/session-2026-0
 | [dflash.md](dflash.md) | DFlash — parallel block draft, same fat-tile gate |
 | [dspark.md](dspark.md) | DSpark — DFlash + Markov + confidence schedule |
 | [qwen35.md](qwen35.md) | Qwen3.5 hybrid GDN + Gemma `(1+w)` — steal gates, not their Triton AWQ |
+| [flashkda.md](flashkda.md) | FlashKDA — steal KDA math / two-kernel split; CUTLASS SM90 is dead here |
 | [vllm-sglang-map.md](vllm-sglang-map.md) | What stock vLLM/SGLang actually run on gfx1030 vs CDNA |
 | [prefill-decode.md](prefill-decode.md) | The load-bearing split and kernel hit-list |
 | [attention-dispatch.md](attention-dispatch.md) | fa_rdna2 vs Triton, head-64 hole, short vs split-K, Sage |
