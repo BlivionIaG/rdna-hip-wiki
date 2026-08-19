@@ -17,3 +17,4 @@ How gfx1030 actually works, and what HIP can control.
 | [deepep-v620.md](deepep-v620.md) | DeepEP insight → mapped-peer PCIe scatter, not IBGDA |
 | [hetero-moe-w7800-v620.md](hetero-moe-w7800-v620.md) | 2×W7800 + 8×V620: two ISAs, activations-only hop, KV stays on W7800 |
 | [v340l.md](v340l.md) | V340L = Vega10 **gfx900**, dual-die; not a V620 drop-in |
+| [hippih.md](hippih.md) | hippih stub: three ISAs (`fdot2` / WMMA / `mad_mix`); extras stays first |
