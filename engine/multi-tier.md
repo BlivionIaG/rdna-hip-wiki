@@ -2,7 +2,7 @@
 
 Date: 2026-08-19. Engine contract. **Product path (locked):** optimize **vLLM fork first**, then **Llaminar**, then **hippih** as the in-house HIP engine. SGLang is not the next engine. Occupancy + V620 HIP MoE still first. Do not invent tok/s.
 
-Silicon: [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md). V340L: [silicon/v340l.md](../silicon/v340l.md). Related: [moe.md](moe.md), [deepep.md](deepep.md), [alt-engines.md](alt-engines.md), [hippih.md](hippih.md).
+Silicon: [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md). V340L: [silicon/v340l.md](../silicon/v340l.md). PLX hop: [plx.md](plx.md), [silicon/plx-p2p-mmio.md](../silicon/plx-p2p-mmio.md). Related: [moe.md](moe.md), [deepep.md](deepep.md), [alt-engines.md](alt-engines.md), [hippih.md](hippih.md).
 
 ## Topology (human plan)
 
@@ -10,6 +10,8 @@ Silicon: [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md)
 - **Capacity tier:** 8× V620 32 GB (**gfx1030**) — expert GEMMs only
 - **Bus rule:** ship **activations only** (fp16 on the hop unless both kernels consume a smaller dtype).
 - **Not this work:** V340L is **Vega10 / gfx900**, dual-die on one PCIe 3.0 x16. Later. [silicon/v340l.md](../silicon/v340l.md).
+
+**Lane budget (locked):** one PEX88096 is 96 data lanes. CPU x16 + 4× V620 x16 = 80 (today’s box, fits). CPU x16 + 2× W7800 x16 + 8× V620 x16 = **176 — does not fit**. Hetero on one 88096 is **x8 everywhere** (exact 96) or a **second 88096** (`NCCL_P2P_LEVEL=PXB`). One 8749 cannot even do 4× x16. [plx.md](plx.md).
 
 This is **two HIP targets** for the W7800/V620 box (plus a third ISA if V340L is ever benched). gfx1100 may use WMMA/BF16 locally; V620 stays `fdot2`/`sdot4`. Do not park live KV on V620. Decode hop is tiny; **prefill is the bus**. W7800↔V620 P2P is **unmeasured** — bench later from [v620_toolbox](https://github.com/BlivionIaG/v620_toolbox) `pcie_p2p`.
 
@@ -64,7 +66,7 @@ Vega10 **does not** have the Vega20 DL DOT set. LLVM `fdot2.ll`: gfx900 emits `v
 
 1. `fa_rdna2` occupancy + V620 HIP MoE (already first).
 2. gfx1100 attention/router baseline on W7800.
-3. Measured W7800↔V620 activation matrix (`v620_toolbox/pcie_p2p`).
+3. Measured W7800↔V620 activation matrix (`v620_toolbox/pcie_p2p`). One-88096 hetero is **x8 or PXB**, not 10× x16.
 4. Asymmetric activation dispatch/combine.
 5. Optional KV overflow park — never live-KV on V620.
 6. **Llaminar** as the hetero serving/runtime shell (gfx1030 + gfx1100 backends + CB).
@@ -75,7 +77,7 @@ Vega10 **does not** have the Vega20 DL DOT set. LLVM `fdot2.ll`: gfx900 emits `v
 
 Occupancy still first.
 
-- Multi-tier W7800/V620 placement — Later
+- Multi-tier W7800/V620 placement — Later; **one 88096 cannot do 2+8 at x16**
 - Llaminar after vLLM (gfx1030/gfx1100 HIP + CB) — Later, **this is #2**
 - hippih in-house engine — Later, **this is #3** — [hippih.md](hippih.md)
 - V340L gfx900 packed-mix / mad_mix — Later; no DOT objects
@@ -84,9 +86,9 @@ Occupancy still first.
 ## Sources
 
 - Room 2026-08-18: “vllm fork then laminar”; V340L HIP check
-- Room 2026-08-19: hippih is the in-house engine, not a discard
+- Room 2026-08-19: hippih is the in-house engine, not a discard; 88096 lane budget
 - LLVM gfx900 VOP3P: https://rocm.docs.amd.com/projects/llvm-project/en/latest/LLVM/llvm/html/AMDGPU/AMDGPUAsmGFX900.html
 - LLVM gfx906 VOP3P (DOT): https://rocm.docs.amd.com/projects/llvm-project/en/latest/LLVM/llvm/html/AMDGPU/AMDGPUAsmGFX906.html
 - LLVM `fdot2.ll` (gfx900 → mix/FMA, gfx906 → `v_dot2_f32_f16`)
 - Phoronix: Vega20 DL = fdot2/sdot4/sdot8, not Vega10
-- [silicon/v340l.md](../silicon/v340l.md), [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md)
+- [silicon/v340l.md](../silicon/v340l.md), [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md), [plx.md](plx.md)
