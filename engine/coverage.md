@@ -1,12 +1,14 @@
 # vLLM / HIP coverage on gfx1030
 
-Date: 2026-08-17. Progress map. Tip of human branch: `perf/rdna2_w4a16` @ **`0c59068e`** (read-only). Tickets stay on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not invent tok/s. Do not edit that branch from this page.
+Date: 2026-08-19. Progress map. Tip of human branch: **`rdna2_extras`** @ **`3e05abc9`** (read-only). Overlay of vLLM **v0.27.1** + gfx1030 work (`9ff87936` merge). Historical source: `perf/rdna2_w4a16`. Review: [rdna2-extras.md](rdna2-extras.md). Tickets stay on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not invent tok/s. Do not edit that branch from this page.
 
 Session dump: [notes/session-2026-08-17.md](notes/session-2026-08-17.md).
 
 **Live** = in the fork today. **Must** = HIP we write. **Fallback** = Triton / `torch.nn.functional.linear` / rocBLAS, not a win. **Dead** = no unit, CUDA-only, or wrong physics. **Later** = possible after Must.
 
 Inner ops we actually have: `fdot2` (FP16 256), `sdot4` (IU8 512), `V_DOT8_I32_I4` (IU4 1024). No WMMA / MFMA / FP8 / FP4 / bf16 matrix. `supports_fp8()` is false. `v_dot2_f32_bf16` is RDNA3+ — gfx1030 dots stay fp16.
+
+**Dispatch watch (v0.27.1):** `on_rdna()` is gfx11/12 only. V620 is `on_gfx10x()`. New upstream `on_rdna()` gates skip gfx1030.
 
 Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/sdot4-explore.md](../kernels/sdot4-explore.md) (W8A8, Sage QK, W4A8). W4A4 integer: [w4a4.md](w4a4.md). Dispatch: [attention-dispatch.md](attention-dispatch.md), [sage-attention.md](sage-attention.md). NVFP4: [nvfp4.md](nvfp4.md). INT8 KV: [kv-int8.md](kv-int8.md). INT2: [int2.md](int2.md). MTP / DFlash / DSpark: [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md). Native MoE: [fp16-moe.md](fp16-moe.md), [int8-moe.md](int8-moe.md). Stock baselines: [baseline-order.md](baseline-order.md), [triton-rocm.md](triton-rocm.md). FlyDSL: [flydsl.md](flydsl.md). DeepEP: [deepep.md](deepep.md). ROCmFPX: [rocmfpx.md](rocmfpx.md).
 
@@ -70,8 +72,8 @@ Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/s
 
 | Path | Status | Notes |
 |---|---|---|
-| gfx1030/gfx1100 all-reduce bypass | **Live** @ `0c59068e` | Broken `vllm::all_reduce` CUDA dispatcher under Torch 2.12 → direct `_all_reduce_out_place` / PYNCCL. Transport only. Verified TP=4 Qwen3.6-35B-A3B-FP16. |
-| RCCL inside MoE GEMM | **Dead** | Engine owns `combine_mode`. Default under TP/EP = unreduced routed rows. `0c59068e` does not change that. [moe.md](moe.md) |
+| gfx1030/gfx1100 all-reduce bypass | **Live** @ `3e05abc9` | `RocmPlatform.use_custom_op_collectives()` returns False (ROCm-wide) → PYNCCL `_all_reduce_out_place`. Transport only. Same intent as `0c59068e`. Verified TP=4 Qwen3.6-35B-A3B-FP16 on the historical branch. |
+| RCCL inside MoE GEMM | **Dead** | Engine owns `combine_mode`. Default under TP/EP = unreduced routed rows. `3e05abc9` does not change that. [moe.md](moe.md) |
 | DeepEP / IBGDA / MORI | **Later** | Steal asymmetry only. On 4×V620 the analogue is GPU-initiated PCIe P2P if peer access is real. [deepep.md](deepep.md) |
 | FlyDSL as a backend | Gate 0 | Compiler may emit gfx1030. Every shipped fast GEMM/MoE/FA is MFMA or gfx11/12 WMMA. [flydsl.md](flydsl.md) |
 
@@ -84,7 +86,7 @@ Triton is fine for bring-up. Autotune/compile makes it slow to *use*. Stock map 
 | Sparse MLA Triton decode | HIP MLA decode fp16 @ `9a344444` | Env flip is silicon-ok. `fdot2` after unpack is gone. |
 | Sparse MLA Triton prefill | HIP prefill @ `66bb24d7` | Env flip same as decode. **OOB first**, then `fdot2` (both sides half). |
 | `kernel_paged_attention_2d` (head-64) | Head-64 `fa_rdna2` tile | v2 write #3 |
-| Triton prefill `_fwd_kernel` | Extend `fa_rdna2_prefill_*` | After occupancy |
+| Triton prefill `_fwd_page` / `_fwd_kernel` | Extend `fa_rdna2_prefill_*` | After occupancy |
 | Triton AWQ / GPTQ / WNA16 / MoE | `q_gemm_rdna2` / `moe_q_gemm_rdna2` | **Do not rewrite those GEMMs** |
 | Triton INT8 reshape / attn | HIP writer + `fa_rdna2` gather | After occupancy. [kv-int8.md](kv-int8.md) |
 
@@ -92,7 +94,7 @@ Do not HIP-rewrite unused Triton (AITER FA, FA3, Marlin).
 
 ## v2 write order (locked with silicon)
 
-1. Occupancy flip: `fa_rdna2` + `skinny_gemms.cu`. Current subject.
+1. Occupancy flip: `fa_rdna2` + `skinny_gemms.cu`. Current subject. **Not fixed by the extras rebase.**
 2. Sage QK prefill (`sdot4`).
 3. Head-64 paged HIP.
 4. Then: W8A8 `sdot4`, INT8 KV, MLA fat tile, W4A8, NVFP4 unpack→`fdot2`. HIP MLA: **OOB on prefill `load_row`**, then `fdot2` on prefill first (both sides half). Decode `fdot2` after FP8 unpack is gone. Note on the MLA card, not this list.
@@ -103,4 +105,4 @@ Native HIP FP16 / INT8 MoE sit after occupancy (and after a measured stock basel
 
 ## Progress
 
-Locked 2026-08-17 with RDNA2_Researcher v2 order. Tip **`0c59068e`**: HIP MLA decode + prefill + indexer radix top-k + PYNCCL all-reduce bypass are on the branch (`66bb24d7` / `8496f4ca` / `0c59068e`); env flip is policy; prefill `load_row` OOB is a correctness gate; `fdot2` first on prefill (both sides half); fat tile still Later. Occupancy still first for `fa_rdna2` (prefill is `__launch_bounds__(32)`, no `(1,1)` trap). Queued specs: [fp16-moe.md](fp16-moe.md), [int8-moe.md](int8-moe.md), [nvfp4.md](nvfp4.md), [kv-int8.md](kv-int8.md), [int2.md](int2.md), [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md), [flydsl.md](flydsl.md), [deepep.md](deepep.md). VLLM_FORK_Manager owns the board; this page is the index.
+Locked 2026-08-19: human branch is **`rdna2_extras`** @ **`3e05abc9`**. Overlay merge `9ff87936` onto v0.27.1. HIP MLA decode + prefill + indexer radix top-k + PYNCCL all-reduce bypass are on extras (`66bb24d7` / `8496f4ca` / `3e05abc9`); env flip is policy; prefill `load_row` OOB is a correctness gate; `fdot2` first on prefill (both sides half); fat tile still Later. Occupancy still first for `fa_rdna2` (prefill is `__launch_bounds__(32)`, no `(1,1)` trap). Rebase did **not** fix occupancy, MLA OOB, or the stock skinny gate. Queued specs: [fp16-moe.md](fp16-moe.md), [int8-moe.md](int8-moe.md), [nvfp4.md](nvfp4.md), [kv-int8.md](kv-int8.md), [int2.md](int2.md), [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md), [flydsl.md](flydsl.md), [deepep.md](deepep.md). VLLM_FORK_Manager owns the board; this page is the index.
