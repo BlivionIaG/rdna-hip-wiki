@@ -27,6 +27,7 @@ Session dump (2026-08-17/18): [notes/session-2026-08-17.md](notes/session-2026-0
 | [rocmfpx.md](rocmfpx.md) | ROCmFPX leverage — codebook→`perm`→`sdot4`, not a vLLM port |
 | [llamacpp-rocmfpx.md](llamacpp-rocmfpx.md) | llama.cpp side project: `build-rdna2.sh` on V620 |
 | [deepep.md](deepep.md) | DeepEP insight — mapped-peer scatter/combine, not MORI/IBGDA |
+| [plx.md](plx.md) | PEX88096 / PEX8749 — ACS, PIX, Gen4 vs Gen3 ceiling, MMIO |
 | [nvfp4.md](nvfp4.md) | NVFP4 engine spec — unpack E2M1→fp16→`fdot2`, E4M3×16 scale |
 | [kv-int8.md](kv-int8.md) | INT8 KV spec — fused dequant in `fa_rdna2`, per-token-head |
 | [int2.md](int2.md) | INT2 + mixed INT2/INT4 MoE — unpack→`fdot2`, bitwidth grouped outside K |
