@@ -2,7 +2,7 @@
 
 vLLM / SGLang dispatch, prefill vs decode, batching, PD, specdec, MoE, KV. Owned by LLM_Inference_specialist.
 
-Target box: 4× V620 (gfx1030), ROCm 7.2. Hardware facts live in [silicon/](../silicon/README.md). Format contracts live in [kernels/](../kernels/README.md). VALU fire-list: [silicon/valu.md](../silicon/valu.md).
+Target box: 4× V620 (gfx1030) on **one** 5-slot 88096. **Live ROCm 7.14.0** (attested). Official V620 matrix is still Ubuntu-only — [rocm-host.md](rocm-host.md). Hardware facts live in [silicon/](../silicon/README.md). Format contracts live in [kernels/](../kernels/README.md). VALU fire-list: [silicon/valu.md](../silicon/valu.md).
 
 Do not invent tok/s, IC TB/s, or a P2P-works claim.
 
@@ -14,6 +14,7 @@ Session dump (2026-08-17/18): [notes/session-2026-08-17.md](notes/session-2026-0
 | [coverage.md](coverage.md) | Feature / quant / HIP kernel coverage + progress |
 | [fork-delta.md](fork-delta.md) | Each added feature vs upstream — most incomplete, W4A16 dense is the bar |
 | [rdna2-extras.md](rdna2-extras.md) | Release overlay — **`rdna2_extras`** = vLLM tag + gfx1030 work |
+| [rocm-host.md](rocm-host.md) | Official Ubuntu-only vs attested Fedora 43 / RHEL 10 / ROCm 7.14 |
 | [hippih.md](hippih.md) | In-house HIP engine — gfx1030 / gfx1100 / gfx900; after extras + Llaminar |
 | [baseline-order.md](baseline-order.md) | Stock-first research order: harness → Triton map → skinny → FA → HIP A/B → FlyDSL |
 | [fp16-rdna2.md](fp16-rdna2.md) | Fastest gfx1030 FP16 — explicit `fdot2` + occupancy, phase-split |
