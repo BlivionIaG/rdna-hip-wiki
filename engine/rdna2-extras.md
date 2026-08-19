@@ -22,10 +22,11 @@ Merge resolutions that matter:
 
 ## Not fixed by the rebase
 
-- Occupancy trap on `fa_rdna2` + `skinny_gemms.cu`
+- Occupancy trap on `fa_rdna2` + `skinny_gemms.cu` (`__launch_bounds__(N, 1)` / `wvSplitKrc_` `(1,1)`)
 - MLA prefill `load_row` OOB
 - Stock skinny still gated (`on_gfx9() or on_gfx1x()`)
 - GPU verify still pending on some GEMMs (original commits say so)
+- **CMake gap:** `moe_w8a16_fp8_rdna2.cu` is on the branch but **not** in the gfx1030 source list — W8A16-FP8 MoE is sources-only / Fallback until listed
 
 Do not treat the rebase as a tok/s win.
 
@@ -39,18 +40,27 @@ _ON_RDNA   = gfx11/gfx12  (not gfx10)
 on_rdna()  is FALSE on V620
 ```
 
-Use `on_gfx10x()` for our kernels. Any new upstream `on_rdna()` gate will **skip gfx1030**. `supports_fp8()` / `supports_mx()` still false here. Default MHA list is still `ROCM_ATTN` then Triton; `fa_rdna2` stays env-gated.
+Use `on_gfx10x()` for our kernels. Any new upstream `on_rdna()` gate will **skip gfx1030**. `supports_fp8()` / `supports_mx()` still false here. Default MHA list is still `ROCM_ATTN` then Triton; `fa_rdna2` stays env-gated. Custom paged-attn now allows gfx10x — profiler-proof it is `fa_rdna2`.
+
+## Sibling repos (access 2026-08-19)
+
+| Repo | Role |
+|---|---|
+| [vllm-rdna-docker](https://github.com/BlivionIaG/vllm-rdna-docker) | Image build. Stay on extras, not ikantkode overlay. |
+| [v620_toolbox](https://github.com/BlivionIaG/v620_toolbox) | Power + `pcie_p2p`. Later measured-P2P source for DeepEP/hetero. Not first. |
+| [hippih](https://github.com/BlivionIaG/hippih) | Custom HIP engine stub (README only). Do **not** pivot off extras. |
 
 ## Next release rebase
 
-Replay list (minimum): `csrc/rocm/*rdna2*`, `fa_rdna2`, `skinny_gemms.cu`, `rocm_rdna2_mla_sparse.py`, `sparse_attn_indexer.py`, `deepseek_v4/amd/rocm.py`, `causal_conv1d.py`, `RocmPlatform.use_custom_op_collectives`, MoE/quant RDNA2 dispatchers.
+Replay list (minimum): `csrc/rocm/*rdna2*`, `fa_rdna2`, `skinny_gemms.cu`, `rocm_rdna2_mla_sparse.py`, `sparse_attn_indexer.py`, `deepseek_v4/amd/rocm.py`, `causal_conv1d.py`, `RocmPlatform.use_custom_op_collectives`, MoE/quant RDNA2 dispatchers, **CMake gfx1030 source list** (`moe_w8a16_fp8_rdna2.cu`).
 
 ## Cards
 
-Retip In Progress work to `rdna2_extras` @ `3e05abc9`. Occupancy still first. Same Later list.
+Retip In Progress work to `rdna2_extras` @ `3e05abc9`. Occupancy still first. Same Later list. Add CMake-gap note on the W8A16-FP8 card.
 
 ## Sources
 
 - `9ff87936` merge message, `3e05abc9` all-reduce
 - `vllm/platforms/rocm.py` on extras
+- RDNA2_Researcher HIP review (`kernels/rdna2-extras.md`)
 - [coverage.md](coverage.md), [fork-delta.md](fork-delta.md)
