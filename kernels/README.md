@@ -22,6 +22,7 @@ Format contracts for the HIP kernels we write. Not engine dispatch. Feature inde
 | [sage-qk.md](sage-qk.md) | QK `sdot4`, PV `fdot2` | Spec |
 | [nvfp4.md](nvfp4.md) | E2M1 + E4M3 mul → `fdot2` | Spec |
 | [kv-int8.md](kv-int8.md) | i8 load + cvt → `fdot2` | Spec |
+| [flashkda.md](flashkda.md) | 128×128 `S` → `fdot2` | Later. Not extras; no CUTLASS/SM90 |
 
 Do not conflate W8A16 / W8A16-FP8 / W8A8-FP8 (`fdot2`) with spec W8A8 INT8 (`sdot4`).
 | [ikantkode-gfx1030.md](ikantkode-gfx1030.md) | sourced overlay (Triton, not HIP) | Steal LLMM1 gate + RMSNorm; do not port GEMV |
