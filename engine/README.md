@@ -13,6 +13,7 @@ Session dump (2026-08-17/18): [notes/session-2026-08-17.md](notes/session-2026-0
 | [full-map.md](full-map.md) | One-page verdict + technique table |
 | [coverage.md](coverage.md) | Feature / quant / HIP kernel coverage + progress |
 | [fork-delta.md](fork-delta.md) | Each added feature vs upstream — most incomplete, W4A16 dense is the bar |
+| [rdna2-extras.md](rdna2-extras.md) | Release overlay — **`rdna2_extras`** = vLLM tag + gfx1030 work |
 | [baseline-order.md](baseline-order.md) | Stock-first research order: harness → Triton map → skinny → FA → HIP A/B → FlyDSL |
 | [fp16-rdna2.md](fp16-rdna2.md) | Fastest gfx1030 FP16 — explicit `fdot2` + occupancy, phase-split |
 | [triton-rocm.md](triton-rocm.md) | Stock Triton / ROCM_ATTN / skinny dispatch on gfx1030 |
@@ -45,4 +46,4 @@ Session dump (2026-08-17/18): [notes/session-2026-08-17.md](notes/session-2026-0
 | [alt-engines.md](alt-engines.md) | What to steal from llama.cpp / ExLlama / ktransformers / Llaminar |
 | [notes/](notes/README.md) | Source digests (Kiely, ikantkode, session dump). Not the contract. |
 
-Fork branch `perf/rdna2_w4a16` is human-only. Tickets go on [project 4](https://github.com/users/BlivionIaG/projects/4).
+Human branch is now **`rdna2_extras`** (vLLM release + overlay). `perf/rdna2_w4a16` is historical. Tickets: [project 4](https://github.com/users/BlivionIaG/projects/4).
