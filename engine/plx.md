@@ -1,8 +1,8 @@
 # PLX / PEX switches — engine contract
 
-Date: 2026-08-19. Engine page for **PEX88096** (Gen4) and **PEX8749** (Gen3). Silicon/register dump is @RDNA2_Researcher’s. Bench lives in [v620_toolbox/pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/main/pcie_p2p). Do **not** invent GB/s or a “P2P works” claim for an unmeasured hop. Occupancy still first.
+Date: 2026-08-19. Engine page for **PEX88096** (Gen4) and **PEX8749** (Gen3). Silicon/register dump: [silicon/plx-p2p-mmio.md](../silicon/plx-p2p-mmio.md). Bench lives in [v620_toolbox/pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/main/pcie_p2p). Do **not** invent GB/s or a “P2P works” claim for an unmeasured hop. Occupancy still first.
 
-Companions: [silicon/rccl-p2p.md](../silicon/rccl-p2p.md), [deepep.md](deepep.md), [multi-tier.md](multi-tier.md).
+Companions: [silicon/plx-p2p-mmio.md](../silicon/plx-p2p-mmio.md), [silicon/rccl-p2p.md](../silicon/rccl-p2p.md), [deepep.md](deepep.md), [multi-tier.md](multi-tier.md).
 
 ## Why this is engine, not just silicon
 
@@ -19,7 +19,7 @@ On this box every TP all-reduce and every future mapped-peer MoE A2A is **PCIe B
 | NTB | up to **48** NT2.0 ports | **2** NT ports; up to **6** hosts |
 | DMA (switch) | up to **48** DMA channels/functions | **4** DMA channels |
 | MPS | 2 KB | 2 KB |
-| Extra | ARM Cortex-R4, `switchtec`, DPC/eDPC, SRIS, 8 TCs | ACS, Read Pacing, multicast, 2 VCs / 8 TCs |
+| Extra | ARM Cortex-R4, Base Mode (no FW), DPC/eDPC, SRIS, 8 TCs | ACS, Read Pacing, multicast, 2 VCs / 8 TCs |
 | Pkg / typ W | 37.5×42.5 mm, **35.78 W** (family table) | 27×27 mm, **7.3 W** |
 
 Sources: [BC-0484EN](https://docs.broadcom.com/doc/BC-0484EN), [BC00-0445EN](https://docs.broadcom.com/doc/BC00-0445EN), [PEX8749 brief](https://docs.broadcom.com/doc/12351856).
@@ -37,6 +37,8 @@ PCIe payload one way, 128b/130b ([silicon/rccl-p2p.md](../silicon/rccl-p2p.md)):
 | x8 at that gen | half | half |
 
 A V620 is Gen4 x16 **to the slot**. If the path is 8749, the **switch** is the gen drop. `lspci` **LnkSta** (not LnkCap) is the number that matters.
+
+**Lane budget (silicon):** one 88096 is 96 data lanes. CPU x16 + 4× V620 x16 = 80 (fits). CPU x16 + 2× W7800 x16 + 8× V620 x16 = 176 (**does not fit**). Hetero on one chip is x8 or a second 88096 (`PXB`). One 8749 cannot do 4× x16. Details: [silicon/plx-p2p-mmio.md](../silicon/plx-p2p-mmio.md).
 
 ## What we use vs what we ignore
 
@@ -77,6 +79,8 @@ BAR map (ROCm BAR-memory + amdgpu 2026 patch): **BAR0** VRAM (large-BAR gate), *
 
 Pre-gfx1030 AMD cards in the same host break HSA MMIO map (`Failed to map remapped mmio page`) — toolbox rule.
 
+Do not expect `/dev/switchtec0` on a Broadcom 88096 in Base Mode — that node is Microsemi/Microchip. Dump with `lspci`/`setpci`. See silicon page.
+
 ## Engine rules that do not change
 
 1. Occupancy on extras still first. PLX tune is **Later** platform work.
@@ -99,6 +103,6 @@ Later. One platform card: “PEX ACS + PIX matrix” after occupancy. @VLLM_FORK
 - https://docs.broadcom.com/doc/BC-0484EN (PEX88000 brief, 2019-07-17)
 - https://docs.broadcom.com/doc/BC00-0445EN (family table)
 - https://docs.broadcom.com/doc/12351856 (PEX8749 brief, 2011-08-22)
+- [silicon/plx-p2p-mmio.md](../silicon/plx-p2p-mmio.md)
 - [silicon/rccl-p2p.md](../silicon/rccl-p2p.md)
 - [v620_toolbox pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/main/pcie_p2p)
-- Linux `switchtec` (PEX88000, kernel 4.11+)
