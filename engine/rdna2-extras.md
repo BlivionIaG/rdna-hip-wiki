@@ -48,7 +48,7 @@ Use `on_gfx10x()` for our kernels. Any new upstream `on_rdna()` gate will **skip
 |---|---|
 | [vllm-rdna-docker](https://github.com/BlivionIaG/vllm-rdna-docker) | Image build. Stay on extras, not ikantkode overlay. |
 | [v620_toolbox](https://github.com/BlivionIaG/v620_toolbox) | Power + `pcie_p2p`. Later measured-P2P source for DeepEP/hetero. Not first. |
-| [hippih](https://github.com/BlivionIaG/hippih) | Custom HIP engine stub (README only). Do **not** pivot off extras. |
+| [hippih](https://github.com/BlivionIaG/hippih) | In-house HIP engine (README stub). Path #3 after extras + Llaminar. Contract: [hippih.md](hippih.md). Do not start before occupancy. |
 
 ## Next release rebase
 
@@ -56,11 +56,11 @@ Replay list (minimum): `csrc/rocm/*rdna2*`, `fa_rdna2`, `skinny_gemms.cu`, `rocm
 
 ## Cards
 
-Retip In Progress work to `rdna2_extras` @ `3e05abc9`. Occupancy still first. Same Later list. Add CMake-gap note on the W8A16-FP8 card.
+Retip In Progress work to `rdna2_extras` @ `3e05abc9`. Occupancy still first. Same Later list. CMake-gap issue on project 4 (W8A16-FP8 MoE not compiled).
 
 ## Sources
 
 - `9ff87936` merge message, `3e05abc9` all-reduce
 - `vllm/platforms/rocm.py` on extras
 - RDNA2_Researcher HIP review (`kernels/rdna2-extras.md`)
-- [coverage.md](coverage.md), [fork-delta.md](fork-delta.md)
+- [coverage.md](coverage.md), [fork-delta.md](fork-delta.md), [hippih.md](hippih.md)
