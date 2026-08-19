@@ -1,6 +1,6 @@
 # RCCL and PCIe P2P on 4× Radeon PRO V620 (gfx1030)
 
-Audience: someone writing custom HIP for vLLM TP=4 on this box (ROCm 7.2). Date of this pass: **2026-08-17**.
+Audience: someone writing custom HIP for vLLM TP=4 on this box. Date of this pass: **2026-08-17** (P2P/RCCL). Host/OS retip: **2026-08-19**.
 
 Rule: every concrete number is attributed to a URL that was opened. If a figure is not in those sources, it is marked **unknown**. Infinity Cache is not Infinity Fabric. Consumer RX 6800/6900 XT shares the ISA, not the firmware or the official support claim.
 
@@ -21,7 +21,8 @@ Lead with the facts that decide the kernel, not the Instinct brochure.
 |---|---|---|
 | Host interconnect | **PCIe 4.0 x16 only.** No GPU-to-GPU fabric on the card. | AMD product page: Bus Type `PCIe® 4.0 x16`. Partner datasheet: `PCI Express® Interface PCIe® Gen4 x16`. |
 | Infinity Fabric / XGMI | **Absent.** Discrete Radeon PRO add-in card. Infinity Cache (128 MB) is on-die last-level cache, not a chip-to-chip link. AMD’s XGMI table lists Instinct SKUs and marks **Radeon PRO V710 = N/A**; V620 is not even a row. | Product page (Infinity Cache 128 MB). Instinct virt-drv XGMI table. |
-| Official ROCm 7.2.0 | **Supported**, LLVM target **gfx1030**, Ubuntu **24.04.3 and 22.04.5 only**. Not on RHEL. | ROCm 7.2.0 system requirements, footnote [8]. |
+| Official ROCm (V620 footnote) | **QA scope:** gfx1030 ✅, Ubuntu **24.04.x / 22.04.5 only**. RHEL is in the *general* ROCm table; the V620 footnote **excludes** it. Not a measured fail. | ROCm 7.2 / 7.14 system-requirements footnote [8]/[9]. Engine split: [../engine/rocm-host.md](../engine/rocm-host.md). |
+| Attested host (this box, 2026-08-19) | ROCm **7.2.0** on **Fedora 43** works; **RHEL 10** works; live **7.14.0** works. Live target is **7.14**. Do not file AMD bugs as if Fedora/RHEL were supported SKUs. | Operator, GFX1030 Inference. |
 | RCCL in ROCm 7.2.0 | **2.27.7**. Intra-node path on this box is **PCIe only** (no xGMI). | ROCm 7.2.0 release notes component table. |
 | vLLM `dist_backend` | **`"nccl"`** (RCCL under the hood). | `RocmPlatform.dist_backend = "nccl"` in `vllm/platforms/rocm.py`. |
 | vLLM custom all-reduce | **Off.** `use_custom_allreduce()` is gfx94/gfx95 only. | Same file, comment: “We only enable custom allreduce for MI300 series”. |
@@ -110,15 +111,19 @@ https://instinct.docs.amd.com/projects/amdgpu-docs/en/latest/conceptual/iommu.ht
 
 V620 is the opposite: **all** GPU–GPU traffic is PCIe.
 
-### 1.3 ROCm 7.2 support (so the stack is not “community only”)
+### 1.3 ROCm support — official matrix vs this box
 
-https://rocm.docs.amd.com/projects/install-on-linux/en/docs-7.2.0/reference/system-requirements.html
+Split lives in [../engine/rocm-host.md](../engine/rocm-host.md). Do **not** read the Ubuntu footnote as “this box cannot run.”
 
-AMD Radeon PRO table: **V620, RDNA2, gfx1030, ✅**, footnote [8]: **Ubuntu 24.04.3 and 22.04.5 only**.
+**Official (AMD QA, do not erase).** https://rocm.docs.amd.com/projects/install-on-linux/en/docs-7.2.0/reference/system-requirements.html — and the same footnote on [7.14 latest](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html).
 
-(Later 7.2.3 docs bump the Ubuntu 24.04 point release to 24.04.4. The restriction — V620 is Ubuntu-only, not RHEL — is unchanged.)
+AMD Radeon PRO table: **V620, RDNA2, gfx1030, ✅**, footnote [8] (7.2) / [8]–[9] (7.14): **Ubuntu 24.04.x and 22.04.5 only**. RHEL is listed in the *general* OS table; the V620 footnote **excludes** it (`RHEL … except AMD Radeon PRO V620`). That is **QA scope**, not physics. Fedora is not in the matrix.
+
+(Later 7.2.3 docs bump the Ubuntu 24.04 point release to 24.04.4. The official V620 restriction stays Ubuntu-only.)
 
 W6800 is the other official gfx1030 PRO SKU (footnote [7], Ubuntu + RHEL). Consumer RX 6800/6900 XT are **not** in the Linux support table. Same ISA, not the same claim.
+
+**Attested (operator, 2026-08-19).** ROCm **7.2.0** on **Fedora 43** works. **RHEL 10** works. Live stack is ROCm **7.14.0**. Host/runtime only — no tok/s, no P2P GB/s from this retip. Live target: **7.14**. Docker images may still be Ubuntu (image policy, not a host ban). Do not mix V340L onto this ROCm 7 host ([v340l.md](v340l.md)).
 
 CPU requirement (same page): **PCIe atomics**. “Modern CPUs after the release of 1st generation AMD Zen CPU and Intel Haswell support PCIe atomics.” If the root port does not advertise atomics, ROCm multi-GPU is already in a bad state (see §5).
 
@@ -643,6 +648,8 @@ vLLM: `--dtype float16` (not bf16), `--tensor-parallel-size 4`. Custom AR / Quic
 - https://instinct.docs.amd.com/projects/virt-drv/en/latest/userguides/XGMI_configuration.html
 - https://rocm.docs.amd.com/en/docs-7.2.0/how-to/system-optimization/w6000-v620.html
 - https://rocm.docs.amd.com/projects/install-on-linux/en/docs-7.2.0/reference/system-requirements.html
+- https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html (7.14 V620 Ubuntu-only footnote)
+- [../engine/rocm-host.md](../engine/rocm-host.md) — official vs attested (Fedora 43 / RHEL 10 / 7.14.0)
 - https://github.com/ROCm/ROCm/issues/1714
 
 **P2P / IOMMU / BAR / HIP / ACS**
