@@ -5,8 +5,9 @@ How gfx1030 actually works, and what HIP can control.
 | Page | Contents |
 |---|---|
 | [architecture.md](architecture.md) | WGP/CU, wave32/64, VGPR, L0/L1/L2/IC, no WMMA |
-| [lds-tiles.md](lds-tiles.md) | 64-bank formula, GEMM/attn tile seeds, DP4A recipe |
+| [lds-tiles.md](lds-tiles.md) | 64-bank formula, GEMM/attention tile seeds, DP4A recipe |
 | [cache-policy.md](cache-policy.md) | What HIP can set; IC fit; no persist/bypass |
+| [infinity-cache.md](infinity-cache.md) | IC is RDNA2 intro; V620 128 MB / W7800 96 MB; not XGMI |
 | [rccl-p2p.md](rccl-p2p.md) | 4× V620 PCIe 4.0, RCCL, P2P attested, GB/s unmeasured |
 | [plx-p2p-mmio.md](plx-p2p-mmio.md) | PEX88096/8749 lane budget, ACS `+0x6`, BAR0/MMIO, Linux dump |
 | [hip-craft.md](hip-craft.md) | waitcnt, scopes, kernarg, builtins, occupancy workflow |
