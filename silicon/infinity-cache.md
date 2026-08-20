@@ -6,6 +6,30 @@ Date: 2026-08-20. Policy / persist bits stay in [cache-policy.md](cache-policy.m
 
 Do **not** invent TB/s. AMD’s “2.4× / 2.5×” is relative, not a V620 number. Line size is **64 B** (`kfd_crat` L3); L0/L1/L2 are 128 B.
 
+## Can inference use it?
+
+**Yes, as reuse — not as a switch.** HIP on gfx1030 has **no persist bit, no IC prefetch, no IC bypass.** Default global loads already go through MALL. Speedup happens when the **hot set ≤ 128 MB** and you reread it before something else evicts it. Miss = GDDR6 512 GB/s.
+
+| Do | Don’t |
+|---|---|
+| Quantize / TP-shard until the **layer shard** fits (W4A16 TP=4 on 7B/27B does) | Nontemporal a shard you are trying to keep |
+| Default loads on that shard + live KV pages this step touches | Over-occupy (`waves_per_eu(1,1)` is the other bug; too *many* waves also thrash IC) |
+| One quiet GPU; two HIP streams fight the same 128 MB | Pretend 27B FP16 or unsharded 7B W8A8 “lives in IC” |
+| Align persistent buffers to **128 B** (covers IC 64 B + L2 128 B) | Invent an IC TB/s roofline or a `persist` intrinsic |
+
+Worked fit (V620 128 MiB, from [cache-policy.md](cache-policy.md) §4 — capacity, not a measured hit rate):
+
+| Workload | Layer bytes vs IC | Inference note |
+|---|---|---|
+| 7B W4A16 / mxfp4, **TP=4** | ~29–31 MiB / GPU | **Keep.** Leftover ~97 MiB can hold thousands of GQA KV tokens. |
+| 7B W8A8, TP=4 | ~56 MiB | **Keep.** |
+| 7B FP16, TP=4 | ~111 MiB | **Keep**, leftover ~17 MiB — short KV only. |
+| 7B W4, **no TP** | ~115–125 MiB | Tight. Quiet GPU or it evicts. |
+| 27B W4 / mxfp4, TP=4 | ~70–76 MiB | **Keep.** Leftover ~50–58 MiB ≠ long 27B KV. |
+| 27B W8A8 / FP16, TP=4 | over / 2× | **Stream** weights (`nontemporal`); IC for `x` + working KV pages. |
+
+Prefill of a fat activation GEMM that already misses 128 MB does **not** get an IC win. Decode GEMV / FA gathers / a resident W4 shard **can**. Occupancy first: a `(1,1)` trap wastes the CU before IC matters; max waves on a miss stream just multiplies GDDR6 traffic.
+
 ## Our cards
 
 | SKU | ISA | IC | Notes |
@@ -14,8 +38,6 @@ Do **not** invent TB/s. AMD’s “2.4× / 2.5×” is relative, not a V620 numb
 | **Radeon PRO W6800** | gfx1030 Navi 21 | **128 MB** | Same die family; official gfx1030 PRO alongside V620. |
 | **Radeon PRO W7800 48 GB** | gfx1100 RDNA3 | **96 MB** | On **MCDs** (chiplet), higher latency than Navi 21 on-die. WMMA is legal here; IC is still not a fabric. |
 | V340L | gfx900 Vega 10 | **none** | Own host. |
-
-Decode GEMV / FA gathers **can** hit the 128 MB if the hot set fits (W4A16 TP=4 shard does; see [cache-policy.md](cache-policy.md) §4). Cold streams larger than IC still pay GDDR6.
 
 ## Family (so harvests are not surprises)
 
