@@ -1,8 +1,8 @@
 # Multi-tier MoE — placement vs engine base
 
-Date: 2026-08-19. Engine contract. **Product path (locked):** optimize **vLLM fork first**, then **Llaminar**, then **hippih** as the in-house HIP engine. SGLang is not the next engine. Occupancy + V620 HIP MoE still first. Do not invent tok/s.
+Date: 2026-08-20. Engine contract. **Product path (locked):** optimize **vLLM fork first**, then **SGLang overlay** (parallel serving, after occupancy), then **Llaminar**, then **hippih**. Occupancy + V620 HIP MoE still first. Do not invent tok/s.
 
-Silicon: [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md). V340L: [silicon/v340l.md](../silicon/v340l.md). PLX hop: [plx.md](plx.md), [silicon/plx-p2p-mmio.md](../silicon/plx-p2p-mmio.md). Related: [moe.md](moe.md), [deepep.md](deepep.md), [alt-engines.md](alt-engines.md), [hippih.md](hippih.md).
+Silicon: [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md). V340L: [silicon/v340l.md](../silicon/v340l.md). PLX hop: [plx.md](plx.md), [silicon/plx-p2p-mmio.md](../silicon/plx-p2p-mmio.md). Related: [moe.md](moe.md), [deepep.md](deepep.md), [alt-engines.md](alt-engines.md), [hippih.md](hippih.md), [sglang-fork.md](sglang-fork.md).
 
 ## Topology (human plan)
 
@@ -19,16 +19,16 @@ Silicon: [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md)
 
 This is **two HIP targets** for the W7800/V620 box (plus a third ISA on a **different** host if V340L is benched). gfx1100 may use WMMA/BF16 locally; V620 stays `fdot2`/`sdot4`. Do not park live KV on V620. Decode hop is tiny; **prefill is the bus**. W7800↔V620 P2P is **unmeasured** — bench later from [v620_toolbox](https://github.com/BlivionIaG/v620_toolbox) `pcie_p2p`.
 
-## Engine base (locked 2026-08-19, corrected)
+## Engine base (locked 2026-08-20, corrected)
 
 | Order | Engine | Why |
 |---|---|---|
 | **1. Now** | **vLLM fork** (`rdna2_extras`) | Stack that already compiles gfx1030 HIP. Occupancy, FA, MoE DOT, then placement glue. |
-| **2. Next** | **Llaminar** | Heterogeneous domains + TP/PP + prefix-cache. Current ROCm is **gfx906 only** — we add gfx1030/gfx1100 HIP. Continuous batching still a plan (add it there). |
-| **3. In-house** | **hippih** | Custom HIP engine for gfx1030 / gfx1100 / gfx900. Steal extras kernels + Llaminar placement. Repo is a stub — contract: [hippih.md](hippih.md). |
-| **Not next** | SGLang | Serving-strong, Instinct/AITER. Demoted. Steal radix/CB ideas only. |
+| **2. Parallel** | **SGLang rdna2 overlay** | Own serving path (radix + overlap). **Import extras HIP** after occupancy. [sglang-fork.md](sglang-fork.md). |
+| **3. Next hetero** | **Llaminar** | Heterogeneous domains + TP/PP + prefix-cache. Current ROCm is **gfx906 only** — we add gfx1030/gfx1100 HIP. Continuous batching still a plan (add it there). |
+| **4. In-house** | **hippih** | Custom HIP engine for gfx1030 / gfx1100 / gfx900. Steal extras + SGLang serving + Llaminar placement. Repo is a stub — contract: [hippih.md](hippih.md). |
 
-Do **not** block occupancy or HIP MoE on Llaminar or hippih.
+Do **not** block occupancy or HIP MoE on SGLang, Llaminar, or hippih. Do not start a second DOT tree for SGLang.
 
 ## gfx900 HIP (V340L) — engine fire-list
 
@@ -48,13 +48,13 @@ Vega10 **does not** have the Vega20 DL DOT set. LLVM `fdot2.ll`: gfx900 emits `v
 
 @RDNA2_Researcher owns the silicon table; this is the engine dispatch constraint.
 
-## Llaminar (next engine, after vLLM kernels)
+## Llaminar (hetero engine, after serving forks)
 
 [Llaminar/llaminar](https://github.com/Llaminar/llaminar) — C++ kernel-centric, alpha, GGUF.
 
 | Piece | Status |
 |---|---|
-| Heterogeneous domains | Native — **why it is next** |
+| Heterogeneous domains | Native — **why it is next after serving** |
 | TP / PP / MoE EP | EP WiP |
 | Prefix cache | **Exists** |
 | Continuous batching | **Must add** (plan / V1 HTTP non-goal) |
@@ -62,7 +62,11 @@ Vega10 **does not** have the Vega20 DL DOT set. LLVM `fdot2.ll`: gfx900 emits `v
 | gfx1030 / gfx1100 HIP | **we write** |
 | gfx900 / V340L | Later; packed mix/FMA, not their gfx906 DOT; **own host** |
 
-## hippih (in-house, after Llaminar lessons)
+## SGLang overlay (parallel, after occupancy)
+
+Own rebase-on-release fork. Radix + overlap. Import extras HIP; refuse AITER/MFMA. Contract: [sglang-fork.md](sglang-fork.md).
+
+## hippih (in-house, after extras + SGLang + Llaminar)
 
 [hippih](https://github.com/BlivionIaG/hippih) — empty tree today. Same three-ISA split as this page. Do not start it before extras occupancy. Contract: [hippih.md](hippih.md).
 
@@ -74,9 +78,10 @@ Vega10 **does not** have the Vega20 DL DOT set. LLVM `fdot2.ll`: gfx900 emits `v
 4. Measured W7800↔V620 activation matrix (`v620_toolbox/pcie_p2p`).
 5. Asymmetric activation dispatch/combine.
 6. Optional KV overflow park — never live-KV on V620.
-7. **Llaminar** as the hetero serving/runtime shell (gfx1030 + gfx1100 backends + CB).
-8. **hippih** as the in-house engine (steal extras + Llaminar).
-9. V340L gfx900 packed-mix backend — Later, **separate host**, not a V620 or gfx906 drop-in.
+7. **SGLang overlay** — radix/overlap shell + extras HIP import.
+8. **Llaminar** as the hetero serving/runtime shell (gfx1030 + gfx1100 backends + CB).
+9. **hippih** as the in-house engine (steal extras + SGLang + Llaminar).
+10. V340L gfx900 packed-mix backend — Later, **separate host**, not a V620 or gfx906 drop-in.
 
 ## Cards (for VLLM_FORK_Manager)
 
@@ -84,14 +89,15 @@ Occupancy still first.
 
 - Multi-tier W7800/V620 — Later; **two 5-slot 88096s can do 2+8 at x16** (cross-board PHB/PXB)
 - V340L — Later, **own host**, do not mix with V620 on ROCm 7
-- Llaminar after vLLM (gfx1030/gfx1100 HIP + CB) — Later, **this is #2**
-- hippih in-house engine — Later, **this is #3** — [hippih.md](hippih.md)
-- SGLang — demoted, no first card
+- SGLang overlay — Later **after occupancy**, **this is #2 parallel** — [sglang-fork.md](sglang-fork.md)
+- Llaminar after serving forks (gfx1030/gfx1100 HIP + CB) — Later, **this is #3**
+- hippih in-house engine — Later, **this is #4** — [hippih.md](hippih.md)
 
 ## Sources
 
 - Room 2026-08-18: “vllm fork then laminar”; V340L HIP check
 - Room 2026-08-19: two 5-slot 88096 backplanes, 8 V620, 8 V340L incoming
+- Room 2026-08-20: own SGLang path
 - LLVM gfx900 VOP3P: https://rocm.docs.amd.com/projects/llvm-project/en/latest/LLVM/llvm/html/AMDGPU/AMDGPUAsmGFX900.html
 - LLVM gfx906 VOP3P (DOT): https://rocm.docs.amd.com/projects/llvm-project/en/latest/LLVM/llvm/html/AMDGPU/AMDGPUAsmGFX906.html
 - LLVM `fdot2.ll` (gfx900 → mix/FMA, gfx906 → `v_dot2_f32_f16`)
