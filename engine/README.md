@@ -17,6 +17,7 @@ Session dump (2026-08-17/18): [notes/session-2026-08-17.md](notes/session-2026-0
 | [rocm-host.md](rocm-host.md) | Official Ubuntu-only vs attested Fedora 43 / RHEL 10 / ROCm 7.14 |
 | [hippih.md](hippih.md) | In-house HIP engine — gfx1030 / gfx1100 / gfx900; after extras + Llaminar |
 | [infinity-cache.md](infinity-cache.md) | IC for inference — fit+reuse, no persist bit; W4 TP=4 keep |
+| [cache-aware.md](cache-aware.md) | Scheduling — KV prefix/APC vs IC residency; stock V1 only |
 | [baseline-order.md](baseline-order.md) | Stock-first research order: harness → Triton map → skinny → FA → HIP A/B → FlyDSL |
 | [fp16-rdna2.md](fp16-rdna2.md) | Fastest gfx1030 FP16 — explicit `fdot2` + occupancy, phase-split |
 | [triton-rocm.md](triton-rocm.md) | Stock Triton / ROCM_ATTN / skinny dispatch on gfx1030 |
