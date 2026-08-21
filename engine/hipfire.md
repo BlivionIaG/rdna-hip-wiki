@@ -24,6 +24,20 @@ Optional upstream gfx1030 portable patches to *them* is neighborly. That is not 
 
 **hippih tools/microbench now ≠ hippih is a viz tool forever.** Tools are the *now* slice (occupancy still first). Destination stays three-ISA engine. [hippih.md](hippih.md).
 
+## Serving: MoE / CB / prefix (contribute?)
+
+Room 2026-08-21. These are **their** daemon features. Contributing here does not buy extras / SGLang serving.
+
+| Surface | What they have | Not |
+|---|---|---|
+| **MoE** | Per-family carriers: Qwen3.5 A3B (`arch_id` 6), DS4 (9), MiniMax-M2 (10), LFM2.5-MoE (11), Cohere2 (12). Dispatch `moe` / `moe_buckets`. | vLLM paged expert offload / DeepEP. Grouped **WMMA** MoE is gfx11/12. |
+| **Multi-GPU MoE** | **EP** (`--tp`) = DS4 + MiniMax only. **PP** = Qwen3.5 HFQ layer bands (dense + A3B) — capacity, sequential, not TP serving. `tp>1 && pp>1` errors. | extras TP=4 / 88096 PIX. PP decode is sequential bands. |
+| **Continuous batch** | Host `ContinuousBatchScheduler`: fixed lanes, sampling **cohort**, opt-in (`serve_continuous_batch`, size>1). Eligible: Qwen 5/6 + dense LFM 11; single-GPU; no PP/EP, tools, images, stop, spec, PFlash, history, thinking. | Default serve is **one generation holds the lock** + admission queue. Not vLLM V1 CB + paged mix + chunked prefill. |
+| **Prefix** | Prefix-capable arches (ds4 / qwen3.5 / qwen3.5_moe) **skip per-request reset** so multi-turn **LCP** hits on the same daemon. | SGLang radix / vLLM APC across distinct prefixes. |
+| **CASK / TriAttention** | Opt-in eviction sidecar (`cask=false` default). `pp=1` only. | Prefix sharing. Experimental. |
+
+Steal later (hippih / SGLang overlay): lane/cohort idea if useful. Do not contribute CB/prefix/MoE into hipfire as our serving path.
+
 ## Already ours
 
 | Their piece | extras / wiki |
@@ -74,6 +88,6 @@ After occupancy, fold sdot4-MMQ tile ideas onto the existing W8A8 / W4A8 cards �
 
 ## Sources
 
-- https://github.com/warpfront/hipfire (README, `crates/rdna-compute/src/arch_caps.rs`, `docs/plans/mq3_gfx10.md`, `docs/BENCHMARKS.md`, `tests/speed-baselines/gfx1030.txt`)
+- https://github.com/warpfront/hipfire (README, `crates/rdna-compute/src/arch_caps.rs`, `docs/plans/mq3_gfx10.md`, `docs/BENCHMARKS.md`, `tests/speed-baselines/gfx1030.txt`, `docs/ARCHITECTURE.md`, `docs/SERVE.md`, `docs/multi-gpu.md`, `crates/hipfire-engine/src/scheduler.rs`)
 - https://hipfire.dev/
-- Room 2026-08-21: steal not fork; keep full hippih way
+- Room 2026-08-21: steal not fork; keep full hippih way; MoE/CB/prefix are their daemon, not extras serving
