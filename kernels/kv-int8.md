@@ -67,7 +67,7 @@ Sage is **prefill Q and K both INT8**. KV-cache INT8 is **storage**. Q at decode
 
 leapdragon `fd_rdna2` (GPL Triton plugin) is **not** the HIP path. It keeps packed i8 as `(TILE,64)` and fires four `tl.dot` so Triton never writes a 256-wide LDS unpack. That is a compiler dodge. HIP already has `fdot2` on `half2` — load packed, cvt+scale in **VGPR**, existing tiles. See [../silicon/leapdragon.md](../silicon/leapdragon.md) §4.
 
-Do **not**: vendor the plugin; copy the 4-way Q permute / `PAD=8` / `GQA=6` hardcode (GQA-4 Qwen misses it); unpack-then-reshape to `(TILE,256)` LDS (their v0, dead).
+Do **not**: vendor the plugin; copy the 4-way Q permute / `PAD=8` / `GQA=6` hardcode (**hits 27B 24/4; misses GQA-4 and 7B 28/4**); unpack-then-reshape to `(TILE,256)` LDS (their v0, dead).
 
 ## Done-when (ISA dump)
 
