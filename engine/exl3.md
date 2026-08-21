@@ -2,17 +2,17 @@
 
 Date: 2026-08-21. Engine contract. Silicon: [silicon/exl3.md](../silicon/exl3.md) + [kernels/exl3.md](../kernels/exl3.md) (Later). Human branch is **`rdna2_extras`**. Occupancy is still first. This is **Later / native HIP**, not a current subject.
 
-**Verdict:** The interesting part is **QTIP quality-for-size**. Serve it with **native HIP**, not ExLlamaV3 / Cornell CUDA / Marlin. EXL3 is the convenient checkpoint (QTIP variant, HF-like names). Infer is bit-extract + `decode_3inst` → half → `fdot2`, skinny like `q_gemm_rdna2`. Viterbi is **quant-time only**. CUDA `FragB` / `mma.m16n8k16` is dead. Do not displace live W4A16.
+**Verdict:** The interesting part is **QTIP quality-for-size**. Serve it with **native HIP**, not ExLlamaV3 / Cornell CUDA / Marlin. **One HIP kernel** for a raw QTIP dump or EXL3 — codebook id + 16×16 pack, not a second GEMM. Cornell CUDA stays the producer. Infer is bit-extract + `decode_3inst` → half → `fdot2`, skinny like `q_gemm_rdna2`. Viterbi is **quant-time only**. CUDA `FragB` / `mma.m16n8k16` is dead. Do not displace live W4A16.
 
 ## Quality vs engine
 
 | Want | Take |
 |---|---|
 | QTIP / EXL3 PPL-per-byte (3–4 bpw first; 2 bpw is decode-bound) | **Yes, Later** |
-| Native HIP GEMM (`on_gfx10x()`, occupancy attrs of `q_gemm_rdna2`) | **Yes** |
+| One HIP GEMM for QTIP dump **or** EXL3 (`on_gfx10x()`, occupancy attrs of `q_gemm_rdna2`) | **Yes** |
 | ExLlamaV3 runtime, TabbyAPI, Aphrodite, CUDA `exl3_gemv`/`mgemm` | **No** |
-| Cornell QTIP CUDA kernels | **No** |
-| Convert-on-V620 | **No.** CUDA Viterbi stays the producer. Consume converted weights. |
+| Cornell QTIP CUDA kernels | **Producer only.** Not a runtime. |
+| Convert-on-V620 | **No.** Consume converted weights. |
 
 Start **3–4 bpw**. 1.6 bpw is coherent on 70B but decode-bound on 512 GB/s GDDR6.
 
@@ -33,7 +33,7 @@ Source: [QTIP](https://arxiv.org/abs/2406.11235), [QuIP#](https://arxiv.org/abs/
 | `svh` | Output scales + signs (fp16) |
 | `mcg` / `mul1` | Codebook id (`0xCBAC1FED` / `0x83DCD12D`). LCG, no VRAM LUT |
 
-EXL2 is a different format. Do not reuse vLLM `ExllamaLinearKernel`.
+Loader may remap a raw QTIP dump onto this pack. The GEMM does not change. EXL2 is a different format. Do not reuse vLLM `ExllamaLinearKernel`.
 
 ## Infer (native HIP — silicon lock)
 
@@ -44,6 +44,7 @@ Room 2026-08-21 @RDNA2_Researcher:
 - `cb==2` may use `dp4a` **only as the codebook**, not `sdot*` through K.
 - Hadamard-128 + `suh`/`svh` are extra VALU around the GEMM.
 - CUDA `FragB` / `mma.m16n8k16` is dead on V620.
+- **Same kernel** for QTIP dump or EXL3. Dispatch key is codebook id + 16×16 pack.
 
 Engine shape: decode skinny M=1/2/4/8 like `q_gemm_rdna2`; prefill is an `fdot2` GEMM after the same unpack. Same occupancy contract. Do not land on `(1,1)`.
 
@@ -59,8 +60,8 @@ Engine shape: decode skinny M=1/2/4/8 like `q_gemm_rdna2`; prefill is an `fdot2`
 ## What we would need (if this becomes a subject)
 
 1. Occupancy flip first.
-2. Loader for `trellis`/`suh`/`svh`/`mcg` (or a QTIP-equivalent pack we own). Gate `on_gfx10x()`.
-3. HIP: fused `decode_3inst` + `fdot2`, skinny + prefill. Refuse CUDA kernel names.
+2. One loader family: EXL3 tensors **or** a QTIP dump remapped to codebook id + 16×16. Gate `on_gfx10x()`.
+3. One HIP: fused `decode_3inst` + `fdot2`, skinny + prefill. Refuse CUDA kernel names. No second GEMM.
 4. Smoke vs ExLlamaV3 PPL on one small 3–4 bpw EXL3 (not bit-exact). No copied tok/s.
 5. Wiki only until someone asks for a Project 4 Later card.
 
@@ -73,4 +74,4 @@ Occupancy. Live W4A16 / W8A16 / mxfp4. EXL2. GGUF / ROCmFPX. Marlin. CUDA `exl3_
 ## Sources
 
 - QTIP / QuIP# papers; exllamav3 `quantize.py` (`ldlq`, `pack_trellis`, `suh`/`svh`/`mcg`/`mul1`)
-- Room 2026-08-21: quality-for-size + native HIP; silicon `decode_3inst` → `fdot2`
+- Room 2026-08-21: quality-for-size + native HIP; one kernel for QTIP dump or EXL3; silicon `decode_3inst` → `fdot2`
