@@ -1,15 +1,28 @@
 # INT8 KV cache on gfx1030 — engine spec
 
-Date: 2026-08-17. Engine contract. Silicon tile / ISA dump lives with RDNA2_Researcher under [kernels/](../kernels/README.md) once they add it. Policy page (FP8 dead, offload physics): [kv-quant-offload.md](kv-quant-offload.md). Tickets: one card on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not edit `perf/rdna2_w4a16` from this page. Occupancy is still the current code subject; this is queued after paged-decode is solid.
+Date: 2026-08-21. Engine contract. Silicon: [kernels/kv-int8.md](../kernels/kv-int8.md). Policy page (FP8 dead as a *unit*, offload physics): [kv-quant-offload.md](kv-quant-offload.md). One card on [project 4](https://github.com/users/BlivionIaG/projects/4). Human branch is **`rdna2_extras`**. Occupancy still first.
 
-**Verdict:** cut KV bytes 2× vs fp16 by storing INT8 and **dequantizing inside `fa_rdna2`**. An unfused “dequant to an fp16 cache, then attend” kernel erases the memory win. FP8 KV stays **Dead** (`supports_fp8()` false). Sage INT8 QK is prefill *Q*, not this.
+**Verdict:** cut KV bytes 2× vs fp16 by storing INT8 and **dequantizing inside `fa_rdna2`**. An unfused “dequant to an fp16 cache, then attend” kernel erases the memory win. Native FP8 KV stays **Dead** (`supports_fp8()` false). Sage INT8 QK is prefill *Q*, not this.
 
-## Why INT8, not FP8
+## Live on extras (`4cc1fe59`) — not the contract
+
+Cherry-port of `3baecdb516` from `perf/rdna2_w4a16`. Files: `fa_rdna2.cu`, `rdna_attn.py`, `fa_rdna2_backend.py`.
+
+| Path they landed | Engine verdict |
+|---|---|
+| INT8 decode `fa_decode_paged_splitk_kernel_int8_pth` | **Not the contract.** Silicon: scalar `__hmul`, `q_reg[D]` in VGPR, 64 threads same D loop, `kv_splits` unused, scale is the query token. |
+| INT8 prefill | **Forbidden unfuse.** Python-dequants the **whole** cache → fp16 prefill kernel. Erases the GDDR6 win. |
+| FP8 decode/prefill | Software e4m3→half on **existing** tiles + `fdot2`. Real fuse. Still `(1,1)`. Not a native FP8 unit — do not treat `supports_fp8()` as true. |
+
+Do **not** land more INT8 gather on `(1,1)`. Occupancy flip still blocks this card. Keep the existing INT8 KV ticket — no new card.
+
+## Why INT8, not FP8-as-unit
 
 | Path | Status |
 |---|---|
-| FP8 E4M3 KV (vLLM default on MI / Hopper) | **Dead** here. Software FP8 cvt, no unit. |
-| INT8 + fused dequant | **Must / queued.** Native `i8→f32` cvt, then `fdot2`. |
+| FP8 E4M3 KV (vLLM default on MI / Hopper) | **Dead as a unit.** Software cvt only. |
+| FP8 software fuse in `fa_rdna2` (`4cc1fe59`) | **Landed, occupancy-blocked.** e4m3→half + existing `fdot2` tiles. |
+| INT8 + fused dequant | **Must / queued.** Native `i8` load + cvt + `fdot2`. `4cc1fe59` is not this. |
 | INT4 KV | Later, after INT8 is shipping. |
 | DSv4 `fp8_ds_mla` uint8 cache | Different layout (576 B token). Not this ticket. |
 
@@ -66,7 +79,7 @@ Head-64 stays Triton until that FA2 tile exists — Triton INT8 path can cover t
 | `--kv-cache-dtype int8_per_token_head` | honor on `on_gfx10x()` |
 | `VLLM_USE_RDNA2_FA=1` | required so `fa_rdna2` is the reader |
 | Occupancy flip | **blocks this.** Do not land INT8 gather on a decode kernel that is still `waves_per_eu(1,1)`. |
-| FP8 KV flags | refuse / ignore on gfx1030 |
+| Native FP8 KV flags | refuse as a unit. Software FP8 fuse in `fa_rdna2` is occupancy-blocked, not a promote. |
 
 MLA / DSv4 sparse cache is out of scope. Mix/spec still off until a fat tile.
 
@@ -84,11 +97,13 @@ Scale loads are tiny vs KV bytes. Do not add an LDS scale LUT.
 
 ## Done-when
 
-- ISA dump: `i8` load + integer-to-float cvt + `v_dot2_f32_f16`. No FP8 cvt, no `sdot4` on KV (KV is storage; QK still `fdot2` until Sage).
+- ISA dump: `i8` load + integer-to-float cvt + `v_dot2_f32_f16`. No FP8 cvt-as-unit, no `sdot4` on KV (KV is storage; QK still `fdot2` until Sage).
 - Writer and `fa_rdna2` agree on slot layout + `k_scale_cache` / `v_scale_cache`.
-- One model serves with `--kv-cache-dtype int8_per_token_head` on gfx1030 without Triton reshape.
+- One model serves with `--kv-cache-dtype int8_per_token_head` on gfx1030 without Triton reshape **and** without Python whole-cache dequant.
 - Smoke vs fp16 KV (not bit-exact; bound the error). No tok/s from this page.
 - KV bytes ≈ ½ of fp16 for the same token count (plus scale overhead).
+
+`4cc1fe59` does **not** meet this.
 
 ## Not this ticket
 
@@ -97,4 +112,6 @@ Occupancy flip. Sage QK (`sdot4` on prefill Q). HIP MLA fp16. NVFP4. W8A8 `sdot4
 ## Sources
 
 - vLLM INT8 KV contract: `KVQuantMode`, PRs [#36893](https://github.com/vllm-project/vllm/pull/36893) (per-token Triton), [#41954](https://github.com/vllm-project/vllm/pull/41954) (gfx1100 closed per-tensor, kept per-token-head)
+- extras `4cc1fe59` (verbatim port of `3baecdb516`)
 - [kv-quant-offload.md](kv-quant-offload.md), [coverage.md](coverage.md), [attention-dispatch.md](attention-dispatch.md)
+- Room 2026-08-21: silicon lock on `4cc1fe59`
