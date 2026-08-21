@@ -1,6 +1,6 @@
 # hippih — in-house HIP engine
 
-Date: 2026-08-20. Repo: [BlivionIaG/hippih](https://github.com/BlivionIaG/hippih). README today: *HIP maxxing inference engine for localLLM masters*. Tree is README + LICENSE only — **contract first**, no tok/s.
+Date: 2026-08-21. Repo: [BlivionIaG/hippih](https://github.com/BlivionIaG/hippih). README today: *HIP maxxing inference engine for localLLM masters*. Tree is README + LICENSE only — **contract first**, no tok/s.
 
 Silicon: [silicon/hippih.md](../silicon/hippih.md). **Three compile targets, no shared fatbins.**
 
@@ -25,7 +25,7 @@ Not a discard. **hippih is the custom HIP engine** for the three ISAs we own:
 | **3. Next hetero** | **Llaminar** | Steal hetero domains + add CB. ROCm is gfx906 only today. |
 | **4. In-house** | **hippih** | Our engine. Three ISA backends. Steal extras + SGLang serving + Llaminar placement. |
 
-Do **not** start hippih or the SGLang overlay before extras occupancy. Do not port ROCmFPX GGUF types first. Do not pivot off extras. Do not rewrite DOT for SGLang.
+Do **not** start hippih or the SGLang overlay before extras occupancy. Do not port ROCmFPX GGUF types first. Do not pivot off extras. Do not rewrite DOT for SGLang. Do **not** clone [hipfire](hipfire.md) as hippih — steal dispatch/sdot4-MMQ *intent* later.
 
 ## Steal when we write it
 
@@ -37,6 +37,8 @@ From SGLang: radix prefix tree + overlap schedule. Not AITER.
 
 From Llaminar: heterogeneous domains. Bus rule stays activations-only; **live KV on gfx1100**, not V620. [multi-tier.md](multi-tier.md).
 
+From hipfire (Later, [hipfire.md](hipfire.md)): capability predicates (`has_dot2_f32_f16` / `has_hfq3_sdot4`), ANTIBLEED (no gfx11 WMMA object on gfx1030), sdot4-MMQ prefill *tile* not HFQ bytes, Redline fail-closed ROCr replay as a launch-overhead option. Not MQ4R, not their tok/s, not a Rust rewrite of extras.
+
 gfx900 backend is packed mix/FMA — Later, third ISA, new TU.
 
 ## Not first
@@ -45,11 +47,11 @@ Occupancy on extras. MLA `load_row` OOB. CMake gap (`moe_w8a16_fp8_rdna2.cu`). M
 
 ## Cards
 
-Later. Occupancy still first. One hippih-contract card after extras occupancy lands. SGLang overlay is a sibling Later card — [sglang-fork.md](sglang-fork.md).
+Later. Occupancy still first. One hippih-contract card after extras occupancy lands. SGLang overlay is a sibling Later card — [sglang-fork.md](sglang-fork.md). No “port hipfire” card.
 
 ## Sources
 
 - hippih README (stub)
 - [silicon/hippih.md](../silicon/hippih.md)
-- [rdna2-extras.md](rdna2-extras.md), [sglang-fork.md](sglang-fork.md), [fp16-rdna2.md](fp16-rdna2.md), [alt-engines.md](alt-engines.md)
-- Room 2026-08-20: own SGLang path
+- [rdna2-extras.md](rdna2-extras.md), [sglang-fork.md](sglang-fork.md), [fp16-rdna2.md](fp16-rdna2.md), [alt-engines.md](alt-engines.md), [hipfire.md](hipfire.md)
+- Room 2026-08-20: own SGLang path; 2026-08-21: hipfire peer not clone

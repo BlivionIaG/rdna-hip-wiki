@@ -1,6 +1,6 @@
 # What to steal from other engines
 
-Date: 2026-08-20. Sourced only. Product path: **vLLM first, SGLang overlay parallel after occupancy, then Llaminar, then hippih**. [sglang-fork.md](sglang-fork.md), [multi-tier.md](multi-tier.md), [hippih.md](hippih.md).
+Date: 2026-08-21. Sourced only. Product path: **vLLM first, SGLang overlay parallel after occupancy, then Llaminar, then hippih**. [sglang-fork.md](sglang-fork.md), [multi-tier.md](multi-tier.md), [hippih.md](hippih.md). hipfire is a Later hippih *peer*, not a fifth product step. [hipfire.md](hipfire.md).
 
 ## Copy
 
@@ -18,10 +18,11 @@ Date: 2026-08-20. Sourced only. Product path: **vLLM first, SGLang overlay paral
 12. Llaminar heterogeneous domains + explicit collective routing — **hetero engine after the serving forks**, not just a model to skim.
 13. hippih three-ISA HIP (gfx1030 DOT / gfx1100 local WMMA / gfx900 mix) — **in-house engine after extras + SGLang + Llaminar**.
 14. SGLang radix + overlap schedule — **own overlay**, import extras HIP, no AITER. [sglang-fork.md](sglang-fork.md).
+15. hipfire capability tables (`has_dot2_f32_f16`, `has_hfq3_sdot4`) + gfx10 sdot4-MMQ *intent* — not MQ/HFQ formats, not WMMA, not a Rust pivot. [hipfire.md](hipfire.md).
 
 ## Ignore
 
-ExLlama / EXL3 / Marlin / FlashInfer / TRT-LLM kernels (CUDA). rocWMMA / MMA FA (RDNA3+/CDNA). FA page=256 as if optimal (Tri Dao: convenience). Intel AMX tiles. CUDA-graph-as-religion (HIP graph capture + alloc is fragile). Unified memory on dGPUs (llama.cpp: hurts non-iGPU). FlyDSL shipped MFMA/WMMA GEMM/MoE/FA ([flydsl.md](flydsl.md)). DeepEP IBGDA / MORI / NVLink ([deepep.md](deepep.md)). Porting ROCmFPX custom GGUF types into vLLM. Treating Llaminar gfx906 ROCm as a gfx1030/gfx1100/gfx900 backend. Loading gfx906 DOT or gfx1030 `fdot2`/`sdot4` on V340L. Starting hippih or the SGLang overlay before extras occupancy. SGLang AITER / MFMA / FlashKDA CUTLASS.
+ExLlama / EXL3 / Marlin / FlashInfer / TRT-LLM kernels (CUDA). rocWMMA / MMA FA (RDNA3+/CDNA). FA page=256 as if optimal (Tri Dao: convenience). Intel AMX tiles. CUDA-graph-as-religion (HIP graph capture + alloc is fragile). Unified memory on dGPUs (llama.cpp: hurts non-iGPU). FlyDSL shipped MFMA/WMMA GEMM/MoE/FA ([flydsl.md](flydsl.md)). DeepEP IBGDA / MORI / NVLink ([deepep.md](deepep.md)). Porting ROCmFPX custom GGUF types into vLLM. Treating Llaminar gfx906 ROCm as a gfx1030/gfx1100/gfx900 backend. Loading gfx906 DOT or gfx1030 `fdot2`/`sdot4` on V340L. Starting hippih or the SGLang overlay before extras occupancy. SGLang AITER / MFMA / FlashKDA CUTLASS. hipfire WMMA / MQ4R / Redline-before-occupancy / their tok/s. Cloning hipfire as hippih.
 
 ## llama.cpp
 
@@ -51,6 +52,10 @@ C++ graph runtime. Heterogeneous CPU/CUDA/ROCm domains, TP/PP, prefix-cache exis
 
 Serving-strong (radix, overlap schedule). Instinct/AITER kernels are **ignore**. **Own rebase-on-release overlay after extras occupancy** — import `fa_rdna2` / skinny `fdot2`, `on_gfx10x()` only. Contract: [sglang-fork.md](sglang-fork.md). Do not start a second kernel tree.
 
+## hipfire
+
+[warpfront/hipfire](https://github.com/warpfront/hipfire) — Rust + HIP, no Python in the hot path. gfx1030 is **portable DOT / sdot4 MMQ**, not the WMMA-tuned gfx11/12 path. Steal capability predicates + sdot4-MMQ tile *intent* after occupancy. Do not port MQ/HFQ into vLLM. Do not copy tok/s. Do not start hippih as a clone. Redline (ROCr retained-replay) is hippih Later. Contract: [hipfire.md](hipfire.md).
+
 ## Others
 
 MLC-LLM: compile-to-target (steal: emit gfx1030 kernels). TRT-LLM / Sarathi: scheduler ideas only, not the CUDA. LightLLM TokenAttention: per-token table, less fragmentation.
@@ -64,4 +69,5 @@ MLC-LLM: compile-to-target (steal: emit gfx1030 kernels). TRT-LLM / Sarathi: sch
 - [Llaminar/llaminar](https://github.com/Llaminar/llaminar)
 - [sgl-project/sglang](https://github.com/sgl-project/sglang)
 - [BlivionIaG/hippih](https://github.com/BlivionIaG/hippih)
-- [sglang-fork.md](sglang-fork.md), [multi-tier.md](multi-tier.md), [hippih.md](hippih.md)
+- [warpfront/hipfire](https://github.com/warpfront/hipfire)
+- [sglang-fork.md](sglang-fork.md), [multi-tier.md](multi-tier.md), [hippih.md](hippih.md), [hipfire.md](hipfire.md)

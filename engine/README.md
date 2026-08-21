@@ -41,6 +41,7 @@ Session dump (2026-08-17/18): [notes/session-2026-08-17.md](notes/session-2026-0
 | [dspark.md](dspark.md) | DSpark — DFlash + Markov + confidence schedule |
 | [qwen35.md](qwen35.md) | Qwen3.5 hybrid GDN + Gemma `(1+w)` — steal gates, not their Triton AWQ |
 | [leapdragon.md](leapdragon.md) | leapdragon V620 recipe — steal grid/LDS/pitfalls, not tok/s or GPL plugins |
+| [hipfire.md](hipfire.md) | warpfront/hipfire — Rust+HIP engine; gfx1030 portable DOT/sdot4; not extras pivot |
 | [flashkda.md](flashkda.md) | FlashKDA — steal KDA math / two-kernel split; CUTLASS SM90 is dead here |
 | [vllm-sglang-map.md](vllm-sglang-map.md) | What stock vLLM/SGLang actually run on gfx1030 vs CDNA |
 | [prefill-decode.md](prefill-decode.md) | The load-bearing split and kernel hit-list |
@@ -51,7 +52,7 @@ Session dump (2026-08-17/18): [notes/session-2026-08-17.md](notes/session-2026-0
 | [specdec.md](specdec.md) | Verify is extend; skip until q>1 exists |
 | [kv-quant-offload.md](kv-quant-offload.md) | FP8-KV is not a vLLM path here |
 | [moe.md](moe.md) | Expert offload + gfx10xx whitelist |
-| [alt-engines.md](alt-engines.md) | What to steal from llama.cpp / ExLlama / ktransformers / Llaminar / hippih / SGLang |
+| [alt-engines.md](alt-engines.md) | What to steal from llama.cpp / ExLlama / ktransformers / Llaminar / hippih / SGLang / hipfire |
 | [notes/](notes/README.md) | Source digests (Kiely, ikantkode, session dump). Not the contract. |
 
 Human branch is now **`rdna2_extras`** (vLLM release + overlay). SGLang overlay is **after occupancy** — [sglang-fork.md](sglang-fork.md). In-house engine: [hippih.md](hippih.md). Tickets: [project 4](https://github.com/users/BlivionIaG/projects/4).
