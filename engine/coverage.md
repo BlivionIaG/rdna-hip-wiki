@@ -38,6 +38,7 @@ Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/s
 | bitsandbytes | CUDA | **Dead** on this box | Official AMD column is ❌ |
 | GGUF (stock Q4_0 / K / IQ*) | vLLM loader / plugin | Live loader | Not ggml MMVQ. Custom ROCmFPX types are not this. [rocmfpx.md](rocmfpx.md) |
 | ROCmFPX (`Q4_0_ROCMFP4` …) | codebook → `perm` → `sdot4` | **No vLLM port** | llama.cpp side project only. [llamacpp-rocmfpx.md](llamacpp-rocmfpx.md) |
+| **EXL3** (QTIP trellis) | 3-inst codebook → `fdot2` | **Later** | No vLLM loader. Steal-math only, not Marlin/MMA. [../silicon/exl3.md](../silicon/exl3.md), [../kernels/exl3.md](../kernels/exl3.md) |
 | Ternary / BitNet 1.58 | LUT or pack + `V_DOT8`? | Later | No ternary unit. Research after DOT kernels exist. Not a first ticket. |
 
 ## Attention
