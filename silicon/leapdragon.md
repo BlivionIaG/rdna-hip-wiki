@@ -40,9 +40,17 @@ Exllama GPTQ: they swept this model’s shapes. 256 → 8 wave32 / block, shallo
 
 Sweep extras skinny / W4. Do **not** paste 256. Same occupancy rule: `waves_per_eu(4,8)`.
 
-### 4. INT8 KV flash-decode → `fa_rdna2`
+### 4. `fa_rdna2` vs `fd_rdna2` — INT8 gather, not their slice
 
-`fd_rdna2` is Triton `tl.dot` over 520 B/entry (`int8_per_token_head`). Contract stays [../kernels/kv-int8.md](../kernels/kv-int8.md): fused dequant + `fdot2` **inside occupancy-fixed `fa_rdna2`**. Plugin is A/B only.
+`fa_rdna2` is extras HIP FA2: decode split-K + prefill + short extend, D=128/256, **fp16 KV**, explicit `__builtin_amdgcn_fdot2`. Split-K grid.z already exists (`kv_splits ≤ 16`). Occupancy still `(1,1)`.
+
+`fd_rdna2` is a Triton plugin: **decode / batch=1 / D=256 / int8-per-token-head / GQA=6** only. Load KV as packed `i32`, sext four bytes to f16, four `tl.dot` on `(TILE,64)` so D stays permuted `d=4w+b` until the final store. That dodge exists because their v0 unpack-then-reshape `(TILE,64,4)→(TILE,256)` forced Triton to write 256-wide operands through LDS (`ds_write_b16`). HIP does **not** need that — we already have `fdot2` on `half2`.
+
+ISA they actually fire: i8 → f16 → `tl.dot` = **`fdot2`**, not `sdot4`. Matches [../kernels/kv-int8.md](../kernels/kv-int8.md).
+
+Plugin hardcodes `GQA=6` / `PAD=8` (`q.shape[1] % 6 == 0`). **GQA-4 Qwen (their own 27B, extras default) misses the fast path** and falls back to stock. Steal **fused INT8 gather** into occupancy-fixed `fa_rdna2` (VGPR cvt + scale, existing tiles). Do not vendor the plugin, do not copy the 4-way Q permute, do not land gather on `(1,1)`.
+
+520 B/entry = 64 i32 K + scale + 64 i32 V + scale. Bandwidth win is the i8 load, not a new DOT.
 
 ### 5. Push AR is Later
 
@@ -52,10 +60,11 @@ Sweep extras skinny / W4. Do **not** paste 256. Same occupancy rule: `waves_per_
 
 Their “custom W4 GEMV is dead” assumes Exllama already at **~91% of 506 GB/s**. extras `fa_rdna2` / `skinny_gemms.cu` still sit on `(1,1)`. That card is **not** this dead-end.
 
-Other dead ends they paid for (do not reopen): `dwordx4` KV (loads ~83% peak), 544 B KV align, `GPU_MAX_HW_QUEUES=8`, hoist attn range-mask.
+Other dead ends they paid for (do not reopen): `dwordx4` KV (loads ~83% peak), 544 B KV align, `GPU_MAX_HW_QUEUES=8`, hoist attn range-mask, unpack-then-reshape INT8 to `(TILE,256)` LDS.
 
 ## Sources
 
 - https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/00-HARDWARE.md
 - https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/01-PATCHES.md
-- [../engine/leapdragon.md](../engine/leapdragon.md), [fa-occupancy.md](fa-occupancy.md), [infinity-cache.md](infinity-cache.md), [fp16-rdna2.md](fp16-rdna2.md)
+- https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/plugins/fd_rdna2/fd_rdna2/fd_kernel2.py (intent only; GPL — do not vendor)
+- [../engine/leapdragon.md](../engine/leapdragon.md), [../kernels/kv-int8.md](../kernels/kv-int8.md), [fa-occupancy.md](fa-occupancy.md), [infinity-cache.md](infinity-cache.md), [fp16-rdna2.md](fp16-rdna2.md)
