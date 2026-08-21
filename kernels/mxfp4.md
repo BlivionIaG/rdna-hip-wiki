@@ -5,3 +5,5 @@ Live: `mxfp4_dot2_common.cuh`, `mxfp4_dot2_dense.cu`, `mxfp4_dot2_moe.cu` @ `290
 No FP4 unit. E2M1 nibble → fp16 (inline bit-trick, no LUT), × E8M0 scale (exponent add), then `V_DOT2_F32_F16` (`dot22_8_f` = 4× `fdot2` / 8 K).
 
 NVFP4 is the same DOT with **E4M3** scales (mul, not exp add): [nvfp4.md](nvfp4.md). Spec W8A8 `sdot4` is unrelated: [w8a8-mxfp4.md](w8a8-mxfp4.md).
+
+DSv4 Flash leftover attn/shared/indexer is **MXFP8** (E4M3 + E8M0 / 128×128), not this expert pack and not W8A16-FP8 group-scale. Same `fdot2` after e4m3 bit-trick + `mxfp4_apply_e8m0_bits` broadcast. Silicon: [../silicon/dsv4-flash.md](../silicon/dsv4-flash.md).
