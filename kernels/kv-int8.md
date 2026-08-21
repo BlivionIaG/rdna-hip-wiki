@@ -63,6 +63,12 @@ Head-64 stays Triton until that FA2 tile exists.
 
 Sage is **prefill Q and K both INT8**. KV-cache INT8 is **storage**. Q at decode is one row of fp16. Quantizing that Q every step to win `sdot4` is a different kernel (Sage) and does not help decode bandwidth. Keep QK on `fdot2`.
 
+## Not their `fd_rdna2` slice
+
+leapdragon `fd_rdna2` (GPL Triton plugin) is **not** the HIP path. It keeps packed i8 as `(TILE,64)` and fires four `tl.dot` so Triton never writes a 256-wide LDS unpack. That is a compiler dodge. HIP already has `fdot2` on `half2` — load packed, cvt+scale in **VGPR**, existing tiles. See [../silicon/leapdragon.md](../silicon/leapdragon.md) §4.
+
+Do **not**: vendor the plugin; copy the 4-way Q permute / `PAD=8` / `GQA=6` hardcode (GQA-4 Qwen misses it); unpack-then-reshape to `(TILE,256)` LDS (their v0, dead).
+
 ## Done-when (ISA dump)
 
 - [ ] KV load is i8 / packed `int`, not fp16 and not `fp8_e4m3`
@@ -74,7 +80,7 @@ Sage is **prefill Q and K both INT8**. KV-cache INT8 is **storage**. Q at decode
 
 ## Sources
 
-- Engine: [engine/kv-int8.md](../engine/kv-int8.md), [engine/kv-quant-offload.md](../engine/kv-quant-offload.md)
+- Engine: [engine/kv-int8.md](../engine/kv-int8.md), [engine/kv-quant-offload.md](../engine/kv-quant-offload.md), [engine/leapdragon.md](../engine/leapdragon.md)
 - Live FA: `csrc/rocm/fa_rdna2.cu` @ `add17dd7` — [silicon/fa-occupancy.md](../silicon/fa-occupancy.md)
 - vLLM INT8 KV: `KVQuantMode`, PRs [#36893](https://github.com/vllm-project/vllm/pull/36893), [#41954](https://github.com/vllm-project/vllm/pull/41954)
 - RDNA 2 ISA 70648: `V_DOT2_F32_F16`; i8 cvt; no FP8 unit
