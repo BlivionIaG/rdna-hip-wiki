@@ -43,6 +43,23 @@ Redline (ROCr retained-replay / PM4) is dispatch overhead, not a CU-occupancy fi
 
 `tests/speed-baselines/gfx1030.txt` is a **speed-gate floor** for *their* MQ4 stack, captured 2026-04-28. 0.8B/4B/9B = RX 6900 XT 16 GB; 27B = V620 Pro 32 GB and **not enforced** on gfx1030 CI. `docs/BENCHMARKS.md` historical row is a different fixture (“truth state: historical”). Neither is extras W4 / TP=4 / ROCm 7.14 / 88096 PIX. Do not write them into [coverage.md](../engine/coverage.md).
 
+## Strategy — do not pivot
+
+Room question 2026-08-21: drop SGLang, fork/contribute hipfire, move hippih to tools.
+
+**No.** hipfire does not change the path. Tuned silicon is gfx11/12 WMMA + MQ4R Redline. V620 is listed as *portable HIP + Redline dispatch*, same sentence as RDNA1. A fork or first-class contribution puts 8× V620 on a **fallback** in a WMMA-first tree.
+
+| Option | Silicon verdict |
+|---|---|
+| Drop SGLang overlay | **No.** SGLang is radix / overlap *serving* after extras occupancy ([sglang-fork.md](sglang-fork.md)). hipfire serving is Ollama-style + own MQ/HFQ, not extras HIP, not vLLM APC / TP=4 PIX. Different class. |
+| Fork hipfire as the custom engine | **No.** We inherit MQ/HFQ/Lloyd, WMMA dispatch, and their multi-GPU (PP / gfx12 EP). extras W4 + `fa_rdna2` + 88096 P2P are not in that tree. |
+| Contribute gfx1030 tiles upstream | Later, **after occupancy**, if we have a DOT/`sdot4` tile they want. Not a strategy. Do not send WMMA replacements (their Scope-B already dropped that). |
+| hippih → tools / extra modes | **Name only, Later.** Microbench + fail-closed graph replay can live under hippih. Do **not** clone hipfire. hippih stays the **three-ISA** home: gfx1030 `fdot2` / gfx1100 WMMA / gfx900 `mad_mix`. |
+
+**gfx900 is the hard stop.** hipfire Vega column is `gfx906`/`gfx908`/`gfx94x` wave64 GEMV fallback. V340L is **gfx900** — no DOT, objects will not load ([v340l.md](v340l.md)). hipfire cannot absorb that SKU without a new TU. hippih already reserved it.
+
+Product path unchanged: **extras → SGLang overlay → Llaminar → hippih**. Steal capability predicates + sdot4-MMQ *tile intent* after occupancy. No new first card.
+
 ## Not a dead end for us
 
 Portable ≠ tuned. Their gfx1030 path being “correct, slower prefill” does **not** make extras `fa_rdna2` / `skinny_gemms.cu` `(1,1)` a dead end. Occupancy flip still first.
@@ -52,4 +69,5 @@ Portable ≠ tuned. Their gfx1030 path being “correct, slower prefill” does 
 - https://github.com/warpfront/hipfire/blob/master/crates/rdna-compute/src/arch_caps.rs
 - https://github.com/warpfront/hipfire/blob/master/docs/plans/mq3_gfx10.md
 - https://github.com/warpfront/hipfire/blob/master/tests/speed-baselines/gfx1030.txt
-- [../engine/hipfire.md](../engine/hipfire.md), [valu.md](valu.md), [hippih.md](hippih.md)
+- https://github.com/warpfront/hipfire/blob/master/README.md (GPU support table: RDNA2 = portable)
+- [../engine/hipfire.md](../engine/hipfire.md), [valu.md](valu.md), [hippih.md](hippih.md), [sglang-fork.md](sglang-fork.md), [v340l.md](v340l.md)

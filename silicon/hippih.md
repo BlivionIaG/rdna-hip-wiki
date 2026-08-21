@@ -24,6 +24,12 @@ Only after occupancy + `load_row` on the vLLM fork:
 
 Placement ideas (attn on W7800, experts on V620, activations-only) stay Later: [hetero-moe-w7800-v620.md](hetero-moe-w7800-v620.md). hippih may host that graph; it does not replace extras compute work.
 
+## hipfire is not a hippih replacement
+
+2026-08-21: do **not** fork [warpfront/hipfire](https://github.com/warpfront/hipfire) into this repo, and do **not** drop the SGLang overlay for it. hipfire's tuned path is gfx11/12 WMMA; gfx1030 is portable; Vega in that tree is **gfx906**, not gfx900. Strategy lock: [hipfire.md](hipfire.md).
+
+hippih *may* later grow **tools / extra modes** (arch microbench, fail-closed graph replay). That is still this three-ISA contract, not a hipfire clone.
+
 ## First hippih kernel (when the repo exists)
 
 1. Arch enum + `hipcc --offload-arch=` per TU.
