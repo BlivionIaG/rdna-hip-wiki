@@ -1,8 +1,9 @@
 # gfx1030 FA occupancy report (BlivionIaG/vllm)
 
-Branch: `perf/rdna2_w4a16` (tree SHA `9ac015d0a936e9e3bdbe5dc7483e1a8b48c65370`).
-Primary source: [`csrc/rocm/fa_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu).
-Also read: [`csrc/rocm/sparse_mla_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu), [`csrc/rocm/indexer_paged_mqa_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu), [`csrc/rocm/ops.h`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h).
+Live human branch: **`rdna2_extras`** @ **`3e05abc9`**. Occupancy flip still first.
+This dump is a **historical snapshot** of `perf/rdna2_w4a16` (tree SHA `9ac015d0a936e9e3bdbe5dc7483e1a8b48c65370`). extras still ships `__launch_bounds__(128, 1)` / `(256, 1)` — trap inherited, not closed.
+Live tree: [`csrc/rocm/fa_rdna2.cu` on `rdna2_extras`](https://raw.githubusercontent.com/BlivionIaG/vllm/rdna2_extras/csrc/rocm/fa_rdna2.cu).
+Snapshot sources: [`fa_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu), [`sparse_mla_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu), [`indexer_paged_mqa_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu), [`ops.h`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h).
 
 Nothing here is invented from a compiled `.s` / `-Rpass-analysis=kernel-resource-usage` dump. VGPR columns are source comments or live-state estimates. LDS bytes are the host `size_t smem` formulas (what HIP actually reserves).
 
@@ -189,7 +190,7 @@ total                1168 B
 
 ## 4. Sage INT8 QK — opcode
 
-**There is no Sage INT8 QK kernel** on `perf/rdna2_w4a16`. `ops.h` registers only FA2 fp16, sparse MLA, and paged MQA logits. Repo-wide search of the downloaded ROCm sources found no `sage`, `qk_int8`, `sdot4`, `__builtin_amdgcn_sdot4`, or `v_dot4c`.
+**There is no Sage INT8 QK kernel** on this snapshot / on `rdna2_extras`. `ops.h` registers only FA2 fp16, sparse MLA, and paged MQA logits. Repo-wide search of the downloaded ROCm sources found no `sage`, `qk_int8`, `sdot4`, `__builtin_amdgcn_sdot4`, or `v_dot4c`.
 
 What the live attention paths actually issue:
 
@@ -301,4 +302,5 @@ Do not keep `(256, 1)` under the belief it means 1 block/CU.
 - https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h
 - HIP `__launch_bounds__`: https://rocm.docs.amd.com/projects/HIP/en/docs-6.3.1/how-to/hip_cpp_language_extensions.html (second arg = `MIN_WARPS_PER_EXECUTION_UNIT`; CUDA port formula)
 - Macro lowering: https://github.com/ROCm-Developer-Tools/HIP/issues/2521
-- Tree listing: `GET /repos/BlivionIaG/vllm/git/trees/perf/rdna2_w4a16?recursive=1` SHA `9ac015d0…`
+- Live branch: `rdna2_extras` @ `3e05abc9` (still `(1,1)`).
+- Snapshot tree listing: `GET /repos/BlivionIaG/vllm/git/trees/perf/rdna2_w4a16?recursive=1` SHA `9ac015d0…`
