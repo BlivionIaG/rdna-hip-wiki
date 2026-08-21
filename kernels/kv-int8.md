@@ -81,6 +81,6 @@ Do **not**: vendor the plugin; copy the 4-way Q permute / `PAD=8` / `GQA=6` hard
 ## Sources
 
 - Engine: [engine/kv-int8.md](../engine/kv-int8.md), [engine/kv-quant-offload.md](../engine/kv-quant-offload.md), [engine/leapdragon.md](../engine/leapdragon.md)
-- Live FA: `csrc/rocm/fa_rdna2.cu` @ `add17dd7` — [silicon/fa-occupancy.md](../silicon/fa-occupancy.md)
+- Live FA: `csrc/rocm/fa_rdna2.cu` on **`rdna2_extras`** @ `3e05abc9` — [silicon/fa-occupancy.md](../silicon/fa-occupancy.md). Occupancy dump SHA is historical `perf/rdna2_w4a16`.
 - vLLM INT8 KV: `KVQuantMode`, PRs [#36893](https://github.com/vllm-project/vllm/pull/36893), [#41954](https://github.com/vllm-project/vllm/pull/41954)
 - RDNA 2 ISA 70648: `V_DOT2_F32_F16`; i8 cvt; no FP8 unit
