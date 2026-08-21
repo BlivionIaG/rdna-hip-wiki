@@ -2,7 +2,7 @@
 
 Date: 2026-08-21. Engine: [../engine/leapdragon.md](../engine/leapdragon.md). Repo: [leapdragon/vllm-rdna2-recipe](https://github.com/leapdragon/vllm-rdna2-recipe) (GPL-3.0-or-later **recipe**, not a fork). Occupancy still first. Do **not** copy their tok/s.
 
-Their box ≠ ours: 2× V620 in **×16** slots (TP=2), ROCm 7.2.3 in-container, `Qwen3.8-27B-GPTQ-4bit` (`head_dim=256`, GQA-4, hybrid GDN). We are 8× V620 / two 88096s / attested **7.14** / extras HIP. Steal **intent**, not plugins, not numbers.
+Their box ≠ ours: 2× V620 in **×16** slots (TP=2), ROCm 7.2.3 in-container, `Qwen3.8-27B-GPTQ-4bit` (`head_dim=256`, **24Q/4KV = GQA-6**, hybrid GDN). We are 8× V620 / two 88096s / attested **7.14** / extras HIP. Steal **intent**, not plugins, not numbers.
 
 ## Their measured silicon (sourced, not our bench)
 
@@ -26,7 +26,7 @@ Plain FMA vs `tl.dot`: they measured **4.9×** slower. Matches [valu.md](valu.md
 
 ### 1. Softmax segments = fill 36 WGP
 
-Decode grid is `seqs × kv_heads × segments`. GQA-4 on one V620 is **tiny**: they quote 32 WGs vs **36 WGP** — idle chip. Scale segments toward `MIN_LAUNCH_GRID_SIZE_2D`, cap 64. Their plateau 16→64.
+Decode grid is `seqs × kv_heads × segments`. **4 KV heads** on one V620 is **tiny**: they quote 32 WGs vs **36 WGP** — idle chip. (GQA-6 is 24Q/4KV; do not call that GQA-4.) Scale segments toward `MIN_LAUNCH_GRID_SIZE_2D`, cap 64. Their plateau 16→64.
 
 This is **grid fill**, not the extras `__launch_bounds__(N,1)` / `waves_per_eu(1,1)` trap. Triton unified-attn first; then prove `fa_rdna2` already fills or add a segment/KV-split there. Occupancy flip still first — a full grid of `(1,1)` waves is still one wave/EU.
 
@@ -48,7 +48,7 @@ Sweep extras skinny / W4. Do **not** paste 256. Same occupancy rule: `waves_per_
 
 ISA they actually fire: i8 → f16 → `tl.dot` = **`fdot2`**, not `sdot4`. Matches [../kernels/kv-int8.md](../kernels/kv-int8.md).
 
-Plugin hardcodes `GQA=6` / `PAD=8` (`q.shape[1] % 6 == 0`). **GQA-4 Qwen (their own 27B, extras default) misses the fast path** and falls back to stock. Steal **fused INT8 gather** into occupancy-fixed `fa_rdna2` (VGPR cvt + scale, existing tiles). Do not vendor the plugin, do not copy the 4-way Q permute, do not land gather on `(1,1)`.
+Plugin hardcodes `GQA=6` / `PAD=8` (`q.shape[1] % 6 == 0`). **Hits their 27B (24Q/4KV).** Misses GQA-4 and 7B 28/4. Steal **fused INT8 gather** into occupancy-fixed `fa_rdna2` (VGPR cvt + scale, existing tiles). Do not vendor the plugin, do not copy the 4-way Q permute, do not land gather on `(1,1)`.
 
 520 B/entry = 64 i32 K + scale + 64 i32 V + scale. Bandwidth win is the i8 load, not a new DOT.
 
