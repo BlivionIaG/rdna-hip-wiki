@@ -10,7 +10,7 @@ Rate math that matches GPUOpen RX 6950 XT: 1 DOT/clk/SIMD × 2 SIMD/CU × 32 lan
 
 | HIP / builtin | ISA | Enc | Size | Issue | Peak ops/clk/CU | Acc | We fire |
 |---|---|---|---|---|---|---|---|
-| `__builtin_amdgcn_fdot2` | `V_DOT2C_F32_F16` (prefer) / `V_DOT2_F32_F16` | VOP2 / VOP3 | 1 / 2 | 1/SIMD (inferred) | **256** FP16 | f32 | **Live:** W4A16, W8A16, W8A16-FP8, W8A8-FP8, mxfp4, `fa_rdna2` QK. **Queued:** NVFP4, INT2/W2A16, mixed INT2/INT4 MoE, INT8 KV (after cvt). |
+| `__builtin_amdgcn_fdot2` | `V_DOT2C_F32_F16` (prefer) / `V_DOT2_F32_F16` | VOP2 / VOP3 | 1 / 2 | 1/SIMD (inferred) | **256** FP16 | f32 | **Live:** W4A16, W8A16, W8A16-FP8, W8A8-FP8, mxfp4, `fa_rdna2` QK. **Queued:** NVFP4, INT2/W2A16, mixed INT2/INT4 MoE, INT8 KV (after cvt), EXL3 (after 3-inst decode). |
 | `__hfma2` / `v_fma_f32` | `V_FMA_F32` / `V_PK_FMA_F16` | VOP3 / VOP3P | 2 | 1/SIMD (typical VALU) | 128 FMA = 256 FLOP if packed | f32 / f16 | **HIP MLA decode, Lightning indexer** (later `fdot2`). ikantkode GEMV is Triton `tl.sum` — do not port. |
 | `__builtin_amdgcn_sdot4` | `V_DOT4C_I32_I8` / `V_DOT4_I32_I8` | VOP2 / VOP3 | 1 / 2 | 1/SIMD (inferred) | **512** IU8 | i32 | **Spec:** W8A8 INT8, Sage QK, W4A8 (after W→i8 unpack). |
 | `__builtin_amdgcn_udot4` | `V_DOT4_U32_U8` | VOP3 | 2 | same class | 512 IU8 | u32 | unused (signed weights) |
@@ -48,7 +48,7 @@ WMMA does **not** beat DOT4/DOT8 on INT8/INT4 (same 512/1024). It only doubles *
 
 | Kernel | gfx1030 op |
 |---|---|
-| W4A16 / W8A16 / FP8-storage / mxfp4 / NVFP4 / INT2 | `fdot2` |
+| W4A16 / W8A16 / FP8-storage / mxfp4 / NVFP4 / INT2 / EXL3 | `fdot2` |
 | `fa_rdna2` QK / INT8 KV (after i8→fp16) | `fdot2` |
 | HIP MLA / indexer (today) | scalar FMA — later `fdot2` |
 | W8A8 INT8 / Sage QK / W4A8 | `sdot4` |
