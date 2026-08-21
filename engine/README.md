@@ -37,6 +37,7 @@ Session dump (2026-08-17/18): [notes/session-2026-08-17.md](notes/session-2026-0
 | [int2.md](int2.md) | INT2 + mixed INT2/INT4 MoE — unpack→`fdot2`, bitwidth grouped outside K |
 | [w4a4.md](w4a4.md) | W4A4 explore — integer `sdot8` i4×i4; MXFP4/NVFP4 A4 stays `fdot2` |
 | [exl3.md](exl3.md) | EXL3 / QTIP trellis — no vLLM path; HIP would be unpack→`fdot2`, Later |
+| [dsv4-flash-run.md](dsv4-flash-run.md) | DSv4 Flash on 120 GB — keep mxfp4, no drop-in EXL3 |
 | [mtp.md](mtp.md) | MTP — native heads, fat tile first, no new DOT |
 | [dflash.md](dflash.md) | DFlash — parallel block draft, same fat-tile gate |
 | [dspark.md](dspark.md) | DSpark — DFlash + Markov + confidence schedule |
