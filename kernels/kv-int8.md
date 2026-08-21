@@ -4,7 +4,19 @@ Engine dispatch and quant mode: [engine/kv-int8.md](../engine/kv-int8.md). This 
 
 **Win is bandwidth, not FLOPS.** Decode gather is GDDR6-bound. INT8 KV is ½ the bytes vs fp16. An unfused “dequant the whole cache to fp16, then attend” kernel throws that away.
 
-Q stays **fp16**. QK/PV stay **`fdot2`**. This is not Sage (`sdot4` on INT8 Q). This is not FP8 KV.
+Q stays **fp16**. QK/PV stay **`fdot2`**. This is not Sage (`sdot4` on INT8 Q).
+
+## Live on `rdna2_extras` @ `4cc1fe59` (2026-08-21)
+
+Cherry-port of `3baecdb516`. **Not the contract.** Occupancy still first.
+
+| Path | What shipped | Silicon |
+|---|---|---|
+| INT8 decode `fa_decode_paged_splitk_kernel_int8_pth` | Scalar `__hmul` QK/PV, `q_reg[D]` + `o_acc[D]` in VGPR, **smem 0**, launch 64/128 threads that **all run the full D loop** (`t` unused except empty/write). `blockIdx.z` unused — `kv_splits=8` repeats the whole sweep. Scale is `k_scale[token_idx, h_kv]` (query token), not per cached slot. | No `fdot2`. Comment “no native int8 dot” is **wrong** (`sdot4` exists; we still do not want it on KV). Spill / 64× redundant. |
+| INT8 prefill | Python: whole cache `.to(fp32)*scale.to(fp16)` then fp16 prefill | Unfused. Throws the bandwidth win. |
+| FP8 decode/prefill | Template on existing tiles: software `e4m3→half`, LDS stays fp16, **`fdot2`**, still `__launch_bounds__(128/256, 1)` | Closest to the contract. No FP8 unit — software unpack is fine. Occupancy trap **inherited**. |
+
+Do **not** retip occupancy closed. Next INT8 work is: delete the pth stub, fuse i8 load into the occupancy-fixed fp16 tiles (same as FP8 template), per-(block,slot,head) scale. Prefill: tile dequant in LDS, not a Python materialize.
 
 ## Native ops
 
@@ -12,10 +24,10 @@ Q stays **fp16**. QK/PV stay **`fdot2`**. This is not Sage (`sdot4` on INT8 Q). 
 |---|---|---|
 | Load packed K/V | `global_load` / `buffer_load` as `int` / `char4` | dword loads, `D % 4 == 0` (128/256) |
 | i8 → f32 | `v_cvt_f32_i32` after sext | or `v_cvt_f16_i16` then promote |
-| × scale | `v_mul_f32` | one fp32 scale per (token, head), K and V separate |
+| × scale | `v_mul_f32` | one fp32 scale per **cached** (token, head), K and V separate |
 | QK / PV | `V_DOT2_F32_F16` | `__builtin_amdgcn_fdot2` — same as today’s `fa_rdna2` |
 
-Do **not**: `sdot4` on KV (Q is fp16), FP8 cvt, `v_dot2_f32_bf16`, a K$ scale LUT.
+Do **not**: `sdot4` on KV (Q is fp16), a K$ scale LUT, scalar `__hmul` over D, Python dequant of the whole cache.
 
 ## Writer — `reshape_and_cache_int8_rdna2`
 
@@ -33,18 +45,18 @@ Pack store as `int` (4×i8) so the reader can `ds`/`global` dword. Sequential `i
 
 ## Reader — fused into `fa_rdna2`
 
-Same Br/Bc/D tiles as fp16 `fa_rdna2`. Only the **load + cvt** changes.
+Same Br/Bc/D tiles as fp16 `fa_rdna2`. Only the **load + cvt** changes. The live FP8 template is the shape to copy (not the INT8 pth stub).
 
 ```
 // per K/V element in the current tile
 i8  = load packed
-f   = cvt_f32_i8(i8) * scale[token, head]   // VGPR, on the fly
+f   = cvt_f32_i8(i8) * scale[kv_token, head]   // VGPR, on the fly
 // then existing fdot2 against Q (fp16) or P
 ```
 
 - Decode: do **not** materialize a full-seq fp16 KV workspace.
 - Prefill: may stage a **tile** of dequanted K in LDS (the working set), not the sequence.
-- Scale load is one fp32 per head per token — tiny vs KV. No LDS scale table.
+- Scale load is one fp32 per head per **cached** token — tiny vs KV. No LDS scale table.
 
 Occupancy flip **blocks this**. Do not land INT8 gather on `__launch_bounds__(*, 1)` / `waves_per_eu(1,1)`.
 
@@ -61,7 +73,7 @@ Head-64 stays Triton until that FA2 tile exists.
 
 ## Why not sdot4 here
 
-Sage is **prefill Q and K both INT8**. KV-cache INT8 is **storage**. Q at decode is one row of fp16. Quantizing that Q every step to win `sdot4` is a different kernel (Sage) and does not help decode bandwidth. Keep QK on `fdot2`.
+Sage is **prefill Q and K both INT8**. KV-cache INT8 is **storage**. Q at decode is one row of fp16. Quantizing that Q every step to win `sdot4` is a different kernel (Sage) and does not help decode bandwidth. Keep QK on `fdot2`. The extras comment “RDNA2 has no native int8 matrix dot” is false (`v_dot4_i32_i8`); it is still the wrong op here.
 
 ## Not their `fd_rdna2` slice
 
@@ -71,9 +83,10 @@ Do **not**: vendor the plugin; copy the 4-way Q permute / `PAD=8` / `GQA=6` hard
 
 ## Done-when (ISA dump)
 
-- [ ] KV load is i8 / packed `int`, not fp16 and not `fp8_e4m3`
-- [ ] cvt + `v_mul_f32` by `k_scale` / `v_scale`, then `v_dot2_f32_f16`
+- [ ] KV load is i8 / packed `int`, not fp16 and not a Python materialize
+- [ ] cvt + `v_mul_f32` by per-**slot** `k_scale` / `v_scale`, then `v_dot2_f32_f16`
 - [ ] No `v_dot4c_i32_i8` on the KV path
+- [ ] No scalar `__hmul` over D; no `q_reg[D]` / `o_acc[D]` per thread
 - [ ] Writer and reader agree on slot + scale layout
 - [ ] `waves_per_eu(4, 8)` on the decode reader
 - [ ] Smoke vs fp16 KV (not bit-exact). No tok/s from this page
@@ -81,6 +94,6 @@ Do **not**: vendor the plugin; copy the 4-way Q permute / `PAD=8` / `GQA=6` hard
 ## Sources
 
 - Engine: [engine/kv-int8.md](../engine/kv-int8.md), [engine/kv-quant-offload.md](../engine/kv-quant-offload.md), [engine/leapdragon.md](../engine/leapdragon.md)
-- Live FA: `csrc/rocm/fa_rdna2.cu` on **`rdna2_extras`** @ `3e05abc9` — [silicon/fa-occupancy.md](../silicon/fa-occupancy.md). Occupancy dump SHA is historical `perf/rdna2_w4a16`.
+- Live FA: `csrc/rocm/fa_rdna2.cu` on **`rdna2_extras`** @ `4cc1fe59` — [silicon/fa-occupancy.md](../silicon/fa-occupancy.md)
 - vLLM INT8 KV: `KVQuantMode`, PRs [#36893](https://github.com/vllm-project/vllm/pull/36893), [#41954](https://github.com/vllm-project/vllm/pull/41954)
-- RDNA 2 ISA 70648: `V_DOT2_F32_F16`; i8 cvt; no FP8 unit
+- RDNA 2 ISA 70648: `V_DOT2_F32_F16`; i8 cvt; `V_DOT4_I32_I8` exists but not for this path; no FP8 unit
