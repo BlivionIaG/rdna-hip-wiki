@@ -27,9 +27,15 @@ Not a discard. **hippih is the custom HIP engine** for the three ISAs we own:
 
 Do **not** start hippih or the SGLang overlay before extras occupancy. Do not port ROCmFPX GGUF types first. Do not pivot off extras. Do not rewrite DOT for SGLang. Do **not** clone [hipfire](hipfire.md) as hippih — steal dispatch/sdot4-MMQ *intent* later.
 
+## Build in hipfire, hippih = viz? **No**
+
+Room 2026-08-21. **Keep the full hippih way.** hipfire is steal + measurement peer, not the feature tree ([hipfire.md](hipfire.md)).
+
+**tools/microbench now** is allowed (empty stub, occupancy still first). That is *not* “hippih becomes a visual-tools repo forever.” Destination stays the three-ISA engine. Incoming V340L (gfx900) has no backend in hipfire (their Vega column is gfx906).
+
 ## Steal when we write it
 
-From extras (after occupancy + `load_row`): skinny decode GEMV `fdot2` (`M∈{1,2,4,8}`), prefill rocBLAS first (HIP 64×64×32 only if it wins), `fa_rdna2` occupancy `waves_per_eu(4, 8)` not `(1,1)`, W4A16 dequant→`fdot2`, later W8A8 `sdot4`.
+From extras (after occupancy + `load_row`): skinny decode GEMV `fdot2` (`M\in{1,2,4,8}`), prefill rocBLAS first (HIP 64×64×32 only if it wins), `fa_rdna2` occupancy `waves_per_eu(4, 8)` not `(1,1)`, W4A16 dequant→`fdot2`, later W8A8 `sdot4`.
 
 From vLLM: paged KV + continuous batching.
 
@@ -47,11 +53,11 @@ Occupancy on extras. MLA `load_row` OOB. CMake gap (`moe_w8a16_fp8_rdna2.cu`). M
 
 ## Cards
 
-Later. Occupancy still first. One hippih-contract card after extras occupancy lands. SGLang overlay is a sibling Later card — [sglang-fork.md](sglang-fork.md). No “port hipfire” card.
+Later. Occupancy still first. One hippih-contract card after extras occupancy lands. SGLang overlay is a sibling Later card — [sglang-fork.md](sglang-fork.md). No “port hipfire” / “fork hipfire” card.
 
 ## Sources
 
 - hippih README (stub)
 - [silicon/hippih.md](../silicon/hippih.md)
 - [rdna2-extras.md](rdna2-extras.md), [sglang-fork.md](sglang-fork.md), [fp16-rdna2.md](fp16-rdna2.md), [alt-engines.md](alt-engines.md), [hipfire.md](hipfire.md)
-- Room 2026-08-20: own SGLang path; 2026-08-21: hipfire peer not clone
+- Room 2026-08-20: own SGLang path; 2026-08-21: keep full hippih way, hipfire steal only
