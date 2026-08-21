@@ -36,6 +36,7 @@ Session dump (2026-08-17/18): [notes/session-2026-08-17.md](notes/session-2026-0
 | [kv-int8.md](kv-int8.md) | INT8 KV spec — fused dequant in `fa_rdna2`, per-token-head |
 | [int2.md](int2.md) | INT2 + mixed INT2/INT4 MoE — unpack→`fdot2`, bitwidth grouped outside K |
 | [w4a4.md](w4a4.md) | W4A4 explore — integer `sdot8` i4×i4; MXFP4/NVFP4 A4 stays `fdot2` |
+| [exl3.md](exl3.md) | EXL3 / QTIP trellis — no vLLM path; HIP would be unpack→`fdot2`, Later |
 | [mtp.md](mtp.md) | MTP — native heads, fat tile first, no new DOT |
 | [dflash.md](dflash.md) | DFlash — parallel block draft, same fat-tile gate |
 | [dspark.md](dspark.md) | DSpark — DFlash + Markov + confidence schedule |
