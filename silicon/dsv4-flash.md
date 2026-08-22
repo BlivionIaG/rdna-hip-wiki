@@ -26,7 +26,7 @@ TP=4: unreduced expert rows (PR #46676).
 
 ## Produce
 
-1. REAP (or equivalent) **on official MXFP4** to K216-class, **then** CUDA Viterbi 3–4 bpw `mcg`/`mul1`. Don’t spend Viterbi on experts you will drop.
+1. REAP (or equivalent) **on official MXFP4** to K216-class, **then** CUDA Viterbi **3.0–3.5 bpw `-cb 3inst`**. Compile `mcg` too (0xSero K216). Don’t spend Viterbi on experts you will drop. Don’t `-hq` leftover.
 2. Cornell/ExLlama produce. We consume. One HIP kernel for a QTIP dump or EXL3 ([exl3.md](exl3.md)).
 3. 0xSero 256-expert 116.29 GiB is the wrong size (no KV). 99.48 GiB K216 is the size target, not the runtime.
 

@@ -37,6 +37,25 @@ QuIP# incoherence, not INT2-KV Hadamard. 128-wide Walsh on A (pre, `suh` along K
 
 HIP: cheap VALU butterfly, separate kernel or tile-edge fuse. Do **not** require `cudaLaunchCooperativeKernel` / HIP cooperative launch to ship a first GEMV.
 
+
+## RDNA2 flexibility (infer vs convert)
+
+16×16 + `suh`/`svh` + packed trellis are **frozen at infer**. We do not re-walk.
+
+Convert-time (producer): integer `K` per tensor (1–8), codebook id, who gets EXL3. RDNA2 pick: **experts only**, **3.0–3.5 bpw**, **`cb=0` (`3inst`)**. `-hq` on attn/shared is wrong when leftover is official MXFP8.
+
+Infer-time (our HIP):
+
+| Knob | Do |
+|---|---|
+| Codebook | Template `cb`. `0` and `1` (`mcg`) are the same VALU class (mul + LOP3-emulate + `hadd`). `2` (`mul1`) is the expensive one (byte-sum + `hfma`). Produce `3inst`; still compile `mcg` for 0xSero K216. |
+| `K` | One `K` per launch (template like CUDA `bits`). Do **not** mix bpw in one WG. |
+| Tile | Skinny `BLOCK_M=1/2/4/8`, A in LDS, stream packed B, `BLOCK_KN=256` seed. Pair two states → `half2` → one `fdot2`. |
+| Hadamard | Required if `suh`/`svh` exist. 128-wide Walsh is cheap vs expert GDDR. Separate kernel is fine. |
+| Occupancy | Same ticket as `mxfp4_dot2_moe`. No CUDA 16×16 MMA shapes. |
+
+2 bpw is decode-bound on 512 GB/s (same 3-inst cost, half the bytes).
+
 ## Why the CUDA path is the wrong shape
 
 - `exl3_gemm` tiles are MMA fragments: `16×{16,32}×{128,256,512}`, 4–6 smem stages, 3–5 frag stages, 256–512 threads, cooperative grid.
