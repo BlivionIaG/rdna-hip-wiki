@@ -40,5 +40,8 @@ Reuse: occupancy (`fa_rdna2` + skinny), W4A16 dense (HIP GEMV, not their Triton)
 ## Sources
 
 - https://github.com/ikantkode/gfx1030-vllm-0.26 README + CHANGELOG + `patches/utils.py` + `patches/awq_triton.py`
+- v1.1.0 INT4 `lm_head` (untie + `quantization_config.lm_head`): decode bytes, not a new DOT. On extras HIP, M=1 K=2560 N≈248k already hits `select_config` ConfigA (`M<4 && N>4096`), not the fat-M leftover.
+- Their `paged_attention_rocm` “triple-dead” (arch gate, no HEAD=256, non-pow2 528) is our FA occupancy / head-256 card (`03b2d91a`), not Triton `num_warps=8`.
+
 - https://huggingface.co/ikantkode/Qwen3.5-4B-AWQ-vd
 - RDNA 2 ISA: 64 KB LDS/WG; no bf16 DOT
