@@ -2,7 +2,7 @@
 
 Date: 2026-08-21. Engine: [../engine/leapdragon.md](../engine/leapdragon.md). Repo: [leapdragon/vllm-rdna2-recipe](https://github.com/leapdragon/vllm-rdna2-recipe) (GPL-3.0-or-later **recipe**, not a fork). Occupancy still first. Do **not** copy their tok/s.
 
-Their box ≠ ours: 2× V620 in **×16** slots (TP=2), ROCm 7.2.3 in-container, `Qwen3.8-27B-GPTQ-4bit` (`head_dim=256`, **24Q/4KV = GQA-6**, hybrid GDN). We are 8× V620 / two 88096s / attested **7.14** / extras HIP. Steal **intent**, not plugins, not numbers.
+Their box ≠ ours: 2× V620 in **×16** slots (TP=2), ROCm 7.2.3 in-container, `Qwen3.8-27B-GPTQ-4bit` (`head_dim=256`, **24Q/4KV = GQA-6**, hybrid GDN). We are 8× V620 / two 88096s / attested **7.14** / extras HIP. Take **intent**, Leave plugins and numbers.
 
 ## Their measured silicon (sourced, not our bench)
 
@@ -20,7 +20,7 @@ From [00-HARDWARE.md](https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/
 
 Plain FMA vs `tl.dot`: they measured **4.9×** slower. Matches [valu.md](valu.md) — do not write scalar FMA “because no WMMA.”
 
-## Steal after occupancy (silicon intent)
+## Take after occupancy (silicon intent)
 
 **Do not vendor GPL plugins.** Re-implement.
 
@@ -48,7 +48,7 @@ Sweep extras skinny / W4. Do **not** paste 256. Same occupancy rule: `waves_per_
 
 ISA they actually fire: i8 → f16 → `tl.dot` = **`fdot2`**, not `sdot4`. Matches [../kernels/kv-int8.md](../kernels/kv-int8.md).
 
-Plugin hardcodes `GQA=6` / `PAD=8` (`q.shape[1] % 6 == 0`). **Hits their 27B (24Q/4KV).** Misses GQA-4 and 7B 28/4. Steal **fused INT8 gather** into occupancy-fixed `fa_rdna2` (VGPR cvt + scale, existing tiles). Do not vendor the plugin, do not copy the 4-way Q permute, do not land gather on `(1,1)`.
+Plugin hardcodes `GQA=6` / `PAD=8` (`q.shape[1] % 6 == 0`). **Hits their 27B (24Q/4KV).** Misses GQA-4 and 7B 28/4. Take **fused INT8 gather** into occupancy-fixed `fa_rdna2` (VGPR cvt + scale, existing tiles). Do not vendor the plugin, do not copy the 4-way Q permute, do not land gather on `(1,1)`.
 
 520 B/entry = 64 i32 K + scale + 64 i32 V + scale. Bandwidth win is the i8 load, not a new DOT.
 

@@ -16,13 +16,13 @@ Rule: every concrete claim is attributed. If a figure was not in a page opened t
 
 | Tool | Verdict on gfx1030 | Why | What to do instead |
 |---|---|---|---|
-| **Hand-written HIP + packed DOT** (`v_dot2*`, `v_dot4c_i32_i8` / `__builtin_amdgcn_sdot4`, optional `v_dot8*_i4`) | **USE.** This is the real stack. | No WMMA/MFMA on RDNA2. ISA + llama.cpp `#8629` put `sdot4` on all gfx103x. | Write the kernel. Steal XOR/tile *ideas*, not CK instances. |
+| **Hand-written HIP + packed DOT** (`v_dot2*`, `v_dot4c_i32_i8` / `__builtin_amdgcn_sdot4`, optional `v_dot8*_i4`) | **USE.** This is the real stack. | No WMMA/MFMA on RDNA2. ISA + llama.cpp `#8629` put `sdot4` on all gfx103x. | Write the kernel. Take XOR/tile *ideas*, Leave CK instances. |
 | **rocBLAS Tensile** (old Tensile, not TensileLite) | **USE** for dense FP16 GEMM you do not want to own. | rocBLAS ships Tensile; gfx1030 is in Tensile's arch list. This is the library that actually runs `torch.nn.functional.linear` after hipBLASLt refuses. | Keep `PYTORCH_TUNABLEOP_ENABLED=1` and **`PYTORCH_TUNABLEOP_HIPBLASLT_ENABLED=0`**. |
 | **PyTorch TunableOp** | **USE** for library GEMM, not for your custom quant kernel. | Benchmarks rocBLAS (and hipBLASLt if enabled) solutions per `(M,N,K,dtype,trans)`. | Tune once, reuse `tunableop_results.csv`. Do not let it try hipBLASLt on this card. |
 | **Triton AMD backend (compiler)** | **USE as a portable compiler.** Do not treat it as a tuned RDNA2 product. | `HIPOptions` sets `warp_size=32` for `gfx_major >= 10`. `tl.dot` lowers to `llvm.amdgcn.fdot2` / `llvm.amdgcn.sdot4` / `llvm.fmuladd`, **not** WMMA. | Autotune `BLOCK_{M,N,K}`, `num_warps`, `num_stages`, `waves_per_eu`. Ignore `matrix_instr_nonkdim` / `kpack` (MFMA knobs). |
 | **Triton as a vLLM/AITER FA product** | **IGNORE as a first-class gfx1030 path.** | vLLM `flash_attn_triton_available()` requires `on_gfx1x()` (gfx11/12). AITER `#210` (2025-03): “If you can run Triton kernels [on] gfx1030, then yes.” That is a compiler answer, not a quality claim. | Hand HIP attention, or a *your* Triton kernel you autotune. Do not wait for AITER. |
 | **Composable Kernel — `DeviceGemmDl` / `DeviceGemmDpp`** | **OPTIONAL reference**, not a product you ship. | Official hello-world: XDL GEMM **refuses** on gfx1030; `example_gemm_dl_fp16` is the NAVI2x path. README: DL/DPP “useful on NAVI2x”. | Read the DL instance for VALU tiling. Do not take a CK dependency in TheRock/PyTorch wheels — gfx103x is blacklisted. |
-| **CK Tile DSL (coords, XOR preshuffle)** | **STEAL THE IDEA. Do not ship the library.** | XOR / `make_xor_transform` is the right bank-conflict tool. CK's published formula is the **32-bank (CDNA) modulus**. gfx1030 WGP mode is **64 banks**. | Re-implement XOR with `% 64`. See companion LDS note. |
+| **CK Tile DSL (coords, XOR preshuffle)** | **TAKE THE IDEA. Do not ship the library.** | XOR / `make_xor_transform` is the right bank-conflict tool. CK's published formula is the **32-bank (CDNA) modulus**. gfx1030 WGP mode is **64 banks**. | Re-implement XOR with `% 64`. See companion LDS note. |
 | **CK GEMM XDL / CK Tile universal GEMM / CK FMHA** | **IGNORE on gfx1030.** | XDL = MFMA. Tile GEMM/FMHA pipelines are XDL/WMMA. vLLM PR `#32944` (2026-01): “Flash Attention's CK backend only supports CDNA (gfx90a/gfx942/gfx950).” CK `#886` (2024-10): FA not on gfx1030/gfx1100. CK 1.2.0 later added **gfx11** FMHA — still not gfx10. | Triton FA (hand-rolled) or HIP. |
 | **hipBLASLt / TensileLite** | **IGNORE in default ROCm.** Community force-build is a science project. | TheRock `#1062`: gfx10xx “technically supported by tensilelite” but **excluded** (extops need gfx90a+ `.amdhsa_accum_offset`). hipBLASLt `#648`: ExtOp asm fails on gfx10; PyTorch falls back to hipBLAS. | rocBLAS Tensile + TunableOp. Do not spend weeks unblocking hipBLASLt unless you *are* that community porter. |
 | **rocWMMA** | **IGNORE.** | Official targets: gfx9 MFMA + gfx11/gfx12 WMMA. TheRock `#1944`: gfx103X “fundamentally incompatible.” rocm-libraries `#8209` (software WMMA via `v_dot2c`+DPP) was **rejected** — rocWMMA is a hardware-matrix abstraction, not a VALU emulator. | Call `sdot4` / `fdot2` yourself. |
@@ -90,7 +90,7 @@ What is *not* copy-pasteable:
 - TileWindow “automatically applies XOR” is true inside CK Tile GEMM/FMHA, which you are not running.
 - Examples in the XOR doc are “A Block GEMM on MI300” — MFMA fragment layout, not VALU DOT.
 
-Practical steal for a HIP author:
+Practical take for a HIP author:
 
 ```text
 // WGP mode, 64 dword banks. Do not use CK's % 32.
@@ -484,4 +484,4 @@ Triton equivalent if you prototype in Python first: `@triton.autotune` over `BLO
 
 ## 7. One-paragraph recommendation
 
-On gfx1030 you are a **VALU-DOT HIP author**. Use rocBLAS Tensile + TunableOp (hipBLASLt off) for dense FP16; use Triton only as a compiler whose `tl.dot` is `fdot2`/`sdot4`; steal CK's XOR idea with a **64-bank** modulus; ignore CK FA, CK XDL, hipBLASLt, rocWMMA, AITER, and every MFMA autotune knob. Sweep W4A16 skinny on **N and K plus launch_bounds**, W8A8 on **BK then square tiles**, with `llvm-calc-occupancy` + `-Rpass-analysis` as the pre-filter and rocprofv3/RGP as the lie detector.
+On gfx1030 you are a **VALU-DOT HIP author**. Use rocBLAS Tensile + TunableOp (hipBLASLt off) for dense FP16; use Triton only as a compiler whose `tl.dot` is `fdot2`/`sdot4`; take CK's XOR idea with a **64-bank** modulus; ignore CK FA, CK XDL, hipBLASLt, rocWMMA, AITER, and every MFMA autotune knob. Sweep W4A16 skinny on **N and K plus launch_bounds**, W8A8 on **BK then square tiles**, with `llvm-calc-occupancy` + `-Rpass-analysis` as the pre-filter and rocprofv3/RGP as the lie detector.

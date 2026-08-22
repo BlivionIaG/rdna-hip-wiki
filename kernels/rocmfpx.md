@@ -33,7 +33,7 @@ Closest existing tile: W4A8 after W8A8 ([sdot4-explore.md](sdot4-explore.md)). S
 
 They ship `scripts/build-rdna2.sh`. Published “good results” are **RDNA4 / gfx1151 / Vulkan** (WMMA or their tuned FA), not a V620 ISA dump. Do not copy `RDNA35_NWARPS=2`, FA `KQ_NTHREADS`, or R9700 tok/s onto gfx1030.
 
-Wave32 + `sdot4` is the legal V620 compute path. Occupancy of *their* MMVQ is unknown until the dump. Standalone `rocmfp4_hip.cu` dequant is `decode_i8 * ue4m3 → f32` — unfused. The steal is fused MMVQ/MMQ integer-dot.
+Wave32 + `sdot4` is the legal V620 compute path. Occupancy of *their* MMVQ is unknown until the dump. Standalone `rocmfp4_hip.cu` dequant is `decode_i8 * ue4m3 → f32` — unfused. Take fused MMVQ/MMQ integer-dot.
 
 ## Concurrency is KV, not the codebook
 

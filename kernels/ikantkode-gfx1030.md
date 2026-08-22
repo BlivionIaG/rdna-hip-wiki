@@ -2,7 +2,7 @@
 
 Sourced from [ikantkode/gfx1030-vllm-0.26](https://github.com/ikantkode/gfx1030-vllm-0.26) (file-mount patches on `blivioniag/vllm-rdna:v0.26.0`) and the `-vd` checkpoint [ikantkode/Qwen3.5-4B-AWQ-vd](https://huggingface.co/ikantkode/Qwen3.5-4B-AWQ-vd). Their numbers, not ours. Occupancy still first.
 
-**Not our HIP path.** Triton AWQ GEMV + gate flips. No `fdot2` / `sdot4` / `fa_rdna2`. Do not port the Triton kernels. Steal the **gates and occupancy lessons**.
+**Not our HIP path.** Triton AWQ GEMV + gate flips. No `fdot2` / `sdot4` / `fa_rdna2`. Do not port the Triton kernels. Take the **gates and occupancy lessons**.
 
 ## What they actually changed (silicon)
 

@@ -2,7 +2,7 @@
 
 Later. Not in the fork. Occupancy + live W4 still first. Silicon: [../silicon/exl3.md](../silicon/exl3.md).
 
-Steal-the-math only: unpack trellis → fp16 → `fdot2`. Same job as mxfp4, fatter decode. **No** Marlin / MMA / WMMA port.
+Take the math only: unpack trellis → fp16 → `fdot2`. Same job as mxfp4, fatter decode. **No** Marlin / MMA / WMMA port.
 
 ## Pack
 
