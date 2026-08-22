@@ -1,77 +1,33 @@
 # QTIP / EXL3 on gfx1030 — engine spec
 
-Date: 2026-08-21. Engine contract. Silicon: [silicon/exl3.md](../silicon/exl3.md) + [kernels/exl3.md](../kernels/exl3.md) (Later). Human branch is **`rdna2_extras`**. Occupancy is still first. This is **Later / native HIP**, not a current subject.
+Date: 2026-08-22. Engine contract. Silicon: [silicon/exl3.md](../silicon/exl3.md) + [kernels/exl3.md](../kernels/exl3.md) (Later). DSv4 apply: [dsv4-flash-run.md](dsv4-flash-run.md). Occupancy still first.
 
-**Verdict:** The interesting part is **QTIP quality-for-size**. Serve it with **native HIP**, not ExLlamaV3 / Cornell CUDA / Marlin. **One HIP kernel** for a raw QTIP dump or EXL3 — codebook id + 16×16 pack, not a second GEMM. Cornell CUDA stays the producer. Infer is bit-extract + `decode_3inst` → half → `fdot2`, skinny like `q_gemm_rdna2`. Viterbi is **quant-time only**. CUDA `FragB` / `mma.m16n8k16` is dead. Do not displace live W4A16.
+**Verdict:** QTIP quality-for-size, native HIP. One kernel for a QTIP dump or EXL3 — codebook id + 16×16 pack. Infer is bit-extract + codebook decode → half → `fdot2` on `mxfp4_dot2_moe` (fatter unpack). Viterbi is quant-time. CUDA MMA is dead.
 
-## Quality vs engine
+## Frozen vs knobs
 
-| Want | Take |
+Frozen in the format: 16×16 tiles, Hadamard-128, `trellis` + `suh`/`svh`. Infer does not re-Viterbi.
+
+Convert knobs ([doc/convert.md](https://github.com/turboderp-org/exllamav3/blob/master/doc/convert.md)):
+
+| Knob | What |
 |---|---|
-| QTIP / EXL3 PPL-per-byte (3–4 bpw first; 2 bpw is decode-bound) | **Yes, Later** |
-| One HIP GEMM for QTIP dump **or** EXL3 (`on_gfx10x()`, occupancy attrs of `q_gemm_rdna2`) | **Yes** |
-| ExLlamaV3 runtime, TabbyAPI, Aphrodite, CUDA `exl3_gemv`/`mgemm` | **No** |
-| Cornell QTIP CUDA kernels | **Producer only.** Not a runtime. |
-| Convert-on-V620 | **No.** Consume converted weights. |
+| `-b` | Average bpw 1–8. Allocator picks integer `K` per layer. |
+| `-hb` | lm_head bits 1–8 or 16 (default 6). |
+| `-cb` | Codebook: `mcg` (default, `0xCBAC1FED`), `mul1` (`0x83DCD12D`), or `3inst`. |
+| `-hq` | Bump attn / shared-expert bitrate. **Off for DSv4** — leftover stays official MXFP8. |
 
-Start **3–4 bpw**. 1.6 bpw is coherent on 70B but decode-bound on 512 GB/s GDDR6.
+Same HIP kernel; dispatch is codebook id. 0xSero K216 is **`mcg`**. If we produce, pick **`3inst`** so unpack matches `decode_3inst`.
 
-## How the weights are made (quant-time)
+RDNA2-optimal convert: REAP official MXFP4 experts → Viterbi keepers only at **3.0–3.5 bpw**, `-cb 3inst`, no `-hq`. 2 bpw is decode-bound on 512 GB/s.
 
-Source: [QTIP](https://arxiv.org/abs/2406.11235), [QuIP#](https://arxiv.org/abs/2402.04396), [exllamav3 doc/exl3.md](https://github.com/turboderp-org/exllamav3/blob/master/doc/exl3.md), `exl3_lib/quantize.py`.
+## Infer (native HIP)
 
-1. Per-channel RMS + random sign flips (`su` / `sv`)
-2. Blockwise Hadamard-128 (plus input Hadamard / scales) → stored as `suh` / `svh`
-3. Hessian → LDLQ sweep
-4. Per 16×16 tile: Viterbi tail-biting trellis over a **procedural** codebook
-5. `pack_trellis`
-
-| Tensor | Role |
-|---|---|
-| `trellis` | Packed states / K-bit indices |
-| `suh` | Input scales + signs + Hadamard (fp16) |
-| `svh` | Output scales + signs (fp16) |
-| `mcg` / `mul1` | Codebook id (`0xCBAC1FED` / `0x83DCD12D`). LCG, no VRAM LUT |
-
-Loader may remap a raw QTIP dump onto this pack. The GEMM does not change. EXL2 is a different format. Do not reuse vLLM `ExllamaLinearKernel`.
-
-## Infer (native HIP — silicon lock)
-
-Room 2026-08-21 @RDNA2_Researcher:
-
-- Viterbi does **not** run at infer.
-- Weight path: bit-extract + `decode_3inst` (mul + LOP3-emulate or byte-sum) → half → `fdot2`.
+- Weight path: bit-extract + `decode_3inst` (or mcg/mul1 LCG) → half → `fdot2`.
 - `cb==2` may use `dp4a` **only as the codebook**, not `sdot*` through K.
-- Hadamard-128 + `suh`/`svh` are extra VALU around the GEMM.
-- CUDA `FragB` / `mma.m16n8k16` is dead on V620.
-- **Same kernel** for QTIP dump or EXL3. Dispatch key is codebook id + 16×16 pack.
-
-Engine shape: decode skinny M=1/2/4/8 like `q_gemm_rdna2`; prefill is an `fdot2` GEMM after the same unpack. Same occupancy contract. Do not land on `(1,1)`.
-
-## Current vLLM support
-
-| Surface | Status |
-|---|---|
-| Official vLLM | **None.** [Issue #19896](https://github.com/vllm-project/vllm/issues/19896) stale-closed. |
-| `rdna2_extras` | **None.** `mixed_precision/exllama.py` is GPTQ/AWQ uint4/uint8. |
-| Aphrodite `#1398` | Still WIP. CUDA. |
-| Community CUDA forks | Not ours. |
-
-## What we would need (if this becomes a subject)
-
-1. Occupancy flip first.
-2. One loader family: EXL3 tensors **or** a QTIP dump remapped to codebook id + 16×16. Gate `on_gfx10x()`.
-3. One HIP: fused `decode_3inst` + `fdot2`, skinny + prefill. Refuse CUDA kernel names. No second GEMM.
-4. Smoke vs ExLlamaV3 PPL on one small 3–4 bpw EXL3 (not bit-exact). No copied tok/s.
-5. Wiki only until someone asks for a Project 4 Later card.
-
-`hippih` can own a three-ISA format later. extras is the first serving shell, not a second ISA tree.
-
-## Not this ticket
-
-Occupancy. Live W4A16 / W8A16 / mxfp4. EXL2. GGUF / ROCmFPX. Marlin. CUDA `exl3_mgemm`. Official upstream PR.
+- Hadamard + `suh`/`svh` are extra VALU around the GEMM.
+- Shape: skinny `BLOCK_M` 1/2/4/8 like `mxfp4_dot2_moe`. Occupancy flip on that launch is the EXL3 flip. Do not land on `(1,1)`.
 
 ## Sources
 
-- QTIP / QuIP# papers; exllamav3 `quantize.py` (`ldlq`, `pack_trellis`, `suh`/`svh`/`mcg`/`mul1`)
-- Room 2026-08-21: quality-for-size + native HIP; one kernel for QTIP dump or EXL3; silicon `decode_3inst` → `fdot2`
+- exllamav3 `convert.md` / `quantize.py`; room 2026-08-22 DSv4 knobs
