@@ -14,7 +14,7 @@ Stated target: custom HIP inference engine for **gfx1030 + gfx1100 + gfx900**. T
 
 Fatbins are not interchangeable. `on_rdna()` (v0.27.1 = gfx11/12) must not gate hippih gfx1030/gfx900 paths. See [v340l.md](v340l.md), [fp16-rdna2.md](fp16-rdna2.md), [valu.md](valu.md).
 
-## What to steal from extras (later)
+## What to take from extras (later)
 
 Only after occupancy + `load_row` on the vLLM fork:
 

@@ -36,7 +36,7 @@ gfx1030 has **no** IC QoS, coloring, persist queue, or “schedule this dispatch
 
 What looks like “cache-aware scheduling” is therefore **engine policy**, not silicon: decode-first so the W4 shard is reread, APC for the *other* cache (paged KV prefix), one partial prefill so a miss-sized GEMM does not blow the 128 MB. Stock V1 already does that. extras has no custom scheduler. Details: [../engine/cache-aware.md](../engine/cache-aware.md).
 
-Do **not** steal SGLang radix/router as an IC feature. Do not write a kernel to pin lines.
+Leave SGLang radix/router as an IC feature. Do not write a kernel to pin lines.
 
 ## Our cards
 

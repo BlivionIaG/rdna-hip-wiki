@@ -15,7 +15,7 @@ Repo: [MoonshotAI/FlashKDA](https://github.com/MoonshotAI/FlashKDA) (MIT, 2026-0
 | `__launch_bounds__(256, 8)` CUDA min-blocks | **Different knob.** HIP second arg is **waves/EU**. Do not paste `(256, 8)` onto extras. |
 | H20 1.7–2.2× vs FLA Triton | **Not** a V620 number. |
 
-Same class as Marlin / FA3: steal the **math**, not the `.cu`.
+Same class as Marlin / FA3: take the **math**, Leave the `.cu`.
 
 ## What the math actually is
 
@@ -27,7 +27,7 @@ S : [N, H, V, K]     K = V = 128   (fixed in FlashKDA)
 
 That is a **128×128 fp matrix per head**, updated every token/chunk. Decode reads `S` as a skinny GEMV. Prefill walks chunks. `fa_rdna2` does not see this path.
 
-Their v1 split (steal this, not CUTLASS):
+Their v1 split (take this, Leave CUTLASS):
 
 | Kernel | Grid | Work |
 |---|---|---|

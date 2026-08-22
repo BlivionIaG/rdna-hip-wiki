@@ -6,7 +6,7 @@ Standalone Rust + HIP. Tuned family is **WMMA on gfx11/12**. gfx1030 is a **capa
 
 ## Capability lock (`arch_caps.rs`, sourced)
 
-Atoms → molecules → `has_*`. This is the steal: **feature predicates, not `on_rdna()`**.
+Atoms → molecules → `has_*`. This is the take: **feature predicates, not `on_rdna()`**.
 
 | Cap | gfx1030 | Notes |
 |---|---|---|
@@ -29,7 +29,7 @@ Same ISA we already fire ([valu.md](valu.md), [fp16-rdna2.md](fp16-rdna2.md)):
 - Decode skinny: `fdot2` / `V_DOT2C` (their HFQ3 GEMV is arch-agnostic HIP, not a gfx1030-special TU).
 - Prefill fat: `sdot4` MMQ **if** both sides are i8 and the batch clears 256. Else per-token GEMV fallback.
 - No WMMA. No rocBLAS-required for their portable path (they `dlopen` HIP; rocBLAS is MI300-lazy).
-- Lloyd codebook-in-LDS is **out of scope on gfx10** in their own MQ3 plan (RDNA2 vs RDNA3 cvt). Do not steal Lloyd-on-gfx10.
+- Lloyd codebook-in-LDS is **out of scope on gfx10** in their own MQ3 plan (RDNA2 vs RDNA3 cvt). Leave Lloyd-on-gfx10.
 
 HIP does not need their Triton byte-slice dodge (that was leapdragon `fd_rdna2`). Packed load → VGPR cvt → `fdot2` stays ours ([../kernels/kv-int8.md](../kernels/kv-int8.md)).
 
@@ -58,7 +58,7 @@ Room question 2026-08-21: drop SGLang, fork/contribute hipfire, move hippih to t
 
 **gfx900 is the hard stop.** hipfire Vega column is `gfx906`/`gfx908`/`gfx94x` wave64 GEMV fallback. V340L is **gfx900** — no DOT, objects will not load ([v340l.md](v340l.md)). hipfire cannot absorb that SKU without a new TU. hippih already reserved it.
 
-Product path unchanged: **extras → SGLang overlay → Llaminar → hippih**. Steal capability predicates + sdot4-MMQ *tile intent* after occupancy. No new first card.
+Product path unchanged: **extras → SGLang overlay → Llaminar → hippih**. Take capability predicates + sdot4-MMQ *tile intent* after occupancy. No new first card.
 
 ## Not a dead end for us
 
