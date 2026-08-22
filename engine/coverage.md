@@ -1,16 +1,22 @@
 # vLLM / HIP coverage on gfx1030
 
-Date: 2026-08-19. Progress map. Tip of human branch: **`rdna2_extras`** @ **`3e05abc9`** (read-only). Overlay of vLLM **v0.27.1** + gfx1030 work (`9ff87936` merge). Historical source: `perf/rdna2_w4a16`. Review: [rdna2-extras.md](rdna2-extras.md). Tickets stay on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not invent tok/s. Do not edit that branch from this page.
+Date: 2026-08-22. Progress map. Tip of human branch: **`rdna2_extras`** @ **`d24f6c25`** (read-only). Overlay of vLLM **v0.27.1** + gfx1030 work (`9ff87936` merge). Historical source: `perf/rdna2_w4a16` (stale @ `3baecdb516`). Review: [rdna2-extras.md](rdna2-extras.md). Tickets stay on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not invent tok/s. Do not edit that branch from this page.
 
 Session dump: [notes/session-2026-08-17.md](notes/session-2026-08-17.md).
 
 **Live** = in the fork today. **Must** = HIP we write. **Fallback** = Triton / `torch.nn.functional.linear` / rocBLAS, not a win. **Dead** = no unit, CUDA-only, or wrong physics. **Later** = possible after Must.
 
-Inner ops we actually have: `fdot2` (FP16 256), `sdot4` (IU8 512), `V_DOT8_I32_I4` (IU4 1024). No WMMA / MFMA / FP8 / FP4 / bf16 matrix. `supports_fp8()` is false. `v_dot2_f32_bf16` is RDNA3+ — gfx1030 dots stay fp16.
+Inner ops we actually have: `fdot2` (FP16 256), `sdot4` (IU8 512), `V_DOT8_I32_I4` (IU4 1024). No WMMA / MFMA / FP8 / FP4 / bf16 matrix. `supports_fp8()` and `supports_mx()` are **false** (CDNA / gfx12 / gfx95). `v_dot2_f32_bf16` is RDNA3+ — gfx1030 dots stay fp16.
 
 **Dispatch watch (v0.27.1):** `on_rdna()` is gfx11/12 only. V620 is `on_gfx10x()`. New upstream `on_rdna()` gates skip gfx1030.
 
-Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/sdot4-explore.md](../kernels/sdot4-explore.md) (W8A8, Sage QK, W4A8). W4A4 integer: [w4a4.md](w4a4.md). Dispatch: [attention-dispatch.md](attention-dispatch.md), [sage-attention.md](sage-attention.md). NVFP4: [nvfp4.md](nvfp4.md). INT8 KV: [kv-int8.md](kv-int8.md). INT2: [int2.md](int2.md). MTP / DFlash / DSpark: [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md). Native MoE: [fp16-moe.md](fp16-moe.md), [int8-moe.md](int8-moe.md). Stock baselines: [baseline-order.md](baseline-order.md), [triton-rocm.md](triton-rocm.md). FlyDSL: [flydsl.md](flydsl.md). DeepEP: [deepep.md](deepep.md). ROCmFPX: [rocmfpx.md](rocmfpx.md).
+## ROCm allowlist ≠ V620 fire list
+
+`rocm.py` still *names* `fp8`, `mxfp4`, `mxfp8`, `bitsandbytes`, `modelopt_fp4`. Those strings are not a ship promise.
+
+What actually HIP-fires: **W4A16**, **W8A16** (i8→half→`fdot2`), **W8A16-FP8** / leftover **MXFP8** cvt, **W8A8-FP8** dense, **mxfp4** unpack. INT8 that’s “not too bad” is **W8A16** — same DOT as W4, twice the bytes. **W8A8 `sdot4`** is the real INT8 compute and is not shipped. INT8 KV is still the scalar `__hmul` kernel ([kv-int8.md](kv-int8.md)). EXL3 Later. `d24f6c25` FULL graphs are rebase glue, not this list.
+
+Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/sdot4-explore.md](../kernels/sdot4-explore.md) (W8A8, Sage QK, W4A8). W4A4 integer: [w4a4.md](w4a4.md). Dispatch: [attention-dispatch.md](attention-dispatch.md), [sage-attention.md](sage-attention.md). NVFP4: [nvfp4.md](nvfp4.md). INT8 KV: [kv-int8.md](kv-int8.md). INT2: [int2.md](int2.md). MTP / DFlash / DSpark: [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md). Native MoE: [fp16-moe.md](fp16-moe.md), [int8-moe.md](int8-moe.md). Stock baselines: [baseline-order.md](baseline-order.md), [triton-rocm.md](triton-rocm.md). FlyDSL: [flydsl.md](flydsl.md). DeepEP: [deepep.md](deepep.md). ROCmFPX: [rocmfpx.md](rocmfpx.md). EXL3: [exl3.md](exl3.md). DSv4 run: [dsv4-flash-run.md](dsv4-flash-run.md).
 
 ## Weight × activation GEMM
 
@@ -18,8 +24,8 @@ Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/s
 |---|---|---|---|
 | FP16 × FP16 | `fdot2` / rocBLAS | Fallback | Stock linear on gfx1030 is `F.linear` / rocBLAS. `wvSplitK` / `LLMM1` require `on_gfx9() or on_gfx1x()`. `VLLM_ROCM_USE_SKINNY_GEMM` is a **no-op** here. [kernels/triton-skinny-gemm.md](../kernels/triton-skinny-gemm.md) |
 | **W4A16** | dequant → `fdot2` | **Live** | Dense + MoE. [kernels/w4a16.md](../kernels/w4a16.md) |
-| **W8A16** | LUT → `fdot2` | **Live** | Not the IU8 path. Do not call this W8A8. |
-| **W8A16-FP8** | LUT → `fdot2` | **Live** | Shipping. Weight storage is FP8-looking; compute is still LUT+`fdot2`. |
+| **W8A16** | i8→half → `fdot2` | **Live** | “INT8 that’s not too bad.” Same DOT as W4, 2× bytes. Not IU8. Do not call this W8A8. |
+| **W8A16-FP8** | LUT → `fdot2` | **Live** | Shipping. Weight storage is FP8-looking; compute is still LUT+`fdot2`. Leftover DSv4 MXFP8 cvt is this family. |
 | **W8A8-FP8** (dense) | FP8 bytes → fp16 bit-trick → `fdot2` | **Live** | `750ca545`. Act dequant at LDS staging, not inner loop. Not `sdot4`. Not Instinct FP8 MMA. GPU verify pending per commit. |
 | **W8A8** INT8×INT8 | `sdot4`, i32 through K, scale epilogue | Must / explore | Prefill 64×64×64 i8. [kernels/w8a8-mxfp4.md](../kernels/w8a8-mxfp4.md) + [sdot4-explore.md](../kernels/sdot4-explore.md). No `sudot4`. |
 | **Native HIP FP16 MoE** | `fdot2` | Must / queued | New unquantized backend. Decode skinny `M∈{1,2,4,8}` + prefill 64×64×32. Not a rewrite of `moe_q_gemm_rdna2`. [fp16-moe.md](fp16-moe.md) |
@@ -38,7 +44,7 @@ Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/s
 | bitsandbytes | CUDA | **Dead** on this box | Official AMD column is ❌ |
 | GGUF (stock Q4_0 / K / IQ*) | vLLM loader / plugin | Live loader | Not ggml MMVQ. Custom ROCmFPX types are not this. [rocmfpx.md](rocmfpx.md) |
 | ROCmFPX (`Q4_0_ROCMFP4` …) | codebook → `perm` → `sdot4` | **No vLLM port** | llama.cpp side project only. [llamacpp-rocmfpx.md](llamacpp-rocmfpx.md) |
-| **EXL3** (QTIP trellis) | 3-inst codebook → `fdot2` | **Later** | No vLLM loader. Steal-math only, not Marlin/MMA. [../silicon/exl3.md](../silicon/exl3.md), [../kernels/exl3.md](../kernels/exl3.md) |
+| **EXL3** (QTIP trellis) | 3-inst codebook → `fdot2` | **Later** | Produce `3inst`, compile `mcg`, no `mul1`. [exl3.md](exl3.md). |
 | Ternary / BitNet 1.58 | LUT or pack + `V_DOT8`? | Later | No ternary unit. Research after DOT kernels exist. Not a first ticket. |
 
 ## Attention
@@ -47,6 +53,7 @@ Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/s
 |---|---|---|
 | `fa_rdna2` FA2 + `fdot2` D=128/256 | **Live** | Prefill Br=16/32, decode paged split-K. Occupancy ticket stands. |
 | Occupancy flip | Ticket | `fa_rdna2` **and** `skinny_gemms.cu`. Same trap: `amdgpu_waves_per_eu(1, 1)` / HIP second `launch_bounds` arg. Fix: drop min-blocks, `amdgpu_waves_per_eu(4, 8)` on decode-class kernels. |
+| FULL cudagraphs | **Live glue** @ `d24f6c25` | `_cudagraph_support = ALWAYS` on RDNA_ATTN. Recaptures the same `(1,1)` kernel. Rebase-must-keep, not occupancy. |
 | Sage INT8 QK `sdot4` | Ticket / Must | Prefill only. **v2 write #2** after occupancy. [sage-attention.md](sage-attention.md) + [kernels/sage-qk.md](../kernels/sage-qk.md) |
 | Head-64 FA2 tile | Ticket / Must | Triton hole. **v2 write #3** after Sage. |
 | Short vs split-K | Ticket (blocked) | Fill vs LDS, not occupancy |
@@ -65,8 +72,8 @@ Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/s
 | MTP | Later / queued | Native heads. Fat tile first. [mtp.md](mtp.md) |
 | DFlash | Later / queued | Parallel block draft. Same gate. [dflash.md](dflash.md) |
 | DSpark | Later / queued | DFlash + Markov + confidence. Same gate. [dspark.md](dspark.md) |
-| INT8 KV + fused dequant | Must / queued | `int8_per_token_head` only. Fused into `fa_rdna2`. Spec: [kv-int8.md](kv-int8.md). After occupancy. |
-| FP8 KV | **Dead** as a vLLM dtype path | `supports_fp8()` is false. |
+| INT8 KV + fused dequant | Must / queued | `int8_per_token_head` only. Fused into `fa_rdna2`. Spec: [kv-int8.md](kv-int8.md). After occupancy. `4cc1fe59` is **not** this. |
+| FP8 KV | **Dead** as a vLLM dtype path | `supports_fp8()` is false. Software fuse on extras is occupancy-blocked. |
 | INT4 KV | Later | After INT8 KV |
 
 ## Collectives / engine glue
@@ -95,7 +102,7 @@ Do not HIP-rewrite unused Triton (AITER FA, FA3, Marlin).
 
 ## v2 write order (locked with silicon)
 
-1. Occupancy flip: `fa_rdna2` + `skinny_gemms.cu`. Current subject. **Not fixed by the extras rebase.**
+1. Occupancy flip: `fa_rdna2` + `skinny_gemms.cu`. Current subject. **Not fixed by the extras rebase or by `d24f6c25` graphs.**
 2. Sage QK prefill (`sdot4`).
 3. Head-64 paged HIP.
 4. Then: W8A8 `sdot4`, INT8 KV, MLA fat tile, W4A8, NVFP4 unpack→`fdot2`. HIP MLA: **OOB on prefill `load_row`**, then `fdot2` on prefill first (both sides half). Decode `fdot2` after FP8 unpack is gone. Note on the MLA card, not this list.
@@ -106,4 +113,4 @@ Native HIP FP16 / INT8 MoE sit after occupancy (and after a measured stock basel
 
 ## Progress
 
-Locked 2026-08-19: human branch is **`rdna2_extras`** @ **`3e05abc9`**. Overlay merge `9ff87936` onto v0.27.1. HIP MLA decode + prefill + indexer radix top-k + PYNCCL all-reduce bypass are on extras (`66bb24d7` / `8496f4ca` / `3e05abc9`); env flip is policy; prefill `load_row` OOB is a correctness gate; `fdot2` first on prefill (both sides half); fat tile still Later. Occupancy still first for `fa_rdna2` (prefill is `__launch_bounds__(32)`, no `(1,1)` trap). Rebase did **not** fix occupancy, MLA OOB, or the stock skinny gate. Queued specs: [fp16-moe.md](fp16-moe.md), [int8-moe.md](int8-moe.md), [nvfp4.md](nvfp4.md), [kv-int8.md](kv-int8.md), [int2.md](int2.md), [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md), [flydsl.md](flydsl.md), [deepep.md](deepep.md). VLLM_FORK_Manager owns the board; this page is the index.
+Locked 2026-08-22: human branch is **`rdna2_extras`** @ **`d24f6c25`**. Overlay merge `9ff87936` onto v0.27.1. `4cc1fe59` INT8 KV is not the fused contract. `d24f6c25` FULL graphs are glue. Occupancy still first. Allowlist ≠ fire list. EXL3 Later ([exl3.md](exl3.md), [dsv4-flash-run.md](dsv4-flash-run.md)). VLLM_FORK_Manager owns the board; this page is the index.
