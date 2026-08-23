@@ -16,6 +16,23 @@ Document IDs:
 
 ---
 
+## ISA Nov 2020 extract (user PDF)
+
+Same book as 70648 / [RDNA2 Shader ISA Nov 2020](https://developer.amd.com/wp-content/resources/RDNA2_Shader_ISA_November2020.pdf). Useful for extras; already our lock:
+
+| ISA | Inference take |
+|---|---|
+| Feature list: DOT **added to accelerate inferencing** — `V_DOT2_F32_F16`/`DOT2C`, `V_DOT4_I32_I8`/`DOT4C`, `V_DOT8_I32_I4` | **We fire** `fdot2` now; `sdot4`/`sdot8` after W8A8. Opcode 19: `D.f32 = s0.h0*s1.h0 + s0.h1*s1.h1 + s2` |
+| No WMMA / MFMA / bf16 DOT in this book | Dead on V620 |
+| Wave32 native; wave64 = two wave32 issues | HIP default wave32 |
+| LDS: **128 kB/WGP**, **64 banks** × 512 × 4 B, **one WG ≤ 64 kB** | wy 58 kB is tight vs 64 kB/WG |
+| WGP mode: 4 SIMD32 share one LDS; CU mode: split halves, higher LDS BW, no cross-half share | Default HIP = WGP. Do not flip CU unless LDS-bound |
+| VGPR & LDS allocation-unit **doubled** vs RDNA1 | wave32 VGPR granule 16 |
+| GDS 64 kB GPU-wide | Leave (we don’t use it) |
+| Ray / MSAA / Add-TID | Leave |
+
+Occupancy leftover and fat-M unchanged. DOT issue rate is **not** in this PDF (GPUOpen ops/clk).
+
 ## 0. What “gfx1030” is
 
 LLVM names the RDNA 2 family **GCN GFX10.3** and maps:
