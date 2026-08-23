@@ -1,7 +1,9 @@
 # gfx1030 FA occupancy report (BlivionIaG/vllm)
 
-Live human branch: **`rdna2_extras`** @ **`d24f6c25`**. Occupancy flip still first. `d24f6c25` is Python `_cudagraph_support = ALWAYS` only — FULL graphs recapture the same `(1,1)` `fa_rdna2`; not an occupancy flip.
-This dump is a **historical snapshot** of `perf/rdna2_w4a16` (tree SHA `9ac015d0a936e9e3bdbe5dc7483e1a8b48c65370`). extras still ships `__launch_bounds__(128, 1)` / `(256, 1)` — trap inherited, not closed.
+Live human branch: **`rdna2_extras`** @ **`d414eac5`** (merge `b7549fbf`). Decode pin is off: FA 128/256 `__launch_bounds__(N)` + `amdgpu_waves_per_eu(4, 8)`; skinny dropped `(1, 1)`. Prefill FA still `__launch_bounds__(N, 1)`. Merge +1% on Qwen3.8-27B-AWQ 16k/1k TP=4 is **noise** — not a measured occupancy win. GPU occupancy query still TBD.
+
+This dump below is a **historical snapshot** of `perf/rdna2_w4a16` (tree SHA `9ac015d0a936e9e3bdbe5dc7483e1a8b48c65370`). Decode rows in the table are stale vs `d414eac5`.
+
 Live tree: [`csrc/rocm/fa_rdna2.cu` on `rdna2_extras`](https://raw.githubusercontent.com/BlivionIaG/vllm/rdna2_extras/csrc/rocm/fa_rdna2.cu).
 Snapshot sources: [`fa_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu), [`sparse_mla_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu), [`indexer_paged_mqa_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu), [`ops.h`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h).
 
@@ -11,7 +13,19 @@ Hardware model used for occupancy (as requested): **16 waves/SIMD32**, **1024 VG
 
 ---
 
+## d414eac5 decode pin (2026-08-23)
+
+| Kernel | Now | Still leftover |
+|---|---|---|
+| `fa_decode_paged_splitk_kernel` | `__launch_bounds__(128)` + `waves_per_eu(4, 8)` | VGPR / hipOccupancy not dumped |
+| `fa_decode_paged_splitk_kernel_256` | `__launch_bounds__(256)` + **same** `(4, 8)` | Wiki CUDA-port for 256-thr is min **8** (`(256,8)`). `(4,8)` is looser min, max 8 = 1 WG/SIMD |
+| `wvSplitKrc_` | dropped `waves_per_eu(1,1)` | no max pin |
+| prefill `fa_prefill_*` 128/256 / splitk / int8 | `__launch_bounds__(N, 1)` | **still the trap** |
+
+`(4, 8)` is a compiler occupancy *range*, not a runtime query. If decode already sat ≤128 VGPR, +1% is expected. Do not close the occupancy card. Fat-M W4 / ConfigA unchanged.
+
 ## 1. `__launch_bounds__` → `amdgpu_waves_per_eu`
+
 
 HIP does **not** treat the second argument as CUDA `minBlocksPerMultiprocessor`.
 
