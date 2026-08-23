@@ -12,7 +12,7 @@ Format contracts for the HIP kernels we write. Not engine dispatch. Feature inde
 | [w8a16-fp8.md](w8a16-fp8.md) | E4M3 LUT/bit-trick → `fdot2` | Incomplete |
 | [w8a8-fp8.md](w8a8-fp8.md) | both sides E4M3 → fp16 → `fdot2` | Incomplete. **Not** `sdot4` |
 | [mxfp4.md](mxfp4.md) | E2M1 + E8M0 → `fdot2` | Incomplete |
-| [skinny-gemm.md](skinny-gemm.md) | no MFMA on gfx1030 | Incomplete. `waves_per_eu(1,1)` — same FA ticket |
+| [skinny-gemm.md](skinny-gemm.md) | no MFMA on gfx1030 | Decode pin dropped @ `d414eac5`; same FA leftover |
 | [mla-sparse.md](mla-sparse.md) | scalar fp32 FMA (later `fdot2`) | Incomplete. Env-gated decode |
 | [lightning-indexer.md](lightning-indexer.md) | scalar half FMA | Incomplete |
 | [int2.md](int2.md) | i2 unpack → `fdot2` (later `sdot4`) | Spec. Mixed INT2/INT4 MoE = two unpackers, one DOT |
@@ -27,4 +27,5 @@ Format contracts for the HIP kernels we write. Not engine dispatch. Feature inde
 Do not conflate W8A16 / W8A16-FP8 / W8A8-FP8 (`fdot2`) with spec W8A8 INT8 (`sdot4`).
 | [ikantkode-gfx1030.md](ikantkode-gfx1030.md) | sourced overlay (Triton, not HIP) | Take LLMM1 gate + RMSNorm; Leave GEMV |
 | [rocmfpx.md](rocmfpx.md) | codebook10 `perm` → i8 → `sdot4` | Later. llama.cpp GGUF, not a vLLM port |
+| [gdn-decode.md](gdn-decode.md) | fp32 FMA + shfl K-reduce | Decode HIP Live (`69d2efe`). Prefill still Triton |
 | [exl3.md](exl3.md) | trellis state → 3-inst → `fdot2` | Later. Not Marlin/MMA. Occupancy + W4 first |
