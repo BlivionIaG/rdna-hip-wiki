@@ -56,6 +56,21 @@ Plugin hardcodes `GQA=6` / `PAD=8` (`q.shape[1] % 6 == 0`). **Hits their 27B (24
 
 `ar_rdna2` TP=2 push matches the 14.3 vs 5.7 asymmetry. extras PYNCCL first. Import **push + uncached**, not the monkey-patch. Not a 4-GPU PIX number.
 
+## 0006 (new on recipe) — hybrid W4 / gfx10 skinny
+
+Stock 0.27.1, not extras. `RDNAHybridW4A16` + `skinny_gemms_int4.cu` `__GFX10__` + scalar bf16 stub + **dequant→rocBLAS for M≥256**.
+
+| Piece | Take / Leave |
+|---|---|
+| gfx10 guard on skinny int4 (wave32, 64 KiB, `fdot2`, DPP `row_shr`) | **Take the check** — occupancy / skinny family. DPP encodings still **unverified** on gfx1030; do not flip `wvSplitK` on. |
+| Asymmetric `uint4` ZP so Exllama can run | **Already Live** on extras: `e9ec6f63` `use_v2_format` / `zero_offset=0`. Do not import hybrid. |
+| dequant→rocBLAS fat-M | **Leave.** Their fused Triton GEMM is the 3× loser; our leftover is HIP `gptq_gemm_rdna2_prefill` + ConfigA, not unpack+BLAS. |
+| `num_stages=1` on leftover Triton (0002 + 0006) | **Take.** stages>1 doubles K/V LDS at head 256 and halves occupancy. HIP FA is explicit — do not copy Triton tiles. |
+| `PYTORCH_TUNABLEOP_TUNING=0` | Engine. Prefill M is prompt-length; tuning stalls + flips greedy. |
+| `fd_rdna2` now `q≤4` for MTP verify | **Leave** the plugin. If INT8 gather ever lands in `fa_rdna2`, that card must cover `max_seqlen_q≤4` or MTP stays a regression. |
+
+Wider Triton `BLOCK_M` 32–128 at D=256 is a measured dead end (fp32 acc `BLOCK_M×256` VGPR). Custom Triton **prefill** attn is also dead (0.70× / 0.58× vs stock). Occupancy still FA first.
+
 ## Not a dead end for us
 
 Their “custom W4 GEMV is dead” assumes Exllama already at **~91% of 506 GB/s**. extras `fa_rdna2` / `skinny_gemms.cu` still sit on `(1,1)`. That card is **not** this dead-end.
