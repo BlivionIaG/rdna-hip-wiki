@@ -1,4 +1,12 @@
-# GDN chunked prefill — extras HIP (`b53a7a2`)
+# GDN chunked prefill — extras HIP (`6e20b239`)
+
+`b53a7a2` landed the 5 kernels. Two later fixes make multi-chunk **correct**:
+
+| SHA | Bug | Silicon |
+|---|---|---|
+| `f563820e` | delta_h only advanced `h`; k/w/u/vnew stayed on chunk 0 | Serial recurrence re-applied chunk-0 `(I − k0ᵀw0)` → state explode. Pointers + `g` must step `BT` |
+| `6e20b239` | o-kernel LDS zero-fill wrote only first 2 cols, **no barrier** before copy; varlen used global `i_t` | Sparse clobber under occupancy at NT≥2. Now full-tile zero + `__syncthreads()`. Local `i_t` for q/k/v/o/g; `h` stays global |
+
 
 Five kernels. Replaces Triton `chunk_gated_delta_rule` + `fused_post_conv_prep` on gfx10x. Decode already HIP (`69d2efe`). Occupancy leftover is still **FA prefill `(N, 1)`** — do not close that card. Fat-M / ConfigA unchanged. Do **not** put 16k/c=8 tok/s on coverage.
 

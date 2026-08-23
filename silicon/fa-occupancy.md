@@ -1,6 +1,6 @@
 # gfx1030 FA occupancy report (BlivionIaG/vllm)
 
-Live human branch: **`rdna2_extras`** @ **`b53a7a2`** (GDN prefill HIP). Occupancy leftover unchanged: FA prefill still `(N, 1)`. Decode pin is off: FA 128/256 `__launch_bounds__(N)` + `amdgpu_waves_per_eu(4, 8)`; skinny dropped `(1, 1)`. Prefill FA still `__launch_bounds__(N, 1)`. Merge +1% on Qwen3.8-27B-AWQ 16k/1k TP=4 is **noise** — not a measured occupancy win. GPU occupancy query still TBD.
+Live human branch: **`rdna2_extras`** @ **`6e20b239`** (GDN prefill HIP + multi-chunk fixes). Occupancy leftover unchanged: FA prefill still `(N, 1)`. Decode pin is off: FA 128/256 `__launch_bounds__(N)` + `amdgpu_waves_per_eu(4, 8)`; skinny dropped `(1, 1)`. Prefill FA still `__launch_bounds__(N, 1)`. Merge +1% on Qwen3.8-27B-AWQ 16k/1k TP=4 is **noise** — not a measured occupancy win. GPU occupancy query still TBD.
 
 This dump below is a **historical snapshot** of `perf/rdna2_w4a16` (tree SHA `9ac015d0a936e9e3bdbe5dc7483e1a8b48c65370`). Decode rows in the table are stale vs `d414eac5`.
 
