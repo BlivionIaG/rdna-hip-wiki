@@ -1,6 +1,6 @@
 # GDN packed decode — extras HIP (`69d2efe` / tip `47d92b6`)
 
-Qwen3.5/3.6 GatedDeltaNet **packed single-token** decode. Replaces Triton `fused_recurrent_gated_delta_rule_packed_decode` on the non-spec path. Prefill GDN still Triton (their stage 1). Occupancy card stays the FA leftover — this is not a new first subject.
+Tip **`b53a7a2`**. Qwen3.5/3.6 GatedDeltaNet **packed single-token** decode. Replaces Triton `fused_recurrent_gated_delta_rule_packed_decode` on the non-spec path. Prefill is now HIP (`b53a7a2`) — [gdn-prefill.md](gdn-prefill.md). Occupancy card stays the FA leftover — this is not a new first subject.
 
 Do **not** put the microbench 9× on coverage. Fat-M / ConfigA unchanged.
 
@@ -21,6 +21,5 @@ Do **not** put the microbench 9× on coverage. Fat-M / ConfigA unchanged.
 
 ## Leave
 
-- Triton prefill `chunk_gated_delta_rule` / `fused_post_conv_prep`
-- Spec-decode packed path (still Triton)
+- Spec-decode packed path (still Triton unless extras flipped it)
 - Copying 7.6 µs / 9.3× @ B=1 (launch tax vs Triton’s flat ~71 µs; @ B=32 they measured **0.93×**)
