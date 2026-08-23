@@ -74,8 +74,9 @@ A kernel tuned to “the layer fits in 128 MB” falls out on 96/32/16 MB parts.
 
 [en.namu.wiki/w/RDNA §2.2](https://en.namu.wiki/w/RDNA#s-2.2) is a **Navi 21 recap**, not an inference ISA page. Matches our lock:
 
-- IC = on-die L3-like, 16 × 8 MB slices, **128 MB** on Navi 21.
-- L2 stays small (they keep RDNA1 L1↔L2 256 B/clk; L2↔IC **16 × 64 B/clk = 1024 B/clk**).
-- WGP = two CUs share LDS / cache. SE count doubled vs Navi 10.
+- IC = on-die L3-like SRAM, 16 × 8 MB slices, **128 MB** on Navi 21, ~**20% die**. **Fit + reread.** No persist / no HIP switch.
+- AMD **2.17× BW / 0.9× power** vs 256-bit GDDR6 alone is qualitative — not a V620 TB/s, not coverage.
+- L2 stayed **2–4 MB** (V620 4 MB) while SE/WGP doubled — a layer does **not** live in L2. L2↔IC **16 × 64 B/clk = 1024 B/clk**.
+- WGP = two CUs share LDS / cache. wy 58 KB is tight vs 64 KB/**WG**, not auto one-WG/WGP.
 
 **Leave:** FHD/QHD/4K “effective GB/s” (game hit-rate × 8192-bit IC marketing bus). Not V620 decode, not extras coverage. No packed DOT / wave32 / WMMA in that section. Occupancy leftover unchanged.
