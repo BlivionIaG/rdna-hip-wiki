@@ -1,0 +1,26 @@
+# GDN packed decode — extras HIP (`69d2efe` / tip `47d92b6`)
+
+Qwen3.5/3.6 GatedDeltaNet **packed single-token** decode. Replaces Triton `fused_recurrent_gated_delta_rule_packed_decode` on the non-spec path. Prefill GDN still Triton (their stage 1). Occupancy card stays the FA leftover — this is not a new first subject.
+
+Do **not** put the microbench 9× on coverage. Fat-M / ConfigA unchanged.
+
+## Tile (sourced)
+
+| Knob | Value |
+|---|---|
+| File | `csrc/rocm/gdn_decode_rdna2.cu` |
+| WG | 256 thr = 32 V-rows × 8 K-slices (`K=128`) |
+| Occupancy attr | `__launch_bounds__(256)` + `amdgpu_waves_per_eu(2, 4)` — **not** `(1,1)` |
+| LDS | **0** (register-resident fp32 `h[16]` per thread) |
+| Inner | scalar fp32 FMA on state; q/k from half. **Not** `fdot2` (state is fp32 recurrent) |
+| Reduce | `__shfl_xor` 1/2/4 inside the 8 k-slice lanes |
+| Grid | `(ceil(V/32), B*HV)` |
+| Gate | gfx10x, `K=128`, fp16 qkv, fp32 state, `use_qk_l2norm=True` |
+
+256-thr = 8 waves/WG. On WGP (4 SIMD) that is **2 waves/SIMD**, so `(2,4)` = 1–2 such WGs/WGP. Looser than FA decode `(4,8)`. hipOccupancy still TBD.
+
+## Leave
+
+- Triton prefill `chunk_gated_delta_rule` / `fused_post_conv_prep`
+- Spec-decode packed path (still Triton)
+- Copying 7.6 µs / 9.3× @ B=1 (launch tax vs Triton’s flat ~71 µs; @ B=32 they measured **0.93×**)
