@@ -1,13 +1,13 @@
 # gfx1030 FA occupancy report (BlivionIaG/vllm)
 
-Live human branch: **`rdna2_extras`** @ **`77d6fdf8`** (GDN o-kernel BV 64 / ~56 KB LDS; not FA). Occupancy leftover unchanged: FA prefill still `(N, 1)`. Decode pin is off: FA 128/256 `__launch_bounds__(N)` + `amdgpu_waves_per_eu(4, 8)`; skinny dropped `(1, 1)`. Prefill FA still `__launch_bounds__(N, 1)`. Merge +1% on Qwen3.8-27B-AWQ 16k/1k TP=4 is **noise** — not a measured occupancy win. GPU occupancy query still TBD.
+Live human branch: **`rdna2_extras`** @ **`0fdb1884`** (prep half2 vectorize; GDN stack: delta_h u8 / o BV64 / prep vec). FA status: decode pinned `(N)` + `waves_per_eu(4, 8)`; prefill still `(N, 1)`. **Compiled resource dump DONE (2026-08-24) — see §8.** Conclusion: the `(N, 1)` second arg is semantically wrong per HIP docs but **empirically inert** — every FA kernel compiles ≤111 VGPR / 0 spills, and LDS (45–60 KB) is the sole occupancy limiter at 1 WG/64 KB regardless of the pin. Decode `(4, 8)` flip was occupancy-neutral (40–43 VGPR, never binding). The +1% on Qwen3.8-27B-AWQ 16k/1k TP=4 was noise, as suspected. No launch-bounds change can move FA occupancy; only an LDS-tile shrink (BR/BC) could.
 
 This dump below is a **historical snapshot** of `perf/rdna2_w4a16` (tree SHA `9ac015d0a936e9e3bdbe5dc7483e1a8b48c65370`). Decode rows in the table are stale vs `d414eac5`.
 
 Live tree: [`csrc/rocm/fa_rdna2.cu` on `rdna2_extras`](https://raw.githubusercontent.com/BlivionIaG/vllm/rdna2_extras/csrc/rocm/fa_rdna2.cu).
 Snapshot sources: [`fa_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu), [`sparse_mla_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu), [`indexer_paged_mqa_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu), [`ops.h`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h).
 
-Nothing here is invented from a compiled `.s` / `-Rpass-analysis=kernel-resource-usage` dump. VGPR columns are source comments or live-state estimates. LDS bytes are the host `size_t smem` formulas (what HIP actually reserves).
+VGPR columns below §8 are source comments or live-state estimates (as originally written). **§8 replaces the estimates with real compiled values from the `.hip_fatbin` of the built `_rocm_C.abi3.so`** (NT_AMDGPU_METADATA via pyelftools + msgpack). LDS bytes are the host `size_t smem` formulas (what HIP actually reserves).
 
 Hardware model used for occupancy (as requested): **16 waves/SIMD32**, **1024 VGPR/SIMD**, **granule 16**, **LDS 64 KB/WG**. RDNA2 default HIP mode is WGP (4 SIMD32, 128 KB LDS address space) but a single WG still cannot allocate more than 64 KB (ISA §3.6.6 / comments in `fa_rdna2.cu`). Authors treat gfx1030 as “64 KB per-CU, 1 block/CU”.
 
@@ -318,5 +318,41 @@ Do not keep `(256, 1)` under the belief it means 1 block/CU.
 - https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h
 - HIP `__launch_bounds__`: https://rocm.docs.amd.com/projects/HIP/en/docs-6.3.1/how-to/hip_cpp_language_extensions.html (second arg = `MIN_WARPS_PER_EXECUTION_UNIT`; CUDA port formula)
 - Macro lowering: https://github.com/ROCm-Developer-Tools/HIP/issues/2521
-- Live branch: `rdna2_extras` @ `3e05abc9` (still `(1,1)`).
+- Live branch: `rdna2_extras` @ `0fdb1884cb` (FA pins unchanged: decode `(4, 8)`, prefill `(N, 1)`).
 - Snapshot tree listing: `GET /repos/BlivionIaG/vllm/git/trees/perf/rdna2_w4a16?recursive=1` SHA `9ac015d0…`
+
+---
+
+## 8. Compiled resource dump (2026-08-24) — the missing data
+
+Extracted from the built `_rocm_C.abi3.so` (`.hip_fatbin` section, gfx1030 code objects, `NT_AMDGPU_METADATA` parsed with pyelftools + msgpack) on the 4× V620 build server, venv-7.14.0. **Replaces the VGPR estimates in the tables above with real compiled numbers.** LDS comes from the host `size_t smem` formulas (kernels use dynamic `extern __shared__`, so metadata `.group_segment_fixed_size` = 0).
+
+| Kernel | launch bounds | wg | **VGPR** | spill | SGPR | LDS B (host) | VGPR waves/SIMD | LDS WGs/64KB | binding |
+|---|---|---|---:|---:|---:|---:|---:|---:|---|
+| `fa_decode_paged_splitk_kernel` | `(128)` + `(4,8)` | 128 | 41–43 | 0 | 42–52 | 33300 | ~21 | 1 | **LDS** |
+| `fa_decode_paged_splitk_kernel_256` | `(256)` + `(4,8)` | 256 | 40–42 | 0 | 42–50 | 33444 | ~21 | 1 | **LDS** |
+| `fa_decode_combine_kernel` | none | D | 17 | 0 | 20 | 196 | 32 | many | — |
+| `fa_prefill_paged_varlen_kernel_128` | `(128, 1)` | 128 | **110–111** | 0 | 94 | 49364 | 9 | 1 | **LDS** |
+| `fa_prefill_paged_varlen_kernel_128_short` | `(256, 1)` | 256 | **100** | 0 | 64 | 45476 | 10 | 1 | **LDS** |
+| `fa_prefill_paged_varlen_kernel_256` | `(256, 1)` | 256 | 47–49 | 0 | 63 | 59620 | 21 | 1 | **LDS-tight** |
+| `fa_prefill_paged_varlen_splitk_kernel_128` | `(128, 1)` | 128 | 47 | 0 | 97 | 49364 | 21 | 1 | **LDS** |
+| `fa_prefill_paged_varlen_splitk_kernel_256` | `(256, 1)` | 256 | 46 | 0 | 66 | 59620 | 21 | 1 | **LDS-tight** |
+| `fa_prefill_paged_varlen_splitk_kernel_int8_128` | `(128, 1)` | 128 | 60 | 0 | 107 | — | 17 | 1 | **LDS** |
+| `fa_prefill_paged_varlen_splitk_kernel_int8_256` | `(256, 1)` | 256 | 63 | 0 | 73 | — | 16 | 1 | **LDS** |
+| `fa_prefill_paged_varlen_splitk_reduce_kernel_{128,256}` | none | 1024 | 14 | 0 | 26 | 0 | 32 | many | — |
+
+(Adjacent reference: `gdn_decode_rdna2` 76 VGPR/0 spill, `gdn_prefill_prep` 145/0, `gdn_prefill_kkt` 255/0 @ 16 KB LDS, `gdn_prefill_solve_wy` 125/0 @ 59392 B LDS, `gdn_prefill_delta_h` 182/0, `gdn_prefill_o` 256+110 spill @ 444 B scratch.)
+
+### Conclusion: the `(N, 1)` trap is empirically inert
+
+1. **The predicted VGPR blow-up did not materialize.** Every prefill kernel compiles at ≤111 VGPR with **zero spills**. The loose `(N, 1)` cap did not cause the compiler to over-allocate registers. VGPR-limited occupancy is 9–21 waves/SIMD — never the binding constraint.
+
+2. **LDS is the sole occupancy limiter.** All FA tiles reserve 33–60 KB → exactly **1 workgroup per 64 KB CU budget**, independent of the launch-bounds pin. Occupancy is 1–2 waves/SIMD (12.5–25% of the 16-wave model) and no `__launch_bounds__` argument can change that.
+
+3. **The decode `(4, 8)` flip was occupancy-neutral.** Decode compiles at 40–43 VGPR — the `(4,8)` VGPR≤128 cap was never binding. The observed +1% on Qwen3.8-27B-AWQ 16k/1k TP=4 is noise, as the merge note already suspected.
+
+4. **Prefill-256's "LDS-tight" is real but harmless.** 59,620 B leaves ~4.4 KB headroom to 64 KB; after the 1 KB ISA granule it rounds to 60,416 B. Never >64 KB, never occupancy-0.
+
+5. **The only lever that could move FA occupancy is an LDS-tile shrink** (smaller BR/BC), which is a kernel restructure with real correctness/perf risk — not a launch-bounds edit. As written, the prefill `(N, 1)` is semantically wrong per HIP docs (§1) but **functionally identical** to `(N)` on this silicon. Cleaning it to `(N)` (or `(N, 2)` for the 256-thr tiles) is zero-risk documentation hygiene; expecting it to change measured throughput would be wrong.
+
+**Card resolution**: dump done, conclusion above. No FA patch on `rdna2_extras` — the ticket's premise ("128-thr prefill is the one that can actually move") is not supported by the compiled data; LDS binds all tiles equally.
