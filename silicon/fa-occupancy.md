@@ -1,6 +1,6 @@
 # gfx1030 FA occupancy report (BlivionIaG/vllm)
 
-Live human branch: **`rdna2_extras`** @ **`b583d64a`** (TP compile glue only; last HIP `e054854f`). Occupancy leftover unchanged: FA prefill still `(N, 1)`. Decode pin is off: FA 128/256 `__launch_bounds__(N)` + `amdgpu_waves_per_eu(4, 8)`; skinny dropped `(1, 1)`. Prefill FA still `__launch_bounds__(N, 1)`. Merge +1% on Qwen3.8-27B-AWQ 16k/1k TP=4 is **noise** — not a measured occupancy win. GPU occupancy query still TBD.
+Live human branch: **`rdna2_extras`** @ **`77d6fdf8`** (GDN o-kernel BV 64 / ~56 KB LDS; not FA). Occupancy leftover unchanged: FA prefill still `(N, 1)`. Decode pin is off: FA 128/256 `__launch_bounds__(N)` + `amdgpu_waves_per_eu(4, 8)`; skinny dropped `(1, 1)`. Prefill FA still `__launch_bounds__(N, 1)`. Merge +1% on Qwen3.8-27B-AWQ 16k/1k TP=4 is **noise** — not a measured occupancy win. GPU occupancy query still TBD.
 
 This dump below is a **historical snapshot** of `perf/rdna2_w4a16` (tree SHA `9ac015d0a936e9e3bdbe5dc7483e1a8b48c65370`). Decode rows in the table are stale vs `d414eac5`.
 
@@ -24,7 +24,7 @@ Hardware model used for occupancy (as requested): **16 waves/SIMD32**, **1024 VG
 
 `(4, 8)` is a compiler occupancy *range*, not a runtime query. If decode already sat ≤128 VGPR, +1% is expected. Do not close the occupancy card. Fat-M W4 / ConfigA unchanged.
 
-`gdn_decode_rdna2` + five `gdn_prefill_*`: all `(2, 4)`, not `(1,1)`. kkt stays scalar FMA. wy ~58 KB. delta_h @ `e054854f` is 128-thr, 0 LDS (was 256-thr / 64 KB ELF). Not the FA occupancy leftover. See [../kernels/gdn-prefill.md](../kernels/gdn-prefill.md).
+`gdn_decode_rdna2` + five `gdn_prefill_*`: all `(2, 4)`, not `(1,1)`. kkt stays scalar FMA. wy ~58 KB. delta_h @ `e054854f` is 128-thr / 0 LDS. o-kernel @ `77d6fdf8` is BV 64 / ~56 KB LDS (was 32 / ~44). Not the FA occupancy leftover. See [../kernels/gdn-prefill.md](../kernels/gdn-prefill.md).
 
 ## 1. `__launch_bounds__` → `amdgpu_waves_per_eu`
 
