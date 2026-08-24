@@ -12,6 +12,11 @@ Their **AMD** hardware block is CDNA4 / MI350 (whitepaper, ISA, counters). That 
 | Roofline / Volkov “measure, don’t worship occupancy” | Ridge = packed DOT vs GDDR6 512 GB/s. Measurement take. **Does not** close FA prefill `(N, 1)` |
 | rocprofiler-compute | Read stack / counters. [hip-craft.md](hip-craft.md) |
 | CK / HipKittens as *read* | Tile language only. [codegen-stack.md](codegen-stack.md) |
+| CUTLASS / FA-3 **method** | Take: producer/consumer stages, epilogue, occupancy math. Remap to wave32 + 64 KB/WG LDS + `fdot2`. **Leave** TMA / WGMMA / `tcgen05` / CuTe as-is |
+
+## gfx1100 (read, not extras)
+
+W7800 has local WMMA (`V_WMMA_*` 16×16×16). FA-3 overlap, CUTLASS pipeline, CK/HipKittens tiles are **readable** for that ISA — rewrite later in hippih, never extras import. Not CDNA4, not a V620 opcode.
 
 ## Leave (silicon)
 
