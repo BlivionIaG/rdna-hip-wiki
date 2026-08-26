@@ -1,6 +1,33 @@
-# Heterogeneous MoE: 2x W7800 + 8x V620 — silicon placement contract
+# Heterogeneous MoE — silicon placement contract
 
-Date: 2026-08-18. **Research / Later.** Engine placement belongs on an engine page; this page owns ISA, bytes, and which kernels live where. DeepEP-style routing: [deepep-v620.md](deepep-v620.md). MoE compute: [../kernels/fp16-moe.md](../kernels/fp16-moe.md), [../kernels/int8-moe.md](../kernels/int8-moe.md).
+Date: 2026-08-18 (W7800/V620 HIP–HIP). **Retipped 2026-08-27:** W7800 fast-tier is **dead** (cards selling). New Later form is Spark×2 + 8×V620. Engine placement: [../engine/multi-tier.md](../engine/multi-tier.md). DeepEP-style routing (V620-internal only): [deepep-v620.md](deepep-v620.md). MoE compute: [../kernels/fp16-moe.md](../kernels/fp16-moe.md), [../kernels/int8-moe.md](../kernels/int8-moe.md).
+
+## 2026-08-27 retip — Spark (GB10) + 8× V620
+
+| Domain | Hardware | ISA | Job |
+|---|---|---|---|
+| Fast | 2× NVIDIA DGX Spark | **GB10** CUDA (Blackwell TC / FP4) | attention, router, embeddings, LM head, n-gram, **live KV** |
+| Expert | 8× Radeon PRO V620 32GB | **gfx1030** HIP | expert GEMMs only (`fdot2` / `sdot4`) |
+| Spark↔Spark | ConnectX-7 | NCCL | first-party NV hop |
+| Spark→V620 | CX-7 ↔ (V620 host NIC, if any) | **not** HIP peer | **activations only**, two machines / two collectives unless the V620 rig also has a CX NIC |
+| V620↔V620 | 88096 PIX (attested P2P) | RCCL / `hipMemcpyPeer` | expert A2A **inside** the V620 box |
+
+This is **CUDA + HIP**, not two HIP targets. extras cannot drive GB10. hippih gfx1100 WMMA fat is more Later if the W7800s go. Do not start a second DOT tree or a Llaminar gfx1030 backend for this.
+
+**Official Spark numbers only** ([NVIDIA DGX Spark specs](https://www.nvidia.com/en-us/products/workstations/dgx-spark/), [hardware guide](https://docs.nvidia.com/dgx/dgx-spark/hardware.html)): 128 GB LPDDR5x unified @ **273 GB/s**, ConnectX-7 **200 Gbps**. Do not invent hop GB/s or tok/s.
+
+**Why the split still holds in silicon:** Spark has capacity for live KV/attn (128 GB) but is bandwidth-poor vs V620 GDDR6 **512 GB/s**. Experts (W4 / EXL3 / `moe_q_gemm`) stay on V620. Do not park live KV on V620.
+
+**Wire:** extras `moe_q_gemm` eats **fp16**. Spark is FP4-native. Convert NVFP4/FP8/BF16 → half **on Spark** (or on the hop). Do not land those dtypes on V620 and do not add a new V620 DOT for the hop.
+
+**P2P / DeepEP:** 88096 PIX `hipMemcpyPeer` stays **V620-internal**. Spark cannot peer-store into a V620 BAR. DeepEP mapped-peer scatter/combine does **not** apply across the NIC. Until a V620-host CX NIC exists and is measured, assume host/NIC-staged activations. Leave [Llaminar/llaminar](https://github.com/Llaminar/llaminar) (still gfx906 / sm86 / GGUF). Their 3090+MI50 is one box, not this.
+
+**Order unchanged:** extras live HIP on V620 first (W4 / GDN / QSA indexer). Hetero hop is Later. FA pin stays closed.
+
+## Historical (2026-08-18) — 2× W7800 + 8× V620, two HIP ISAs
+
+Kept below so old links still resolve. Do not treat W7800 as the live fast tier.
+
 
 ## Topology (as specified)
 
