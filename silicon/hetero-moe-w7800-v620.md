@@ -24,6 +24,21 @@ This is **CUDA + HIP**, not two HIP targets. extras cannot drive GB10. hippih gf
 
 **Order unchanged:** extras live HIP on V620 first (W4 / GDN / QSA indexer). Hetero hop is Later. FA pin stays closed.
 
+## Later (not a workstream) — R9700 / RDNA5
+
+Room 2026-08-27: maybe add a faster GPU later (R9700 or RDNA5). **No kernels now. No new card.**
+
+| SKU | ISA | Official | Role if bought |
+|---|---|---|---|
+| AI PRO R9700 | **gfx1201** RDNA4 | 32 GB GDDR6, 640 GB/s, 64 MB IC, 64 CU, LDS 128 KiB ([AMD](https://www.amd.com/en/products/graphics/workstations/radeon-ai-pro/ai-9000-series/amd-radeon-ai-pro-r9700.html), [ROCm gpu-specs](https://rocm.docs.amd.com/en/latest/reference/gpu-specs.html)) | **Expert SKU** (WMMA + hw FP8). Same 32 GB class as one V620 — **not** a Spark replacement. |
+| RDNA5 | unknown | no ISA PDF as of 2026-08-27 | Wait. Do not invent opcodes. |
+
+- extras gfx1030 objects **will not load** (ANTIBLEED). New fatbin / TU if it ever lands. hippih would grow a fourth ISA (today: 1030 / 1100 / 900).
+- vLLM `supports_fp8()` / `on_rdna4()` / AITER RDNA4 analog stay **off** extras gfx1030. Do not import that path.
+- R9700 P2P/ipc is a known miss ([ROCm/rccl-tests#162](https://github.com/ROCm/rccl-tests/issues/162) `hipIpcGetMemHandle` on 4×R9700). 88096 V620 attestation does **not** transfer.
+- Do not copy R9700 TOPS / tok/s onto coverage.
+
+
 ## Historical (2026-08-18) — 2× W7800 + 8× V620, two HIP ISAs
 
 Kept below so old links still resolve. Do not treat W7800 as the live fast tier.
