@@ -227,3 +227,14 @@ A gfx1030 kernel does not program the PEX. It issues global stores/loads. Those 
 - https://docs.kernel.org/gpu/amdgpu/module-parameters.html (`pcie_p2p`, `rebar`)
 - [engine/plx.md](../engine/plx.md), [rccl-p2p.md](rccl-p2p.md), [deepep-v620.md](deepep-v620.md), [v340l.md](v340l.md)
 - [v620_toolbox pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/main/pcie_p2p)
+
+## Later note (2026-08-27) — LocalLLaMA 1qeimyi (panchovix)
+
+[7 GPUs at X16 on AM5](https://www.reddit.com/r/LocalLLaMA/comments/1qeimyi/7_gpus_at_x16_50_and_40_on_am5_with_gen54/) is **NVIDIA CUDA** (5090/4090/Ampere) + [aikitoria P2P kernel](https://github.com/aikitoria/open-gpu-kernel-modules). Zero gfx1030 / HIP. Do not copy tok/s.
+
+**Leave:** the NVIDIA P2P driver (`amdgpu` already peers on this V620 box). Their llama.cpp GGUF tables. `NCCL_TOPO_FILE` fake xml (NCCL, not RCCL). PM50100 / Gen5 / MCIO retimer (V620 is Gen4 on SlimSAS 88096).
+
+**Take (already our lock, confirmed):** same-SKU P2P stays on the switch fabric (PIX). Cross-gen / cross-SKU P2P does **not** (their ~15 GB/s is host-ish; do not treat as our hop). Two 88096s without cascade stay **PHB**; cascade is Later **PXB** — measure, don't fake a topo file. Prefill is the bus; TG is not.
+
+Their cascade is PM50100 (Gen5, two 5090s) → 88096 (Gen4, five Ampere/Ada). Ours is two 88096s + 8× same-gen V620. Do not import mixed-gen as a V620 design.
+
