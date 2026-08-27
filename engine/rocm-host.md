@@ -42,3 +42,5 @@ No tok/s claimed. This is host/runtime, not a kernel win.
 **Live stays 7.14.0.** V620 Ubuntu-only footnote still applies. hipBLASLt local tuner is still not a gfx1030 dest (TheRock #1062). FlyDSL/CK/GEAK/TileLang stay Leave. Roofline in rocprofiler-compute is **GFX11xx**, not gfx1030.
 
 Silicon: [../silicon/rccl-p2p.md](../silicon/rccl-p2p.md) (GIN ≠ 88096 PIX).
+
+**gfx1030 not dropped (checked 2026-08-28):** TheRock `main` `cmake/therock_amdgpu_targets.cmake` still adds `gfx1030` (`gfx103X-dgpu`). Excludes are libraries (hipBLASLt #1062, CK, rocWMMA, hipTensor, hipSPARSELt, rocprofiler-compute) — not the target. RCCL stays. ROCm 10.0.0 compatibility matrix still lists V620 / W6800 (Ubuntu-only V620 footnote).
