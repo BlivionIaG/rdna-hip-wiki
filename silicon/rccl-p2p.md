@@ -1,6 +1,6 @@
 # RCCL and PCIe P2P on 4× Radeon PRO V620 (gfx1030)
 
-Audience: someone writing custom HIP for vLLM TP=4 on this box. Date of this pass: **2026-08-17** (P2P/RCCL). Host/OS retip: **2026-08-19**.
+Audience: someone writing custom HIP for vLLM TP=4 on this box. Date of this pass: **2026-08-17** (P2P/RCCL). Host/OS retip: **2026-08-19**. ROCm 10.0 note: **2026-08-27**.
 
 Rule: every concrete number is attributed to a URL that was opened. If a figure is not in those sources, it is marked **unknown**. Infinity Cache is not Infinity Fabric. Consumer RX 6800/6900 XT shares the ISA, not the firmware or the official support claim.
 
@@ -701,3 +701,7 @@ vLLM: `--dtype float16` (not bf16), `--tensor-parallel-size 4`. Custom AR / Quic
 - This machine’s PCIe tree (switch vs four CPU roots, NUMA, ACS bits, LnkSta width).
 - Whether this kernel build has `CONFIG_HSA_AMD_P2P` and `pcie_acs_override`.
 - A published gfx1030 RCCL Ring/Tree tuning table (AMD’s published channel numbers are MI300X).
+
+## ROCm 10.0 RCCL / GIN (2026-08-27)
+
+[ROCm 10.0 blog](https://rocm.blogs.amd.com/ecosystems-and-partners/rocm-x-blog/README.html): RCCL merges NCCL 2.30.4, adds symmetric memory and a **GIN** device API (GPU-initiated networking over **GDA / SDMA**, not the CPU bounce). That is the DeepEP/IBGDA class. **Not** 88096 PIX BAR `hipMemcpyPeer`. Do not retip [deepep-v620.md](deepep-v620.md). Live host stays **7.14.0**. Do not invent V620 GIN bandwidth.

@@ -34,3 +34,11 @@ No tok/s claimed. This is host/runtime, not a kernel win.
 
 - Room 2026-08-19 (operator)
 - AMD ROCm 7.2 / 7.14 install system-requirements (V620 footnote)
+
+## ROCm 10.0 (2026-08-27) — do not bump
+
+[Newsroom](https://newsroom.amd.com/news/rocm-10-software-ai-native-developer-experiences/) is PR. [Blog](https://rocm.blogs.amd.com/ecosystems-and-partners/rocm-x-blog/README.html) is TheRock-on-7.14 plus ROCm.AI (CLI / amd/skills / Hyperloom). Skills/Hyperloom/vLLM adapters are Instinct (MI300/325/350/355) and EPYC. Official 3.3×/2.4× is MI355x — do not copy.
+
+**Live stays 7.14.0.** V620 Ubuntu-only footnote still applies. hipBLASLt local tuner is still not a gfx1030 dest (TheRock #1062). FlyDSL/CK/GEAK/TileLang stay Leave. Roofline in rocprofiler-compute is **GFX11xx**, not gfx1030.
+
+Silicon: [../silicon/rccl-p2p.md](../silicon/rccl-p2p.md) (GIN ≠ 88096 PIX).
