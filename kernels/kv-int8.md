@@ -1,6 +1,6 @@
 # INT8 KV cache on gfx1030 — silicon / HIP contract
 
-Engine dispatch and quant mode: [engine/kv-int8.md](../engine/kv-int8.md). This page is the ISA and the `fa_rdna2` load path.
+Engine dispatch and quant mode: [engine/kv-int8.md](../engine/kv-int8.md). This page is the ISA and the `fa_rdna2` load path. curvedinf/int8-vllm (gfx908 AITER): [../silicon/curvedinf-int8-vllm.md](../silicon/curvedinf-int8-vllm.md) — Take the PTH mode, Leave their UA kernel.
 
 **Win is bandwidth, not FLOPS.** Decode gather is GDDR6-bound. INT8 KV is ½ the bytes vs fp16. An unfused “dequant the whole cache to fp16, then attend” kernel throws that away.
 
