@@ -23,7 +23,22 @@ cb:  0 | mcg=1 | mul1=2           one codebook, not both flags
 
 Writer/reader must agree on bit-extract order (`exl3_dq.cuh`: aligned 1/2/4-bit paths, `dq4`/`dq8` for the rest). Lock that when a real checkpoint is named.
 
-## Inner loop (when someone writes it)
+## extras WIP (tip `a2c8d5cf`, 2026-08-28)
+
+CMake + `torch_bindings` + `Exl3Config` wired (`d3fe4c98` / `a2c8d5cf`). Still not the default AWQ/GPTQ path. Occupancy hygiene missing on the GEMMs.
+
+| File | Role |
+|---|---|
+| `csrc/rocm/exl3_dot2_common.cuh` | `decode_3inst<cb>`, real `exl3_window_*` (flat `dq8_flat` is unused scaffold) |
+| `csrc/rocm/exl3_dot2_dense.cu` | `exl3_gemm_rdna2` — 256 thr, `BLOCK_N=1024`, `BLOCK_K=256`, `M_PER` 1/2/4/8 |
+| `csrc/rocm/exl3_dot2_moe.cu` | `moe_exl3_gemm_rdna2` — 256 thr / 1024 N; `BLOCK_SIZE_M` 1/2/4/8; CAS epilogue |
+| `csrc/rocm/exl3_hadamard.cu` | `exl3_hadamard_128` — `__launch_bounds__(32)`, not in the K-dot |
+
+Inner: real 16×16 window → `decode_3inst<cb>` → `half2` → `V_DOT2_F32_F16`. Launch: `bits` ∈ {2,3,4}, `cb` ∈ {0,1} (rejects `mul1`). Dense/MoE GEMM have **no** `__launch_bounds__` / `waves_per_eu` — do not ship on `(1,1)`. Dense LDS is A only (`M×264` half). MoE LDS is A `M×16` half + `s_tile[64][8*bits]` u32. Occupancy risk is VGPR (`w0`+`w1` 4×16 halves on dense), not LDS. `suh`/`svh` stay caller-side / Hadamard kernel.
+
+Do not copy tok/s. Do not treat as Live until occupancy dump + named 3inst checkpoint.
+
+## Inner loop (landed shape)
 
 | Step | Op |
 |---|---|

@@ -82,6 +82,22 @@ Our first kernel, if any: skinny like `q_gemm_rdna2` — dword load, extract, `d
 - Land this before occupancy / live W4.
 - Quote NVIDIA tok/s.
 
+## extras lock 2026-08-28 (tip `a2c8d5cf`)
+
+HIP matches the contract: real 16×16 tile (`exl3_window_pos` / `exl3_window_at`) → `decode_3inst<cb>` → `half2` → `__builtin_amdgcn_fdot2`. Not a fatter unpack on `mxfp4_dot2_moe`. `dq8_flat` in the header is leftover scaffold — dense/MoE fire the real tile path. No `sdot*` on halves.
+
+| | Dense `exl3_gemm_rdna2` | MoE `moe_exl3_gemm_rdna2` |
+|---|---|---|
+| Geometry | `THREADS_X=256`, `BLOCK_N=1024`, `BLOCK_K=256` (W4 skinny) | same 256 thr / 1024 N; loops all K-tiles |
+| LDS | `half s_a[M_PER][256+8]` (~0.5–4 KiB) | `s_a[M][16]` + `s_tile[64][8*bits]` u32 (~6–8 KiB at 3–4 bpw) |
+| Occupancy | **no** `__launch_bounds__` / `waves_per_eu` | same |
+| VGPR lever | `w0[4][16]+w1[4][16]` halves (second tile always allocated) | `w[4][16]` reused across `BLOCK_SIZE_M` rows |
+| Epilogue | split-K Y: 64-bit CAS `atomic_add_pk4_f16` if `gridDim.y>1` | CAS if `output_topk>0` |
+
+Launch: `bits` ∈ {2,3,4}, `cb` ∈ {0,1}. `mul1` compiled in `decode_3inst`, not launched. `bits==7` window still approximate (produce is 3.0). Hadamard is `__launch_bounds__(32)` `H_128` via `__shfl_xor_sync`; `suh`/`svh` stay outside the K-dot (`exl3_hadamard_128`). MoE comment `TILES_PER_BLOCK // 16` is wrong; math is `1024/16=64` and the array matches. A-stage writes `t%16` from 256 threads (16× overwrite, not a correctness bug).
+
+CMake lists `exl3_dot2_{dense,moe}.cu` + `exl3_hadamard.cu` unconditionally (RDNA-generic). `torch_bindings` + `Exl3Config` registered; still not default AWQ/GPTQ. Last Live HIP lock remains `f263172a` W4A16 split-K. FA occupancy pin stays closed. Do not invent numbers. Do not copy tok/s.
+
 ## Sources
 
 - [turboderp-org/exllamav3](https://github.com/turboderp-org/exllamav3) `codebook.cuh`, `exl3_dq.cuh`, `exl3_gemm_inner.cuh`, `exl3_gemv.cu`, `doc/exl3.md` (read 2026-08-21)
