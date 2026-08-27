@@ -10,6 +10,7 @@ Silicon: [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md)
 - **Capacity tier:** 8× V620 32 GB (**gfx1030**) — expert GEMMs only (`fdot2` / `sdot4`)
 - **Bus rule:** ship **activations only**, **fp16 on the hop**. Spark FP4/FP8/BF16 converts **on Spark**. Two machines: Spark↔Spark is CX-7 NCCL; Spark→V620 is not HIP peer.
 - **V340L:** 8 incoming, Vega10 / **gfx900**, PCIe 3.0 x16 dual-die. **Later, separate host.** [silicon/v340l.md](../silicon/v340l.md).
+- **R9700 / RDNA5:** Later, not a workstream. R9700 = gfx1201, 32 GB / 640 GB/s — expert SKU if bought, **not** Spark. New fatbin, no AITER RDNA4 import, no tok/s copy. RDNA5: wait for ISA. Silicon: [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md).
 
 **Hardware on hand:** two **5-slot x16 Gen4 88096** backplanes (10 GPU slots) + **8 V620**. Each board is CPU x16 + 5× GPU x16 = 96 lanes exact, PIX inside the board.
 
