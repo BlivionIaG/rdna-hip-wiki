@@ -14,7 +14,7 @@ Inner ops we actually have: `fdot2` (FP16 256), `sdot4` (IU8 512), `V_DOT8_I32_I
 
 `rocm.py` still *names* `fp8`, `mxfp4`, `mxfp8`, `bitsandbytes`, `modelopt_fp4`. Those strings are not a ship promise.
 
-What actually HIP-fires: **W4A16**, **W8A16** (i8→half→`fdot2`), **W8A16-FP8** / leftover **MXFP8** cvt, **W8A8-FP8** dense, **mxfp4** unpack. INT8 that’s “not too bad” is **W8A16** — same DOT as W4, twice the bytes. **W8A8 `sdot4`** is the real INT8 compute and is not shipped. INT8 KV is still the scalar `__hmul` kernel ([kv-int8.md](kv-int8.md)). EXL3 Later. `d24f6c25` FULL graphs are rebase glue, not this list.
+What actually HIP-fires: **W4A16**, **W8A16** (i8→half→`fdot2`), **W8A16-FP8** / leftover **MXFP8** cvt, **W8A8-FP8** dense, **mxfp4** unpack. INT8 that’s “not too bad” is **W8A16** — same DOT as W4, twice the bytes. **W8A8 `sdot4`** is the real INT8 compute and is not shipped. INT8 KV is still the scalar `__hmul` kernel ([kv-int8.md](kv-int8.md)). EXL3 HIP is live WIP @ `a2c8d5cf` (compile fix `e268c7d3`; unmarked 2/3/4-bit 3inst → `fdot2`; mul1/mcg-marked fold fp16). `d24f6c25` FULL graphs are rebase glue, not this list.
 
 Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/sdot4-explore.md](../kernels/sdot4-explore.md) (W8A8, Sage QK, W4A8). W4A4 integer: [w4a4.md](w4a4.md). Dispatch: [attention-dispatch.md](attention-dispatch.md), [sage-attention.md](sage-attention.md). NVFP4: [nvfp4.md](nvfp4.md). INT8 KV: [kv-int8.md](kv-int8.md). INT2: [int2.md](int2.md). MTP / DFlash / DSpark: [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md). Native MoE: [fp16-moe.md](fp16-moe.md), [int8-moe.md](int8-moe.md). Stock baselines: [baseline-order.md](baseline-order.md), [triton-rocm.md](triton-rocm.md). FlyDSL: [flydsl.md](flydsl.md). DeepEP: [deepep.md](deepep.md). ROCmFPX: [rocmfpx.md](rocmfpx.md). EXL3: [exl3.md](exl3.md). DSv4 run: [dsv4-flash-run.md](dsv4-flash-run.md).
 
@@ -44,7 +44,7 @@ Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/s
 | bitsandbytes | CUDA | **Dead** on this box | Official AMD column is ❌ |
 | GGUF (stock Q4_0 / K / IQ*) | vLLM loader / plugin | Live loader | Not ggml MMVQ. Custom ROCmFPX types are not this. [rocmfpx.md](rocmfpx.md) |
 | ROCmFPX (`Q4_0_ROCMFP4` …) | codebook → `perm` → `sdot4` | **No vLLM port** | llama.cpp side project only. [llamacpp-rocmfpx.md](llamacpp-rocmfpx.md) |
-| **EXL3** (QTIP trellis) | 3-inst codebook → `fdot2` | **Later** | Produce `3inst`, compile `mcg`, no `mul1`. [exl3.md](exl3.md). |
+| **EXL3** (QTIP trellis) | 3-inst codebook → `fdot2` | **Live WIP** @ `a2c8d5cf` / tip `e268c7d3` | Produce `3inst`, compile `mcg`, no `mul1`. HIP kernel for unmarked 2/3/4-bit; marked mul1/mcg fold fp16. Occupancy still first. [exl3.md](exl3.md). |
 | Ternary / BitNet 1.58 | LUT or pack + `V_DOT8`? | Later | No ternary unit. Research after DOT kernels exist. Not a first ticket. |
 
 ## Attention
@@ -113,4 +113,4 @@ Native HIP FP16 / INT8 MoE sit after occupancy (and after a measured stock basel
 
 ## Progress
 
-Locked 2026-08-22: human branch is **`rdna2_extras`** @ **`d24f6c25`**. Overlay merge `9ff87936` onto v0.27.1. `4cc1fe59` INT8 KV is not the fused contract. `d24f6c25` FULL graphs are glue. Occupancy still first. Allowlist ≠ fire list. EXL3 Later ([exl3.md](exl3.md), [dsv4-flash-run.md](dsv4-flash-run.md)). VLLM_FORK_Manager owns the board; this page is the index.
+Locked 2026-08-22: human branch is **`rdna2_extras`** @ **`d24f6c25`**. Overlay merge `9ff87936` onto v0.27.1. `4cc1fe59` INT8 KV is not the fused contract. `d24f6c25` FULL graphs are glue. Occupancy still first. Allowlist ≠ fire list. EXL3 HIP live WIP ([exl3.md](exl3.md); tip `e268c7d3`, ISA `a2c8d5cf`). Occupancy still first. Linear owns engine tickets (V620 inference); this page is the index.

@@ -1,8 +1,12 @@
 # QTIP / EXL3 on gfx1030 — engine spec
 
-Date: 2026-08-22. Engine contract. Silicon: [silicon/exl3.md](../silicon/exl3.md) + [kernels/exl3.md](../kernels/exl3.md). DSv4 apply: [dsv4-flash-run.md](dsv4-flash-run.md). Occupancy still first.
+Date: 2026-08-22 (live extras retip 2026-08-28). Engine contract. Silicon: [silicon/exl3.md](../silicon/exl3.md) + [kernels/exl3.md](../kernels/exl3.md). DSv4 apply: [dsv4-flash-run.md](dsv4-flash-run.md). Occupancy still first.
 
-**Verdict:** QTIP quality-for-size, native HIP. One kernel, codebook id + 16×16 pack. Infer does **not** retune the trellis. Produce `-cb 3inst`. Still compile `mcg` (`cb=0`) for 0xSero K216 — same VALU (mul + LOP3-emulate). **Don’t produce `mul1`.** Pair two states → `half2` → one `fdot2` on `mxfp4_dot2_moe`.
+**Verdict:** QTIP quality-for-size, native HIP. One kernel, codebook id + 16×16 pack. Infer does **not** retune the trellis. Produce `-cb 3inst`. Still compile `mcg` (`cb=1`) for 0xSero K216 — same VALU (mul + LOP3-emulate). **Don’t produce `mul1`.** Pair two states → `half2` → one `fdot2`.
+
+## Live extras (2026-08-28)
+
+`rdna2_extras` @ `e268c7d3`. HIP files landed at `a2c8d5cf` (`exl3_dot2_dense` / `moe` / `hadamard`), not a rewrite of `mxfp4_dot2_moe`. `e268c7d3` is unused-var compile fix only. Python `38bdfec5` captures `*.mul1` / `*.mcg` markers and folds those layers (plus fused suh and bits-6 lm_head) to fp16; unmarked 2/3/4-bit single-shard stays on HIP. `VLLM_EXL3_FOLDED_CACHE` is the no-exllamav3 serve path. Not default AWQ/GPTQ.
 
 ## Frozen vs knobs
 
