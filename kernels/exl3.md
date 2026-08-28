@@ -1,8 +1,14 @@
 # EXL3 — silicon / HIP contract
 
-Later. Not in the fork. Occupancy + live W4 still first. Silicon: [../silicon/exl3.md](../silicon/exl3.md).
+Occupancy + live W4 still first. Silicon: [../silicon/exl3.md](../silicon/exl3.md).
 
 Take the math only: unpack trellis → fp16 → `fdot2`. Same job as mxfp4, fatter decode. **No** Marlin / MMA / WMMA port.
+
+## Live extras (2026-08-28)
+
+In the fork. Tip `e268c7d3`. HIP ISA lock `a2c8d5cf`: own `exl3_dot2_*` files, not a fatter `mxfp4_dot2_moe` unpack. Inner loop is 16×16 window → `decode_3inst<cb>` → `half2` → `fdot2`. No GEMM `__launch_bounds__`. `e268c7d3` deleted unused `TILES_N` / `offset_m` / `c0` (gfx1030 `-Werror`); behavior unchanged.
+
+HIP compiles `cb==0` (`3inst`) and `cb==1` (`mcg`). `cb==2` (`mul1`) does not launch. Live Python still only feeds unmarked 2/3/4-bit single-shard into the kernel; marked mul1/mcg layers fold fp16.
 
 ## Pack
 

@@ -1,8 +1,18 @@
 # EXL3 / QTIP on gfx1030 — silicon
 
-Later. Occupancy + live W4 still first. Kernel contract: [../kernels/exl3.md](../kernels/exl3.md). Engine/vLLM: specialist (no official loader; `#19896` stale-closed).
+Occupancy + live W4 still first. Kernel contract: [../kernels/exl3.md](../kernels/exl3.md). Engine/vLLM: [../engine/exl3.md](../engine/exl3.md).
 
 Not EXL2. Not Marlin. Not a CUDA `exl3_gemv` / `mgemm` port.
+
+## Live extras (2026-08-28)
+
+Tip: `rdna2_extras` @ `e268c7d3`. Last HIP ISA lock: `a2c8d5cf` (own `exl3_dot2_dense` / `exl3_dot2_moe` / `exl3_hadamard`; CMake/bindings `d3fe4c98`). Not default AWQ/GPTQ. Do not copy tok/s.
+
+ISA (unchanged by `e268c7d3`): 16×16 `exl3_window_*` → `decode_3inst<cb>` → `half2` → `__builtin_amdgcn_fdot2`. Occupancy lever is VGPR (`w0[4][16]` + `w1[4][16]`), not LDS. Dense A is `M_PER × (BLOCK_K + LDS_PAD)` half (`BLOCK_K=256`, `LDS_PAD=8`). No GEMM `__launch_bounds__` / `waves_per_eu`. HIP templates `cb==0` and `cb==1`; `cb==2` (`mul1`) is `TORCH_CHECK` false. Hadamard stays `__launch_bounds__(32)`; `suh`/`svh` outside the GEMM.
+
+`e268c7d3` is compile-only: deleted unused `TILES_N` / `offset_m` / `c0` from `gemm_exl3_kernel_rdna`. Live tile index is `tile_idx0` / `tile_idx1` + `n_tiles_total`. Kernel behavior unchanged. gfx1030 `-Werror -Wunused-variable` now compiles (failed on `.176`). CMake gfx1030 EXL3 list unchanged.
+
+Dispatch (Python `38bdfec5`, not ISA): unmarked 2/3/4-bit single-shard stays on the HIP kernel. `*.mul1` / `*.mcg` markers, fused suh-shards, and bits-6 lm_head fold to fp16 (`reconstruct_had_slice` / `VLLM_EXL3_FOLDED_CACHE`). HIP GEMM is not the mul1 path.
 
 ## What inference actually does
 
