@@ -238,3 +238,10 @@ A gfx1030 kernel does not program the PEX. It issues global stores/loads. Those 
 
 Their cascade is PM50100 (Gen5, two 5090s) → 88096 (Gen4, five Ampere/Ada). Ours is two 88096s + 8× same-gen V620. Do not import mixed-gen as a V620 design.
 
+## Later note (2026-08-28) — pastebin g9hFc9WZ (MI50 P2P cook)
+
+[g9hFc9WZ](https://pastebin.com/g9hFc9WZ) is **MI50 / Vega20 gfx906** (`1002:66a1`): three VBIOS IDs, 44-bit/16 TB BAR, `HSA_OVERRIDE_GFX_VERSION=9.0.6`, `pcie_acs_override=downstream,multifunction`, `aiinfos/vllm-gfx906-mobydick`. Zero gfx1030.
+
+**Leave:** flash those ROMs onto V620. Vega 16 TB MMIO cook. `HSA_OVERRIDE=9.0.6`. `pcie_acs_override` (ACS stays `setpci ECAP_ACS+0x6`). Their docker and `--disable-custom-all-reduce` (custom AR is already gfx94/95-only here). Do not copy tok/s.
+
+**Take (already our lock):** `HSA_FORCE_FINE_GRAIN_PCIE=1`, `NCCL_P2P_LEVEL=PIX` on one 88096, log `via P2P/IPC` not `SHM/direct`. `VLLM_SKIP_P2P_CHECK=1` is a skip, not a fix. P2P is attested on this V620 box; no measured `hipMemcpyPeer` GB/s yet.
