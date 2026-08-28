@@ -2,6 +2,13 @@
 
 Live human branch: **`rdna2_extras`** @ **`0fdb1884`** (prep half2 vectorize; GDN stack: delta_h u8 / o BV64 / prep vec). FA status: decode pinned `(N)` + `waves_per_eu(4, 8)`; prefill still `(N, 1)`. **Compiled resource dump DONE (2026-08-24) — see §8.** Conclusion: the `(N, 1)` second arg is semantically wrong per HIP docs but **empirically inert** — every FA kernel compiles ≤111 VGPR / 0 spills, and LDS (45–60 KB) is the sole occupancy limiter at 1 WG/64 KB regardless of the pin. Decode `(4, 8)` flip was occupancy-neutral (40–43 VGPR, never binding). The +1% on Qwen3.8-27B-AWQ 16k/1k TP=4 was noise, as suspected. No launch-bounds change can move FA occupancy; only an LDS-tile shrink (BR/BC) could.
 
+## extras lock 2026-08-29 — `07ebb0d6` split-K index (not occupancy)
+
+`fa_rdna2` splitk kernels + reduce used `[N, H_q, BR_PREFILL, kv_splits, D]` strides. Host `O_partial` is `[N, H_q, kv_splits, D]`. With `BR_PREFILL=16` that silently corrupts short prefill and OOB-faults `fa_prefill_paged_varlen_splitk_kernel_256` at ~5k tok (Qwen3.8-27B-AWQ full HIP). Slot is now per query token. **Not** an occupancy flip. Pin stays closed. Do not invent tok/s.
+
+GDN `o` (`77d6fdf8`): still `(2, 4)`, BV=64, ~56 KB LDS, `fdot2`. No new ELF VGPR dump on this pass — do not quote 256 VGPR / 110 spill.
+
+
 This dump below is a **historical snapshot** of `perf/rdna2_w4a16` (tree SHA `9ac015d0a936e9e3bdbe5dc7483e1a8b48c65370`). Decode rows in the table are stale vs `d414eac5`.
 
 Live tree: [`csrc/rocm/fa_rdna2.cu` on `rdna2_extras`](https://raw.githubusercontent.com/BlivionIaG/vllm/rdna2_extras/csrc/rocm/fa_rdna2.cu).
