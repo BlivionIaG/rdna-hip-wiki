@@ -2,6 +2,15 @@
 
 Live human branch: **`rdna2_extras`** @ **`0fdb1884`** (prep half2 vectorize; GDN stack: delta_h u8 / o BV64 / prep vec). FA status: decode pinned `(N)` + `waves_per_eu(4, 8)`; prefill still `(N, 1)`. **Compiled resource dump DONE (2026-08-24) — see §8.** Conclusion: the `(N, 1)` second arg is semantically wrong per HIP docs but **empirically inert** — every FA kernel compiles ≤111 VGPR / 0 spills, and LDS (45–60 KB) is the sole occupancy limiter at 1 WG/64 KB regardless of the pin. Decode `(4, 8)` flip was occupancy-neutral (40–43 VGPR, never binding). The +1% on Qwen3.8-27B-AWQ 16k/1k TP=4 was noise, as suspected. No launch-bounds change can move FA occupancy; only an LDS-tile shrink (BR/BC) could.
 
+## extras lock 2026-08-30 — `097f62a4` (FA vectorize + W4 alloc)
+
+Tip after `07ebb0d6`. D=256 Q/KV global loads are `uint4` (16 B / 8 halves) into LDS rows padded 256→264. Inner QK is still `__builtin_amdgcn_fdot2`. Prefill still `__launch_bounds__(N, 1)`. INT8/FP8 path still scalar `fa_kv_load`. **Not** occupancy. Do not copy 2.4×/3.6×.
+
+W4: `hipMallocAsync` split-K partials raced (mempool reuse, missing K-split). `torch::empty` is the fix. DOT/nibble lock stays `f263172a`. Dispatch restored `32<M≤128` HIP.
+
+EXL3 GEMMs unchanged this window. Pin stays closed.
+
+
 ## extras lock 2026-08-29 — `07ebb0d6` split-K index (not occupancy)
 
 `fa_rdna2` splitk kernels + reduce used `[N, H_q, BR_PREFILL, kv_splits, D]` strides. Host `O_partial` is `[N, H_q, kv_splits, D]`. With `BR_PREFILL=16` that silently corrupts short prefill and OOB-faults `fa_prefill_paged_varlen_splitk_kernel_256` at ~5k tok (Qwen3.8-27B-AWQ full HIP). Slot is now per query token. **Not** an occupancy flip. Pin stays closed. Do not invent tok/s.
