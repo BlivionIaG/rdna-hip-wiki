@@ -81,6 +81,21 @@ This is the GCN-family formula with the modulus changed from 32 → 64. CK’s p
 
 Two addresses **conflict** when `bank(a) == bank(b)` and the dwords are **not** the same address. Alias distance: **64 dwords = 256 bytes**.
 
+```
+WGP 64 banks × 4 B. Dwords placed serially (ISA §2.3.1 / §10.1):
+
+  byte     0    4    8   …  252   256   260
+  dword    0    1    2   …   63    64    65
+  bank     0    1    2   …   63     0     1
+
+wave32 sequential `int`/`half2`: 32 lanes × 1 dword → banks 0–31, conflict-free.
+packed i8/i4 is still a dword walk — same map as `int`, not as `char`.
+stride 256 B = +64 dwords = same bank → serialize (worst 64 cycles, ISA §10.4.3).
+same-address broadcast is not a conflict (HIP LDS “Conflict resolution”).
+```
+
+`ds_read_b128` cycle count on gfx1030 is still **unknown** in the ISA (§8). Prefer `ds_read2_b64`. DOT8 (`V_DOT8_I32_I4`) does not change the bank map — 8×i4 still rides one dword. No invented diagram beyond this serial walk.
+
 ### 1.3 Bank index — CU mode (`-mcumode`)
 
 ISA §2.3.1 / §10.3:

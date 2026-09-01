@@ -12,7 +12,7 @@ Sourced from [ikantkode/gfx1030-vllm-0.26](https://github.com/ikantkode/gfx1030-
 | 3 | **Disable `wvSplitK` on gfx1030** | device-assert | **Keep off.** Same skinny card. Do not “enable MFMA.” |
 | 6–10, 15 | M==1 AWQ GEMV, then K-split + per-(N,K) table | Triton `tl.sum` fp32 FMA, **not** `tl.dot` / `fdot2` | Lesson only: fill 72 CUs when `cdiv(N,BN)` is tiny. HIP W4A16 already owns this job. |
 | 7 | fp16 GEMV for `n==1, k>8192` (GDN `out_proj` 2560×9216) | Triton scalar FMA | LLMM1 cannot launch there. HIP skinny / W4A16 should cover k>8192. |
-| 13 | Fused Gemma RMSNorm | 1 Triton vs 10–13 ATen; IR gate wants `weight.dtype==x.dtype`, Gemma weight is fp32 | **New Todo** if we want it. Launch tax, not DOT. |
+| 13 | Fused Gemma RMSNorm | 1 Triton vs 10–13 ATen; IR gate wants `weight.dtype==x.dtype`, Gemma weight is fp32 | Llama HIP AOT landed extras `8e35767f` ([triton-jit-aot.md](triton-jit-aot.md)). Gemma `(1+w)` still Todo. Do not port their Triton GEMV. |
 | 14 | paged-attn Triton `num_warps=8` | 4 WG on 72 CUs was latency-bound (226→112 µs) | Same occupancy ticket as `fa_rdna2`. |
 | 8 | Re-quant attn + GDN to INT4 | checkpoint, not a kernel | Engine. `(1+w)` LN-fold, not Llama `w`. |
 

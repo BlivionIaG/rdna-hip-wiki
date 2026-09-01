@@ -4,7 +4,7 @@ Live: `gemm_w8a8_fp8_dense_rdna2.cu` @ `750ca545`. **Incomplete** — commit say
 
 Both A and B are E4M3 bytes. **Still `fdot2`.** Bit-trick both sides to fp16 (`fp8_e4m3_to_fp16_bits` in `qdq_fp8_rdna2.cuh`), then the W8A16-FP8 dequant helper. No LUT. No `sdot4`.
 
-This is **not** the spec W8A8 INT8 path in [w8a8-mxfp4.md](w8a8-mxfp4.md) (`sdot4`, i32 through K).
+This is **not** the spec W8A8 INT8 path. Extras vs contract: [w8a8.md](w8a8.md). Study: [w8a8-mxfp4.md](w8a8-mxfp4.md) (`sdot4`, i32 through K).
 
 ## Why not sdot4
 
