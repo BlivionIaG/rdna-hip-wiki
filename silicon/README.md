@@ -29,5 +29,6 @@ How gfx1030 actually works, and what HIP can control.
 | [exl3.md](exl3.md) | EXL3/QTIP: Viterbi is quant-time; infer is 3-inst codebook → half → `fdot2`. Later |
 | [../kernels/gdn-decode.md](../kernels/gdn-decode.md) | GDN decode HIP `(2,4)`, no LDS |
 | [../kernels/gdn-prefill.md](../kernels/gdn-prefill.md) | GDN prefill 5 HIP; kkt no `fdot2`; wy ~58 KB LDS |
+| [../kernels/layernorm.md](../kernels/layernorm.md) | HIP AOT RMSNorm, tiny LDS, no DOT; not FA leftover |
 | [dsv4-flash.md](dsv4-flash.md) | DSv4 Flash: mxfp4 expert tile is the decode kernel; leftover is MXFP8 + e8m0/128², not W8A16-FP8 |
 | [wafer-gpu-perf.md](wafer-gpu-perf.md) | wafer-ai list: ISA is 70648 + valu, not their MI350/CDNA4 |
