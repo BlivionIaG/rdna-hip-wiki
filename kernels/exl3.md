@@ -34,7 +34,7 @@ CMake + `torch_bindings` + `Exl3Config` wired (`d3fe4c98` / `a2c8d5cf`). Still n
 | `csrc/rocm/exl3_dot2_moe.cu` | `moe_exl3_gemm_rdna2` — 256 thr / 1024 N; `BLOCK_SIZE_M` 1/2/4/8; CAS epilogue |
 | `csrc/rocm/exl3_hadamard.cu` | `exl3_hadamard_128` — `__launch_bounds__(32)`, not in the K-dot |
 
-Inner: real 16×16 window → `decode_3inst<cb>` → `half2` → `V_DOT2_F32_F16`. Launch: `bits` ∈ {2,3,4}, `cb` ∈ {0,1} (rejects `mul1`). Dense/MoE GEMM have **no** `__launch_bounds__` / `waves_per_eu` — do not ship on `(1,1)`. Dense LDS is A only (`M×264` half). MoE LDS is A `M×16` half + `s_tile[64][8*bits]` u32. Occupancy risk is VGPR (`w0`+`w1` 4×16 halves on dense), not LDS. `suh`/`svh` stay caller-side / Hadamard kernel.
+Inner: real 16×16 window → `decode_3inst<cb>` → `half2` → `V_DOT2_F32_F16`. Launch (pre-`8c23f0bd`): `bits` ∈ {2,3,4}, `cb` ∈ {0,1} (rejected `mul1`). At `8c23f0bd`: dense also launches `bits=6` and `cb=2`; 6bpw lm_head uses load-time dequant. Dense/MoE GEMM have **no** `__launch_bounds__` / `waves_per_eu` — do not ship on `(1,1)`. Dense LDS is A only (`M×264` half). MoE LDS is A `M×16` half + `s_tile[64][8*bits]` u32. Occupancy risk is VGPR (`w0`+`w1` 4×16 halves on dense), not LDS. `suh`/`svh` stay caller-side / Hadamard kernel.
 
 Do not copy tok/s. Do not treat as Live until occupancy dump + named 3inst checkpoint.
 
@@ -79,6 +79,18 @@ EXL3 is closest to mxfp4 (weird storage → half → DOT2). It is **not** ROCmFP
 - One named checkpoint (`mcg` xor `mul1` xor default) bit-matches `decode_3inst`.
 - `suh`/`svh` 128-Hadamard applied, scale locked.
 - Smoke vs fp16 / W4A16 on the same model. No tok/s from this page.
+
+## extras tip `8c23f0bd` (2026-09-01)
+
+HIP: 6bpw `mul1` load-time dequant + dense launch of `bits∈{2,3,4,6}`, `cb∈{0,1,2}`.
+
+| File | Role |
+|---|---|
+| `csrc/rocm/exl3_dot2_dequant.cu` | `exl3_dequant_bits6_mul1` — `16×16` block, no LDS, no launch_bounds; one-shot at weight load for 6bpw lm_head |
+| `exl3_dot2_common.cuh` | `bits==6` → `dq4<6>` window extract |
+| `exl3_dot2_dense.cu` | launches `bits=6` and `cb=2`; sizes from tensors |
+
+Inner GEMM still 16×16 → `decode_3inst` → `half2` → `fdot2`. Dequant is not a K-dot path (no Hadamard in kernel). Occupancy hygiene still missing on GEMMs. Produce experts as `3inst`; do not treat `mul1` launch as produce flip. FA pin closed. No tok/s.
 
 ## Sources
 

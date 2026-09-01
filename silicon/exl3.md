@@ -98,6 +98,19 @@ Launch: `bits` ∈ {2,3,4}, `cb` ∈ {0,1}. `mul1` compiled in `decode_3inst`, n
 
 CMake lists `exl3_dot2_{dense,moe}.cu` + `exl3_hadamard.cu` unconditionally (RDNA-generic). `torch_bindings` + `Exl3Config` registered; still not default AWQ/GPTQ. Last Live HIP lock remains `f263172a` W4A16 split-K. FA occupancy pin stays closed. Do not invent numbers. Do not copy tok/s.
 
+## extras lock 2026-09-01 (tip `8c23f0bd`)
+
+After `02357ecd` (Python glue) and `25e8788` (hybrid pages): HIP delta is EXL3 6bpw + `mul1` launch paths. Not FA/W4. FA pin stays closed. Occupancy leftover still FA prefill `(N,1)` / EXL3 GEMM VGPR (still no `__launch_bounds__` / `waves_per_eu` on dense/MoE).
+
+| File | Delta |
+|---|---|
+| `csrc/rocm/exl3_dot2_dequant.cu` | **new** load-time `exl3_dequant_bits6_mul1`: tile `16×16` thr, **no LDS**, no `__launch_bounds__`; `dq4<6>` window → `decode_3inst<2>` (`mul1`) → fp16 out. Caller applies `suh`/`svh` in PyTorch. gfx1030/gfx1100 only. |
+| `csrc/rocm/exl3_dot2_common.cuh` | `exl3_window_at` special-cases `bits==6` via `dq4<6>` (generic pair path wrong on odd indices in a dq4 batch). Generic leftover is `{3,5,7,8}`. |
+| `csrc/rocm/exl3_dot2_dense.cu` | Launch now accepts `bits==6` and `cb==2` (`mul1`). `size_m/n/k` derived from tensor shapes (dynamo ABI), not Python ints. |
+| `CMakeLists.txt` / `ops.h` / `torch_bindings.cpp` | Adds `exl3_dot2_dequant.cu` + `exl3_dequant_bits6_mul1` binding; GEMM signature drops size ints. |
+
+Do **not** read this as flipping produce policy: expert produce stays `3inst` (`cb==0`); `mcg` still compile-for-K216; `mul1` here is the **6bpw lm_head** one-shot dequant (was `NotImplementedError` at `02357ecd`), not a default expert codebook. No DOT change in the K-loop (still `fdot2` after decode). No KV quant / FA / GDN HIP in this tip. Do not invent numbers. Do not copy tok/s.
+
 ## Sources
 
 - [turboderp-org/exllamav3](https://github.com/turboderp-org/exllamav3) `codebook.cuh`, `exl3_dq.cuh`, `exl3_gemm_inner.cuh`, `exl3_gemv.cu`, `doc/exl3.md` (read 2026-08-21)
