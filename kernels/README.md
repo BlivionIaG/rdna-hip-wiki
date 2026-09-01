@@ -3,7 +3,7 @@
 Format contracts for the HIP kernels we write. Not engine dispatch. Feature index vs upstream: [engine/fork-delta.md](../engine/fork-delta.md).
 
 | Page | Inner loop | Completeness |
-|---|---|---|
+|---|---|
 | [fp16-moe.md](fp16-moe.md) | native fp16 `fdot2`, fp32 accum | Spec: tiny-M GEMM + grouped prefill |
 | [int8-moe.md](int8-moe.md) | W8A16 `fdot2` / W8A8 `sdot4` | Spec: dual route by expert rows/shape/scales |
 | [triton-skinny-gemm.md](triton-skinny-gemm.md) | stock dispatch baseline | Stock gfx1030 = BLAS; LLMM1/wvSplitK gate excludes gfx10 |
@@ -29,4 +29,5 @@ Do not conflate W8A16 / W8A16-FP8 / W8A8-FP8 (`fdot2`) with spec W8A8 INT8 (`sdo
 | [rocmfpx.md](rocmfpx.md) | codebook10 `perm` → i8 → `sdot4` | Later. llama.cpp GGUF, not a vLLM port |
 | [gdn-decode.md](gdn-decode.md) | fp32 FMA + shfl K-reduce | Decode HIP Live (`69d2efe`) |
 | [gdn-prefill.md](gdn-prefill.md) | kkt scalar FMA; wy/delta_h/o `fdot2` | Prefill HIP Live (`77d6fdf8`). o BV 64 / ~56 KB. All `(2,4)` |
+| [layernorm.md](layernorm.md) | scalar fp32 FMA + shfl + tiny LDS | Live AOT HIP (`83de31cf`). Cudagraph-safe. Not FA leftover |
 | [exl3.md](exl3.md) | trellis state → 3-inst → `fdot2` | Later. Not Marlin/MMA. Occupancy + W4 first |
