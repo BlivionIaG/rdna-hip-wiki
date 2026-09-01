@@ -1,6 +1,6 @@
 # Native HIP INT8 MoE on gfx1030 — dual-route silicon contract
 
-Date: 2026-08-18. **Spec / Todo.** Separate from [native FP16 MoE](fp16-moe.md). Target: gfx1030 wave32. Dispatch by routed rows **per expert**, not total tokens.
+Date: 2026-08-18. **Spec / Todo.** Separate from [native FP16 MoE](fp16-moe.md). Target: gfx1030 wave32. Dispatch by routed rows **per expert**, not total tokens. Extras @ `83de31cf` has **W8A16 `fdot2` only** (`moe_w8a16_rdna2.cu`); W8A8 `sdot4` + act quant are still absent — [w8a8.md](w8a8.md).
 
 ## Two routes, two meanings
 

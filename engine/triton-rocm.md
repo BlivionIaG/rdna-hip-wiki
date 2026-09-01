@@ -1,6 +1,6 @@
 # Stock ROCm Triton / HIP dispatch on gfx1030
 
-Date: 2026-08-18. **Stock only.** vLLM `main` @ `49fb2ee`. Do not overwrite with tuned configs. Tuning: [triton-tuning.md](triton-tuning.md). Order: [baseline-order.md](baseline-order.md).
+Date: 2026-08-18. **Stock only.** vLLM `main` @ `49fb2ee`. Do not overwrite with tuned configs. Tuning: [triton-tuning.md](triton-tuning.md). Order: [baseline-order.md](baseline-order.md). Extras HIP vs leftover Triton JIT (after RMSNorm AOT): [kernels/triton-jit-aot.md](../kernels/triton-jit-aot.md).
 
 "Supported" here means source/dispatch, not measured tok/s.
 

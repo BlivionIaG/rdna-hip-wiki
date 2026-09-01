@@ -1,6 +1,6 @@
 # sdot4 explore — which kernels actually use it
 
-Explore list, not a land-now ticket. Occupancy (`fa_rdna2` / skinny) is still first. Engine index: [fork-delta.md](../engine/fork-delta.md).
+Explore list, not a land-now ticket. Occupancy leftover is **FA prefill `(N, 1)` / LDS 64 KiB WG** — pin closed. Extras vs contract: [w8a8.md](w8a8.md). Engine index: [fork-delta.md](../engine/fork-delta.md).
 
 `V_DOT4_I32_I8` / `__builtin_amdgcn_sdot4` is 4×i8 → i32. GPUOpen RDNA2: IU8 **512** ops/clk/CU vs packed FP16 **256**. That 2× only shows up when **both** operands are integer i8 **and** the kernel is compute-bound.
 
@@ -10,7 +10,7 @@ Explore list, not a land-now ticket. Occupancy (`fa_rdna2` / skinny) is still fi
 
 | Kernel | Why | Tile / notes | Existing page |
 |---|---|---|---|
-| **W8A8 INT8 dense + MoE** | Both sides i8. Prefill GEMM is compute-bound. | Prefill **64×64×64 i8**, WG=256, LDS 8 KB (recipe 9). BK%4==0. i32 through K, scale in epilogue. Decode `M=1/2/4` skinny, A in LDS. | [w8a8-mxfp4.md](w8a8-mxfp4.md) (spec). **Not in the fork.** |
+| **W8A8 INT8 dense + MoE** | Both sides i8. Prefill GEMM is compute-bound. | Prefill **64×64×64 i8**, WG=256, LDS 8 KB (recipe 9). BK%4==0. i32 through K, scale in epilogue. Decode `M=1/2/4` skinny, A in LDS. | extras vs contract: [w8a8.md](w8a8.md). Study: [w8a8-mxfp4.md](w8a8-mxfp4.md). **Not in extras @ `83de31cf`.** |
 | **Sage QK** (prefill) | Q and K both i8. QK is the FLOP side of prefill attn. | Pack D as 4×i8. PV stays `fdot2`. | [sage-qk.md](sage-qk.md) |
 | **W4A8** (later) | W is i4, A is i8. Unpack nibble → i8, then `sdot4`. | Same 64×64×64 after unpack. `sdot8` is **W4A4 only** — both sides i4. Do not use `sdot8` for W4A8. | this page |
 | **W4A4 integer** (later) | Both sides i4. `sdot8`. Prefill first. | After W8A8. Decode stays W4A16 unless measured. Not E2M1. | [w4a4.md](../engine/w4a4.md) |
