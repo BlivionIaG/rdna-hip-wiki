@@ -29,7 +29,7 @@ gfx1100 (secondary): WMMA exists. Do not pivot extras onto it. First box is V620
 
 Same ISA peak as §1. What CUDA kernels get for free that we do not:
 
-- No TMA / async-copy. Manual LDS + vector loads. LDS is 64 KiB/WG, 32 banks.
+- No TMA / async-copy. Manual LDS + vector loads. LDS is 64 KiB/WG, **64 banks × 4 B** on RDNA2+ (32-bank is CDNA1–3, not gfx1030).
 - No native `v_global_atomic_pk_add_f16` on gfx1030. Split-K / MoE epilogue is 64-bit CAS (`atomic_add_pk4_f16`).
 - Infinity Cache has **no** persist/bypass (CUDA L2 persist is Leave).
 - hipcc will **not** peephole `__hfma2` into `fdot2`. Issue `__builtin_amdgcn_fdot2`.
