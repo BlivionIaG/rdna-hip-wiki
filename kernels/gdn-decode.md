@@ -23,3 +23,7 @@ Do **not** put the microbench 9× on coverage. Fat-M / ConfigA unchanged.
 
 - Spec-decode packed path (still Triton unless extras flipped it)
 - Copying 7.6 µs / 9.3× @ B=1 (launch tax vs Triton’s flat ~71 µs; @ B=32 they measured **0.93×**)
+
+## Capture guard (dest `f9361950`, 2026-09-03)
+
+The `ssm_state` RDNA2 uncommitted-page probe (`torch.isnan(...).any().item()` / all-zero → `zero_()`) is a **device→host sync** and is illegal under stream capture — it aborted cudagraph capture at engine startup with `hipErrorStreamCaptureUnsupported`. Dest now wraps it in `if not torch.cuda.is_current_stream_capturing():`. Python only; the `.cu` tile above is unchanged. Rule: [../silicon/graph-capture.md](../silicon/graph-capture.md).

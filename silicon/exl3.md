@@ -111,6 +111,14 @@ After `02357ecd` (Python glue) and `25e8788` (hybrid pages): HIP delta is EXL3 6
 
 Do **not** read this as flipping produce policy: expert produce stays `3inst` (`cb==0`); `mcg` still compile-for-K216; `mul1` here is the **6bpw lm_head** one-shot dequant (was `NotImplementedError` at `02357ecd`), not a default expert codebook. No DOT change in the K-loop (still `fdot2` after decode). No KV quant / FA / GDN HIP in this tip. Do not invent numbers. Do not copy tok/s.
 
+## extras lock 2026-09-03 (tip `f9361950`)
+
+`faf87f80` marks `exl3_hadamard_128`'s `output` as **mutating** in the rocm op schema (`Tensor` → `Tensor!`, `csrc/rocm/torch_bindings.cpp`, +1/-1). Impl and the `.cu` are untouched; no DOT, tile, or `__launch_bounds__` change. It was the last stale schema on the rocm bindings — every other out arg already had `Tensor!`.
+
+This one matters here because `suh`/`svh` are a **separate kernel outside the K-dot**: the Hadamard's only product is its out tensor, so a non-mutating schema is the exact shape functionalization can treat as dead. Full rule + the capture-path half of the same lock: [graph-capture.md](graph-capture.md).
+
+Produce policy unchanged: expert produce stays `3inst` (`cb==0`), `mcg` compile-only, `mul1` still the 6bpw lm_head one-shot. Occupancy leftover stays FA prefill `(N,1)`. Do not copy tok/s.
+
 ## Sources
 
 - [turboderp-org/exllamav3](https://github.com/turboderp-org/exllamav3) `codebook.cuh`, `exl3_dq.cuh`, `exl3_gemm_inner.cuh`, `exl3_gemv.cu`, `doc/exl3.md` (read 2026-08-21)
