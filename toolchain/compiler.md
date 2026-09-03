@@ -11,6 +11,11 @@ Companions: [silicon/hip-craft.md](../silicon/hip-craft.md).
 - Live dest stays **ROCm 7.14.0** (`rocm-7.14.0` @ `830cc1b5e90d`). 7.14.1 is quality-only (no GitHub `rocm-7.14.1` tag). Do not bump to 10.0 / 10.1 nightlies.
 - Live extras stay **`-O3`**. [TheRock#7751](https://github.com/ROCm/TheRock/issues/7751) (gfx1034 `-O0` i32 `udiv`/`urem`) is still open.
 
+## 2026-09-03 — TheRock SMP ww33-2.6 (nightly pin, not dest)
+
+[TheRock#7859](https://github.com/ROCm/TheRock/pull/7859) merged 2026-09-03 16:11 Paris (`186b09250f1a`). Compiler pin **SMP ww33-2.5 / amd-llvm `9148b61ffec4` → ww33-2.6-1 / `e9e55b898a1b`**. hipify `0e051929` and spirv `4fd57e73` unchanged. PR says the CP is **gfx1250-strict**. Five llvm commits: gfx1250 `s_monitor_sleep`, gfx12 test regen, SOP1_Real NFC, `S_BARRIER_SIGNAL_ISFIRST` barrier-id validate, comgr hotswap `hotswap-barrier-isfirst.s` xfail. **No RDNA ISA delta.** Do not bump live dest off **7.14.0**. Nightly still `10.1.0a20260903` L+W (0904 not published; that date will be the first wheel with this pin).
+
+
 ## 2026-09-03 — HIP wave64 request (not dest)
 
 [TheRock#7909](https://github.com/ROCm/TheRock/issues/7909) (open, filed 2026-09-03 ~15:48 Paris by llama.cpp maintainer `pwilkin`): wants an official HIP path for architecture-specific **wave64** kernels. Cites gfx1151 (Strix Halo) decode lag vs Vulkan. Notes HIP wave-size constant was removed and **`-mwavefrontsize64` is deprecated**. Unresolved. Not a dest lever for gfx1030 (wave32 native). Do not flip extras to wave64.
