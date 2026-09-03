@@ -1,5 +1,11 @@
 # W8A8-FP8 dense — silicon / HIP contract
 
+## extras lock 2026-09-03 — `rdna_extras` @ `ea78104d`
+
+`gemm_w8a8_fp8_dense_rdna2.cu`: activation scale now accepts per-(token, K-block) `a_scale` `[M, K/gk]` (DeepSeek V4 Flash dynamic FP8, block `[128,128]`) in addition to per-row / per-tensor. Template gains `PER_CHANNEL_SCALE` for fused-QKV weight scales. LDS tile unchanged: `__shared__ half block_a[M_TILE][BLOCK_KN_SIZE + LDS_PAD]` (`LDS_PAD=8`), inner still bit-trick E4M3→fp16 then `v_dot2_f32_f16`. Binding `gemm_w8a8_fp8_dense(..., a_scale_K_groups)` registered. **Not** a new DOT class. GPU correctness still as upstream commit says — do not invent numbers.
+
+---
+
 Live: `gemm_w8a8_fp8_dense_rdna2.cu` @ `750ca545`. **Incomplete** — commit says GPU correctness pending.
 
 Both A and B are E4M3 bytes. **Still `fdot2`.** Bit-trick both sides to fp16 (`fp8_e4m3_to_fp16_bits` in `qdq_fp8_rdna2.cuh`), then the W8A16-FP8 dequant helper. No LUT. No `sdot4`.

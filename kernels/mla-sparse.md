@@ -1,4 +1,20 @@
-# HIP sparse MLA decode — silicon / HIP contract
+# HIP sparse MLA — silicon / HIP contract
+
+## extras lock 2026-09-03 — `rdna_extras` @ `ea78104d`
+
+HIP **prefill** landed in `csrc/rocm/sparse_mla_rdna2.cu` (was Triton-only on earlier tips).
+
+| Piece | Value |
+|---|---|
+| Kernel | `sparse_mla_prefill_kernel` — `__launch_bounds__(32)` (1 wave32), grid `(T, H/HEADS_PER_CTA)` |
+| KV | Plain `half` / `__hip_bfloat16` rows `[skv, COMB_DIM]` — **no** FP8 slots / E8M0 (fp8_ds_mla is decode-cache only) |
+| LDS | Double-buffered `__shared__ scalar_t s_kv[2][COMB_DIM]` |
+| QK / PV | Still **scalar fp32 FMA** (same as decode). Not `fdot2` yet |
+| Bindings | `sparse_mla_prefill_rdna2` + decode already registered in `torch_bindings.cpp` |
+
+Decode contract unchanged. Prefill is no longer “still Triton” on this dest tip. Occupancy leftover remains FA prefill, not MLA’s 32-thread WG.
+
+---
 
 Live: `sparse_mla_rdna2.cu` @ `9a344444`. Engine: [engine/fork-delta.md](../engine/fork-delta.md). **Incomplete.** Env `VLLM_USE_RDNA2_MLA=1`. Prefill still Triton.
 

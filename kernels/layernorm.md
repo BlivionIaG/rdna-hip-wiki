@@ -1,5 +1,9 @@
 # HIP AOT RMSNorm — extras `83de31cf`
 
+## dest tip 2026-09-03 — `opengfx1030/vllm-rdna` `rdna_extras` @ `ea78104d`
+
+`layernorm.cu` is now on the dest CMake EXL3-unconditional list (same tile as `83de31cf`: one CTA/row, BLOCK_DIM 128/256/512/1024, LDS `NUM_WARPS` floats, no `fdot2`, no `__launch_bounds__`). Re-registered `rms_norm` / `fused_add_rms_norm` in `torch_bindings.cpp`. Not a new ISA flip.
+
 Tip **`83de31cf8c55`** (`8e35767f` + `f22a15b6` + `83de31cf`, 2026-09-01). Replaces Triton `layer_norm_fwd_kernel` / `rms_norm_kernel` JIT on ROCm so cudagraph capture does not see a per-shape compile during inference. Occupancy leftover still FA prefill `(N, 1)` / LDS 1 WG per 64 KB — this is not a new first subject. FA pin stays closed.
 
 Commit says **tested pending rebuild**. Do not claim PIECEWISE / CG-PATH NaNs are gone.

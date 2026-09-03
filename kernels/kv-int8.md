@@ -1,5 +1,22 @@
 # INT8 KV cache on gfx1030 — silicon / HIP contract
 
+## extras lock 2026-09-03 — `opengfx1030/vllm-rdna` `rdna_extras` @ `ea78104d`
+
+Dest tip moved `8f2583d2` → `ea78104d` (23 commits). HIP silicon that landed for KV-INT8 / FA:
+
+| Piece | What shipped | Silicon note |
+|---|---|---|
+| Decode `fa_decode_paged_splitk_kernel{,_256}` | Template `<KV_T, IS_FP8, IS_INT8>`. INT8 path loads i8, `cvt * k_scale_per_tok[n,h]` / `v_scale_per_tok` into the **same** fp16 LDS tile, then existing `fdot2` QK. | Occupancy attr stays `__launch_bounds__(128\|256)` + `amdgpu_waves_per_eu(4, 8)`. **Not** the old scalar `__hmul` pth stub. |
+| Prefill INT8 | New `fa_prefill_paged_varlen_splitk_kernel_int8_{128,256}`. Tile dequant into LDS (~32.7 KB vs ~48 KB fp16); still `__launch_bounds__(N, 1)`. | Prefill occupancy leftover **unchanged**. Do not retip FA pin closed. |
+| Writer | `reshape_and_cache_int8_rdna2` — `__launch_bounds__(HEAD_DIM, 4)`. Cache layout `[2, blocks, H_kv, D+4, block_size]` with scale as 4 LE bytes at offset D per slot. | One CTA/(token,head). Absmax → `scale = max(absmax/127, 1e-6)`. |
+| Wiring | `torch_bindings` + `vllm/v1/attention/backends/rdna_attn.py` (`VLLM_USE_RDNA2_FA=1`). Platform gate: head_size ∈ {128,256}, `block_size >= 1`. | Python dispatch only; ISA is `fa_rdna2.cu`. |
+
+Leave this hour: EXL3 Python mul1-fold / debug fprintf, GDN ssm zeroing, `VLLM_FORCE_CUSTOM_ALL_REDUCE` (AR fabric, already Leave / UNC-27). Do not copy tok/s. Occupancy still first (FA prefill `(N,1)` / LDS 1 WG per 64 KB).
+
+CMake gfx1030 list: unchanged for FA/INT8 objects. Only add was `layernorm.cu` on the EXL3-unconditional list (AOT RMSNorm already locked @ `83de31cf` on the old overlay).
+
+---
+
 Engine dispatch and quant mode: [engine/kv-int8.md](../engine/kv-int8.md). This page is the ISA and the `fa_rdna2` load path. curvedinf/int8-vllm (gfx908 AITER): [../silicon/curvedinf-int8-vllm.md](../silicon/curvedinf-int8-vllm.md) — Take the PTH mode, Leave their UA kernel.
 
 **Win is bandwidth, not FLOPS.** Decode gather is GDDR6-bound. INT8 KV is ½ the bytes vs fp16. An unfused “dequant the whole cache to fp16, then attend” kernel throws that away.

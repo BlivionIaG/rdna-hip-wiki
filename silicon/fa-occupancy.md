@@ -1,4 +1,17 @@
-# gfx1030 FA occupancy report (BlivionIaG/vllm)
+# gfx1030 FA occupancy report
+
+## dest lock 2026-09-03 — `opengfx1030/vllm-rdna` `rdna_extras` @ `ea78104d`
+
+Official dest tip (BlivionIaG `rdna2_extras` is archive). FA HIP delta vs `8f2583d2`:
+
+- Decode: still `__launch_bounds__(128\|256)` + `amdgpu_waves_per_eu(4, 8)` (minBlocks=1 form **not** restored). INT8 fused into the same decode templates via `IS_INT8` (fp16 LDS + `fdot2`).
+- Prefill fp16/FP8: still `__launch_bounds__(N, 1)`. New INT8 prefill splitk also `(N, 1)`.
+- LDS / BR/BC tile shapes unchanged (decode Bc 64/32; prefill Br 16). No new VGPR dump this hour — do not retip pin closed. Occupancy leftover still FA prefill LDS (1 WG / 64 KB).
+- Platform: `VLLM_USE_RDNA2_FA=1` prefers `RDNA_ATTN`; custom paged-attn gate allows head 128/256 and `block_size >= 1` (hybrids 784/1056).
+
+Do not copy tok/s. See [kernels/kv-int8.md](../kernels/kv-int8.md).
+
+---
 
 Live human branch: **`rdna2_extras`** @ **`0fdb1884`** (prep half2 vectorize; GDN stack: delta_h u8 / o BV64 / prep vec). FA status: decode pinned `(N)` + `waves_per_eu(4, 8)`; prefill still `(N, 1)`. **Compiled resource dump DONE (2026-08-24) — see §8.** Conclusion: the `(N, 1)` second arg is semantically wrong per HIP docs but **empirically inert** — every FA kernel compiles ≤111 VGPR / 0 spills, and LDS (45–60 KB) is the sole occupancy limiter at 1 WG/64 KB regardless of the pin. Decode `(4, 8)` flip was occupancy-neutral (40–43 VGPR, never binding). The +1% on Qwen3.8-27B-AWQ 16k/1k TP=4 was noise, as suspected. No launch-bounds change can move FA occupancy; only an LDS-tile shrink (BR/BC) could.
 
