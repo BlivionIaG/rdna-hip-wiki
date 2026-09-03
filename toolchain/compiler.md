@@ -18,3 +18,12 @@ Companions: [silicon/hip-craft.md](../silicon/hip-craft.md).
 Adjacent, still open: [ROCm/llvm-project#4267](https://github.com/ROCm/llvm-project/pull/4267) — COMGR hotswap asks the projection for the **source** wave size. Not a pin change.
 
 Watch both. Do not treat either as a gfx1030 compiler bump.
+
+## 2026-09-03 — wave64 follow-ups (still not a dest lever)
+
+Two more data points on the same thread, both open:
+
+- [rocm-systems#9647](https://github.com/ROCm/rocm-systems/pull/9647) (`jmmartinez`, updated 2026-09-03) **removes a CLR hack that forced wavefront size 64** when the running executable's name matched Geekbench 5 (`geekbench_x86_64.exe`). Details worth knowing: the hack was **Windows-only, never on Linux**, and it missed the GUI's own `geekbench_avx2.exe`, so AMD's internal numbers were not reproducible by hand (ROCM-24860). Takeaway for us: a *runtime-side* wave-size override has existed in CLR, keyed on process name — so on Windows, wave size is not purely a compile-time property. On Linux/gfx1030 there is no such lever; our wave32 dest is unaffected.
+- [ROCm/llvm-project#4213](https://github.com/ROCm/llvm-project/issues/4213) is the Comgr **hotswap** tracker, and it grew a concrete checklist: int VOP1/2/3 arithmetic and VOPD dual-issue ([#4234](https://github.com/ROCm/llvm-project/pull/4234)), int VOP bit ops ([#4251](https://github.com/ROCm/llvm-project/pull/4251)), SOPC compare, SOP2 scalar shifts, wider SMEM (`s_load_b96`), SOPP control flow ([#4079](https://github.com/ROCm/llvm-project/pull/4079)), EXEC-mask handling ([#4081](https://github.com/ROCm/llvm-project/pull/4081)), and `waitcnt` ([#4077](https://github.com/ROCm/llvm-project/pull/4077)). [#4267](https://github.com/ROCm/llvm-project/pull/4267) (source wave size) is part of the same series. Note **VOPD is gfx11+**, so that piece is a gfx1100 concern, not gfx1030 (GFX10.3 has no dual-issue VOPD).
+
+Neither changes the pin. Keep watching #4213 as the place where hotswap coverage per ISA family is tracked.
