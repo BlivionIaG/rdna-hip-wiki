@@ -14,6 +14,7 @@ How gfx1030 actually works, and what HIP can control.
 | [fa-occupancy.md](fa-occupancy.md) | Live `fa_rdna2` LDS/VGPR/`__launch_bounds__` |
 | [occupancy-dump.md](occupancy-dump.md) | NT_AMDGPU_METADATA VGPR/SGPR/LDS/scratch dump recipe |
 | [scratch-occupancy.md](scratch-occupancy.md) | Scratch/private AS 5 is not a waves/SIMD limiter; ROCr may cut waves_per_cu |
+| [barrier-occupancy.md](barrier-occupancy.md) | Barrier slots 32 WGP / 16 CU; single-wave free; not FA leftover |
 | [codegen-stack.md](codegen-stack.md) | Use HIP+DOT; ignore CK XDL, hipBLASLt, rocWMMA, AITER |
 | [valu.md](valu.md) | gfx1030 VALU: enc / size / issue / which DOT we fire. gfx1100 extras |
 | [fp16-rdna2.md](fp16-rdna2.md) | Fastest FP16: explicit `fdot2` + occupancy; skinny decode, measure BLAS prefill |
