@@ -13,7 +13,7 @@ Companions: [silicon/hip-craft.md](../silicon/hip-craft.md).
 
 ## 2026-09-03 — TheRock SMP ww33-2.6 (nightly pin, not dest)
 
-[TheRock#7859](https://github.com/ROCm/TheRock/pull/7859) merged 2026-09-03 16:11 Paris (`186b09250f1a`). Compiler pin **SMP ww33-2.5 / amd-llvm `9148b61ffec4` → ww33-2.6-1 / `e9e55b898a1b`**. hipify `0e051929` and spirv `4fd57e73` unchanged. PR says the CP is **gfx1250-strict**. Five llvm commits: gfx1250 `s_monitor_sleep`, gfx12 test regen, SOP1_Real NFC, `S_BARRIER_SIGNAL_ISFIRST` barrier-id validate, comgr hotswap `hotswap-barrier-isfirst.s` xfail. **No RDNA ISA delta.** Do not bump live dest off **7.14.0**. Nightly still `10.1.0a20260903` L+W (0904 not published; that date will be the first wheel with this pin).
+[TheRock#7859](https://github.com/ROCm/TheRock/pull/7859) merged 2026-09-03 16:11 Paris (`186b09250f1a`). Compiler pin **SMP ww33-2.5 / amd-llvm `9148b61ffec4` → ww33-2.6-1 / `e9e55b898a1b`**. hipify `0e051929` and spirv `4fd57e73` unchanged. PR says the CP is **gfx1250-strict**. Five llvm commits: gfx1250 `s_monitor_sleep`, gfx12 test regen, SOP1_Real NFC, `S_BARRIER_SIGNAL_ISFIRST` barrier-id validate, comgr hotswap `hotswap-barrier-isfirst.s` xfail. **No RDNA ISA delta.** Do not bump live dest off **7.14.0**. Nightly tip `10.1.0a20260904` **Linux** for gfx1030/1100/900 (+core); Windows 0904 still absent (last L+W was 0903). 0904 Linux is the first published wheel date carrying SMP ww33-2.6-1 / `e9e55b898a1b`.
 
 
 ## 2026-09-03 — HIP wave64 request (not dest)
