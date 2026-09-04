@@ -119,6 +119,25 @@ This one matters here because `suh`/`svh` are a **separate kernel outside the K-
 
 Produce policy unchanged: expert produce stays `3inst` (`cb==0`), `mcg` compile-only, `mul1` still the 6bpw lm_head one-shot. Occupancy leftover stays FA prefill `(N,1)`. Do not copy tok/s.
 
+
+## extras lock 2026-09-04 (tip `aac1fcd6`)
+
+Range `f9361950` → `aac1fcd6` (+5). Silicon Take on EXL3: `62694f20` adds **unpack-once prefill** via `exl3_decode_trellis_rdna2` in `csrc/rocm/exl3_dot2_dense.cu` (+ `ops.h` / `torch_bindings.cpp`). Not a new DOT tile.
+
+| | Shape |
+|---|---|
+| Kernel | `decode_trellis_kernel_rdna<bits,cb>` |
+| Grid | `(K/16, N/16)` blocks; **256 thr** (one out elem / thread) |
+| Tile | same 16×16 packed trellis window as fused GEMM |
+| Inner | `exl3_window_pos` / `exl3_window_at` → **`decode_3inst<cb>` only** → fp16 out |
+| LDS / DOT / bounds | **no LDS**, **no `fdot2`**, **no `__launch_bounds__` / `waves_per_eu`** |
+| bits / cb | bits ∈ {2,3,4}; cb ∈ {0,1,2} launched. **bits=6 stays** `exl3_dequant_bits6_mul1` (not this op) |
+| Binding | `exl3_decode_trellis_rdna2(Tensor trellis, Tensor! out, int bits, int cb)` — mutating out |
+
+Why: fused dense GEMM re-decodes each tile per M-block (`M_PER=8` cap). Prefill pulls decode out once, then **rocBLAS** on the fp16 matrix (Python in `exl3.py`). Produce stays `-cb 3inst`. Occupancy leftover still FA prefill `(N,1)`. Do **not** copy any prefill speedup claim from the commit message. Do not invent numbers.
+
+Non-silicon in the same tip (for dest context only): `38595867` sliding_window arg on `fa_rdna2` splitk wrapper (Python); `9ba5d5f4` drops lm_head debug print. GDN HIP delta is on [kernels/gdn-prefill.md](../kernels/gdn-prefill.md).
+
 ## Sources
 
 - [turboderp-org/exllamav3](https://github.com/turboderp-org/exllamav3) `codebook.cuh`, `exl3_dq.cuh`, `exl3_gemm_inner.cuh`, `exl3_gemv.cu`, `doc/exl3.md` (read 2026-08-21)
