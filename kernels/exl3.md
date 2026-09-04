@@ -92,6 +92,11 @@ HIP: 6bpw `mul1` load-time dequant + dense launch of `bits∈{2,3,4,6}`, `cb∈{
 
 Inner GEMM still 16×16 → `decode_3inst` → `half2` → `fdot2`. Dequant is not a K-dot path (no Hadamard in kernel). Occupancy hygiene still missing on GEMMs. Produce experts as `3inst`; do not treat `mul1` launch as produce flip. FA pin closed. No tok/s.
 
+
+## extras tip `aac1fcd6` (2026-09-04)
+
+Prefill unpack-once: `exl3_decode_trellis_rdna2` — 16×16 block, 256 thr, `decode_3inst` only, no LDS / no fdot2 / no launch_bounds. bits 2/3/4; bits=6 stays mul1 dequant. Dot work after unpack is rocBLAS, not a new HIP DOT tile. Fused decode GEMM path unchanged. Produce `3inst`. No tok/s.
+
 ## Sources
 
 - [turboderp-org/exllamav3](https://github.com/turboderp-org/exllamav3) `codebook.cuh`, `exl3_dq.cuh` (2026-08-21)
