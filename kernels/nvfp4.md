@@ -79,6 +79,9 @@ Name: `nvfp4_dot2_common.cuh`, `nvfp4_gemm_rdna2`, `moe_nvfp4_gemm_rdna2`.
 - [ ] GPU smoke vs CPU `e2m1 * e4m3 * f32` reference
 - [ ] No tok/s claimed from this page
 
+
+Petit (CDNA NVFP4/MXFP4 reference): [../silicon/petit-kernel.md](../silicon/petit-kernel.md) — Take offline shuffle + denorm caveat; Leave MatrixCore.
+
 ## Sources
 
 - NVIDIA NVFP4: E2M1 + E4M3 / 16 + optional FP32 — [blog](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/), [Transformer Engine](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/features/low_precision_training/nvfp4/nvfp4.html)

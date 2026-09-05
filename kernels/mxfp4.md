@@ -7,3 +7,5 @@ No FP4 unit. E2M1 nibble → fp16 (inline bit-trick, no LUT), × E8M0 scale (exp
 NVFP4 is the same DOT with **E4M3** scales (mul, not exp add): [nvfp4.md](nvfp4.md). Spec W8A8 `sdot4` is unrelated: [w8a8-mxfp4.md](w8a8-mxfp4.md).
 
 DSv4 Flash leftover attn/shared/indexer is **MXFP8** (E4M3 + E8M0 / 128×128), not this expert pack and not W8A16-FP8 group-scale. Same `fdot2` after e4m3 bit-trick + `mxfp4_apply_e8m0_bits` broadcast. Silicon: [../silicon/dsv4-flash.md](../silicon/dsv4-flash.md).
+
+Petit (CDNA FP4 reference): silicon Take/Leave only — [../silicon/petit-kernel.md](../silicon/petit-kernel.md). Do not import MFMA grids.

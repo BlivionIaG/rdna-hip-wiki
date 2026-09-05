@@ -629,6 +629,32 @@ hipcc --offload-arch=gfx1100 ...
 
 vLLM / SGLang on Radeon: `ROCM_ATTN` or Triton; do not enable AITER FA (CDNA). `FLASH_ATTENTION_TRITON_AMD_ENABLE=TRUE` is the documented RDNA3+ FA Triton opt-in, not a gfx1030 guarantee.
 
+
+---
+
+## Radiance A-tile methodology (Take Later)
+
+Source: [ggz14/radiance-vllm-mxfp4](https://codeberg.org/ggz14/radiance-vllm-mxfp4) @ **`22c69cd`** (`radiance_mxfp4_fp8.hip`, `patch_unified_attention_lds.py`). Target card there is **gfx1201** (RDNA4 / R9700). Engine Take/Leave and tok/s live elsewhere — **do not** duplicate them here. This section is **LDS methodology only**, rewritten onto our tiles Later.
+
+### Take Later (rewrite on gfx1030 / EXL3 / `q_gemm` tiles)
+
+| Idea | What they do | Our map |
+|---|---|---|
+| **+8 B row pad** | `#define PAD 8`; `ASTR = BK + PAD`, `WSTR = BK + PAD`. Comment: without it, 16 lanes reading rows 64 B apart collide 8-ways on **32 × 4 B** banks (WMMA fragment half-wave). | Same pad already appears on extras EXL3 (`LDS_PAD=8`, `BLOCK_K=256`). On gfx1030 banks are **64 × 4 B** (alias 256 B) — keep +8 (or verify XOR) when staging A/W; do **not** import their 32-bank arithmetic blindly. |
+| **64 KiB clamp before capture** | `patch_unified_attention_lds.py`: shrink `num_stages` then `TILE_SIZE` until `TILE × next_pow2(head) × el × stages + 256 ≤ 65536`. Hard correctness for cudagraph capture (head 256 × 2 B × 2 stages and head 512 × fp8 both hit 65792 without it). | Same formula for any Triton / HIP tile that stages K/V (or A/W) into LDS. Pointer: [fa-occupancy.md](fa-occupancy.md), [hip-craft.md](hip-craft.md) checklist #3. Prefill leftover stays `(N,1)` / 1 WG @ 64 KiB — clamp does not replace a BR/BC shrink. |
+| **LUT / kMag in `__constant__` / LDS; fold block scale out of inner loop** | `kLUT[16]` + `kMag[16][2]` in `__constant__`; A-tiled round 2 copies `kMag` into `__shared__ sMag[32]` so the fold is a `ds_load` (own counter), not a dependent constant load that drains `loadcnt` every slab. MX E8M0 block exponent folded into the weight table → one per-row epilogue factor. | Maps to **EXL3 grain / `q_gemm`**, not WMMA: procedural codebook stays VGPR; any small magnitude/scale table belongs in `__constant__` or a tiny LDS copy; **do not** park a per-lane nibble LUT in K$ (llama.cpp #24438). Dest produce stays EXL3 grain v2 `bits=3` `M≤8`. |
+
+### Leave (explicit)
+
+- **All WMMA / FP8-WMMA objects** (`v_wmma_f32_16x16x16_fp8_fp8`, fragment layouts, gfx1201-only). gfx1030 has **no** WMMA / MFMA / FP8 unit. Dest mxfp4 is unpack E2M1+UE8M0 → `fdot2`.
+- AutoRound HIP, R4D, their tok/s, gfx1201 launch geometry.
+- Their “32 × 4 B banks” sentence as a gfx1030 fact — that is WMMA half-wave geometry on RDNA4, not ISA §2.3.1 on Navi 21.
+
+### Cite
+
+- `radiance_mxfp4_fp8.hip` @ `22c69cd` — `PAD 8`, `kLUT` / `kMag`, `sMag` LDS copy, `radiance_lds_barrier()` (LDS-scoped fence).
+- `patch_unified_attention_lds.py` @ `22c69cd` — `TILE * hs * el * stages + 256 > 65536` clamp.
+
 ---
 
 ## 8. Unknowns (do not invent)

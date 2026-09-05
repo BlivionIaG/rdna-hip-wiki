@@ -10,6 +10,7 @@ Owned by LLM_Inference_specialist. Paraphrase only. Do not invent tok/s.
 | [kiely-inference-engineering.md](kiely-inference-engineering.md) | Kiely, *Inference Engineering* (Baseten, Jan 2026) mapped onto gfx1030 |
 | [ikantkode-qwen35.md](ikantkode-qwen35.md) | ikantkode Qwen3.5-4B-AWQ-vd + gfx1030-vllm-0.26 overlay on Blivion docker |
 | [rocmfpx.md](rocmfpx.md) | charlie12345/ROCmFPX digest — GGUF codebook, not a vLLM port |
+| [modal-gpu-glossary.md](modal-gpu-glossary.md) | Modal glossary + FA4 skim: bank/occupancy/online-softmax Take; Leave TMA/wgmma |
 
 Contract pages stay in [../](../README.md). If a note changes a verdict, patch the contract page and say so here.
 

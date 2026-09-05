@@ -37,4 +37,5 @@ How gfx1030 actually works, and what HIP can control.
 | [../kernels/layernorm.md](../kernels/layernorm.md) | HIP AOT RMSNorm, tiny LDS, no DOT; not FA leftover |
 | [dsv4-flash.md](dsv4-flash.md) | DSv4 Flash: mxfp4 expert tile is the decode kernel; leftover is MXFP8 + e8m0/128², not W8A16-FP8 |
 | [wafer-gpu-perf.md](wafer-gpu-perf.md) | wafer-ai list: ISA is 70648 + valu, not their MI350/CDNA4 |
+| [petit-kernel.md](petit-kernel.md) | causalflow petit FP4: Take shuffle/LDS/denorm caveats; Leave MFMA/CDNA |
 | [curvedinf-int8-vllm.md](curvedinf-int8-vllm.md) | curvedinf INT8 fork: Take PTH-KV + GDN fp32; Leave CK/UA/XGMI; `sdot4` Later |

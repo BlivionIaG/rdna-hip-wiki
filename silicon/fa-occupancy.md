@@ -11,6 +11,8 @@ Official dest tip (BlivionIaG `rdna2_extras` is archive). FA HIP delta vs `8f258
 
 Do not copy tok/s. See [kernels/kv-int8.md](../kernels/kv-int8.md).
 
+Capture / Triton tile note: clamp staged K/V with `TILE×head×el×stages+256 ≤ 65536` before cudagraph ([lds-tiles.md](lds-tiles.md) Radiance A-tile). Does **not** clear the prefill `(N, 1)` / 1 WG @ 64 KiB leftover.
+
 ---
 
 Live human branch: **`rdna2_extras`** @ **`0fdb1884`** (prep half2 vectorize; GDN stack: delta_h u8 / o BV64 / prep vec). FA status: decode pinned `(N)` + `waves_per_eu(4, 8)`; prefill still `(N, 1)`. **Compiled resource dump DONE (2026-08-24) — see §8.** Conclusion: the `(N, 1)` second arg is semantically wrong per HIP docs but **empirically inert** — every FA kernel compiles ≤111 VGPR / 0 spills, and LDS (45–60 KB) is the sole occupancy limiter at 1 WG/64 KB regardless of the pin. Decode `(4, 8)` flip was occupancy-neutral (40–43 VGPR, never binding). The +1% on Qwen3.8-27B-AWQ 16k/1k TP=4 was noise, as suspected. No launch-bounds change can move FA occupancy; only an LDS-tile shrink (BR/BC) could.
