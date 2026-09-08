@@ -47,3 +47,18 @@ Project 4: **Later: hippihx HIP op zoo (thin rdna_extras)** + migrate FA / EXL3 
 - Room 2026-09-08 (GFX1030 Inference): b12x methodology; hippihx repo + scaffold agent
 - [hippih.md](hippih.md) — historical in-house engine card; V620 zoo superseded by this page
 - [rdna2-extras.md](rdna2-extras.md), [exl3.md](exl3.md), [coverage.md](coverage.md)
+
+## Arch matrix (locked 2026-09-08)
+
+| Target | DOT w/ 1030? | Notes |
+|---|---|---|
+| gfx1030 | primary | V620 dest |
+| gfx1100/1101/1102 | yes | shared `dot.hpp`; WMMA Later only |
+| gfx1151 | Later VERIFY | Strix Halo |
+| gfx1031/1032/1033/1035/1036 | Later yes | Deck/mobile; separate fatbins |
+| **gfx1013 (BC-250 / Cyan Skillfish)** | Later **VERIFY** | **Not gfx906.** `--offload-arch=gfx1013` only; no HSA_OVERRIDE |
+| gfx900 | no | mad_mix |
+| gfx906 (Vega20/MI50) | no | Real Vega20 — **not** BC-250 |
+
+Correction: BC-250 ≠ MI50/Vega20. Sources: elektricm BC-250 specs; akandr/bc250-rocm.
+
