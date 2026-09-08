@@ -50,3 +50,17 @@ Two commits, both 2026-09-03 12:11 Paris. HIP delta is one schema character; the
 Per the commit message, capture-time warmup writes already commit the state pages and GDN prefill overwrites slot content before real decode, so skipping the probe under capture is safe. That is the author's rationale, not a measurement of ours — the numerics claim is unverified on our box.
 
 Nothing else moved: no `__launch_bounds__` / `waves_per_eu`, no DOT builtin, no LDS tile, no KV quant path, no CMake gfx1030 list. Do not copy tok/s. Do not invent numbers.
+
+## extras lock 2026-09-08 (tip `7779514b`, was `feb7b457`)
+
+Same page-commit family, wider surface. Not occupancy. No DOT / LDS-tile / KV-quant / `__launch_bounds__` change on FA itself.
+
+| Surface | Delta |
+|---|---|
+| `csrc/rocm/fa_rdna2.cu` | Host `O` / `O_partial` / `M_partial` (and decode/prefill fp16/fp8/int8 wrappers that still used `empty`) → **`torch::zeros`**. Capture bakes addresses; uncommitted pages fault on replay. |
+| GDN prefill / prep Python | `A` / `A_inv` / `w` / `u` / `h` / `v_new` / `final_state` / prep outs → **`torch.zeros`** (same rationale). |
+| New `causal_conv1d_rdna2.cu` | HIP AOT for GDN conv1d — registers (update) / tiny LDS (fwd). See [../kernels/causal-conv1d.md](../kernels/causal-conv1d.md). |
+| FA Python dispatch | Prefer `torch.ops._rocm_C.fa_rdna2_*` over `load_inline` when the `.so` op exists (capture-safe). |
+| GDN / `rdna_attn` | `@eager_break_during_capture` on GDN `forward` and `do_kv_cache_update` (capture break, not a tile change). |
+
+Occupancy leftover still FA prefill. Do not invent numbers.

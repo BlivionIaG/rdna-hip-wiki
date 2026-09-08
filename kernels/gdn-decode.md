@@ -27,3 +27,7 @@ Do **not** put the microbench 9× on coverage. Fat-M / ConfigA unchanged.
 ## Capture guard (dest `f9361950`, 2026-09-03)
 
 The `ssm_state` RDNA2 uncommitted-page probe (`torch.isnan(...).any().item()` / all-zero → `zero_()`) is a **device→host sync** and is illegal under stream capture — it aborted cudagraph capture at engine startup with `hipErrorStreamCaptureUnsupported`. Dest now wraps it in `if not torch.cuda.is_current_stream_capturing():`. Python only; the `.cu` tile above is unchanged. Rule: [../silicon/graph-capture.md](../silicon/graph-capture.md).
+
+## NULL_BLOCK_ID=0 sentinel (dest `7779514b`, 2026-09-08)
+
+`gdn_decode_rdna2.cu`: guard was `state_idx < 0 || state_idx >= num_blocks_g`. Production sentinel is **`NULL_BLOCK_ID=0`** (`vllm.v1.attention.backends.utils`). Tip now uses **`state_idx <= 0`** — zero output, leave state untouched. Without it, slot 0 (real weights) was treated as a valid tile and corrupted the GDN recurrence on the first scheduled request. Tile / LDS / `(2,4)` occupancy attr unchanged.
