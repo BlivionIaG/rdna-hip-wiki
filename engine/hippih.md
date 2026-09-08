@@ -1,3 +1,5 @@
+> **2026-09-08:** For the V620 **op zoo / thin `rdna_extras`** target, see **[hippihx.md](hippihx.md)** (`BlivionIaG/hippihx`). This page remains the older in-house-engine / Vega-lab contract.
+
 # hippih — in-house HIP engine
 
 Date: 2026-08-21. Repo: [BlivionIaG/hippih](https://github.com/BlivionIaG/hippih). README today: *HIP maxxing inference engine for localLLM masters*. Tree is README + LICENSE only — **contract first**, no tok/s.
