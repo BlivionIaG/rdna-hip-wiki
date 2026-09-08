@@ -4,7 +4,7 @@ Lock: **hardware barriers are a real WG packing limit, but they are not the extr
 
 Does **not** change extras HIP or UNC cards. No tok/s. Do not restate the FA pin.
 
-Companions: [hip-craft.md](hip-craft.md) §6, [architecture.md](architecture.md) §2.4 / §3, [lds-tiles.md](lds-tiles.md), [fa-occupancy.md](fa-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [lds-occupancy.md](lds-occupancy.md).
+Companions: [hip-craft.md](hip-craft.md) §6, [architecture.md](architecture.md) §2.4 / §3, [lds-tiles.md](lds-tiles.md), [fa-occupancy.md](fa-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md).
 
 ## 1. LLVM formula (source of truth)
 
