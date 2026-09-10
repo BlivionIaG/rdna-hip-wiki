@@ -18,6 +18,7 @@ How gfx1030 actually works, and what HIP can control.
 | [barrier-occupancy.md](barrier-occupancy.md) | Barrier slots 32 WGP / 16 CU; single-wave free; not FA leftover |
 | [lds-occupancy.md](lds-occupancy.md) | LDS pool 128 KB WGP / 64 KB WG; LLVM 512 B vs ISA 1 KB granule; MaxWGsLDS ladder |
 | [vgpr-occupancy.md](vgpr-occupancy.md) | VGPR waves/EU: 1024 file, granule 16, launch_bounds EU=SIMD32; WG spanning |
+| [sgpr-occupancy.md](sgpr-occupancy.md) | SGPR is **not** a limiter on GFX10+; descriptor SGPR count must be 0; 128 always allocated |
 | [wg-size-occupancy.md](wg-size-occupancy.md) | PIX Thread Group Size: atomic WG lifetime; flat_work_group_size range; ≠ Barriers |
 | [graph-capture.md](graph-capture.md) | Capture vs page-commit guard: no D2H on the captured path; `Tensor!` on every HIP out arg |
 | [codegen-stack.md](codegen-stack.md) | Use HIP+DOT; ignore CK XDL, hipBLASLt, rocWMMA, AITER |

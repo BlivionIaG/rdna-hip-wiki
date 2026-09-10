@@ -1,6 +1,6 @@
 # Compiler / hipcc
 
-Date: **2026-09-03**. Audience: someone compiling HIP for **gfx1030** (live), with later **gfx1100** and **gfx900** TUs.
+Date: **2026-09-10**. Audience: someone compiling HIP for **gfx1030** (live), with later **gfx1100** and **gfx900** TUs.
 
 Companions: [silicon/hip-craft.md](../silicon/hip-craft.md).
 
@@ -10,6 +10,24 @@ Companions: [silicon/hip-craft.md](../silicon/hip-craft.md).
 - Default is **wave32 + WGP**. Do not add `-mwavefrontsize64` or `-mcumode` until measured. HIP: warpSize 64 is not supported on gfx10+.
 - Live dest stays **ROCm 7.14.0** (`rocm-7.14.0` @ `830cc1b5e90d`). 7.14.1 is quality-only (no GitHub `rocm-7.14.1` tag). Do not bump to 10.0 / 10.1 nightlies.
 - Live extras stay **`-O3`**. [TheRock#7751](https://github.com/ROCm/TheRock/issues/7751) (gfx1034 `-O0` i32 `udiv`/`urem`) is still open.
+
+
+
+
+## 2026-09-10 — TheRock SMP ww33-2.9 (nightly pin, not dest)
+
+[TheRock#8108](https://github.com/ROCm/TheRock/pull/8108) **merged** 2026-09-10 14:36 Paris (`f3f46df9`). Compiler pin **SMP ww33-2.8 / amd-llvm `d6f6cb691863` → ww33-2.9 / `d19dd10a11f4`**. hipify `0e051929` and spirv `4fd57e73` unchanged. Single CP: `[AMDGPU] Use first operand of zext to test first bit zero` ([llvm#217195](https://github.com/ROCm/llvm-project/pull/217195) / commit `d19dd10a11f4`) — general AMDGPU codegen, not gfx1250-only and not an RDNA ISA lever. TheRock HEAD `f3f46df9`. Nightly tip still **`10.1.0a20260910` L+W** (core + device-gfx1030/1100/900); no `10.1.0a20260911` yet, so published wheels do not yet carry ww33-2.9. **No RDNA dest bump** — live stays **7.14.0** `hipcc --offload-arch=gfx1030 -O3` wave32 WGP. Draft [#8125](https://github.com/ROCm/TheRock/pull/8125) (COT+ASAN) and open [#8124](https://github.com/ROCm/TheRock/pull/8124) (systems bump) not merged.
+
+## 2026-09-10 — nightly tip / #8077 host PER_TARGET revert (not dest)
+
+Nightly tip **`10.1.0a20260909` → `10.1.0a20260910`** Linux+Windows for `rocm-sdk-core` and `device-gfx1030` / `gfx1100` / `gfx900`. Compiler pin **unchanged** (SMP ww33-2.8 / amd-llvm `d6f6cb691863`). TheRock HEAD `67fbce01`.
+
+[TheRock#8077](https://github.com/ROCm/TheRock/pull/8077) **merged** 2026-09-09 22:44Z: limited revert of [#7082](https://github.com/ROCm/TheRock/pull/7082) host `LLVM_ENABLE_PER_TARGET_RUNTIME_DIR` — host flag forced **OFF**, restores `lib/llvm/lib` layout (drops triple RPATH) because the ON layout broke binaries/libs built against **10.0** (ROCM-30441). Device-runtime `RUNTIMES_amdgcn-amd-amdhsa_LLVM_ENABLE_PER_TARGET_RUNTIME_DIR` stays **ON**. Follow-on [#8098](https://github.com/ROCm/TheRock/pull/8098) (compat symlinks) still **open**. **No RDNA dest bump** — live stays **7.14.0** `hipcc --offload-arch=gfx1030 -O3` wave32 WGP.
+
+## 2026-09-09 — nightly tip / SMP ww33-2.8 (not dest)
+
+TheRock compiler pin **SMP ww33-2.8** / amd-llvm `d6f6cb691863` (commit `b0153d7a`, 2026-09-08). hipify `0e051929` and spirv `4fd57e73` unchanged. Nightly tip **`10.1.0a20260909` Linux+Windows** for `rocm-sdk-core` and `device-gfx1030` / `gfx1100` / `gfx900` on `https://nightly.repo.amd.com/rocm/whl-next/`. First published date that can carry ww33-2.8. TheRock HEAD `8943c014` (#8072 systems `09199b3`, #7986 libraries `bf1f3c1`). **No RDNA dest bump** — live stays **7.14.0** `hipcc --offload-arch=gfx1030 -O3` wave32 WGP.
+
 
 ## 2026-09-03 — TheRock SMP ww33-2.6 (nightly pin, not dest)
 
