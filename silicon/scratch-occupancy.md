@@ -4,6 +4,8 @@ Lock: **`.private_segment_fixed_size` is not a waves/SIMD limiter in LLVM or GPU
 
 Does **not** change extras HIP or UNC cards. No tok/s.
 
+Fold page: [occupancy-composite.md](occupancy-composite.md).
+
 ## Take / Leave
 
 | | |

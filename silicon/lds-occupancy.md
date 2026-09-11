@@ -4,7 +4,7 @@ Lock: **LDS is the WG-packing limiter for our fat tiles, and the math is mode-sp
 
 Does **not** change extras HIP or UNC cards. No tok/s. Do not restate the FA pin.
 
-Companions: [lds-tiles.md](lds-tiles.md), [barrier-occupancy.md](barrier-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §6, [architecture.md](architecture.md) §2.4 / §4.2, [wg-size-occupancy.md](wg-size-occupancy.md).
+Companions: [lds-tiles.md](lds-tiles.md), [barrier-occupancy.md](barrier-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §6, [architecture.md](architecture.md) §2.4 / §4.2, [wg-size-occupancy.md](wg-size-occupancy.md), [occupancy-composite.md](occupancy-composite.md).
 
 ## Take / Leave
 

@@ -4,7 +4,7 @@ Lock: **SGPRs are not an occupancy limiter on gfx1030.** LLVM `IsaInfo::isSGPROc
 
 Does **not** change extras HIP or UNC cards. No tok/s. Do not restate the FA pin.
 
-Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [architecture.md](architecture.md) §2.4 / §3.3, [hip-craft.md](hip-craft.md) §1.3 / §6.
+Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [architecture.md](architecture.md) §2.4 / §3.3, [hip-craft.md](hip-craft.md) §1.3 / §6, [occupancy-composite.md](occupancy-composite.md).
 
 ## Take / Leave
 

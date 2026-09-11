@@ -4,7 +4,7 @@ Lock: **VGPR pressure is the per-SIMD waves/EU term.** On gfx1030 HIP default (*
 
 Does **not** change extras HIP or UNC cards. No tok/s. Do not restate the FA pin.
 
-Companions: [occupancy-dump.md](occupancy-dump.md), [lds-occupancy.md](lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [hip-craft.md](hip-craft.md) §1.3 / §6, [architecture.md](architecture.md) §2.4 / §3.3, [fa-occupancy.md](fa-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md).
+Companions: [occupancy-dump.md](occupancy-dump.md), [lds-occupancy.md](lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [hip-craft.md](hip-craft.md) §1.3 / §6, [architecture.md](architecture.md) §2.4 / §3.3, [fa-occupancy.md](fa-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md), [occupancy-composite.md](occupancy-composite.md).
 
 ## Take / Leave
 

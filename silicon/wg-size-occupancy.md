@@ -4,7 +4,7 @@ Lock: **PIX "Limited by Thread Group Size" is the atomic WG resource-lifetime li
 
 Does **not** change extras HIP or UNC cards. No tok/s. Do not restate the FA pin.
 
-Companions: [barrier-occupancy.md](barrier-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §1.3 / §6, [architecture.md](architecture.md) §2.4 / §3, [fa-occupancy.md](fa-occupancy.md).
+Companions: [barrier-occupancy.md](barrier-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §1.3 / §6, [architecture.md](architecture.md) §2.4 / §3, [fa-occupancy.md](fa-occupancy.md), [occupancy-composite.md](occupancy-composite.md).
 
 ## Take / Leave
 

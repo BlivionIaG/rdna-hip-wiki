@@ -4,6 +4,8 @@ Reusable recipe to pull compiled VGPR / SGPR / LDS / scratch from a HIP `.so` / 
 
 This page is the dump path. Use it on **any** gfx1030 kernel (EXL3 GEMM, GDN, W4, RMSNorm, skinny), not only FA.
 
+Fold page: [occupancy-composite.md](occupancy-composite.md).
+
 ## 1. Where the numbers live
 
 HIP embeds one Clang offload bundle per host binary in ELF section **`.hip_fatbin`**. Unbundle the gfx1030 entry to a code object (HSACO / `.co`). Code object V3+ stores AMDHSA kernel props in an ELF note:
