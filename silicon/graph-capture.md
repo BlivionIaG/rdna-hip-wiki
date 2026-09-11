@@ -64,3 +64,15 @@ Same page-commit family, wider surface. Not occupancy. No DOT / LDS-tile / KV-qu
 | GDN / `rdna_attn` | `@eager_break_during_capture` on GDN `forward` and `do_kv_cache_update` (capture break, not a tile change). |
 
 Occupancy leftover still FA prefill. Do not invent numbers.
+
+## extras lock 2026-09-11 (tip `71a54552`, was `56f67111`)
+
+Same capture / D2H family, Python only on the scan; HIP adds gated RMSNorm (see [../kernels/layernorm.md](../kernels/layernorm.md)).
+
+| Surface | Delta |
+|---|---|
+| `vllm/compilation/cuda_graph.py` | Per-replay `isnan().any()` + `nan_to_num_` on static graph inputs is now **opt-in** via `VLLM_CG_NAN_INPUT_CHECK=1` (default off). Blocking host syncs every replay were the tax; arenas/padded rows are the rationale for default-off. |
+| `vllm/.../layernorm.py` | Gemma `(1+w)` scale folded `.to(x.dtype)` so `vllm_c` `rms_norm` dtype-match fires (fp32 scale was a silent native fallback). |
+| `csrc/rocm/layernorm.cu` (+ ops/bindings) | New AOT `gated_rms_norm` for Qwen3.x GDN `RMSNormGated` (norm-before-gate, fp16, silu/sigmoid). |
+
+No `__launch_bounds__` / DOT / LDS-tile / KV-quant / CMake gfx1030 list change. Do not copy tok/s. Occupancy still FA-first.
