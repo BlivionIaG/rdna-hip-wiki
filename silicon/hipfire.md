@@ -45,7 +45,7 @@ Redline (ROCr retained-replay / PM4) is dispatch overhead, not a CU-occupancy fi
 
 ## Strategy — do not pivot
 
-Room question 2026-08-21: drop SGLang, fork/contribute hipfire, move hippih to tools.
+Question 2026-08-21: drop SGLang, fork/contribute hipfire, move hippih to tools.
 
 **No.** hipfire does not change the path. Tuned silicon is gfx11/12 WMMA + MQ4R Redline. V620 is listed as *portable HIP + Redline dispatch*, same sentence as RDNA1. A fork or first-class contribution puts 8× V620 on a **fallback** in a WMMA-first tree.
 

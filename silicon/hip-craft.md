@@ -3,10 +3,10 @@
 Audience: someone about to write **W4A16 / W8A8 / mxfp4** HIP for gfx1030. This is the compiler / ISA sheet, not the silicon floorplan and not a tile recipe.
 
 Companions (already on disk; not re-derived):
-- `/workspace/rdna2-architecture-brief.md` — WGP/CU, DOT vs WMMA/MFMA, caches
-- `/workspace/rdna2-lds-tiles.md` — 64-bank math, seed tiles
-- `/workspace/rdna2-codegen-stack.md` — what to use / ignore
-- `/workspace/rdna2-w4a16.md` — packing, dequant, decode vs prefill
+- `silicon/architecture.md` — WGP/CU, DOT vs WMMA/MFMA, caches
+- `silicon/lds-tiles.md` — 64-bank math, seed tiles
+- `silicon/codegen-stack.md` — what to use / ignore
+- `kernels/w4a16.md` — packing, dequant, decode vs prefill
 
 Rule: every concrete number is attributed. If a figure was not in a page opened this pass, it is marked **unknown**.
 
@@ -593,7 +593,7 @@ Schedule the inner loop as “one DOT2/sdot4 per cycle per SIMD, hide 5-cycle de
 2. GPUOpen RDNA architecture deck — https://gpuopen.com/download/RDNA_Architecture_public.pdf — VMCNT/VSCNT split, fire-and-forget stores, 5-cycle dest, I$/K$ 32/16 KB
 3. GPUOpen Occupancy explained — https://gpuopen.com/learn/occupancy-explained/ — 16 slots, SGPR not limiting, RGP
 4. GPUOpen WMMA on RDNA 3 — https://gpuopen.com/learn/wmma_on_rdna3/ — no WMMA/MFMA/bf16-matrix on RDNA2; FLOPS table
-5. Companion `/workspace/rdna2-architecture-brief.md`, `/workspace/rdna2-lds-tiles.md`, `/workspace/rdna2-codegen-stack.md`, `/workspace/rdna2-w4a16.md`
+5. Companion `silicon/architecture.md`, `silicon/lds-tiles.md`, `silicon/codegen-stack.md`, `kernels/w4a16.md`
 
 **LLVM / Clang**
 6. LLVM AMDGPUUsage — https://llvm.org/docs/AMDGPUUsage.html — `gfx1030` features, `cumode` / `wavefrontsize64`, address spaces, AMDHSA scopes, `amdgpu-waves-per-eu`, fine-grained metadata, DOT / permlane / DPP intrinsics

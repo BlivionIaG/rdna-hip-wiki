@@ -67,4 +67,4 @@ MTP they left on the table; we already parked it ([mtp.md](mtp.md)).
 ## Sources
 
 - https://github.com/leapdragon/vllm-rdna2-recipe (`00-HARDWARE.md`, `01-PATCHES.md`, `02-VERSIONS.md`, patches 0001–0005)
-- Room 2026-08-21
+- Note 2026-08-21

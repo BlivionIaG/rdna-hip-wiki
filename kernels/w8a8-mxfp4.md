@@ -5,12 +5,12 @@ Audience: someone writing custom HIP W8A8 (dense + MoE) and mxfp4 kernels for gf
 Rule: every concrete number is attributed. If a figure is not in a source that was opened, it is marked **unknown**. Do not contradict the companions.
 
 Companions (already on disk; not re-derived):
-- `/workspace/rdna2-architecture-brief.md` — no WMMA, no MFMA, no FP8/FP4 unit; packed DOT only
-- `/workspace/rdna2-w4a16.md` — DOT2 decode/prefill geometry you reuse for mxfp4-after-unpack
-- `/workspace/rdna2-hip-craft.md` — `sdot4` / `sdot8` / `fdot2` builtins, waitcnt, occupancy
-- `/workspace/rdna2-cache-policy.md` — IC fit: 7B W8A8 misses unsharded; 27B W8A8 ~7 MiB over at TP=4
-- `/workspace/rdna2-lds-tiles.md` — recipe 9: **64×64×64 i8**
-- `/workspace/rdna-vllm-sglang-map.md` — vLLM has **no** DP4A dispatch on gfx1030; AITER gated CDNA3+
+- `silicon/architecture.md` — no WMMA, no MFMA, no FP8/FP4 unit; packed DOT only
+- `kernels/w4a16.md` — DOT2 decode/prefill geometry you reuse for mxfp4-after-unpack
+- `silicon/hip-craft.md` — `sdot4` / `sdot8` / `fdot2` builtins, waitcnt, occupancy
+- `silicon/cache-policy.md` — IC fit: 7B W8A8 misses unsharded; 27B W8A8 ~7 MiB over at TP=4
+- `silicon/lds-tiles.md` — recipe 9: **64×64×64 i8**
+- `engine/vllm-sglang-map.md` — vLLM has **no** DP4A dispatch on gfx1030; AITER gated CDNA3+
 
 Date of this pass: **2026-08-17**. How to read status words: **keep** / **drop** / **rewrite** / **unknown** — same meanings as the W4A16 brief.
 
@@ -88,7 +88,7 @@ That is the whole W8A8 job. Evidence below.
 
 ## 2. DOT4 / DOT8 — ISA, builtins, sdot4 vs udot4 vs sudot4
 
-### 2.1 RDNA 2 ISA 70648 (opened extract `/workspace/rdna2-src/rdna2-isa.txt`)
+### 2.1 RDNA 2 ISA 70648 (AMD RDNA2 ISA 70648 PDF)
 
 Feature list (“Feature Changes in RDNA2 Devices”):
 
@@ -627,7 +627,7 @@ If you need a reference implementation of **sdot4** GEMM, llama.cpp `ggml_cuda_d
 4. https://github.com/ggml-org/llama.cpp/commit/46e47417aa4f18c08738afd4d9a3e838e97ca03f — #8629 all-RDNA2 `sdot4`
 
 ### ISA / silicon
-5. AMD “RDNA 2” ISA 70648 — `/workspace/rdna2-src/rdna2-isa.txt` (feature list; VOP2 `V_DOT4C_I32_I8`; VOP3P opcodes 22–25)
+5. AMD “RDNA 2” ISA 70648 — AMD RDNA2 ISA 70648 PDF (feature list; VOP2 `V_DOT4C_I32_I8`; VOP3P opcodes 22–25)
 6. GPUOpen WMMA on RDNA 3 — https://gpuopen.com/learn/wmma_on_rdna3/ (IU8 512, IU4 1024, BF16 N/A, no WMMA on RDNA2)
 7. LLVM / Clang builtins — HIP-craft §5; https://reviews.llvm.org/D127904 (`sudot4` = `dot8-insts`); https://reviews.llvm.org/D158468 (gfx11 maps `sdot4`→`sudot4`; gfx1030 keeps `sdot4`)
 
@@ -638,12 +638,12 @@ If you need a reference implementation of **sdot4** GEMM, llama.cpp `ggml_cuda_d
 11. https://github.com/vllm-project/vllm/pull/19417 — `(1,1)` is per-token, not per-tensor
 
 ### IC / tiles / map
-12. `/workspace/rdna2-cache-policy.md` §4.3–§4.4 — 7B W8A8 193.01 MiB miss; 27B W8A8 TP=4 135.00 MiB / **6.9 MiB over**
-13. `/workspace/rdna2-lds-tiles.md` recipe 9 — **64×64×64 i8**
-14. `/workspace/rdna2-w4a16.md` — DOT2 decode/prefill geometry reused after mxfp4 unpack
-15. `/workspace/rdna2-hip-craft.md` — builtins, waitcnt, occupancy 0
-16. `/workspace/rdna-vllm-sglang-map.md` — no vLLM DP4A / mxfp4 / AITER on gfx1030
-17. `/workspace/rdna2-architecture-brief.md` — DOT feature list, no WMMA/MFMA
+12. `silicon/cache-policy.md` §4.3–§4.4 — 7B W8A8 193.01 MiB miss; 27B W8A8 TP=4 135.00 MiB / **6.9 MiB over**
+13. `silicon/lds-tiles.md` recipe 9 — **64×64×64 i8**
+14. `kernels/w4a16.md` — DOT2 decode/prefill geometry reused after mxfp4 unpack
+15. `silicon/hip-craft.md` — builtins, waitcnt, occupancy 0
+16. `engine/vllm-sglang-map.md` — no vLLM DP4A / mxfp4 / AITER on gfx1030
+17. `silicon/architecture.md` — DOT feature list, no WMMA/MFMA
 18. OCP MX v1.0 — https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf (via cache brief)
 19. PTPC-FP8 blog — https://vllm.ai/blog/2025-02-24-ptpc-fp8-rocm (per-token A / per-channel W rationale)
 20. AMD V620 — https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html (72 CU, 128 MB IC)

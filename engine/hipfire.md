@@ -8,14 +8,14 @@ Headline benches are **gfx1100 / gfx1151 / gfx1201 WMMA**. gfx1030 is listed as 
 
 ## Build features in hipfire? **No**
 
-Room ask 2026-08-21: *besides extras, improve hipfire and keep hippih for visual tools — or keep the full hippih way?*
+Ask 2026-08-21: *besides extras, improve hipfire and keep hippih for visual tools — or keep the full hippih way?*
 
 **Keep the full hippih way.** hipfire stays steal + measurement peer. Do not make it the feature tree.
 
 | Why not build in hipfire | Lock |
 |---|---|
 | gfx1030 is **portable**, not tuned | Their energy is WMMA gfx11/12. V620 work is second-class by design. |
-| Vega column is **gfx906**, not V340L **gfx900** | gfx906 objects will not load on gfx900. Incoming 8× V340L has **no home** in hipfire. hippih is the three-ISA engine. |
+| Vega column is **gfx906**, not V340L **gfx900** | gfx906 objects will not load on gfx900. 8× V340L has **no home** in hipfire. hippih is the three-ISA engine. |
 | MQ / HFQ / Lloyd | Features there do not transfer to extras W4. Same as no vLLM ROCmFPX port. |
 | Serving model | Ollama-style single binary. Our serving path after occupancy is **SGLang overlay**, not hipfire daemon. |
 | Control | warpfront roadmap + their gates. We already wanted an own serving path for the same reason. |
@@ -26,7 +26,7 @@ Optional upstream gfx1030 portable patches to *them* is neighborly. That is not 
 
 ## Serving: MoE / CB / prefix (contribute?)
 
-Room 2026-08-21. These are **their** daemon features. Contributing here does not buy extras / SGLang serving.
+Note 2026-08-21. These are **their** daemon features. Contributing here does not buy extras / SGLang serving.
 
 | Surface | What they have | Not |
 |---|---|---|
@@ -90,4 +90,4 @@ After occupancy, fold sdot4-MMQ tile ideas onto the existing W8A8 / W4A8 cards �
 
 - https://github.com/warpfront/hipfire (README, `crates/rdna-compute/src/arch_caps.rs`, `docs/plans/mq3_gfx10.md`, `docs/BENCHMARKS.md`, `tests/speed-baselines/gfx1030.txt`, `docs/ARCHITECTURE.md`, `docs/SERVE.md`, `docs/multi-gpu.md`, `crates/hipfire-engine/src/scheduler.rs`)
 - https://hipfire.dev/
-- Room 2026-08-21: steal not fork; keep full hippih way; MoE/CB/prefix are their daemon, not extras serving
+- Note 2026-08-21: steal not fork; keep full hippih way; MoE/CB/prefix are their daemon, not extras serving

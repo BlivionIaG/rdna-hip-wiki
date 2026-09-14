@@ -113,4 +113,4 @@ Native HIP FP16 / INT8 MoE sit after occupancy (and after a measured stock basel
 
 ## Progress
 
-Locked 2026-08-22: human branch is **`rdna2_extras`** @ **`d24f6c25`**. Overlay merge `9ff87936` onto v0.27.1. `4cc1fe59` INT8 KV is not the fused contract. `d24f6c25` FULL graphs are glue. Occupancy still first. Allowlist ≠ fire list. EXL3 HIP live WIP ([exl3.md](exl3.md); tip `e268c7d3`, ISA `a2c8d5cf`). Occupancy still first. Linear owns engine tickets (V620 inference); this page is the index.
+Locked 2026-08-22: human branch is **`rdna2_extras`** @ **`d24f6c25`**. Overlay merge `9ff87936` onto v0.27.1. `4cc1fe59` INT8 KV is not the fused contract. `d24f6c25` FULL graphs are glue. Occupancy still first. Allowlist ≠ fire list. EXL3 HIP live WIP ([exl3.md](exl3.md); tip `e268c7d3`, ISA `a2c8d5cf`). Occupancy still first. Engine tickets live on GitHub project 4 (V620 inference); this page is the index.

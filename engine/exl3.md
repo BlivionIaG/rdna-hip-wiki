@@ -33,4 +33,4 @@ RDNA2-optimal convert: REAP official MXFP4 experts → Viterbi keepers only at *
 
 ## Sources
 
-- Room 2026-08-22: `K` template, `3inst` produce / `mcg` compile, no `mul1`, pair→`half2`
+- Note 2026-08-22: `K` template, `3inst` produce / `mcg` compile, no `mul1`, pair→`half2`

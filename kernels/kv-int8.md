@@ -11,7 +11,7 @@ Dest tip moved `8f2583d2` → `ea78104d` (23 commits). HIP silicon that landed f
 | Writer | `reshape_and_cache_int8_rdna2` — `__launch_bounds__(HEAD_DIM, 4)`. Cache layout `[2, blocks, H_kv, D+4, block_size]` with scale as 4 LE bytes at offset D per slot. | One CTA/(token,head). Absmax → `scale = max(absmax/127, 1e-6)`. |
 | Wiring | `torch_bindings` + `vllm/v1/attention/backends/rdna_attn.py` (`VLLM_USE_RDNA2_FA=1`). Platform gate: head_size ∈ {128,256}, `block_size >= 1`. | Python dispatch only; ISA is `fa_rdna2.cu`. |
 
-Leave this hour: EXL3 Python mul1-fold / debug fprintf, GDN ssm zeroing, `VLLM_FORCE_CUSTOM_ALL_REDUCE` (AR fabric, already Leave / UNC-27). Do not copy tok/s. Occupancy still first (FA prefill `(N,1)` / LDS 1 WG per 64 KB).
+Leave this hour: EXL3 Python mul1-fold / debug fprintf, GDN ssm zeroing, `VLLM_FORCE_CUSTOM_ALL_REDUCE` (AR fabric, already Leave / ticket-27). Do not copy tok/s. Occupancy still first (FA prefill `(N,1)` / LDS 1 WG per 64 KB).
 
 CMake gfx1030 list: unchanged for FA/INT8 objects. Only add was `layernorm.cu` on the EXL3-unconditional list (AOT RMSNorm already locked @ `83de31cf` on the old overlay).
 

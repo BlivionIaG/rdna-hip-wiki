@@ -1,8 +1,8 @@
 # RDNA ROCm/HIP vs CUDA — gap report
 
-Date: 2026-08-28. Room ask. Our needs = **4×/8× V620 gfx1030**, extras HIP, later hippih. Not Instinct. Not a CUDA port. Do not invent tok/s. Occupancy still first. Pin stays closed. No new ticket.
+Date: 2026-08-28. Scope: **4×/8× V620 gfx1030**, extras HIP, later hippih. Not Instinct. Not a CUDA port. Do not invent tok/s. Occupancy still first. Pin stays closed. No new ticket.
 
-Contract index: [../coverage.md](../coverage.md). Silicon: [../../silicon/valu.md](../../silicon/valu.md), [../../silicon/rccl-p2p.md](../../silicon/rccl-p2p.md). Tickets: Linear [V620 inference](https://linear.app/uncoolred/project/v620-inference-c347dcd6d967).
+Contract index: [../coverage.md](../coverage.md). Silicon: [../../silicon/valu.md](../../silicon/valu.md), [../../silicon/rccl-p2p.md](../../silicon/rccl-p2p.md). Tickets: see [project 4](https://github.com/users/BlivionIaG/projects/4).
 
 Three different “missing.” Do not mix them.
 
@@ -94,7 +94,7 @@ Same order as [../coverage.md](../coverage.md) v2 write list. Do **not** open a 
 
 1. Occupancy flip: drop min-blocks / `__launch_bounds__(N, 1)` / `amdgpu_waves_per_eu(1,1)`. Decode-class `waves_per_eu(4, 8)`. This is the real CUDA-graph / launch parity.
 2. GPU-verify live W4 / mxfp4.
-3. Finish EXL3 `3inst` → `fdot2` (Linear side project [EXL3 RDNA2](https://linear.app/uncoolred/project/exl3-rdna2-bd3b1ca2d8a9)). Compile `mcg`, never produce `mul1`.
+3. Finish EXL3 `3inst` → `fdot2` (EXL3 RDNA2 side project). Compile `mcg`, never produce `mul1`.
 
 **Next writes (after occupancy)**
 

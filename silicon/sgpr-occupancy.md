@@ -2,7 +2,7 @@
 
 Lock: **SGPRs are not an occupancy limiter on gfx1030.** LLVM `IsaInfo::isSGPROccupancyLimited` is **false** for ISA major ≥ 10. `getOccupancyWithNumSGPRs` returns `getMaxWavesPerEU` (16) without consulting the count. AMDHSA `COMPUTE_PGM_RSRC1.GRANULATED_WAVEFRONT_SGPR_COUNT` (bits 9:6) is **reserved and must be 0** on GFX10–GFX12 — the descriptor always budgets a fixed SGPR allocation (AMDGPUUsage: “128 SGPRs always allocated”). Completes the occupancy set: PIX limiters are VGPR / LDS / Thread Group Size / Barriers; SGPR is the explicit non-member.
 
-Does **not** change extras HIP or UNC cards. No tok/s. Do not restate the FA pin.
+Does **not** change extras HIP or tickets. No tok/s. Do not restate the FA pin.
 
 Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [architecture.md](architecture.md) §2.4 / §3.3, [hip-craft.md](hip-craft.md) §1.3 / §6, [occupancy-composite.md](occupancy-composite.md).
 
@@ -15,7 +15,7 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occup
 | **Take** | Still reject `.sgpr_spill_count > 0` in the occupancy dump — spill is **latency poison**, not a waves/SIMD cliff. Same reject rule as VGPR spill on [occupancy-dump.md](occupancy-dump.md). |
 | **Leave** | Do not shrink SGPR use to raise occupancy. `isSGPROccupancyLimited` short-circuits; `llvm-calc-occupancy --sgprs=` cannot drop waves/EU on gfx1030. |
 | **Leave** | Do not treat pre-GFX10 SGPR budget math (`getSGPRBudgetPerWave` / trap reserve / alloc granule) as live for V620. Those paths are gated `Major < 10`. |
-| **Leave** | Do not open UNC / retip extras for this consolidation. |
+| **Leave** | Do not open a ticket / retip extras for this consolidation. |
 
 ## 1. LLVM formula (source of truth)
 

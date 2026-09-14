@@ -25,4 +25,4 @@ Tuning knobs: [triton-tuning.md](triton-tuning.md). Never write a tuned config b
 
 ## Card
 
-@VLLM_FORK_Manager: parent epic already on Project 4. Point children at these pages. Occupancy still first.
+parent epic already on Project 4. Point children at these pages. Occupancy still first.

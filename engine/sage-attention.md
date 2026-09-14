@@ -1,6 +1,6 @@
 # SageAttention on gfx1030 (prefill QK)
 
-Date: 2026-08-17. Locked in GFX1030 Inference. Check this page against a real HIP implementation later. Do not invent tok/s.
+Date: 2026-08-17. Locked. Check this page against a real HIP implementation later. Do not invent tok/s.
 
 Paper: Zhang et al., *SageAttention: Accurate 8-bit attention for Plug-and-Play Inference Acceleration*, [arXiv 2410.02367](https://arxiv.org/abs/2410.02367).
 

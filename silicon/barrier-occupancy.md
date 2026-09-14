@@ -1,8 +1,8 @@
 # Barrier slots vs occupancy (gfx1030)
 
-Lock: **hardware barriers are a real WG packing limit, but they are not the extras leftover.** On gfx1030 HIP default (**wave32 + WGP**), LLVM budgets **32** barriers per WGP; CU mode budgets **16**. A **single-wave** workgroup does **not** consume a barrier. FA / GDN / EXL3 tiles stay LDS- or VGPR-bound long before barriers bind. Do **not** retip `__launch_bounds__` or open UNC for barriers.
+Lock: **hardware barriers are a real WG packing limit, but they are not the extras leftover.** On gfx1030 HIP default (**wave32 + WGP**), LLVM budgets **32** barriers per WGP; CU mode budgets **16**. A **single-wave** workgroup does **not** consume a barrier. FA / GDN / EXL3 tiles stay LDS- or VGPR-bound long before barriers bind. Do **not** retip `__launch_bounds__` or open a ticket for barriers.
 
-Does **not** change extras HIP or UNC cards. No tok/s. Do not restate the FA pin.
+Does **not** change extras HIP or tickets. No tok/s. Do not restate the FA pin.
 
 Companions: [wg-size-occupancy.md](wg-size-occupancy.md), [hip-craft.md](hip-craft.md) §6, [architecture.md](architecture.md) §2.4 / §3, [lds-tiles.md](lds-tiles.md), [fa-occupancy.md](fa-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md), [occupancy-composite.md](occupancy-composite.md).
 
@@ -81,4 +81,4 @@ So: shrinking BR/BC to free LDS is still the occupancy move for FA. Cutting thre
 5. RDNA 2 ISA 70648 §2.3.1 / §10.3 — WGP vs CU, `s_barrier` scope
 6. Wiki priors: [architecture.md](architecture.md), [hip-craft.md](hip-craft.md), [lds-tiles.md](lds-tiles.md)
 
-Idle pass 2026-09-03 (Paris). Researcher lane only.
+Idle pass 2026-09-03.

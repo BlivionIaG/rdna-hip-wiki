@@ -28,4 +28,4 @@ No tok/s from their A100/H20 posts. No occupancy retip.
 ## Sources
 
 - [../engine/sglang-fork.md](../engine/sglang-fork.md), [fa-occupancy.md](fa-occupancy.md), [fp16-rdna2.md](fp16-rdna2.md), [valu.md](valu.md), [codegen-stack.md](codegen-stack.md)
-- Room 2026-08-20: own SGLang path
+- Note 2026-08-20: own SGLang path

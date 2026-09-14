@@ -9,10 +9,10 @@ Silicon: [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md)
 - **Fast tier (retipped 2026-08-27):** 2× DGX Spark (**GB10** CUDA) — attention, router, embeddings, LM head, n-gram, **live KV**. W7800 gfx1100 row is **dead** (cards selling).
 - **Capacity tier:** 8× V620 32 GB (**gfx1030**) — expert GEMMs only (`fdot2` / `sdot4`)
 - **Bus rule:** ship **activations only**, **fp16 on the hop**. Spark FP4/FP8/BF16 converts **on Spark**. Two machines: Spark↔Spark is CX-7 NCCL; Spark→V620 is not HIP peer.
-- **V340L:** 8 incoming, Vega10 / **gfx900**, PCIe 3.0 x16 dual-die. **Later, separate host.** [silicon/v340l.md](../silicon/v340l.md).
+- **V340L:** 8 cards, Vega10 / **gfx900**, PCIe 3.0 x16 dual-die. **Later, separate host.** [silicon/v340l.md](../silicon/v340l.md).
 - **R9700 / RDNA5:** Later, not a workstream. R9700 = gfx1201, 32 GB / 640 GB/s — expert SKU if bought, **not** Spark. New fatbin, no AITER RDNA4 import, no tok/s copy. RDNA5: wait for ISA. Silicon: [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md).
 
-**Hardware on hand:** two **5-slot x16 Gen4 88096** backplanes (10 GPU slots) + **8 V620**. Each board is CPU x16 + 5× GPU x16 = 96 lanes exact, PIX inside the board.
+**Reference hardware:** two **5-slot x16 Gen4 88096** backplanes (10 GPU slots) + **8 V620**. Each board is CPU x16 + 5× GPU x16 = 96 lanes exact, PIX inside the board.
 
 **Lane budget (corrected):** one 88096 still cannot do 2+8 x16 alone (176). **Two 5-slot boards can** (5+5 at x16). Cross-board is `PHB` unless the 88096s are cascaded (`PXB`). Occupancy box stays 4× V620 on **one** board. [plx.md](plx.md).
 
@@ -96,10 +96,10 @@ Occupancy still first.
 
 ## Sources
 
-- Room 2026-08-18: “vllm fork then laminar”; V340L HIP check
-- Room 2026-08-19: two 5-slot 88096 backplanes, 8 V620, 8 V340L incoming
-- Room 2026-08-20: own SGLang path
-- Room 2026-08-27: sell W7800; Spark×2 + 8×V620; Leave Llaminar repo
+- Note 2026-08-18: “vllm fork then laminar”; V340L HIP check
+- Note 2026-08-19: reference topology — two 5-slot 88096 backplanes; V340L separate host
+- Note 2026-08-20: own SGLang path
+- Note 2026-08-27: Spark×2 + 8×V620; Leave Llaminar repo
 - LLVM gfx900 VOP3P: https://rocm.docs.amd.com/projects/llvm-project/en/latest/LLVM/llvm/html/AMDGPU/AMDGPUAsmGFX900.html
 - LLVM gfx906 VOP3P (DOT): https://rocm.docs.amd.com/projects/llvm-project/en/latest/LLVM/llvm/html/AMDGPU/AMDGPUAsmGFX906.html
 - LLVM `fdot2.ll` (gfx900 → mix/FMA, gfx906 → `v_dot2_f32_f16`)

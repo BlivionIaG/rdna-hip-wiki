@@ -4,9 +4,9 @@ Audience: someone writing custom HIP for weight-only decode (W4A16 / W8A8 / mxfp
 
 Companion briefs (sizes are taken from these; this note does **not** re-derive them unless a source contradicts):
 
-- `/workspace/rdna2-architecture-brief.md` — L0 16 KB/CU, L1 128 KB/SA, L2 4 MB, IC 128 MB 64 B lines, GDDR6 512 GB/s
-- `/workspace/rdna2-w4a16.md` — decode geometry (A in LDS, B streamed, DOT2, no WMMA)
-- `/workspace/rdna2-lds-tiles.md` — LDS banks and GEMM/attention tiles
+- `silicon/architecture.md` — L0 16 KB/CU, L1 128 KB/SA, L2 4 MB, IC 128 MB 64 B lines, GDDR6 512 GB/s
+- `kernels/w4a16.md` — decode geometry (A in LDS, B streamed, DOT2, no WMMA)
+- `silicon/lds-tiles.md` — LDS banks and GEMM/attention tiles
 
 Rule: every concrete number is attributed. If a figure is not in a source that was opened, it is marked **unknown**. Quote only text that was opened. Do **not** invent Infinity Cache TB/s or any cache associativity.
 
@@ -54,7 +54,7 @@ VGPR
  → GDDR6 512 GB/s
 ```
 
-ISA §2.4 (70648, opened extract `/workspace/rdna2-src/rdna2-isa.txt`):
+ISA §2.4 (70648, AMD RDNA2 ISA 70648 PDF):
 
 > “On the primary read path, the device consists of multiple channels of L2 cache that provides data to Read-only L1 caches, and finally to L0 caches per WGP.”
 
@@ -334,7 +334,7 @@ LLVM AMDGPUUsage attributes table: **“Set internally by backend.”** Not a pe
 
 Goal: keep **one layer** (or the live KV window) in the 128 MB IC, and **stream** everything that will not be reused.
 
-Decode geometry (from `/workspace/rdna2-w4a16.md`, not re-argued here): A staged in LDS (`M_COUNT × (256+8) × 2 B`), packed B streamed from global, dequant in VGPR, inner product `__builtin_amdgcn_fdot2`. There is no WMMA and no bf16 DOT on gfx1030. That already decides most of the cache traffic: **A never hits IC after the first LDS fill; B is the IC question.**
+Decode geometry (from `kernels/w4a16.md`, not re-argued here): A staged in LDS (`M_COUNT × (256+8) × 2 B`), packed B streamed from global, dequant in VGPR, inner product `__builtin_amdgcn_fdot2`. There is no WMMA and no bf16 DOT on gfx1030. That already decides most of the cache traffic: **A never hits IC after the first LDS fill; B is the IC question.**
 
 ### 3.1 The only persist mechanism: fit + reuse + don’t thrash
 
@@ -607,8 +607,8 @@ GDDR6 **512 GB/s** (AMD V620 product page + press). A 27B FP16 TP=4 shard is 283
 
 ## 6. Sources actually opened
 
-1. Companion `/workspace/rdna2-architecture-brief.md`, `/workspace/rdna2-w4a16.md`, `/workspace/rdna2-lds-tiles.md`
-2. AMD “RDNA 2” ISA 70648 extract `/workspace/rdna2-src/rdna2-isa.txt` — §2.4, §7.2.2 `S_DCACHE_INV`, §8.1 GLC/DLC/SLC, §8.1.10 Tables 38–39, Table 37 V# bits 62–63, image `LLC No-alloc` bits 201:200, `BUFFER_GL0_INV` / `BUFFER_GL1_INV`, `S_GL1_INV`, `S_ATC_PROBE`, `S_INST_PREFETCH`
+1. Companion `silicon/architecture.md`, `kernels/w4a16.md`, `silicon/lds-tiles.md`
+2. AMD “RDNA 2” ISA 70648 AMD RDNA2 ISA 70648 PDF — §2.4, §7.2.2 `S_DCACHE_INV`, §8.1 GLC/DLC/SLC, §8.1.10 Tables 38–39, Table 37 V# bits 62–63, image `LLC No-alloc` bits 201:200, `BUFFER_GL0_INV` / `BUFFER_GL1_INV`, `S_GL1_INV`, `S_ATC_PROBE`, `S_INST_PREFETCH`
 3. HIP Hardware implementation — https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html (write-through L0/L1, L2 coherence point, atomics at L2, software fences)
 4. HIP C++ language extensions — https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/hip_cpp_language_extensions.html (`__threadfence*`)
 5. HIP `amd_device_functions.h` — https://raw.githubusercontent.com/ROCm/clr/develop/hipamd/include/hip/amd_detail/amd_device_functions.h (`__builtin_amdgcn_fence` scopes)

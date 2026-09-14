@@ -356,7 +356,7 @@ Do not keep `(256, 1)` under the belief it means 1 block/CU.
 
 ## 8. Compiled resource dump (2026-08-24) — the missing data
 
-Extracted from the built `_rocm_C.abi3.so` (`.hip_fatbin` section, gfx1030 code objects, `NT_AMDGPU_METADATA` parsed with pyelftools + msgpack) on the 4× V620 build server, venv-7.14.0. **Replaces the VGPR estimates in the tables above with real compiled numbers.** LDS comes from the host `size_t smem` formulas (kernels use dynamic `extern __shared__`, so metadata `.group_segment_fixed_size` = 0).
+Extracted from the built `_rocm_C.abi3.so` (`.hip_fatbin` section, gfx1030 code objects, `NT_AMDGPU_METADATA` parsed with pyelftools + msgpack) on a 4× V620 reference build, venv-7.14.0. **Replaces the VGPR estimates in the tables above with real compiled numbers.** LDS comes from the host `size_t smem` formulas (kernels use dynamic `extern __shared__`, so metadata `.group_segment_fixed_size` = 0).
 
 | Kernel | launch bounds | wg | **VGPR** | spill | SGPR | LDS B (host) | VGPR waves/SIMD | LDS WGs/64KB | binding |
 |---|---|---|---:|---:|---:|---:|---:|---:|---|

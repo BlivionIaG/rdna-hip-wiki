@@ -2,7 +2,7 @@
 
 Lock: **VGPR pressure is the per-SIMD waves/EU term.** On gfx1030 HIP default (**wave32**), LLVM budgets a **1024**-VGPR file per SIMD32 with alloc granule **16**. Waves/EU = `min(16, floor(1024 / alignTo(vgpr_count, 16)))`. Addressable ceiling is **V0–V255**. SGPRs never bind on GFX10+. Barriers / LDS / scratch stay on their own pages — this page is the VGPR term in `min(slots, VGPR, LDS, WG/barrier)`.
 
-Does **not** change extras HIP or UNC cards. No tok/s. Do not restate the FA pin.
+Does **not** change extras HIP or tickets. No tok/s. Do not restate the FA pin.
 
 Companions: [occupancy-dump.md](occupancy-dump.md), [lds-occupancy.md](lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [hip-craft.md](hip-craft.md) §1.3 / §6, [architecture.md](architecture.md) §2.4 / §3.3, [fa-occupancy.md](fa-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md), [occupancy-composite.md](occupancy-composite.md).
 
@@ -15,7 +15,7 @@ Companions: [occupancy-dump.md](occupancy-dump.md), [lds-occupancy.md](lds-occup
 | **Take** | Cap design VGPR so a whole WG still fits the per-SIMD budget after SPI spreads waves across the WGP’s 4 SIMDs (see §4). Gate launches with `hipOccupancyMaxActiveBlocksPerMultiprocessor`, not compiler remarks alone. |
 | **Take (craft)** | Prefer `__attribute__((amdgpu_waves_per_eu(min[,max])))` + `amdgpu_flat_work_group_size` when you need a VGPR ceiling; `__launch_bounds__(MAX_THREADS, MIN_WARPS)` also works — set `MAX_THREADS` to the **real** block size (never 1024 on a 128/256-thr kernel). |
 | **Leave** | Do not chase SGPR occupancy on gfx1030 — `isSGPROccupancyLimited` is false for Major ≥ 10. |
-| **Leave** | Do not open UNC / retip extras because of this consolidation. Skinny decode already aims ≤ 64–128 VGPR; fat prefill stays LDS-bound first. |
+| **Leave** | Do not open a ticket / retip extras because of this consolidation. Skinny decode already aims ≤ 64–128 VGPR; fat prefill stays LDS-bound first. |
 
 ## 1. LLVM formula (source of truth)
 
@@ -125,4 +125,4 @@ For a **128-thread** WG (N=4 → ~1 wave/SIMD): the per-SIMD budget is simply `a
 7. llama.cpp #24672 / #23310 — 203 VGPR occupancy-0 class
 8. Wiki priors: [architecture.md](architecture.md), [hip-craft.md](hip-craft.md), [occupancy-dump.md](occupancy-dump.md), [lds-occupancy.md](lds-occupancy.md)
 
-Idle pass 2026-09-08 (Paris). Researcher lane only.
+Idle pass 2026-09-08.

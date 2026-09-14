@@ -62,4 +62,4 @@ Occupancy. Sage. INT2. MTP / DFlash (own cards). INT8 KV. Writing a Markov-head 
 - vLLM [PR #46995](https://github.com/vllm-project/vllm/pull/46995), [PR #46965](https://github.com/vllm-project/vllm/pull/46965)
 - [DeepSeek-V4-Flash recipe](https://recipes.vllm.ai/deepseek-ai/DeepSeek-V4-Flash)
 - [specdec.md](specdec.md)
-- Room lock: HIP MLA still q=1; fat tile before any of these fire
+- Lock: HIP MLA still q=1; fat tile before any of these fire

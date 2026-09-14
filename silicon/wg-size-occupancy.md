@@ -1,8 +1,8 @@
 # Thread Group Size vs occupancy (gfx1030)
 
-Lock: **PIX "Limited by Thread Group Size" is the atomic WG resource-lifetime limiter — not Barriers, not LDS, not VGPR.** On gfx1030 HIP default (**wave32 + WGP**), SPI allocates and frees **all** waves of a workgroup together (slots + VGPR + LDS + barrier). When one wave of a multi-wave WG retires, its SIMD slot can free while the rest of the WG still holds registers / LDS / barrier — that empty slot cannot start a *new* WG until the last wave finishes. That is Thread Group Size limited. Barriers only bind after a *different* WG frees enough slots/resources but every barrier is still held ([barrier-occupancy.md](barrier-occupancy.md)). FA / GDN fat tiles stay **LDS-bound** long before WG packing alone is the leftover. Do **not** retip `__launch_bounds__` or open UNC for this page.
+Lock: **PIX "Limited by Thread Group Size" is the atomic WG resource-lifetime limiter — not Barriers, not LDS, not VGPR.** On gfx1030 HIP default (**wave32 + WGP**), SPI allocates and frees **all** waves of a workgroup together (slots + VGPR + LDS + barrier). When one wave of a multi-wave WG retires, its SIMD slot can free while the rest of the WG still holds registers / LDS / barrier — that empty slot cannot start a *new* WG until the last wave finishes. That is Thread Group Size limited. Barriers only bind after a *different* WG frees enough slots/resources but every barrier is still held ([barrier-occupancy.md](barrier-occupancy.md)). FA / GDN fat tiles stay **LDS-bound** long before WG packing alone is the leftover. Do **not** retip `__launch_bounds__` or open a ticket for this page.
 
-Does **not** change extras HIP or UNC cards. No tok/s. Do not restate the FA pin.
+Does **not** change extras HIP or tickets. No tok/s. Do not restate the FA pin.
 
 Companions: [barrier-occupancy.md](barrier-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §1.3 / §6, [architecture.md](architecture.md) §2.4 / §3, [fa-occupancy.md](fa-occupancy.md), [occupancy-composite.md](occupancy-composite.md).
 
@@ -15,7 +15,7 @@ Companions: [barrier-occupancy.md](barrier-occupancy.md), [vgpr-occupancy.md](vg
 | **Take** | LLVM occupancy w.r.t. WG size is a **range**: `getOccupancyWithWorkGroupSizes(LDS, {min,max})` → `{min_waves/EU, max_waves/EU}`. `llvm-calc-occupancy` without a fixed `--wg-size` prints a range for the same reason (PR #123748). |
 | **Take** | For multi-wave WGs, theoretical WGs/WGP (ignoring LDS) = `min(MaxWaves/N, MaxBarriers)` with `MaxWaves=64` WGP / `32` CU and `MaxBarriers=32` WGP / `16` CU — same `getMaxWorkGroupsPerCU` math as the barrier page. TG-size is the *dynamic* hole that formula does not show. |
 | **Leave** | Do not shrink FA/GDN from 256→128 thr solely to chase PIX "Thread Group Size". Fat LDS (45–64 KB) already caps at **1 WG / 64 KB addressable** ([lds-occupancy.md](lds-occupancy.md)). Cutting threads without cutting LDS does not raise concurrent WGs. |
-| **Leave** | Do not open UNC / retip extras for this consolidation. Occupancy leftover stays FA prefill LDS class. |
+| **Leave** | Do not open a ticket / retip extras for this consolidation. Occupancy leftover stays FA prefill LDS class. |
 
 ## 1. What Thread Group Size means (GPUOpen / PIX)
 
@@ -126,4 +126,4 @@ Assert `hipOccupancyMaxActiveBlocksPerMultiprocessor > 0` before graph capture (
 8. LLVM AMDGPUUsage `amdgpu-flat-work-group-size` / waves-per-eu precedence
 9. Wiki priors: [barrier-occupancy.md](barrier-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [hip-craft.md](hip-craft.md)
 
-Idle pass 2026-09-09 (Paris). Researcher lane only.
+Idle pass 2026-09-09.

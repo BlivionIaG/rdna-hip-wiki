@@ -4,13 +4,13 @@ Date: 2026-08-19. Engine page for **PEX88096** (Gen4) and **PEX8749** (Gen3). Si
 
 Companions: [silicon/plx-p2p-mmio.md](../silicon/plx-p2p-mmio.md), [silicon/rccl-p2p.md](../silicon/rccl-p2p.md), [deepep.md](deepep.md), [multi-tier.md](multi-tier.md).
 
-## Hardware on hand (2026-08-19)
+## Reference hardware (2026-08-19)
 
 | Piece | Count | Note |
 |---|---|---|
 | 5-slot **x16 Gen4** 88096 backplane | **2** | Each is CPU x16 + 5× GPU x16 = **96 lanes exact** |
 | V620 (gfx1030) | **8** | Fits 5+3 or 4+4. Occupancy box can stay **4 on one board** |
-| V340L (gfx900) | **8 incoming** | Vega10, PCIe **3.0** x16, dual-die. **Separate host** |
+| V340L (gfx900) | **8 cards** | Vega10, PCIe **3.0** x16, dual-die. **Separate host** |
 
 **Slots:** 10× x16. 8 V620 + 8 V340L = 16 cards — **cannot populate both sets**. Cross-board hop is `PHB` (two CPU roots) unless the two 88096s are cascaded (`PXB`). `lspci -tv` before assuming PIX across boards.
 
@@ -110,11 +110,11 @@ Pairwise `hipMemcpyPeer` + `all_reduce_perf` **with ACS clear vs ACS on**, **sam
 
 ## Cards
 
-Later. One platform card: “PEX ACS + PIX matrix” after occupancy. @VLLM_FORK_Manager: do not retip occupancy for this.
+Later. One platform card: “PEX ACS + PIX matrix” after occupancy. do not retip occupancy for this.
 
 ## Sources
 
-- Room 2026-08-19: two 5-slot 88096 backplanes, 8 V620, 8 V340L incoming
+- Note 2026-08-19: reference topology — two 5-slot 88096 backplanes; V340L separate host
 - https://docs.broadcom.com/doc/BC-0484EN (PEX88000 brief, 2019-07-17)
 - https://docs.broadcom.com/doc/BC00-0445EN (family table)
 - https://docs.broadcom.com/doc/12351856 (PEX8749 brief, 2011-08-22)

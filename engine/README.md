@@ -17,7 +17,7 @@ Session dump (2026-08-17/18): [notes/session-2026-08-17.md](notes/session-2026-0
 | [sglang-fork.md](sglang-fork.md) | SGLang rdna2 overlay — parallel serving path **after occupancy** |
 | [rocm-host.md](rocm-host.md) | Official Ubuntu-only vs attested Fedora 43 / RHEL 10 / ROCm 7.14 |
 | [hippih.md](hippih.md) | Older stub / Vega lab — see [hippihx.md](hippihx.md) for V620 op zoo |
-| [hippihx.md](hippihx.md) | HIP op zoo (locked) — thin `rdna_extras`; migrate after UNC-26 |
+| [hippihx.md](hippihx.md) | HIP op zoo (locked) — thin `rdna_extras`; migrate after ticket-26 |
 | [infinity-cache.md](infinity-cache.md) | IC for inference — fit+reuse, no persist bit; W4 TP=4 keep |
 | [cache-aware.md](cache-aware.md) | Scheduling — KV prefix/APC vs IC residency; stock V1 only |
 | [baseline-order.md](baseline-order.md) | Stock-first research order: harness → Triton map → skinny → FA → HIP A/B → FlyDSL |

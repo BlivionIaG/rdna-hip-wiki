@@ -2,7 +2,7 @@
 
 Lock: **`.private_segment_fixed_size` is not a waves/SIMD limiter in LLVM or GPUOpen theoretical occupancy.** It is a **runtime GDDR scratch pool** (private AS 5). Spills always hurt latency; they cut concurrent waves only when ROCr fails to map the requested pool and lowers `waves_per_cu`. Dump/reject recipe stays on [occupancy-dump.md](occupancy-dump.md) §6; VGPR/LDS math on [hip-craft.md](hip-craft.md) §6.
 
-Does **not** change extras HIP or UNC cards. No tok/s.
+Does **not** change extras HIP or tickets. No tok/s.
 
 Fold page: [occupancy-composite.md](occupancy-composite.md).
 

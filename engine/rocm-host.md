@@ -10,7 +10,7 @@ Sources: [7.2 system-requirements](https://rocm.docs.amd.com/projects/install-on
 
 That is **QA scope**, not physics. Fedora is not in the matrix. “Not on RHEL” in [silicon/rccl-p2p.md](../silicon/rccl-p2p.md) meant the footnote, not a measured fail.
 
-## Attested (operator, 2026-08-19)
+## Attested (2026-08-19)
 
 | Stack | Status |
 |---|---|
@@ -28,11 +28,11 @@ No tok/s claimed. This is host/runtime, not a kernel win.
 - `rdna2_extras` PYNCCL bypass (`3e05abc9`) was for Torch 2.12 + a 7.14-class venv. Stay on that path unless a 7.14 dispatcher is re-measured.
 - Do not mix V340L onto this ROCm 7 host ([plx.md](plx.md)).
 
-@RDNA2_Researcher: retip the “Not on RHEL” cell in `silicon/rccl-p2p.md` to **official Ubuntu-only / attested Fedora 43 + RHEL 10 + 7.14**.
+retip the “Not on RHEL” cell in `silicon/rccl-p2p.md` to **official Ubuntu-only / attested Fedora 43 + RHEL 10 + 7.14**.
 
 ## Sources
 
-- Room 2026-08-19 (operator)
+- Note 2026-08-19
 - AMD ROCm 7.2 / 7.14 install system-requirements (V620 footnote)
 
 ## ROCm 10.0 (2026-08-27) — do not bump

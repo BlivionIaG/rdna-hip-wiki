@@ -6,11 +6,11 @@ Date: 2026-08-19. Register / MMIO dump for the PLX/PEX hop. Engine policy lives 
 
 ## This box (locked 2026-08-19)
 
-Operator hardware, not a brochure:
+Reference fabric (not a brochure):
 
 - **Two 5-slot PCIe x16 Gen4 PEX88096 backplanes.** Each board is **CPU USP x16 + 5 DSP x16 = 96 lanes exact.** Ten GPU slots total.
-- **8× V620** on hand. Place **4 on one board** for TP=4 PIX (occupancy / `fa_rdna2` still first on that mesh). Spare four: 5+3 or 4+4 — 4+4 splits TP=4 across **PHB** unless the chips are cascaded.
-- **8× V340L incoming = own host.** gfx900 + gfx1030 in one ROCm 7 box is the HSA remapped-MMIO trap. 10 slots cannot hold 16 cards anyway. See [v340l.md](v340l.md).
+- **Up to 8× V620** on the reference fabric. Place **4 on one board** for TP=4 PIX (occupancy / `fa_rdna2` still first on that mesh). Spare four: 5+3 or 4+4 — 4+4 splits TP=4 across **PHB** unless the chips are cascaded.
+- **8× V340L = own host.** gfx900 + gfx1030 in one ROCm 7 box is the HSA remapped-MMIO trap. 10 slots cannot hold 16 cards anyway. See [v340l.md](v340l.md).
 - Future **2× W7800 + 8× V620 at x16** now **fits** as 5+5 (one W7800+4 V620 per board, or 2 W7800 on one / 5+3 V620). Cross-board is **`PHB`** (two CPU RPs) unless the 88096s are cascaded (**`PXB`**). PIX is still **inside one board only**.
 
 `NCCL_P2P_LEVEL=PIX` per backplane. Do not assume the two boards are one PIX domain. Cascade is Later — measure one-board PIX first.
@@ -216,7 +216,7 @@ A gfx1030 kernel does not program the PEX. It issues global stores/loads. Those 
 
 ## Sources
 
-- Operator: two 5-slot x16 Gen4 88096 backplanes, 8× V620, 8× V340L incoming (GFX1030 Inference, 2026-08-19)
+- Reference topology (2026-08-19): two 5-slot x16 Gen4 88096 backplanes, up to 8× V620; V340L on a separate host
 - https://docs.broadcom.com/doc/BC-0484EN (PEX88000 brief, 2019-07-17)
 - https://docs.broadcom.com/doc/BC00-0445EN (family table: 88096 98/98/105 ns/48 NTB/35.78 W; 8749 48/18)
 - https://docs.broadcom.com/doc/12351856 (PEX8749 brief, 2011-08-22; 126 ns, 2 NT, 4 DMA)

@@ -30,7 +30,7 @@ if not torch.cuda.is_current_stream_capturing():
     ...  # .item() probe, then zero_()
 ```
 
-Same class as the UNC-27 soak catch on `rdna_ar_timed_out()`: its blocking D2H must stay out of graph capture **and** off the per-step path. A guard that is correct but synchronous is still a per-step tax once capture is off; prefer committing the pages at warmup/allocation over probing every decode.
+Same class as the ticket-27 soak catch on `rdna_ar_timed_out()`: its blocking D2H must stay out of graph capture **and** off the per-step path. A guard that is correct but synchronous is still a per-step tax once capture is off; prefer committing the pages at warmup/allocation over probing every decode.
 
 ## Rule 1: `Tensor!` on every HIP out tensor
 
@@ -40,7 +40,7 @@ That matters because `suh` / `svh` sit **outside** the K-dot as their own kernel
 
 ## extras lock 2026-09-03 (tip `f9361950`, was `ea78104d`)
 
-Two commits, both 2026-09-03 12:11 Paris. HIP delta is one schema character; the rest is Python.
+Two commits, both 2026-09-03 12:11. HIP delta is one schema character; the rest is Python.
 
 | Commit | File | Delta |
 |---|---|---|

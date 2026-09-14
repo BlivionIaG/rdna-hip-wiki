@@ -61,4 +61,4 @@ No new first kernel. Occupancy + V620 HIP MoE still first. Nontemporal on the 27
 ## Sources
 
 - [silicon/infinity-cache.md](../silicon/infinity-cache.md), [silicon/cache-policy.md](../silicon/cache-policy.md)
-- Room 2026-08-19 (user: can we use IC to speed inference)
+- Note 2026-08-19 (user: can we use IC to speed inference)

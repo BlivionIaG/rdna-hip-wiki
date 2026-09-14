@@ -58,4 +58,4 @@ Occupancy flip. Sage QK. INT2. DFlash / DSpark (own cards). INT8 KV. Writing a d
 - [specdec.md](specdec.md) (verify = extend)
 - DeepSeek-V3 MTP; V4 production baseline MTP-1 ([DSpark paper](https://arxiv.org/html/2607.05147v1))
 - vLLM `--speculative-config` method `mtp`
-- Room lock: HIP MLA still q=1; fat tile before mix/spec/MTP
+- Lock: HIP MLA still q=1; fat tile before mix/spec/MTP

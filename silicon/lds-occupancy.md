@@ -2,7 +2,7 @@
 
 Lock: **LDS is the WG-packing limiter for our fat tiles, and the math is mode-split.** Physical LDS is **128 KB** on a WGP (`FeatureHalfAddressablePhysicalLocalMemory`), but one workgroup may address only **64 KB**. Occupancy uses `getLocalMemorySize()` (128 KB WGP / 64 KB CU), not the per-WG addressable cap, after aligning the kernel’s LDS to the **compiler** granule. Barriers / VGPR / scratch stay on their own pages — this page is the LDS term in `min(slots, VGPR, LDS, WG/barrier)`.
 
-Does **not** change extras HIP or UNC cards. No tok/s. Do not restate the FA pin.
+Does **not** change extras HIP or tickets. No tok/s. Do not restate the FA pin.
 
 Companions: [lds-tiles.md](lds-tiles.md), [barrier-occupancy.md](barrier-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §6, [architecture.md](architecture.md) §2.4 / §4.2, [wg-size-occupancy.md](wg-size-occupancy.md), [occupancy-composite.md](occupancy-composite.md).
 
@@ -15,7 +15,7 @@ Companions: [lds-tiles.md](lds-tiles.md), [barrier-occupancy.md](barrier-occupan
 | **Take** | Size tiles so `alignTo(LDS, 1024) ≤ 32768` when you want **≥ 4 WGs/WGP**, or `≤ 65536` for the 2-WG ceiling. Round **up** before the divide. |
 | **Take (craft)** | Know the **LLVM vs ISA granule mismatch** (§3). For borderline sizes in `(n·1024, n·1024+512]`, LLVM can report one more concurrent WG than SPI will pack. Prefer the **ISA 1 KB** round when you care about measured `hipOccupancy*`. |
 | **Leave** | Do not flip `-mcumode` to “get more LDS WGs” — CU mode **halves** the shared pool (128→64 KB) and SIMDs. Only measure for LDS-*bandwidth* ([hip-craft.md](hip-craft.md) §1.2). |
-| **Leave** | Do not open UNC / retip extras because of the granule mismatch. At 45–64 KB tiles both granules still give **2 WGs/WGP**. |
+| **Leave** | Do not open a ticket / retip extras because of the granule mismatch. At 45–64 KB tiles both granules still give **2 WGs/WGP**. |
 
 ## 1. LLVM formula (source of truth)
 
@@ -112,4 +112,4 @@ Double-buffered / staged tiles: count **all** live LDS at the fattest pipeline p
 5. GPUOpen Occupancy explained (updated 2024-06-26) — https://gpuopen.com/learn/occupancy-explained/ — LDS limiter; SGPR unlimited on RDNA
 6. Wiki priors: [architecture.md](architecture.md), [lds-tiles.md](lds-tiles.md), [occupancy-dump.md](occupancy-dump.md), [barrier-occupancy.md](barrier-occupancy.md)
 
-Idle pass 2026-09-07 (Paris). Researcher lane only.
+Idle pass 2026-09-07.

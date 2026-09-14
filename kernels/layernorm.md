@@ -2,7 +2,7 @@
 
 ## dest tip 2026-09-11 — `opengfx1030/vllm-rdna` `rdna_extras` @ `71a54552`
 
-Tip moved **`56f67111` → `71a54552`** (+3). Silicon: new **`gated_rms_norm`** AOT HIP for Qwen3.x GDN `RMSNormGated` (norm-before-gate). Same tile family as plain `rms_norm` — not a new occupancy subject. FA leftover still first. UNC-26 still EXL3 `-cb 3inst`. W4A16 ConfigA lock unchanged.
+Tip moved **`56f67111` → `71a54552`** (+3). Silicon: new **`gated_rms_norm`** AOT HIP for Qwen3.x GDN `RMSNormGated` (norm-before-gate). Same tile family as plain `rms_norm` — not a new occupancy subject. FA leftover still first. ticket-26 still EXL3 `-cb 3inst`. W4A16 ConfigA lock unchanged.
 
 Companion infra (Python, same tip window): Gemma `(1+w)` scale folded to `x.dtype` so `vllm_c` `rms_norm` dtype-match fires; per-replay cudagraph `isnan().any()` scan gated behind `VLLM_CG_NAN_INPUT_CHECK=1` (default off) — [../silicon/graph-capture.md](../silicon/graph-capture.md).
 

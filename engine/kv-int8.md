@@ -114,4 +114,4 @@ Occupancy flip. Sage QK (`sdot4` on prefill Q). HIP MLA fp16. NVFP4. W8A8 `sdot4
 - vLLM INT8 KV contract: `KVQuantMode`, PRs [#36893](https://github.com/vllm-project/vllm/pull/36893) (per-token Triton), [#41954](https://github.com/vllm-project/vllm/pull/41954) (gfx1100 closed per-tensor, kept per-token-head)
 - extras `4cc1fe59` (verbatim port of `3baecdb516`)
 - [kv-quant-offload.md](kv-quant-offload.md), [coverage.md](coverage.md), [attention-dispatch.md](attention-dispatch.md)
-- Room 2026-08-21: silicon lock on `4cc1fe59`
+- Note 2026-08-21: silicon lock on `4cc1fe59`
