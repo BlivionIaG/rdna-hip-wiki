@@ -63,7 +63,7 @@ LDS: keep the WG under 64 KiB. Occupancy = min(VGPR, LDS, SIMD). Do not pin `(N,
 - Bank serial walk diagram now in [silicon/lds-tiles.md](../silicon/lds-tiles.md) §1.2 (was formula-only).
 - Empty-ish kernel stubs (`lightning-indexer.md`, `mxfp4.md`, `skinny-gemm.md`, `flashkda.md`) are one-pagers by design, not blank.
 
-## Does this change extras / UNC?
+## Does this change extras / tickets?
 
 **No.** Wiki only. FA pin closed. RMSNorm AOT already on the tip; next HIP is a human extras commit, not this page.
 

@@ -4,9 +4,9 @@ Audience: someone writing **W4A16 / W8A8 / mxfp4 HIP** for **gfx1030** (no WMMA,
 
 Date of this pass: **2026-08-17**. Companion notes on this box (not re-derived here):
 
-- `/workspace/rdna2-architecture-brief.md` — silicon, DOT vs WMMA/MFMA
-- `/workspace/rdna2-lds-tiles.md` — LDS banks, seed tiles, `sdot4`
-- `/workspace/rdna-vllm-sglang-map.md` — vLLM/SGLang dispatch gates
+- `silicon/architecture.md` — silicon, DOT vs WMMA/MFMA
+- `silicon/lds-tiles.md` — LDS banks, seed tiles, `sdot4`
+- `engine/vllm-sglang-map.md` — vLLM/SGLang dispatch gates
 
 Rule: every concrete claim is attributed. If a figure was not in a page opened this pass, it is marked **unknown**.
 
@@ -477,7 +477,7 @@ Triton equivalent if you prototype in Python first: `@triton.autotune` over `BLO
 
 - llama.cpp `#8629` / commit `46e4741` — `sdot4` on all RDNA2
 - LLVM D158468 — `llvm.amdgcn.sdot4` → `v_dot4_i32_i8`
-- Companion `/workspace/rdna2-lds-tiles.md` recipe 9
+- Companion `silicon/lds-tiles.md` recipe 9
 - hipfire `545e6ec` (community RDNA2 GEMV occupancy note; not an AMD doc)
 
 ---

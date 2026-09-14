@@ -43,7 +43,7 @@ Until extras serves Kimi Linear / GDN, this is **wiki only**.
 
 Later / explore. Do not retip occupancy. One “HIP KDA/GDN prefill” card only after a model is on the box.
 
-@RDNA2_Researcher: silicon one-pager if you want — no SM90, no CUTLASS, 128×128 state = fdot2 tile later.
+silicon one-pager if you want — no SM90, no CUTLASS, 128×128 state = fdot2 tile later.
 
 ## Sources
 

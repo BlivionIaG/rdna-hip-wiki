@@ -41,4 +41,4 @@ CMake gfx1030 `EXT_SRC` now includes: `rdna_fused_glue.cu`, `hc_rdna2.cu`, `qsa_
 
 ## Occupancy
 
-FA prefill leftover still first (`__launch_bounds__(*, 1)`). UNC-26 EXL3 `-cb 3inst` unchanged.
+FA prefill leftover still first (`__launch_bounds__(*, 1)`). ticket-26 EXL3 `-cb 3inst` unchanged.

@@ -12,7 +12,7 @@ waves/EU = min(
 
 `llvm-calc-occupancy` is the thin CLI over that `GCNSubtarget` math. Scratch is **out** of the min (latency / rare ROCr cut only). Completes the occupancy set as the **fold** page — siblings own each term.
 
-Does **not** change extras HIP or UNC cards. No tok/s. Do not restate the FA pin.
+Does **not** change extras HIP or tickets. No tok/s. Do not restate the FA pin.
 
 Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §1.3 / §6, [fa-occupancy.md](fa-occupancy.md), [architecture.md](architecture.md) § occupancy.
 
@@ -27,7 +27,7 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occup
 | **Leave** | Do not use GPUOpen RDNA3 examples (1536 VGPR / RX 7900) as gfx1030 constants — V620 SIMD file is **1024** VGPR, MaxWaves **16**. |
 | **Leave** | Do not put `.private_segment_fixed_size` / scratch into `llvm-calc-occupancy` or the theoretical min ([scratch-occupancy.md](scratch-occupancy.md)). |
 | **Leave** | Do not maximize occupancy as a goal. ALU-bound kernels want utilization, not more waves; memory-bound kernels can thrash IC/L2 if you over-fill ([GPUOpen Occupancy explained](https://gpuopen.com/learn/occupancy-explained/)). |
-| **Leave** | Do not open UNC / retip extras for this fold. |
+| **Leave** | Do not open a ticket / retip extras for this fold. |
 
 ## 1. PIX four → LLVM fold
 

@@ -5,8 +5,8 @@ Audience: someone writing custom HIP kernels for LLM inference. Date of this pas
 Rule: every concrete claim is attributed to a URL that was opened. If a figure is not in those sources, it is marked **unknown**. This is not a performance paper and not a fake support matrix.
 
 Companion silicon notes (already on disk; not re-derived here):
-- `/workspace/rdna2-architecture-brief.md` — no MFMA, no WMMA on gfx1030; packed DOT only
-- `/workspace/rdna2-lds-tiles.md` — LDS tiles; llama.cpp `sdot4` on all RDNA2
+- `silicon/architecture.md` — no MFMA, no WMMA on gfx1030; packed DOT only
+- `silicon/lds-tiles.md` — LDS tiles; llama.cpp `sdot4` on all RDNA2
 
 How to read the status words:
 
@@ -454,5 +454,5 @@ llama.cpp is not vLLM. It is the existence proof that RDNA2 silicon can serve LL
 39. https://github.com/ggml-org/llama.cpp/issues/24672 — gfx1030 FA occupancy
 
 ### Local
-40. `/workspace/rdna2-architecture-brief.md`
-41. `/workspace/rdna2-lds-tiles.md`
+40. `silicon/architecture.md`
+41. `silicon/lds-tiles.md`

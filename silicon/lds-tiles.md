@@ -2,7 +2,7 @@
 
 Audience: someone writing custom HIP kernels for LLM inference/training (vLLM, SGLang). Not a consumer GPU review.
 
-Companion silicon brief: `/workspace/rdna2-architecture-brief.md`. This note does **not** re-derive WGP/CU/cache sizes; it uses them as given and only re-states a number when the bank or tile argument needs it.
+Companion silicon brief: `silicon/architecture.md`. This note does **not** re-derive WGP/CU/cache sizes; it uses them as given and only re-states a number when the bank or tile argument needs it.
 
 Rule: every concrete number is attributed. If a figure is not in a source that was opened, it is marked **unknown**. No invented microbenchmarks.
 
@@ -673,8 +673,8 @@ Source: [ggz14/radiance-vllm-mxfp4](https://codeberg.org/ggz14/radiance-vllm-mxf
 
 ## 9. Sources actually opened
 
-1. AMD “RDNA 2” ISA 70648 — https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture — text extract `/workspace/rdna2-src/rdna2-isa.txt` (§2.3.1, §3.6.6, §10.1, §10.3, §10.4.3)
-2. Companion brief `/workspace/rdna2-architecture-brief.md` (WGP/CU, VGPR, caches, DOT/WMMA absence)
+1. AMD “RDNA 2” ISA 70648 — https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (§2.3.1, §3.6.6, §10.1, §10.3, §10.4.3)
+2. Companion brief `silicon/architecture.md` (WGP/CU, VGPR, caches, DOT/WMMA absence)
 3. HIP Hardware implementation — https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html (64 banks, 256 B/cycle, 64 B port, broadcast, WGP)
 4. CK Tile LDS bank conflicts — https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/hardware/lds_bank_conflicts.html
 5. CK Tile LDS index swapping — https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/lds_index_swapping.html (`K0'`, `MLdsLayer`, `KPack`)

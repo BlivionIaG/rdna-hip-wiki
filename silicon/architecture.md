@@ -577,4 +577,4 @@ Use `llvm-calc-occupancy -mcpu=gfx1030 --wg-size=256 --vgprs=N --lds=K` before a
 23. https://github.com/ROCm/HIP/issues/2238 — gfx1030 rocminfo dump (HSA fields; use with the caveat in §1.1)
 24. https://github.com/llvm/llvm-project/commit/03663e4130d700c6c8ea28b357fcac4d31b617f7 — gfx1030 occupancy 16
 
-ISA PDF text extract used for quotations: `/workspace/rdna2-src/rdna2-isa.txt` (from the official 70648 PDF).
+Quotations are from the official AMD RDNA2 ISA 70648 PDF.

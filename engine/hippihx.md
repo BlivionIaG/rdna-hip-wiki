@@ -1,6 +1,6 @@
 # hippihx — HIP op zoo (locked target)
 
-Date: 2026-09-08. Repo: [BlivionIaG/hippihx](https://github.com/BlivionIaG/hippihx) (private).
+Date: 2026-09-08. Repo: [BlivionIaG/hippihx](https://github.com/BlivionIaG/hippihx).
 
 **Not** [hippih.md](hippih.md) (older stub / Vega two-layer lab). This page is the V620 methodology lock: **b12x-style zoo**, HIP objects.
 
@@ -28,7 +28,7 @@ Three fatbins: **gfx1030** (ROCm 7.14 wave32) / gfx1100 / gfx900 — no shared o
 
 One `torch.ops`/V1 entry per op (no Triton→HIP double-fire). Scratch from `plan`, zeroed for cudagraph. No D2H under capture.
 
-## Migrate order (after UNC-26)
+## Migrate order (after ticket-26)
 
 1. FA (`fa_fdot2`) — lock LDS first
 2. EXL3 `3inst`
@@ -36,15 +36,15 @@ One `torch.ops`/V1 entry per op (no Triton→HIP double-fire). Scratch from `pla
 4. GDN / `causal_conv`
 5. Later KDA/QSA/DSA, `comm.pcie`
 
-Do **not** move mid-UNC-26. Dest EXL3 stays In Progress on extras until Done.
+Do **not** move mid-ticket-26. Dest EXL3 stays In Progress on extras until Done.
 
 ## Cards
 
-Project 4: **Later: hippihx HIP op zoo (thin rdna_extras)** + migrate FA / EXL3 / AWQ / GDN children. No new Linear UNC unless CoS boards one.
+Project 4: **Later: hippihx HIP op zoo (thin rdna_extras)** + migrate FA / EXL3 / AWQ / GDN children. No new ticket unless separately boarded.
 
 ## Sources
 
-- Room 2026-09-08 (GFX1030 Inference): b12x methodology; hippihx repo + scaffold agent
+- Note 2026-09-08: b12x methodology; hippihx repo + scaffold agent
 - [hippih.md](hippih.md) — historical in-house engine card; V620 zoo superseded by this page
 - [rdna2-extras.md](rdna2-extras.md), [exl3.md](exl3.md), [coverage.md](coverage.md)
 

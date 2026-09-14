@@ -43,7 +43,7 @@ The work is not "port AITER." Write Wave32 paged-decode + skinny GEMM + DOT-base
 
 HIP default loads stay. No persist / IC bypass / prefetch on gfx1030. Single-GPU: only 7B W4/mxfp4 fit a layer in 128 MB IC. TP=4: 7B all formats; 27B W4/mxfp4 fit; 27B W8A8 ~7 MiB over (format-size note, not a live kernel). Leftover IC is hundreds of KV tokens, not the full cache. Details: [silicon/cache-policy.md](../silicon/cache-policy.md).
 
-4× V620 is PCIe 4.0 x16 only. `HSA_FORCE_FINE_GRAIN_PCIE=1` + large BAR. Ring n=4 algbw ≤ ~21 GB/s if the bus is perfect. W4A16 does not shrink all-reduce. P2P is attested on this 4× V620 (operator, 2026-08-17). Still no measured `hipMemcpyPeer` GB/s. Custom AR is a policy/perf question, not a “does P2P exist” question. Details: [silicon/rccl-p2p.md](../silicon/rccl-p2p.md).
+4× V620 is PCIe 4.0 x16 only. `HSA_FORCE_FINE_GRAIN_PCIE=1` + large BAR. Ring n=4 algbw ≤ ~21 GB/s if the bus is perfect. W4A16 does not shrink all-reduce. P2P is attested on this 4× V620 (attested, 2026-08-17). Still no measured `hipMemcpyPeer` GB/s. Custom AR is a policy/perf question, not a “does P2P exist” question. Details: [silicon/rccl-p2p.md](../silicon/rccl-p2p.md).
 
 ## Unknowns (do not fill)
 

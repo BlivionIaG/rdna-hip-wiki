@@ -30,4 +30,4 @@ Same family as [../silicon/graph-capture.md](../silicon/graph-capture.md): Trito
 
 ## Occupancy
 
-Still first subject = FA prefill `(N,1)` / 1 WG @ 64 KiB. This kernel is tiny LDS or none — not a new first subject. No new UNC opened from this tip alone (UPDATE wire order is a dest bug, not a new card unless the room wants one).
+Still first subject = FA prefill `(N,1)` / 1 WG @ 64 KiB. This kernel is tiny LDS or none — not a new first subject. No new ticket opened from this tip alone (UPDATE wire order is a dest bug, not a new card unless the room wants one).

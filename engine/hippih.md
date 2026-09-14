@@ -31,7 +31,7 @@ Do **not** start hippih or the SGLang overlay before extras occupancy. Do not po
 
 ## Build in hipfire, hippih = viz? **No**
 
-Room 2026-08-21. **Keep the full hippih way.** hipfire is steal + measurement peer, not the feature tree ([hipfire.md](hipfire.md)).
+Note 2026-08-21. **Keep the full hippih way.** hipfire is steal + measurement peer, not the feature tree ([hipfire.md](hipfire.md)).
 
 **tools/microbench now** is allowed (empty stub, occupancy still first). That is *not* “hippih becomes a visual-tools repo forever.” Destination stays the three-ISA engine. Incoming V340L (gfx900) has no backend in hipfire (their Vega column is gfx906).
 
@@ -62,4 +62,4 @@ Later. Occupancy still first. One hippih-contract card after extras occupancy la
 - hippih README (stub)
 - [silicon/hippih.md](../silicon/hippih.md)
 - [rdna2-extras.md](rdna2-extras.md), [sglang-fork.md](sglang-fork.md), [fp16-rdna2.md](fp16-rdna2.md), [alt-engines.md](alt-engines.md), [hipfire.md](hipfire.md)
-- Room 2026-08-20: own SGLang path; 2026-08-21: keep full hippih way, hipfire steal only
+- Note 2026-08-20: own SGLang path; 2026-08-21: keep full hippih way, hipfire steal only

@@ -24,7 +24,7 @@ Dest lock: gfx1030 V620, ROCm 7.14, wave32, 64 KiB LDS/WG, 64 banks × 4 B. **No
 | **CDNA-only arch gate / MI300X tok/s / hipBLASLt A/B** | Requirements + blog numbers are Instinct. Do not cite as V620 evidence. |
 | **Chiplet / XCD L2–L3 topology scheduling** | MI300 XCD interconnect. V620 is single-die RDNA2 + Infinity Cache — different hierarchy ([cache-policy.md](cache-policy.md)). |
 | **`v_cvt_pk_f32_bf8` / FNUZ e5m2 bias quirks as our dequant** | CDNA3 FNUZ (`kIntermediateConvertBias`) and gfx950/gfx12 OCP branches in `dequant.cuh`. gfx1030 has no bf8 MatrixCore path; we stay on E2M1→fp16 bit-trick + E8M0 exp add or E4M3 mul. |
-| **MegaMoE / A8W4/A4W4 fused MoE as drop-in** | `gfx950` experimental; produce on dest is EXL3 / UNC-26, not Petit's MoE pack. |
+| **MegaMoE / A8W4/A4W4 fused MoE as drop-in** | `gfx950` experimental; produce on dest is EXL3 / ticket-26, not Petit's MoE pack. |
 | **Importing Petit as the gfx1030 NVFP4/MXFP4 engine** | Useful reference for shuffle + numerics footnotes only. Implementation ownership stays extras HIP. |
 
 ## CDNA2 accuracy / perf → RDNA2 `fdot2`

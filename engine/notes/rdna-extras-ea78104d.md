@@ -13,7 +13,7 @@ Dest: [`opengfx1030/vllm-rdna`](https://github.com/opengfx1030/vllm-rdna) branch
 
 ## Leave
 
-- `VLLM_FORCE_CUSTOM_ALL_REDUCE` / amdsmi IndexError tolerance — AR fabric (UNC-27 class), not a dest kernel.
+- `VLLM_FORCE_CUSTOM_ALL_REDUCE` / amdsmi IndexError tolerance — AR fabric (ticket-27 class), not a dest kernel.
 - EXL3 Python mul1 fold-to-dense, Hadamard DBG env, GDN ssm zeroing / debug logs.
 - MXFP4 MoE Python routing (`rdna2_mxfp4_moe.py`) without a new `.cu` this window (bindings for existing `moe_mxfp4_gemm_rdna2` / `mxfp4_gemm_rdna2`).
 - Editing the human branch. Copying tok/s. Claiming FA occupancy closed.

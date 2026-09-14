@@ -61,4 +61,4 @@ Reuse occupancy + baseline epic. Not a new first kernel ticket.
 
 - [silicon/fp16-rdna2.md](../silicon/fp16-rdna2.md)
 - [baseline-order.md](baseline-order.md), [fp16-moe.md](fp16-moe.md)
-- Room 2026-08-18
+- Note 2026-08-18

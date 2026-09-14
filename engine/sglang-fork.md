@@ -1,6 +1,6 @@
 # SGLang fork — parallel serving path
 
-Date: 2026-08-20. Engine contract. Room asked for **our own SGLang path** (stability + radix/overlap), not a drop of extras. Occupancy still first. Do not invent tok/s.
+Date: 2026-08-20. Engine contract. Asked for **our own SGLang path** (stability + radix/overlap), not a drop of extras. Occupancy still first. Do not invent tok/s.
 
 Silicon/dispatch: same gates as extras — `on_gfx10x()`, not `on_rdna()` (v0.27-class = gfx11/12). AITER / MFMA / FlashKDA CUTLASS stay dead ([flashkda.md](flashkda.md)).
 
@@ -46,9 +46,9 @@ Occupancy on extras. MLA `load_row`. CMake gap. No SGLang card until that lands.
 
 ## Cards
 
-Later, after occupancy. One overlay card (rebase + gfx10x dispatch + import extras HIP). @VLLM_FORK_Manager tracks extras; this fork is a sibling, not a PR to `sgl-project/sglang`.
+Later, after occupancy. One overlay card (rebase + gfx10x dispatch + import extras HIP). Extras track extras; this fork is a sibling, not a PR to `sgl-project/sglang`.
 
 ## Sources
 
 - [batching.md](batching.md), [cache-aware.md](cache-aware.md), [rdna2-extras.md](rdna2-extras.md), [hippih.md](hippih.md)
-- Room 2026-08-20: own SGLang fork / own path
+- Note 2026-08-20: own SGLang fork / own path

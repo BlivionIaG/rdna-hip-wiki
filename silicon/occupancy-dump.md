@@ -1,6 +1,6 @@
 # gfx1030 occupancy dump (NT_AMDGPU_METADATA)
 
-Reusable recipe to pull compiled VGPR / SGPR / LDS / scratch from a HIP `.so` / `.hip_fatbin` / `.co`. Occupancy-first. Does **not** change extras HIP or UNC cards. FA numbers live on [fa-occupancy.md](fa-occupancy.md) §8; the math lives on [hip-craft.md](hip-craft.md) §6; silicon limits on [architecture.md](architecture.md).
+Reusable recipe to pull compiled VGPR / SGPR / LDS / scratch from a HIP `.so` / `.hip_fatbin` / `.co`. Occupancy-first. Does **not** change extras HIP or tickets. FA numbers live on [fa-occupancy.md](fa-occupancy.md) §8; the math lives on [hip-craft.md](hip-craft.md) §6; silicon limits on [architecture.md](architecture.md).
 
 This page is the dump path. Use it on **any** gfx1030 kernel (EXL3 GEMM, GDN, W4, RMSNorm, skinny), not only FA.
 
@@ -164,7 +164,7 @@ gfx1030’s scratch ABI is **Absolute flat scratch** (LLVM Processors table, `am
 
 - Not a FA pin change. FA compiled numbers stay on [fa-occupancy.md](fa-occupancy.md) §8.
 - Not a `__launch_bounds__` / `amdgpu_waves_per_eu` rewrite. That lowering is hip-craft §1.3.
-- **Does not change extras HIP.** **Does not change UNC cards.** No new Linear ticket. No tok/s.
+- **Does not change extras HIP.** **Does not change tickets.** No new ticket. No tok/s.
 
 Apply the dump to kernels that still lack a resource table (EXL3 dense/MoE GEMM, GDN remaining, W4, RMSNorm) before arguing occupancy.
 

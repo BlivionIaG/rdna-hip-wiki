@@ -26,7 +26,7 @@ This is **CUDA + HIP**, not two HIP targets. extras cannot drive GB10. hippih gf
 
 ## Later (not a workstream) — R9700 / RDNA5
 
-Room 2026-08-27: maybe add a faster GPU later (R9700 or RDNA5). **No kernels now. No new card.**
+Note 2026-08-27: maybe add a faster GPU later (R9700 or RDNA5). **No kernels now. No new card.**
 
 | SKU | ISA | Official | Role if bought |
 |---|---|---|---|
