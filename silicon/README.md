@@ -34,6 +34,8 @@ How gfx1030 actually works, and what HIP can control.
 | [hetero-moe-w7800-v620.md](hetero-moe-w7800-v620.md) | Spark×2 (GB10 CUDA) + 8×V620: activations-only hop, KV on Spark; W7800 row dead |
 | [v340l.md](v340l.md) | V340L = Vega10 **gfx900**, dual-die; not a V620 drop-in |
 | [v340l-rocm-714.md](v340l-rocm-714.md) | Adopted 2026-09-03: TheRock nightly ROCm 10 `device-gfx900` (Path A). Official 7.14/10.0 debs ❌ Vega |
+| [v340l-macos-tb.md](v340l-macos-tb.md) | Locked: 1× UT4G + 1× 88096 + 8× V340L. Repo [BlivionIaG/v340l-macos](https://github.com/BlivionIaG/v340l-macos) |
+| [v340l-tune.md](v340l-tune.md) | 8× V340L Linux tune: COMPUTE+MCLK lock, 110 W/die, 8 GB packing |
 | [hippih.md](hippih.md) | hippih stub: three ISAs (`fdot2` / WMMA / `mad_mix`); extras stays first |
 | [exl3.md](exl3.md) | EXL3/QTIP: Viterbi is quant-time; infer is 3-inst codebook → half → `fdot2`. Later |
 | [../kernels/gdn-decode.md](../kernels/gdn-decode.md) | GDN decode HIP `(2,4)`, no LDS |
