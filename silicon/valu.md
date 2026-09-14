@@ -14,7 +14,7 @@ Rate math that matches GPUOpen RX 6950 XT: 1 DOT/clk/SIMD × 2 SIMD/CU × 32 lan
 | `__hfma2` / `v_fma_f32` | `V_FMA_F32` / `V_PK_FMA_F16` | VOP3 / VOP3P | 2 | 1/SIMD (typical VALU) | 128 FMA = 256 FLOP if packed | f32 / f16 | **HIP MLA decode, Lightning indexer** (later `fdot2`). ikantkode GEMV is Triton `tl.sum` — do not port. |
 | `__builtin_amdgcn_sdot4` | `V_DOT4C_I32_I8` / `V_DOT4_I32_I8` | VOP2 / VOP3 | 1 / 2 | 1/SIMD (inferred) | **512** IU8 | i32 | **Spec / not extras @ `83de31cf`:** W8A8 INT8, Sage QK, W4A8 (after W→i8 unpack). Live “W8A8” is FP8→`fdot2`. [kernels/w8a8.md](../kernels/w8a8.md) |
 | `__builtin_amdgcn_udot4` | `V_DOT4_U32_U8` | VOP3 | 2 | same class | 512 IU8 | u32 | unused (signed weights) |
-| `__builtin_amdgcn_sdot8` | `V_DOT8_I32_I4` | VOP3 | 2 | 1/SIMD (inferred) | **1024** IU4 | i32 | **Explore:** W4A4 integer only. Not W4A8. Not E2M1. |
+| `__builtin_amdgcn_sdot8` | `V_DOT8_I32_I4` | VOP3P | 2 | 1/SIMD (inferred) | **1024** IU4 | i32 | **Explore:** W4A4 integer only. Not W4A8. Not E2M1. Order: ConfigA LDS=0 → LDS 64³. |
 | `__builtin_amdgcn_udot8` | `V_DOT8_U32_U4` | VOP3 | 2 | same class | 1024 IU4 | u32 | unused |
 | `__int2half_rn` / `v_cvt_f16_i16` | cvt | VOP1 / VOP3 | 1–2 | **unknown** | — | — | W8A16 unpack |
 | `fp8_e4m3_to_fp16_bits` / `__hip_cvt_fp8_to_halfraw` | **software** | — | — | — | — | — | W8A16-FP8, W8A8-FP8, MLA K_nope. No FP8 unit. |
