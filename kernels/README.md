@@ -13,7 +13,7 @@ Format contracts for the HIP kernels we write. Not engine dispatch. Feature inde
 | [w8a8-fp8.md](w8a8-fp8.md) | both sides E4M3 → fp16 → `fdot2` | Incomplete. **Not** `sdot4` |
 | [w8a8.md](w8a8.md) | extras vs contract: live FP8-`fdot2` / W8A16-`fdot2`; INT8 `sdot4` **absent** | **Spec / not on branch** @ `83de31cf` |
 | [mxfp4.md](mxfp4.md) | E2M1 + E8M0 → `fdot2` | Incomplete |
-| [skinny-gemm.md](skinny-gemm.md) | no MFMA on gfx1030 | Decode pin dropped @ `d414eac5`; same FA leftover |
+| [skinny-gemm.md](skinny-gemm.md) | no MFMA on gfx1030; MoE int4 wave-row `fdot2` @ `5c3c0c6f` | Decode pin dropped @ `d414eac5`; MoE skinny `VLLM_ROCM_MOE_SKINNY` default True; same FA leftover |
 | [mla-sparse.md](mla-sparse.md) | scalar fp32 FMA (later `fdot2`) | Incomplete. Env-gated decode |
 | [lightning-indexer.md](lightning-indexer.md) | scalar half FMA | Incomplete |
 | [int2.md](int2.md) | i2 unpack → `fdot2` (later `sdot4`) | Spec. Mixed INT2/INT4 MoE = two unpackers, one DOT |
@@ -33,4 +33,5 @@ Do not conflate W8A16 / W8A16-FP8 / W8A8-FP8 (`fdot2`) with spec W8A8 INT8 (`sdo
 | [gdn-decode.md](gdn-decode.md) | fp32 FMA + shfl K-reduce | Decode HIP Live (`69d2efe`) |
 | [gdn-prefill.md](gdn-prefill.md) | kkt scalar FMA; wy/delta_h/o `fdot2` | Prefill HIP Live (`77d6fdf8`). o BV 64 / ~56 KB. All `(2,4)` |
 | [layernorm.md](layernorm.md) | scalar fp32 FMA + shfl + tiny LDS | Live AOT HIP (`83de31cf` + gated `71a54552`). Cudagraph-safe. Not FA leftover |
+| [qwen4exp-flash-next-hip.md](qwen4exp-flash-next-hip.md) | T46 fdot2 glue; T47–T49 HC/QSA/PLE scalar | Live opt-in @ `5c3c0c6f`; fused_HC/HC/QSA/PLE default off |
 | [exl3.md](exl3.md) | trellis state → 3-inst → `fdot2` | Later. Not Marlin/MMA. Occupancy + W4 first |
