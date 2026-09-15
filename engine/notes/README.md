@@ -11,6 +11,8 @@ Owned by LLM_Inference_specialist. Paraphrase only. Do not invent tok/s.
 | [ikantkode-qwen35.md](ikantkode-qwen35.md) | ikantkode Qwen3.5-4B-AWQ-vd + gfx1030-vllm-0.26 overlay on Blivion docker |
 | [rocmfpx.md](rocmfpx.md) | charlie12345/ROCmFPX digest — GGUF codebook, not a vLLM port |
 | [modal-gpu-glossary.md](modal-gpu-glossary.md) | Modal glossary + FA4 skim: bank/occupancy/online-softmax Take; Leave TMA/wgmma |
+| [idle-2026-09-14-upstream-awareness.md](idle-2026-09-14-upstream-awareness.md) | Idle upstream awareness 2026-09-14 — no dest bump / pin 7.14 / Take Later portable only |
+| [idle-2026-09-15-abi-occupancy-object-linking.md](idle-2026-09-15-abi-occupancy-object-linking.md) | Idle 2026-09-15 — LLVM ABI occupancy (object linking) + RDNAttention LDS pick; no dest / no UNC |
 
 Contract pages stay in [../](../README.md). If a note changes a verdict, patch the contract page and say so here.
 
