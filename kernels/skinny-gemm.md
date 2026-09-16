@@ -17,3 +17,16 @@ Fix: drop `(1, 1)`, use `amdgpu_waves_per_eu(4, 8)` after the FA occupancy flip.
 - **Leave** RDNAHybridW4A16 + bf16 on gfx10 via skinny (Triton abort) — op rejects that combo cleanly; fp16 path stays.
 - Does not replace shuffled RDNA2 fused HIP MoE (`moe_gptq_gemm_rdna2`).
 - Occupancy note: existing `wvSplitKrc_` `amdgpu_waves_per_eu(1,1)` trap still open; same ticket as FA.
+
+## extras lock 2026-09-16 (tip `3092d635`, silicon commit `c350fa21`)
+
+PR #11 / donor PR #5 (George Muravei-Alkhavoi / GeorgeMA-Strong). Dest: `opengfx1030/vllm-rdna` `rdna_extras`.
+
+| Surface | Delta |
+|---|---|
+| `csrc/rocm/skinny_gemms.cu` `wvSplitK` | Drop shared static `Rdna2PersistBuf` + `rdna2_persist_zeros`. Output is per-call `torch::empty({N,M}, …)`. Shared persist storage aliased live projection outs across later GEMV / graph nodes. |
+| `vllm/.../layers/utils.py` | gfx1030 FP16/BF16 decode: qualified `wvSplitK` for **n = 1..5**. `gemv_f16_rdna2` for other gfx10x, for **n = 6..8** on gfx1030, and when `VLLM_RDNA_DENSE_GEMV=1`. New `on_gfx1030()` gate. |
+| `vllm/envs.py` | `VLLM_RDNA_DENSE_GEMV` default off (force GEMV for A/B). |
+| `rdna_all_reduce.py` | Integer device-index normalize for opt-in `rdna_ar` (still `VLLM_RDNA_AR=0` default; not production AR). |
+
+No `__launch_bounds__` / `waves_per_eu` change on `wvSplitKrc_`. No DOT builtin, LDS-tile, KV-quant, or CMake gfx1030 list change. Occupancy leftover still FA + skinny `(1,1)`. Do not invent numbers.

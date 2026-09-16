@@ -76,3 +76,17 @@ Same capture / D2H family, Python only on the scan; HIP adds gated RMSNorm (see 
 | `csrc/rocm/layernorm.cu` (+ ops/bindings) | New AOT `gated_rms_norm` for Qwen3.x GDN `RMSNormGated` (norm-before-gate, fp16, silu/sigmoid). |
 
 No `__launch_bounds__` / DOT / LDS-tile / KV-quant / CMake gfx1030 list change. Do not copy tok/s. Occupancy still FA-first.
+
+## extras lock 2026-09-16 (tip `3092d635`, was `e285a2a2`)
+
+Same freeze / ownership family. Room already Take'd. Not FA occupancy. No DOT / LDS-tile / KV-quant / CMake gfx1030 list change on these commits.
+
+| Surface | Delta |
+|---|---|
+| `csrc/rocm/skinny_gemms.cu` (`c350fa21`) | `wvSplitK` out: shared `Rdna2PersistBuf` → per-call `torch::empty`. **Do not share one PersistBuf across live projection outs** (or across GDN / PLE / HC / QSA freeze heaps). See [../kernels/skinny-gemm.md](../kernels/skinny-gemm.md). |
+| `csrc/rocm/ple_short_conv_rdna2.cu` + `ops.h` (`b26763e7`) | Optional-tensor schema (`Tensor?` ↔ `std::optional<Tensor>`) so `_rocm_C` loads; host wrappers no longer lie as plain `Tensor`. Load fix, not a tile change. |
+| GDN prefill Python (`143e2bf3`) | Fallback `_packed_out` path: `empty_like` → `zeros_like` (page-commit). |
+| `hc_combine_*` Python (`3092d635`) | Output buffers: `new_empty` → `new_zeros` (page-commit; same freeze class). |
+| PLE forward (`bb4cb3bd`) | `@eager_break_during_capture` on offload handshake (triage / capture break). |
+
+**Contract:** hc_combine is a third Flash-Next residual freeze heap (gated HC stream) — own arena/zeros before capture; separate from GDN rings, PLE short-conv, and QSA KV. Four freeze heaps if PLE armed. Do not fold APC-align stale-copy into the wvSplitK ticket. Occupancy still FA-first. Do not invent numbers.
