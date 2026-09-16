@@ -90,3 +90,14 @@ Same freeze / ownership family. Room already Take'd. Not FA occupancy. No DOT / 
 | PLE forward (`bb4cb3bd`) | `@eager_break_during_capture` on offload handshake (triage / capture break). |
 
 **Contract:** hc_combine is a third Flash-Next residual freeze heap (gated HC stream) — own arena/zeros before capture; separate from GDN rings, PLE short-conv, and QSA KV. Four freeze heaps if PLE armed. Do not fold APC-align stale-copy into the wvSplitK ticket. Occupancy still FA-first. Do not invent numbers.
+
+## extras lock 2026-09-16 (tip `8960a3bc`, was `d0d577f1`) — HC HIP compute + capture caveat
+
+Same page-commit family on the Python side; real HIP fix in `hc_rdna2.cu`. Not FA occupancy. No DOT / LDS-tile / KV-quant / CMake gfx1030 list / `__launch_bounds__` change.
+
+| Surface | Delta |
+|---|---|
+| `csrc/rocm/hc_rdna2.cu` | `GROUP_DIM`/`DIM`-bounded loops (Flash-Next width 2560); chunked `hc_combine_norm`; weight index `w_base[b]` (was OOB on unshared). See [../kernels/qwen4exp-flash-next-hip.md](../kernels/qwen4exp-flash-next-hip.md). |
+| `hc_rdna2.py` | `_contig()` + outs `new_zeros` (page-commit; same freeze class as hc_combine / GDN / EXL3). |
+
+**Capture:** HC ops pass Triton parity in isolation. Arming `VLLM_RDNA_HC_PREFILL_HIP=1` still faults PIECEWISE capture in MoE (`moe_gemm_q4_kernel_rdna2` / `moe_align_block_size_kernel`). Gate stays default-off. Do not invent numbers. Occupancy still FA-first.
