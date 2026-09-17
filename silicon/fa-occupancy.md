@@ -1,5 +1,11 @@
 # gfx1030 FA occupancy report
 
+## extras lock 2026-09-17 — `opengfx1030/vllm-rdna` `rdna_extras` @ `50120e13` (`d1b200b1`)
+
+GQA prefill `fa_prefill_paged_varlen_gqa_kernel_256`: O left LDS for registers (see [fa-gqa.md](fa-gqa.md)). Launcher smem no longer reserves `HEADS*BR*HEAD_DIM` floats for `sO`. **Not** a `__launch_bounds__` flip; other FA prefill kernels still `(N, 1)`. Do not close the occupancy card. Do not copy tok/s.
+
+---
+
 ## dest lock 2026-09-03 — `opengfx1030/vllm-rdna` `rdna_extras` @ `ea78104d`
 
 Official dest tip (BlivionIaG `rdna2_extras` is archive). FA HIP delta vs `8f2583d2`:
