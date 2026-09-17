@@ -31,3 +31,7 @@ The `ssm_state` RDNA2 uncommitted-page probe (`torch.isnan(...).any().item()` / 
 ## NULL_BLOCK_ID=0 sentinel (dest `7779514b`, 2026-09-08)
 
 `gdn_decode_rdna2.cu`: guard was `state_idx < 0 || state_idx >= num_blocks_g`. Production sentinel is **`NULL_BLOCK_ID=0`** (`vllm.v1.attention.backends.utils`). Tip now uses **`state_idx <= 0`** — zero output, leave state untouched. Without it, slot 0 (real weights) was treated as a valid tile and corrupted the GDN recurrence on the first scheduled request. Tile / LDS / `(2,4)` occupancy attr unchanged.
+
+## extras lock 2026-09-17 (tip `50120e13`, engine `388a61b6`)
+
+Python only (`qwen_gdn_linear_attn.py`): removed the one-shot `conv_state.zero_()` / `ssm_state.zero_()` “page-commit sanitizers” that ran on the first `gdn_decode_rdna2` of a process. Those wiped the paged GDN state **after** the first request’s prefill had written recurrent state, so fresh-server long prompts decoded from zeros. KV backing is already zero-initialised by `allocate_kv_cache` — wipes unnecessary and harmful. HIP decode tile / LDS / `(2,4)` unchanged. Supersedes the capture-guard narrative around one-shot `zero_()` as a correctness path; keep host-sync probes illegal under capture ([../silicon/graph-capture.md](../silicon/graph-capture.md)).
