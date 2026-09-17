@@ -32,3 +32,7 @@ HIP: `gdn_prefill_delta_h_rdna2.cu` chunk-local pointer rebase (table row above)
 
 Engine note (not ISA): `5ce7d86e` defaulted the HIP prefill chain **off** (`VLLM_GDN_HIP_PREFILL=1` opt-in) after multi-chunk corruption; `aac1fcd6` re-enables the chain by default (`VLLM_GDN_HIP_PREFILL=0` rollback). Decode HIP stayed on through both. Until that fix, hybrid chunked-prefill for GDN state layers was Triton/generic for prefill. Regression: `tests/kernels/test_gdn_prefill_rdna2.py`. Occupancy leftover still FA prefill `(N,1)`. Do not invent numbers. Do not copy tok/s.
 
+
+## extras lock 2026-09-17 (tip `50120e13`, engine `cd1231fd`)
+
+Engine only (no `csrc/rocm` tile change): `VLLM_GDN_HIP_PREFILL` defaults to **off** again. Must set `VLLM_GDN_HIP_PREFILL=1` to use the RDNA2 HIP 5-kernel chain; default path is Triton/FLA. Reverses the `aac1fcd6`-era default-on. Decode HIP path unchanged. Occupancy leftover still FA prefill `(N,1)`. Do not invent numbers. Do not copy tok/s.
