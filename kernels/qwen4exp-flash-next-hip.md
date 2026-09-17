@@ -1,6 +1,6 @@
 # Qwen3.8-Flash-Next / Qwen4Exp HIP — tip `8960a3bc`
 
-Dest: `opengfx1030/vllm-rdna` `rdna_extras` @ **`8960a3bc`** (2026-09-16). Flash-Next / Qwen4Exp gfx1030 HIP opt-in paths. No tok/s. Occupancy still first.
+Dest: `opengfx1030/vllm-rdna` `rdna_extras` @ **`50120e13`** (2026-09-17; HC capture-safe `_contig` on top of `8960a3bc`). Flash-Next / Qwen4Exp gfx1030 HIP opt-in paths. No tok/s. Occupancy still first.
 
 CMake gfx1030 `EXT_SRC` includes: `rdna_fused_glue.cu`, `hc_rdna2.cu`, `qsa_rdna2.cu`, `ple_short_conv_rdna2.cu`, `mrope_rdna2.cu` (plus prior list). Unchanged by this tip.
 
@@ -37,6 +37,11 @@ Author parity vs Triton at `N=4, DIM=10240, hc_count=4, HC_DIM=2560, W_SHARED=0`
 
 Wrappers from `d0d577f1` remain: `hc_{grouped_gemma_rmsnorm,silu,gate_mix,combine,combine_norm}_rdna2` in `_custom_ops.py` matching `torch_bindings.cpp`. Without them the path was inert (`AttributeError`).
 
+#### extras lock 2026-09-17 (tip `50120e13`, was `8960a3bc`)
+
+`hc_rdna2.py` `_contig()`: per-call `.contiguous()` allocated a temp whose address was recorded under cudagraph capture and freed before replay (stale reads). Now caches one `torch.empty` buffer per `(shape, dtype, device)` and `copy_` into it. Gate `VLLM_RDNA_HC_PREFILL_HIP` still default-off (path inert in validated serve). Caveat: same-shape live values in one step can clobber; prefer per-call-site persistent buffers later (EXL3 CG-PATH style). No `csrc/rocm/hc_rdna2.cu` / launch_bounds / DOT / CMake change.
+
+
 ### T48 `qsa_rdna2.cu` — QSA decode glue
 
 - `qsa_store_cache_rows` / `qsa_compress_groups` scalar; MQA host wrapper reuses existing `paged_mqa_logits_decode_rdna2` when layout matches.
@@ -57,7 +62,7 @@ Wrappers from `d0d577f1` remain: `hc_{grouped_gemma_rmsnorm,silu,gate_mix,combin
 - Do not flip `VLLM_RDNA_HC_PREFILL_HIP=1` on serve until MoE PIECEWISE capture fault is resolved (HC alone is not enough).
 - No transplant of HC/PLE onto GLM KDA / norm-after-gate (same split as gated_rms_norm / causal_conv).
 - No WMMA/FP8 objects; gfx1030 stays fdot2 / EXL3.
-- No `__launch_bounds__` / DOT / LDS-tile / KV-quant / CMake gfx1030 list change in `8960a3bc`.
+- No `__launch_bounds__` / DOT / LDS-tile / KV-quant / CMake gfx1030 list change in `8960a3bc` or `50120e13` (HC lock is Python dispatcher only).
 
 ## Occupancy
 
