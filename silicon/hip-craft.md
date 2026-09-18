@@ -95,6 +95,8 @@ HIP C++ language extensions (https://rocm.docs.amd.com/projects/HIP/en/latest/ho
 
 So: LLVM will compile `-mwavefrontsize64`. The **HIP runtime** does not advertise wave64 on gfx10+. Treat wave64 as an LLVM experiment, not a shippable HIP default. Measure only if you have a wide-reduction reason; it doubles VGPR cost per wave and turns every VALU into two beats (ISA §2.1).
 
+Dedicated occupancy page: [wgp-cu-mode-occupancy.md](wgp-cu-mode-occupancy.md) (launch-mode axis; sibling of [wave-size-occupancy.md](wave-size-occupancy.md)).
+
 **When `-mcumode` is worth measuring:** the kernel is **LDS-bandwidth bound**, the workgroup is happy on 2 SIMD32s, and you are not using the second CU’s ALUs. Attention softmax scratch is the candidate. A VALU-bound 8-wave GEMM that wants 4 SIMD stays in WGP mode.
 
 ### 1.3 `amdgpu_waves_per_eu` vs `__launch_bounds__`

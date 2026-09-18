@@ -4,7 +4,7 @@ Lock: **wavefront size is not a PIX limiter row — it rescales every term that 
 
 Does **not** change extras HIP or tickets. No tok/s. Do not restate the FA pin.
 
-Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [lds-bank-occupancy.md](lds-bank-occupancy.md), [occupancy-composite.md](occupancy-composite.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §1 / §1.3, [architecture.md](architecture.md) §2.3–2.4.
+Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [lds-bank-occupancy.md](lds-bank-occupancy.md), [wgp-cu-mode-occupancy.md](wgp-cu-mode-occupancy.md), [occupancy-composite.md](occupancy-composite.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §1 / §1.3, [architecture.md](architecture.md) §2.3–2.4.
 
 ## Take / Leave
 

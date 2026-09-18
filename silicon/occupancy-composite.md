@@ -14,7 +14,7 @@ waves/EU = min(
 
 Does **not** change extras HIP or tickets. No tok/s. Do not restate the FA pin.
 
-Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [wave-size-occupancy.md](wave-size-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §1.3 / §6, [fa-occupancy.md](fa-occupancy.md), [architecture.md](architecture.md) § occupancy.
+Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [wave-size-occupancy.md](wave-size-occupancy.md), [wgp-cu-mode-occupancy.md](wgp-cu-mode-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §1.3 / §6, [fa-occupancy.md](fa-occupancy.md), [architecture.md](architecture.md) § occupancy.
 
 ## Take / Leave
 
@@ -22,6 +22,7 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occup
 |---|---|
 | **Take** | Size with `llvm-calc-occupancy -mcpu=gfx1030 -mattr=+wavefrontsize32 --wg-size=N --vgprs=V --lds=L`. Read **Limited by:** then open the matching sibling page. Omit `--sgprs` on gfx1030 (non-limiter). |
 | **Take** | Wave size is an **input** to the fold, not a PIX row — keep `+wavefrontsize32` unless measuring an LLVM-only wave64 experiment ([wave-size-occupancy.md](wave-size-occupancy.md)). |
+| **Take** | Launch mode (WGP/`-mno-cumode` vs CU/`-mcumode`) is also an **input** — keep WGP unless measuring LDS-bandwidth CU ([wgp-cu-mode-occupancy.md](wgp-cu-mode-occupancy.md)). |
 | **Take** | Gate launches with `hipOccupancyMaxActiveBlocksPerMultiprocessor` after the theory pass — runtime 0 means do not launch, even when the calc says otherwise ([vgpr-occupancy.md](vgpr-occupancy.md) §4). |
 | **Take** | PIX / GPUOpen limiter names map 1:1 to wiki pages: **VGPR** → vgpr; **LDS** → lds; **Thread Group Size** → wg-size; **Barriers** → barrier. SGPR is absent on RDNA (fixed 128). |
 | **Take** | Measured occupancy can sit under theory for **lack of work** (grid << 40 WGP × 4 SIMD × 16) or **launch-rate** drain — those are SPI/ACE issues, not a fifth PIX resource. |
