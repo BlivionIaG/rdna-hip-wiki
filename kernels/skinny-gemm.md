@@ -18,7 +18,7 @@ Fix: drop `(1, 1)`, use `amdgpu_waves_per_eu(4, 8)` after the FA occupancy flip.
 - Does not replace shuffled RDNA2 fused HIP MoE (`moe_gptq_gemm_rdna2`).
 - Occupancy note: existing `wvSplitKrc_` `amdgpu_waves_per_eu(1,1)` trap still open; same ticket as FA.
 
-## extras lock 2026-09-16 (tip `3092d635`, silicon commit `c350fa21`)
+## extras lock 2026-09-16 (tip `3092d635`, silicon commit `c350fa21`) — SUPERSEDED for dispatch
 
 PR #11 / donor PR #5 (George Muravei-Alkhavoi / GeorgeMA-Strong). Dest: `opengfx1030/vllm-rdna` `rdna_extras`.
 
@@ -30,3 +30,15 @@ PR #11 / donor PR #5 (George Muravei-Alkhavoi / GeorgeMA-Strong). Dest: `opengfx
 | `rdna_all_reduce.py` | Integer device-index normalize for opt-in `rdna_ar` (still `VLLM_RDNA_AR=0` default; not production AR). |
 
 No `__launch_bounds__` / `waves_per_eu` change on `wvSplitKrc_`. No DOT builtin, LDS-tile, KV-quant, or CMake gfx1030 list change. Occupancy leftover still FA + skinny `(1,1)`. Do not invent numbers.
+
+## extras lock 2026-09-18 (tip `3b59ee16`, silicon commit `5c4ab989`) — LIVE decode dispatch
+
+**Revert** of the PR #5 / PR #11 gfx1030 `wvSplitK` decode port. Verified on `.176` (4× V620): patched path device-asserts in `wvSplitK_hf_big_` (`skinny_gemms.hip:1168`, `assert(false)`) and dies during cudagraph capture; revert restores PASS 3/3.
+
+| Surface | Delta |
+|---|---|
+| `vllm/.../layers/utils.py` | gfx1030 decode: **`gemv_f16_rdna2` for all FP16 M≤8**. No gfx1030 `wvSplitK` / LLMM1 path. Comment: wvSplitK/LLMM1 are gfx9/gfx11+ only and RDNA build is numerically wrong on gfx1030. |
+| `vllm/platforms/rocm.py` | Remove `on_gfx1030()` (only used by the reverted port). `on_gfx10x()` stays. |
+| tests | Drop `test_gfx1030_decode_dispatch`. |
+
+PersistBuf ownership fix inside `wvSplitK` host (`torch::empty` per call) remains in tree for non-gfx1030 skinny users; **gfx1030 no longer dispatches into it for decode**. No DOT / LDS-tile / CMake gfx1030 list / `__launch_bounds__` change. Occupancy leftover still FA + skinny `(1,1)`. Do not invent numbers.
