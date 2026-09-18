@@ -86,4 +86,4 @@ Record cold compile, warm, median/p10/p90, VGPR/LDS/spills/waves, DRAM bytes, IC
 - [valu.md](valu.md) GPUOpen 256 FP16 / clk / CU
 - RDNA 2 ISA 70648: `V_DOT2_F32_F16` / `V_DOT2C_F32_F16`
 - hip-craft: hipcc does not peephole `hfma2` → DOT2
-- vLLM `rocm_unquantized_gemm_impl`: skinny gated off gfx1030
+- vLLM `rocm_unquantized_gemm_impl`: skinny/`wvSplitK` gated off gfx1030 (2026-09-18 tip `3b59ee16` / `5c4ab989`: decode uses `gemv_f16_rdna2` for FP16 M≤8; PR #5 wvSplitK port reverted after device assert in `wvSplitK_hf_big_`)
