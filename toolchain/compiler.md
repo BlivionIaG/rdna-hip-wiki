@@ -4,6 +4,10 @@ Date: **2026-09-10**. Audience: someone compiling HIP for **gfx1030** (live), wi
 
 Companions: [silicon/hip-craft.md](../silicon/hip-craft.md).
 
+## 2026-09-17 — TheRock SMP ww36-2.1 (nightly pin, not dest)
+
+[TheRock#8266](https://github.com/ROCm/TheRock/pull/8266) **merged** 2026-09-17 14:19 Europe/Paris (`fd55c6ac`). Compiler pin **SMP ww36-2.0 / amd-llvm `bc1e171b6a53` → ww36-2.1 / `16df93c778f8`**. hipify `06ebcc28` and spirv `0dcc5cc5` **unchanged**. Single CP: revert `[clang][DebugInfo] Emit static local variables in their lexical block scope` ([ROCm/llvm-project#4465](https://github.com/ROCm/llvm-project/pull/4465) / `16df93c778f8`) — ASAN-DEBUG build fix (LCOMPILER-2794), **not** an RDNA ISA lever. TheRock HEAD was `fd55c6ac` at merge; later same day systems bump [#8258](https://github.com/ROCm/TheRock/pull/8258) → HEAD `bbd401f0`, systems `d378a17` (compiler pin unchanged). Libraries still `320d658`. Nightly tip still **`10.2.0a20260917` L+W** (core + device-gfx1030/1100/900); no `a20260918`, so published wheels do **not** yet carry ww36-2.1. **No RDNA dest bump** — live stays **7.14.0** `hipcc --offload-arch=gfx1030 -O3` wave32 WGP. Still open: systems `#8288`, libraries `#8289`, COT+ASAN `#8248`. Drop `#8266` from watches.
+
 ## Live rule
 
 - Compiler in every existing build line is **`hipcc --offload-arch=gfx1030`**.

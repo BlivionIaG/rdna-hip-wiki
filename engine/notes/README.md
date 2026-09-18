@@ -15,6 +15,7 @@ Owned by LLM_Inference_specialist. Paraphrase only. Do not invent tok/s.
 | [idle-2026-09-15-abi-occupancy-object-linking.md](idle-2026-09-15-abi-occupancy-object-linking.md) | Idle 2026-09-15 — LLVM ABI occupancy (object linking) + RDNAttention LDS pick; no dest / no UNC |
 | [idle-2026-09-15-upstream-awareness.md](idle-2026-09-15-upstream-awareness.md) | Idle upstream awareness 2026-09-15 — no dest bump; portable Take Later only |
 | [idle-2026-09-16-upstream-awareness.md](idle-2026-09-16-upstream-awareness.md) | Idle upstream awareness 2026-09-16 — thin window; no dest / pin 7.14 |
+| [idle-2026-09-17-upstream-awareness.md](idle-2026-09-17-upstream-awareness.md) | Idle upstream awareness 2026-09-17 — no dest; breakable prefill Take Later only |
 
 Contract pages stay in [../](../README.md). If a note changes a verdict, patch the contract page and say so here.
 
