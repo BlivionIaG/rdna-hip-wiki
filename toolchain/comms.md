@@ -2,6 +2,15 @@
 
 Date: **2026-09-03**. Owned by ROCM_specialist (library/runtime plumbing). Measured P2P and topology work stays in [silicon/rccl-p2p.md](../silicon/rccl-p2p.md).
 
+
+## 2026-09-21 — RCCL Navi restores (systems tip, not dest)
+
+Landed in TheRock systems pin `9f9214b` window:
+- [rocm-systems#11752](https://github.com/ROCm/rocm-systems/pull/11752) restores Navi optimizations lost after an NCCL sync.
+- [rocm-systems#11803](https://github.com/ROCm/rocm-systems/pull/11803) sets gfx110x AlltoAll to **1 channel** to cut >32MB variance (ROCM-30174).
+
+Live dest still PYNCCL / pin 7.14; do not flip `VLLM_RDNA_AR` / `FORCE_CUSTOM_ALL_REDUCE` from these alone.
+
 ## 2026-09-03 — "Navi optimizations" ([rocm-systems#11035](https://github.com/ROCm/rocm-systems/pull/11035))
 
 Open PR by `PJAvinash` (created 2026-09-01, updated 2026-09-03, JIRA AICOMRCCL-1906) against `projects/rccl`. Author's own claims, unbenchmarked by us:

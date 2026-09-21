@@ -1,8 +1,20 @@
 # Compiler / hipcc
 
-Date: **2026-09-10**. Audience: someone compiling HIP for **gfx1030** (live), with later **gfx1100** and **gfx900** TUs.
+Date: **2026-09-21**. Audience: someone compiling HIP for **gfx1030** (live), with later **gfx1100** and **gfx900** TUs.
 
 Companions: [silicon/hip-craft.md](../silicon/hip-craft.md).
+
+## 2026-09-21 — TheRock SMP ww37.1.0 (nightly pin, not dest)
+
+[TheRock#8306](https://github.com/ROCm/TheRock/pull/8306) **merged** 2026-09-18 19:19 Europe/Paris (`2dbede93`) — landed just after the 19:11 scan that still had it open. Compiler pin **SMP ww36-2.1 / amd-llvm `16df93c778f8` → ww37.1.0 / `6bd80f15ed27`**. hipify `06ebcc28` → `501cd6c1`; spirv `0dcc5cc5` → `2c14c774`. CP window is mostly **gfx1250-strict** instruction disables + **Comgr hotswap** expansion (VOPD, SOP1 bitops, SOPP fences, wider SMEM) + general AMDGPU (DPP combine, WWM RegisterClassInfo refresh, PromoteAlloca, waitcnt `BUFFER_INV`, TargetParser VGPR APIs). **No RDNA ISA dest lever** for gfx1030/1100/900. FDOT2 fold fix for non-constant lane indices is in the window but is not a live gfx1030 flip (and gfx900 still has no fdot2).
+
+Same-evening compiler layout: [#8307](https://github.com/ROCm/TheRock/pull/8307) re-enables `LLVM_ENABLE_PER_TARGET_RUNTIME_DIR=ON` (compat-symlink path after the earlier host-OFF revert); [#8358](https://github.com/ROCm/TheRock/pull/8358) points compiler-rt device cache at `AMDGPU.cmake`.
+
+Nightly tip **`10.2.0a20260918` → `10.2.0a20260921` L+W** (core + device-gfx1030/1100/900; 0920 is also published; no 0919). Published nightly tip `90fea14c`; systems `9f9214b`; libraries `80414d8` at the scan's prior tip. **No RDNA dest bump** — live stays **7.14.0** `hipcc --offload-arch=gfx1030 -O3` wave32 WGP. Drop `#8306` from watches.
+
+Post-13:01 CEST movement: [TheRock#8385](https://github.com/ROCm/TheRock/pull/8385) merged 2026-09-21 13:12 CEST, bumping rocm-libraries `80414d8` → `3082a49` (hipBLASLt bad-tile removal for gfx1250 and Origami TemporalHints; neither is a gfx1030/1100/900 compiler/runtime pin). Open [#8392](https://github.com/ROCm/TheRock/pull/8392) proposes `3082a49` → `994fed0`, not merged at scan time.
+
+RCCL (systems, not compiler): [rocm-systems#11752](https://github.com/ROCm/rocm-systems/pull/11752) restore Navi opts post-NCCL sync; [rocm-systems#11803](https://github.com/ROCm/rocm-systems/pull/11803) gfx110x AlltoAll channels=1 temp fix (variance). Track under comms; do not change dest AR knobs from this alone.
 
 ## 2026-09-17 — TheRock SMP ww36-2.1 (nightly pin, not dest)
 
