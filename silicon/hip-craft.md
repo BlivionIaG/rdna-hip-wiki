@@ -345,6 +345,8 @@ Hidden / implicit args (`llvm.amdgcn.implicitarg.ptr`, dispatch ptr, queue ptr) 
 
 RDNA deck: “mind the I$ size.” 32 KB/WGP is shared by 4 SIMD32. A fully unrolled 128×128 epilogue plus four dequant helpers will miss it; every miss is a scalar-instruction stall, not a VMEM stall, and occupancy will not hide it the way it hides GDDR6.
 
+Dedicated lock: [icache-occupancy.md](icache-occupancy.md) (not a PIX MaxWaves row; SQC counters / Take–Leave).
+
 Craft:
 
 - Unroll the **inner K** (8–16 DOT2 / sdot4) to cover the 5-cycle VALU dest latency (RDNA deck).

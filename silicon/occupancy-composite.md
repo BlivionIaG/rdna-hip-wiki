@@ -14,7 +14,7 @@ waves/EU = min(
 
 Does **not** change extras HIP or tickets. No tok/s. Do not restate the FA pin.
 
-Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [wave-size-occupancy.md](wave-size-occupancy.md), [wgp-cu-mode-occupancy.md](wgp-cu-mode-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §1.3 / §6, [fa-occupancy.md](fa-occupancy.md), [architecture.md](architecture.md) § occupancy.
+Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [wave-size-occupancy.md](wave-size-occupancy.md), [wgp-cu-mode-occupancy.md](wgp-cu-mode-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [icache-occupancy.md](icache-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §1.3 / §6, [fa-occupancy.md](fa-occupancy.md), [architecture.md](architecture.md) § occupancy.
 
 ## Take / Leave
 
@@ -28,6 +28,7 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occup
 | **Take** | Measured occupancy can sit under theory for **lack of work** (grid << 40 WGP × 4 SIMD × 16) or **launch-rate** drain — those are SPI/ACE issues, not a fifth PIX resource. |
 | **Leave** | Do not use GPUOpen RDNA3 examples (1536 VGPR / RX 7900) as gfx1030 constants — V620 SIMD file is **1024** VGPR, MaxWaves **16**. |
 | **Leave** | Do not put `.private_segment_fixed_size` / scratch into `llvm-calc-occupancy` or the theoretical min ([scratch-occupancy.md](scratch-occupancy.md)). |
+| **Leave** | Do not put I$ / code size into the theoretical min — fetch stalls are effective occupancy only ([icache-occupancy.md](icache-occupancy.md)). |
 | **Leave** | Do not maximize occupancy as a goal. ALU-bound kernels want utilization, not more waves; memory-bound kernels can thrash IC/L2 if you over-fill ([GPUOpen Occupancy explained](https://gpuopen.com/learn/occupancy-explained/)). |
 | **Leave** | Do not open a ticket / retip extras for this fold. |
 
@@ -41,6 +42,7 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occup
 | Barriers | [barrier-occupancy.md](barrier-occupancy.md) | `getMaxWorkGroupsPerCU` → `min(MaxWaves/N, 32)` WGP / `16` CU; `N==1` free |
 | *(absent)* SGPR | [sgpr-occupancy.md](sgpr-occupancy.md) | `isSGPROccupancyLimited` false → always 16 |
 | *(out of min)* Scratch | [scratch-occupancy.md](scratch-occupancy.md) | not in `computeOccupancy` / no `--scratch` |
+| *(out of min)* I$ / code size | [icache-occupancy.md](icache-occupancy.md) | not a PIX MaxWaves row; SQC miss → wave idle |
 
 `getMaxWorkGroupsPerCU` (AMDGPUBaseInfo.cpp) already packs **wave slots + barriers**:
 
@@ -137,4 +139,4 @@ Pin `__launch_bounds__(REAL_BLOCK, MIN_WAVES)` or `amdgpu_waves_per_eu` + `amdgp
 3. LLVM `AMDGPUSubtarget::getOccupancyWithWorkGroupSizes` / `IsaInfo::getMaxWorkGroupsPerCU` — `AMDGPUSubtarget.cpp`, `AMDGPUBaseInfo.cpp` (main tip 2026-09-11)
 4. LLVM `llvm-calc-occupancy.cpp` combine loop (`Limited by:` list)
 5. RDNA 2 ISA 70648 §2.3.1 / §10.3 — WGP vs CU, LDS cap
-6. Sibling locks in this folder (VGPR / LDS / barrier / WG-size / SGPR / scratch / dump)
+6. Sibling locks in this folder (VGPR / LDS / barrier / WG-size / SGPR / scratch / I$ / dump)

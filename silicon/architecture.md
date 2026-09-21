@@ -324,6 +324,8 @@ Two independent official pictures, consistent on sizes:
 
 Navy Flounder (Navi 22): L2 **3072 KB**, L3 **96 MB**. Dimgrey Cavefish (Navi 23): L2 **2048 KB**, L3 **32 MB**. Beige Goby (Navi 24) is in later tables as L2 **1 MB**, L3 **16 MB** (same file family; treat Navi 24 L3 as kernel-confirmed, product-page confirmation not opened in this pass).
 
+Occupancy framing for I$ (not a PIX MaxWaves limiter; fetch-stall / effective occupancy): [icache-occupancy.md](icache-occupancy.md).
+
 HIP: vector L1/L0 is **write-through** to L2, “typical size of 16 KB per CU”, software-managed coherence between CUs. Scalar L1 and I$ are **not** hit-on-miss (duplicate pending fills count as misses). L2 **is** hit-on-miss.
 
 **Associativity:** **unknown** in the ISA, the RDNA deck, HIP, and `kfd_crat.c`. Do not invent 16-way. If you need it, it lives in an unreleased block diagram or a microbenchmark (Chips and Cheese reports 16-way L1/L2 on RDNA 2; that is not an AMD doc).

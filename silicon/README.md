@@ -24,6 +24,7 @@ How gfx1030 actually works, and what HIP can control.
 | [wave-size-occupancy.md](wave-size-occupancy.md) | Wave32 vs wave64: rescales VGPR/N/beats; HIP ships wave32; not a PIX row |
 | [wgp-cu-mode-occupancy.md](wgp-cu-mode-occupancy.md) | WGP vs CU (`-mcumode`): LDS pool / barriers / SIMDs-per-WG; HIP ships WGP |
 | [occupancy-composite.md](occupancy-composite.md) | Fold: min(VGPR, LDS, WG/barrier); llvm-calc-occupancy; PIX↔LLVM; measured vs theory |
+| [icache-occupancy.md](icache-occupancy.md) | I$/SQC 32 KB/WGP: not a PIX MaxWaves row; fetch-stall vs effective occupancy |
 | [graph-capture.md](graph-capture.md) | Capture vs page-commit guard: no D2H on the captured path; `Tensor!` on every HIP out arg |
 | [codegen-stack.md](codegen-stack.md) | Use HIP+DOT; ignore CK XDL, hipBLASLt, rocWMMA, AITER |
 | [valu.md](valu.md) | gfx1030 VALU: enc / size / issue / which DOT we fire. gfx1100 extras |

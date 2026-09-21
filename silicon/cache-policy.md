@@ -296,6 +296,8 @@ What you can bypass from HIP/LLVM on gfx1030:
 
 A decode kernel that “prefetches the next layer into IC” is **an ordinary LRU load of a working set that fits**, issued early, not a prefetch opcode.
 
+I$ vs occupancy (32 KB/WGP, out of PIX min): [icache-occupancy.md](icache-occupancy.md).
+
 ### 2.7 Non-temporal
 
 HIP/Clang (GPUOpen lab notes, Laplacian part 3, opened):
