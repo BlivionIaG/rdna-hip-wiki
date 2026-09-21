@@ -10,6 +10,10 @@ In the fork. Tip `e268c7d3`. HIP ISA lock `a2c8d5cf`: own `exl3_dot2_*` files, n
 
 HIP compiles `cb==0` (`3inst`) and `cb==1` (`mcg`). `cb==2` (`mul1`) does not launch. Live Python still only feeds unmarked 2/3/4-bit single-shard into the kernel; marked mul1/mcg layers fold fp16.
 
+## Arch guard lock 2026-09-21 (dest tip `f3dd65fa` / `3d6df9ed`)
+
+`__HIP__RDNA__` on `exl3_dot2_{dense,dequant,moe}.cu` matches the docker RDNA fatbin set: `gfx1030`/`1031`, `gfx1100`/`1101`, `gfx1150`/`1151`, `gfx1200`/`1201`. Compile-guard only — ISA and tile contract above unchanged. Not `gfx900`/`906`/`1013`. See [../silicon/exl3.md](../silicon/exl3.md).
+
 ## Pack
 
 ```

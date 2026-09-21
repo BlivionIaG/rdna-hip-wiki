@@ -104,7 +104,7 @@ After `02357ecd` (Python glue) and `25e8788` (hybrid pages): HIP delta is EXL3 6
 
 | File | Delta |
 |---|---|
-| `csrc/rocm/exl3_dot2_dequant.cu` | **new** load-time `exl3_dequant_bits6_mul1`: tile `16×16` thr, **no LDS**, no `__launch_bounds__`; `dq4<6>` window → `decode_3inst<2>` (`mul1`) → fp16 out. Caller applies `suh`/`svh` in PyTorch. gfx1030/gfx1100 only. |
+| `csrc/rocm/exl3_dot2_dequant.cu` | **new** load-time `exl3_dequant_bits6_mul1`: tile `16×16` thr, **no LDS**, no `__launch_bounds__`; `dq4<6>` window → `decode_3inst<2>` (`mul1`) → fp16 out. Caller applies `suh`/`svh` in PyTorch. `__HIP__RDNA__` arch set — see 2026-09-21 lock. |
 | `csrc/rocm/exl3_dot2_common.cuh` | `exl3_window_at` special-cases `bits==6` via `dq4<6>` (generic pair path wrong on odd indices in a dq4 batch). Generic leftover is `{3,5,7,8}`. |
 | `csrc/rocm/exl3_dot2_dense.cu` | Launch now accepts `bits==6` and `cb==2` (`mul1`). `size_m/n/k` derived from tensor shapes (dynamo ABI), not Python ints. |
 | `CMakeLists.txt` / `ops.h` / `torch_bindings.cpp` | Adds `exl3_dot2_dequant.cu` + `exl3_dequant_bits6_mul1` binding; GEMM signature drops size ints. |
@@ -119,6 +119,20 @@ This one matters here because `suh`/`svh` are a **separate kernel outside the K-
 
 Produce policy unchanged: expert produce stays `3inst` (`cb==0`), `mcg` compile-only, `mul1` still the 6bpw lm_head one-shot. Occupancy leftover stays FA prefill `(N,1)`. Do not copy tok/s.
 
+
+
+## extras lock 2026-09-21 (tip `f3dd65fa` / `3d6df9ed`)
+
+HIP-only delta since tip `4425834a`: `__HIP__RDNA__` preprocess guard on `exl3_dot2_{dense,dequant,moe}.cu` widened so device-compile for the docker multi-arch list still sees the kernel macros.
+
+Was: `gfx1030` | `gfx1100` only.
+Now: `gfx1030` | `gfx1031` | `gfx1100` | `gfx1101` | `gfx1150` | `gfx1151` | `gfx1200` | `gfx1201`.
+
+Why: docker-bake `PYTORCH_ROCM_ARCH` builds those RDNA consumer arches; non-matching device passes dropped `V2_*` / kernel bodies and failed the fatbin (unknown type name). Intentional: these kernels are wave32 + `V_DOT2` generic, not generation-gated like `q_gemm_rdna2` / some mxfp4 paths.
+
+Unchanged: tile layout, `decode_3inst` → `half2` → `fdot2`, LDS shapes, no GEMM `__launch_bounds__` / `waves_per_eu`, produce policy (`3inst` experts; `mul1` = 6bpw lm_head dequant). Does **not** add `gfx900` / `gfx906` / `gfx1013` (no DOT fatbin onto those). Occupancy leftover still FA prefill `(N,1)` / EXL3 VGPR. Do not invent numbers. Do not copy tok/s.
+
+Other tip commits (`f3dd65fa` PR #15 QSA live-prefill bound, PLE/MTP CPU restore, amdsmi fallback) are Python/docs/serve — not HIP/ISA.
 
 ## extras lock 2026-09-04 (tip `aac1fcd6`)
 
