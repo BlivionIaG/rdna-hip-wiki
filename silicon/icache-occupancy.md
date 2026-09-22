@@ -8,7 +8,7 @@ Does **not** change extras HIP or UNC tickets. No tok/s. Do not restate the FA p
 
 Date: **2026-09-21** Europe/Paris.
 
-Companions: [architecture.md](architecture.md) §4.3, [cache-policy.md](cache-policy.md) §2.6, [occupancy-composite.md](occupancy-composite.md), [hip-craft.md](hip-craft.md) §4.2, [fa-occupancy.md](fa-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md).
+Companions: [architecture.md](architecture.md) §4.3, [cache-policy.md](cache-policy.md) §2.6, [occupancy-composite.md](occupancy-composite.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [hip-craft.md](hip-craft.md) §4.2, [fa-occupancy.md](fa-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md).
 
 ## Take / Leave
 
@@ -19,6 +19,7 @@ Companions: [architecture.md](architecture.md) §4.3, [cache-policy.md](cache-po
 | **Take** | When a fat unrolled / EXL3-style kernel underperforms despite healthy VGPR∩LDS occupancy, collect **SQC_ICACHE_HITS / MISSES / REQ** (rocprofiler-compute Icache hit rate) before shaving another VGPR. |
 | **Take** | Extra waves help I$-miss latency **only if** other resident waves still have ready instructions already in I$. Same-kernel thrash of one hot path is **not** fixed by more occupancy (unlike GDDR6 VMEM). |
 | **Leave** | Do **not** put I$ / code size into `llvm-calc-occupancy` or PIX `WaveOccupancyLimiters` (VGPR / LDS / Thread Group Size / Barriers only). |
+| **Leave** | Vector L0/GL1 thrash is a **separate** out-of-min sibling — see [l0-gl1-occupancy.md](l0-gl1-occupancy.md). |
 | **Leave** | Do **not** invent a gfx1030 I$-miss cycle count — the ISA / GPUOpen occupancy page do not publish one. Profile hit rate + wave idle instead. |
 | **Leave** | Do **not** rely on `.amdhsa_inst_pref_size` / COMPUTE_PGM_RSRC3 initial prefetch as a gfx1030 lever — that encoding is **gfx11+** (LLVM). `S_INST_PREFETCH` exists on GFX10 but is a **short ahead-of-PC** hint (1–3 × 64 B), not a cure for a 64 KB+ working set. |
 | **Leave** | Do not open UNC / retip extras for this page. |
