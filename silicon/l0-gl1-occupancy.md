@@ -8,7 +8,7 @@ Does **not** change extras HIP or UNC tickets. No tok/s. Do not restate the FA p
 
 Date: **2026-09-22** Europe/Paris.
 
-Companions: [architecture.md](architecture.md) §4.3, [cache-policy.md](cache-policy.md) §1 / §3, [infinity-cache.md](infinity-cache.md), [occupancy-composite.md](occupancy-composite.md), [icache-occupancy.md](icache-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [fa-occupancy.md](fa-occupancy.md), [hip-craft.md](hip-craft.md) §1.3 / §6.
+Companions: [architecture.md](architecture.md) §4.3, [cache-policy.md](cache-policy.md) §1 / §3, [infinity-cache.md](infinity-cache.md), [l2-occupancy.md](l2-occupancy.md), [occupancy-composite.md](occupancy-composite.md), [icache-occupancy.md](icache-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [fa-occupancy.md](fa-occupancy.md), [hip-craft.md](hip-craft.md) §1.3 / §6.
 
 ## Take / Leave
 
@@ -75,6 +75,7 @@ waves/EU = min(VGPR, SGPR→always 16, LDS+WG+barrier)
 | Scratch / private | **No** | Latency; rare ROCr `waves_per_cu` cut |
 | I$ (SQC) | **No** | Instruction-fetch idle ([icache-occupancy.md](icache-occupancy.md)) |
 | **L0 / GL1** | **No** | Memory-wait / cache thrash; measured occupancy can look “full” while effective latency hiding collapses |
+| L2 | **No** | GPU-wide mid-cache thrash ([l2-occupancy.md](l2-occupancy.md)) |
 | Infinity Cache | **No** | GPU-wide thrash ([infinity-cache.md](infinity-cache.md)) |
 
 GPUOpen Occupancy explained: compile-time reservation set is **VGPR, SGPR (fixed on RDNA), LDS, threadgroup size, barriers**. Cache hierarchy is the **other** side of the story — “Peak occupancy does not always mean peak performance”: more waves can thrash scarce shared caches outside the WGP booking model. Occupancy is capacity to hide memory latency by switching waves; L0/GL1 thrash **increases** that latency and can make extra waves harmful.
@@ -123,6 +124,7 @@ Rule of thumb (capacity, not a measured hit rate): one CU’s L0 is **16 KB** �
 | [architecture.md](architecture.md) §4.3 | L0 16 KB/CU, GL1 128 KB/SA, 128 B lines | Occupancy framing + explicit **not a PIX row** |
 | [cache-policy.md](cache-policy.md) | Topology, GLC/DLC, thrash via over-occupy | Ties miss → effective latency hiding; Take/Leave for decode GEMV wave caps |
 | [infinity-cache.md](infinity-cache.md) | GPU-wide MALL thrash from too many waves | Separates **CU/SA filters** (L0/GL1) from **128 MB IC** |
+| [l2-occupancy.md](l2-occupancy.md) | GPU-wide mid L2 thrash | Separates **4 MiB L2** from L0/GL1 and from IC |
 | [icache-occupancy.md](icache-occupancy.md) | I$ fetch stalls out of min | Sibling for **vector data** path vs instruction path |
 | [occupancy-composite.md](occupancy-composite.md) | PIX four + scratch/I$ out | L0/GL1 as another out-of-min effective-occupancy sibling |
 

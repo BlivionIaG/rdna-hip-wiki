@@ -1,6 +1,6 @@
 # Infinity Cache — SKU table (RDNA2 intro)
 
-Date: 2026-08-20. Policy / persist bits stay in [cache-policy.md](cache-policy.md). Engine batching: [../engine/cache-aware.md](../engine/cache-aware.md). Occupancy still first.
+Date: 2026-08-20. Policy / persist bits stay in [cache-policy.md](cache-policy.md). Engine batching: [../engine/cache-aware.md](../engine/cache-aware.md). Occupancy still first. L2 mid-level thrash vs occupancy: [l2-occupancy.md](l2-occupancy.md).
 
 **Yes: Infinity Cache was introduced with RDNA 2** (Navi 21 / GFX10.3, 2020). RDNA 1, GCN, Vega 10 (V340L) do **not** have it. It is an **on-die last-level cache (L3 / MALL)**, after L2, before GDDR6. It is **not** Infinity Fabric / XGMI and is **not** a GPU-to-GPU path.
 
@@ -67,7 +67,7 @@ A kernel tuned to “the layer fits in 128 MB” falls out on 96/32/16 MB parts.
 - V620 product page: 128 MB IC, 72 CU, 512 GB/s — https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html
 - W7800 48 GB: 96 MB IC — https://www.amd.com/en/products/graphics/workstations/radeon-pro/w7800-48gb.html
 - `kfd_crat.c` Sienna Cichlid L3 128×1024 KB, line 64 B
-- [cache-policy.md](cache-policy.md), [architecture.md](architecture.md) §4.5, [rccl-p2p.md](rccl-p2p.md) (IC ≠ XGMI)
+- [cache-policy.md](cache-policy.md), [architecture.md](architecture.md) §4.5, [l2-occupancy.md](l2-occupancy.md) (L2 mid ≠ IC), [rccl-p2p.md](rccl-p2p.md) (IC ≠ XGMI)
 - [../engine/cache-aware.md](../engine/cache-aware.md)
 
 ## Cite: namu RDNA §2.2 (2026-08-24)
