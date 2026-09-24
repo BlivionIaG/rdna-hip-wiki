@@ -8,7 +8,7 @@ Does **not** change extras HIP or UNC tickets. No tok/s. Do not restate the FA p
 
 Date: **2026-09-21** Europe/Paris.
 
-Companions: [architecture.md](architecture.md) §4.3, [cache-policy.md](cache-policy.md) §2.6, [occupancy-composite.md](occupancy-composite.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [l2-occupancy.md](l2-occupancy.md), [hip-craft.md](hip-craft.md) §4.2, [fa-occupancy.md](fa-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md).
+Companions: [architecture.md](architecture.md) §4.3, [cache-policy.md](cache-policy.md) §2.6, [occupancy-composite.md](occupancy-composite.md), [kcache-occupancy.md](kcache-occupancy.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [l2-occupancy.md](l2-occupancy.md), [hip-craft.md](hip-craft.md) §4.2, [fa-occupancy.md](fa-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md).
 
 ## Take / Leave
 
@@ -21,6 +21,7 @@ Companions: [architecture.md](architecture.md) §4.3, [cache-policy.md](cache-po
 | **Leave** | Do **not** put I$ / code size into `llvm-calc-occupancy` or PIX `WaveOccupancyLimiters` (VGPR / LDS / Thread Group Size / Barriers only). |
 | **Leave** | Vector L0/GL1 thrash is a **separate** out-of-min sibling — see [l0-gl1-occupancy.md](l0-gl1-occupancy.md). |
 | **Leave** | L2 thrash is a **separate** out-of-min sibling — see [l2-occupancy.md](l2-occupancy.md). |
+| **Leave** | K$ / scalar-data thrash is a **separate** out-of-min sibling — see [kcache-occupancy.md](kcache-occupancy.md). |
 | **Leave** | Do **not** invent a gfx1030 I$-miss cycle count — the ISA / GPUOpen occupancy page do not publish one. Profile hit rate + wave idle instead. |
 | **Leave** | Do **not** rely on `.amdhsa_inst_pref_size` / COMPUTE_PGM_RSRC3 initial prefetch as a gfx1030 lever — that encoding is **gfx11+** (LLVM). `S_INST_PREFETCH` exists on GFX10 but is a **short ahead-of-PC** hint (1–3 × 64 B), not a cure for a 64 KB+ working set. |
 | **Leave** | Do not open UNC / retip extras for this page. |
@@ -36,7 +37,7 @@ Companions: [architecture.md](architecture.md) §4.3, [cache-policy.md](cache-po
 | Banks / assoc (RDNA whitepaper) | **4 banks × 128 lines × 64 B**; **4-way** set-associative | AMD RDNA Architecture whitepaper (dual-CU front-end). ISA / GPUOpen deck / `kfd_crat` omit associativity — cite whitepaper only for that cell; [architecture.md](architecture.md) §4.3 previously left assoc as unknown from deck/ISA/kfd |
 | Fetch width | **32 B / cycle / SIMD** (typically 2–4 instructions) | RDNA whitepaper (≈4× GCN I$ bandwidth claim) |
 | Hit-on-miss | **No** — duplicate pending fills count as misses | HIP + architecture §4.3 (same as scalar K$) |
-| Scalar sibling | K$ **16 KiB/WGP**, 64 B lines (kernarg / `__constant__`) | Same sources; not this page’s limiter |
+| Scalar sibling | K$ **16 KiB/WGP**, 64 B lines (kernarg / `__constant__`) | Same sources; dedicated lock [kcache-occupancy.md](kcache-occupancy.md) |
 
 GCN contrast (deck): Vega-class I$ was **32 KB per 4 CUs** with **32 B** lines. RDNA moved to **32 KB per WGP** with **64 B** lines — denser per dual-CU front-end, not a larger absolute budget for one fat shader.
 

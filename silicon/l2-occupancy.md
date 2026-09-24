@@ -8,7 +8,7 @@ Does **not** change extras HIP or UNC tickets. No tok/s. Do not restate the FA p
 
 Date: **2026-09-23** Europe/Paris.
 
-Companions: [architecture.md](architecture.md) §4.3 / §4.4, [cache-policy.md](cache-policy.md) §1 / §3, [infinity-cache.md](infinity-cache.md), [occupancy-composite.md](occupancy-composite.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [icache-occupancy.md](icache-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [fa-occupancy.md](fa-occupancy.md), [hip-craft.md](hip-craft.md) §1.3 / §6.
+Companions: [architecture.md](architecture.md) §4.3 / §4.4, [cache-policy.md](cache-policy.md) §1 / §3, [infinity-cache.md](infinity-cache.md), [occupancy-composite.md](occupancy-composite.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [icache-occupancy.md](icache-occupancy.md), [kcache-occupancy.md](kcache-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [fa-occupancy.md](fa-occupancy.md), [hip-craft.md](hip-craft.md) §1.3 / §6.
 
 ## Take / Leave
 
@@ -71,6 +71,7 @@ waves/EU = min(VGPR, SGPR→always 16, LDS+WG+barrier)
 | VGPR / LDS / WG / Barriers | **Yes** | Caps reserved wave slots |
 | Scratch / private | **No** | Latency; rare ROCr `waves_per_cu` cut |
 | I$ (SQC) | **No** | Instruction-fetch idle ([icache-occupancy.md](icache-occupancy.md)) |
+| K$ (SQC DCache) | **No** | Scalar-load wait ([kcache-occupancy.md](kcache-occupancy.md)) |
 | L0 / GL1 | **No** | CU/SA vector-filter thrash ([l0-gl1-occupancy.md](l0-gl1-occupancy.md)) |
 | **L2** | **No** | GPU-wide mid-cache thrash; measured occupancy can look “full” while miss latency grows |
 | Infinity Cache | **No** | GPU-wide last-level thrash ([infinity-cache.md](infinity-cache.md)) |

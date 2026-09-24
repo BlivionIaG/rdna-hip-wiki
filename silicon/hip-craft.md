@@ -345,7 +345,7 @@ Hidden / implicit args (`llvm.amdgcn.implicitarg.ptr`, dispatch ptr, queue ptr) 
 
 RDNA deck: “mind the I$ size.” 32 KB/WGP is shared by 4 SIMD32. A fully unrolled 128×128 epilogue plus four dequant helpers will miss it; every miss is a scalar-instruction stall, not a VMEM stall, and occupancy will not hide it the way it hides GDDR6.
 
-Dedicated lock: [icache-occupancy.md](icache-occupancy.md) (not a PIX MaxWaves row; SQC counters / Take–Leave).
+Dedicated locks: [icache-occupancy.md](icache-occupancy.md) (I$; not a PIX MaxWaves row; SQC I$ counters / Take–Leave); [kcache-occupancy.md](kcache-occupancy.md) (K$ / kernarg / `__constant__`; SQC DCache counters / Take–Leave).
 
 Craft:
 

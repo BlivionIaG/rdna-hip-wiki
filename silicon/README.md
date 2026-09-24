@@ -25,6 +25,7 @@ How gfx1030 actually works, and what HIP can control.
 | [wgp-cu-mode-occupancy.md](wgp-cu-mode-occupancy.md) | WGP vs CU (`-mcumode`): LDS pool / barriers / SIMDs-per-WG; HIP ships WGP |
 | [occupancy-composite.md](occupancy-composite.md) | Fold: min(VGPR, LDS, WG/barrier); llvm-calc-occupancy; PIX↔LLVM; measured vs theory |
 | [icache-occupancy.md](icache-occupancy.md) | I$/SQC 32 KB/WGP: not a PIX MaxWaves row; fetch-stall vs effective occupancy |
+| [kcache-occupancy.md](kcache-occupancy.md) | K$/SQC DCache 16 KB/WGP: not a PIX MaxWaves row; scalar/kernarg miss vs effective occupancy |
 | [l0-gl1-occupancy.md](l0-gl1-occupancy.md) | Vector L0/TCP 16 KB/CU + GL1 128 KB/SA: not a PIX MaxWaves row; thrash vs effective occupancy |
 | [l2-occupancy.md](l2-occupancy.md) | L2 4 MiB GPU-wide (mid vs IC): not a PIX MaxWaves row; thrash vs effective occupancy |
 | [graph-capture.md](graph-capture.md) | Capture vs page-commit guard: no D2H on the captured path; `Tensor!` on every HIP out arg |
