@@ -7,13 +7,13 @@ Format contracts for the HIP kernels we write. Not engine dispatch. Feature inde
 | [fp16-moe.md](fp16-moe.md) | native fp16 `fdot2`, fp32 accum | Spec: tiny-M GEMM + grouped prefill |
 | [int8-moe.md](int8-moe.md) | W8A16 `fdot2` / W8A8 `sdot4` | Spec: dual route by expert rows/shape/scales |
 | [triton-skinny-gemm.md](triton-skinny-gemm.md) | stock dispatch baseline | Stock gfx1030 = BLAS; LLMM1/wvSplitK gate excludes gfx10 |
-| [w4a16.md](w4a16.md) | nibble dequant → `fdot2` | **Most complete** (dense). MoE GPTQ in-tree; MoE AWQ Not done. Modes: [engine/w4a16.md](../engine/w4a16.md) |
+| [w4a16.md](w4a16.md) | nibble dequant → `fdot2` | **Most complete** (dense). MoE GPTQ in-tree + resident skinny opt-in @ `e1315629`; MoE AWQ Not done. Modes: [engine/w4a16.md](../engine/w4a16.md) |
 | [w8a16.md](w8a16.md) | i8 → fp16 → `fdot2` | Incomplete. MoE in-tree; dense `.cu` absent at tip |
 | [w8a16-fp8.md](w8a16-fp8.md) | E4M3 LUT/bit-trick → `fdot2` | Incomplete |
 | [w8a8-fp8.md](w8a8-fp8.md) | both sides E4M3 → fp16 → `fdot2` | Incomplete. **Not** `sdot4` |
 | [w8a8.md](w8a8.md) | extras vs contract: live FP8-`fdot2` / W8A16-`fdot2`; INT8 `sdot4` **absent** | **Spec / not on branch** @ `83de31cf` |
 | [mxfp4.md](mxfp4.md) | E2M1 + E8M0 → `fdot2` | Incomplete |
-| [skinny-gemm.md](skinny-gemm.md) | no MFMA; PersistBuf→`empty` @ `3092d635`; MoE int4 `fdot2` @ `5c3c0c6f` | gfx1030 wvSplitK n=1..5 FP16/BF16; n=6..8 gemv; `(1,1)` leftover open |
+| [skinny-gemm.md](skinny-gemm.md) | no MFMA; gemv_f16 decode @ `3b59ee16`; MoE int4 `fdot2` @ `5c3c0c6f`; resident MoE @ `e1315629` | gfx1030 dense decode = gemv; resident MoE opt-in M=1..4; `(1,1)` leftover open |
 | [mla-sparse.md](mla-sparse.md) | scalar fp32 FMA (later `fdot2`) | Incomplete. Env-gated decode |
 | [lightning-indexer.md](lightning-indexer.md) | scalar half FMA | Incomplete |
 | [int2.md](int2.md) | i2 unpack → `fdot2` (later `sdot4`) | Spec. Mixed INT2/INT4 MoE = two unpackers, one DOT |

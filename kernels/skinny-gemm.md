@@ -42,3 +42,19 @@ No `__launch_bounds__` / `waves_per_eu` change on `wvSplitKrc_`. No DOT builtin,
 | tests | Drop `test_gfx1030_decode_dispatch`. |
 
 PersistBuf ownership fix inside `wvSplitK` host (`torch::empty` per call) remains in tree for non-gfx1030 skinny users; **gfx1030 no longer dispatches into it for decode**. No DOT / LDS-tile / CMake gfx1030 list / `__launch_bounds__` change. Occupancy leftover still FA + skinny `(1,1)`. Do not invent numbers.
+
+## extras lock 2026-09-24 (tip `e1315629`, PR #17) — resident MoE decode + MoE dequant fix
+
+Dest: `opengfx1030/vllm-rdna` `rdna_extras`. HIP/ISA only from the V620 baseline port merge.
+
+| Surface | Delta |
+|---|---|
+| `csrc/rocm/moe_resident_decode.cu` (**new**) | Native resident-layout W4A16 MoE skinny GEMV. Packed `int32` weights `[E,K/8,N]` after RDNA2 shuffle; scales fp16 `[E,K/gs,N]`. Inner loop `__builtin_amdgcn_fdot2`. Nibble dequant magic `0x64006400` / bias `0x64086408` with per-pair scales in `moe_resident_dequant_pair`. Symmetric uint4b8 only. |
+| same | WG = **128** (4× wave32). `w13` grid `(ceil(inter/32), topk, M)`; `w2` grid `(ceil(hidden/32), 1, M)`. Four waves split K and reduce FP32 partials in LDS: `gates[4][32]` + `ups[4][32]` (SiLU gate×up), `routed_sums[4][32]` (down). Host gate **M = 1..4**; `K%8==0`; `intermediate`/`hidden` `%32==0`. Template `GroupSize=128` specialized else runtime. |
+| `CMakeLists.txt` | Adds `moe_resident_decode.cu` to `VLLM_SKINNY_SRC` (`_rocm_C_skinny` object with `skinny_gemms*.cu`). Not a gfx1030 arch-list change. |
+| `ops.h` / `torch_bindings.cpp` | Register `moe_resident_int4_decode`. Sibling `moe_skinny_int4_decode` (sequential Triton pack) unchanged. |
+| `moe_q_gemm_rdna2.cu` | **Take** scale-after-signed-INT4: local `refresh_moe_group` builds ZP with scale=`1.0`, then `__hmul2(dq, group_scales)` before `dot22_8_f`. Folding scale into the 1024/64 encoding rounded quantized zero to nonzero fp16. Same GPTQv1 `zero_offset=1` and `fdot2` path. |
+
+**Dispatch (opt-in, not dest default):** `VLLM_RDNA_MOE_RESIDENT=0`, `VLLM_RDNA_MOE_RESIDENT_SKINNY=0`. When both armed + SILU + contiguous fp16 + shape gates, M≤4 fires resident skinny; else tiled `_rdna2_fused_moe` on the same resident pack.
+
+No `__launch_bounds__` / `waves_per_eu` on the new kernels. No EXL3 DOT, FA, KV-quant, or CMake gfx1030 list change. Occupancy leftover still FA + skinny `(1,1)`. Leave tok/s and flipping resident defaults on. Do not invent numbers.
