@@ -477,6 +477,7 @@ RGA (offline, no GPU): `rga -s bin --isa --livereg --analysis` on the `.hsaco`. 
 GPUOpen Occupancy explained + RGP manuals:
 
 - **Pipeline tab**: VGPR/SGPR/LDS, **spills**, wave32 vs wave64, limiter hint.
+- **Measured ≪ theory** with PIX limiters at 0: grid fill / launch-rate ([spi-ace-occupancy.md](spi-ace-occupancy.md)), not another VGPR shave.
 - Occupancy is *capacity* to hide latency, not a performance guarantee. Extra waves on a memory-bound KV / weight stream **thrash L0/L1/IC**.
 - Linux HPC blog (https://rocm.blogs.amd.com/software-tools-optimization/profilers/README.html): RGP HIP is a **Windows** story; Linux Instinct/ROCm workflow is **rocprofv3**.
 

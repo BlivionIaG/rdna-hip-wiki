@@ -47,7 +47,7 @@ AMD PIX `WaveOccupancyLimiters` (GPUOpen Occupancy explained) splits four static
 
 **Thread Group Size ≠ Barriers.** Both need `N ≥ 2`. Barrier-limited only after a *different* WG’s wave frees a slot while every barrier is still held. Do not treat a PIX “Barriers > 0%” blip as a reason to shrink FA tiles.
 
-Measured occupancy can also sit under theoretical for **lack of work** (grid too small for 40 WGP × 4 SIMD × 16) or **launch-rate** drain — those are SPI/ACE issues, not barrier HW. Occupancy is latency-hiding capacity; ALU-bound kernels do not want more waves.
+Measured occupancy can also sit under theoretical for **lack of work** (grid too small for **36** WGP × 4 SIMD × 16 on V620) or **launch-rate** drain — those are SPI/ACE issues, not barrier HW ([spi-ace-occupancy.md](spi-ace-occupancy.md)). Occupancy is latency-hiding capacity; ALU-bound kernels do not want more waves.
 
 ## 3. Extras shapes — barriers never bind first
 

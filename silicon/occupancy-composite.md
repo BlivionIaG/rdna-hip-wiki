@@ -14,7 +14,7 @@ waves/EU = min(
 
 Does **not** change extras HIP or tickets. No tok/s. Do not restate the FA pin.
 
-Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [wave-size-occupancy.md](wave-size-occupancy.md), [wgp-cu-mode-occupancy.md](wgp-cu-mode-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [icache-occupancy.md](icache-occupancy.md), [kcache-occupancy.md](kcache-occupancy.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [l2-occupancy.md](l2-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §1.3 / §6, [fa-occupancy.md](fa-occupancy.md), [architecture.md](architecture.md) § occupancy.
+Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [wave-size-occupancy.md](wave-size-occupancy.md), [wgp-cu-mode-occupancy.md](wgp-cu-mode-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [icache-occupancy.md](icache-occupancy.md), [kcache-occupancy.md](kcache-occupancy.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [l2-occupancy.md](l2-occupancy.md), [spi-ace-occupancy.md](spi-ace-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §1.3 / §6, [fa-occupancy.md](fa-occupancy.md), [architecture.md](architecture.md) § occupancy.
 
 ## Take / Leave
 
@@ -25,13 +25,14 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occup
 | **Take** | Launch mode (WGP/`-mno-cumode` vs CU/`-mcumode`) is also an **input** — keep WGP unless measuring LDS-bandwidth CU ([wgp-cu-mode-occupancy.md](wgp-cu-mode-occupancy.md)). |
 | **Take** | Gate launches with `hipOccupancyMaxActiveBlocksPerMultiprocessor` after the theory pass — runtime 0 means do not launch, even when the calc says otherwise ([vgpr-occupancy.md](vgpr-occupancy.md) §4). |
 | **Take** | PIX / GPUOpen limiter names map 1:1 to wiki pages: **VGPR** → vgpr; **LDS** → lds; **Thread Group Size** → wg-size; **Barriers** → barrier. SGPR is absent on RDNA (fixed 128). |
-| **Take** | Measured occupancy can sit under theory for **lack of work** (grid << 40 WGP × 4 SIMD × 16) or **launch-rate** drain — those are SPI/ACE issues, not a fifth PIX resource. |
+| **Take** | Measured occupancy can sit under theory for **lack of work** (grid << **36** WGP × 4 SIMD × 16 = **2304** on V620) or **launch-rate** drain — those are SPI/ACE issues, not a fifth PIX resource ([spi-ace-occupancy.md](spi-ace-occupancy.md)). |
 | **Leave** | Do not use GPUOpen RDNA3 examples (1536 VGPR / RX 7900) as gfx1030 constants — V620 SIMD file is **1024** VGPR, MaxWaves **16**. |
 | **Leave** | Do not put `.private_segment_fixed_size` / scratch into `llvm-calc-occupancy` or the theoretical min ([scratch-occupancy.md](scratch-occupancy.md)). |
 | **Leave** | Do not put I$ / code size into the theoretical min — fetch stalls are effective occupancy only ([icache-occupancy.md](icache-occupancy.md)). |
 | **Leave** | Do not put K$ / `__constant__` size into the theoretical min — scalar-load stalls are effective occupancy only ([kcache-occupancy.md](kcache-occupancy.md)). |
 | **Leave** | Do not put L0/GL1 capacity into the theoretical min — vector-cache thrash is effective occupancy only ([l0-gl1-occupancy.md](l0-gl1-occupancy.md)). |
 | **Leave** | Do not put L2 capacity into the theoretical min — GPU-wide mid-cache thrash is effective occupancy only ([l2-occupancy.md](l2-occupancy.md)). |
+| **Leave** | Do not put SPI/ACE / launch-rate into the theoretical min — lack of work and refill drain are measured-only ([spi-ace-occupancy.md](spi-ace-occupancy.md)). |
 | **Leave** | Do not maximize occupancy as a goal. ALU-bound kernels want utilization, not more waves; memory-bound kernels can thrash IC/L2 if you over-fill ([GPUOpen Occupancy explained](https://gpuopen.com/learn/occupancy-explained/)). |
 | **Leave** | Do not open a ticket / retip extras for this fold. |
 
@@ -49,6 +50,7 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occup
 | *(out of min)* K$ / `__constant__` | [kcache-occupancy.md](kcache-occupancy.md) | not a PIX MaxWaves row; SQC DCache miss → `lgkmcnt` / SALU wait |
 | *(out of min)* L0 / GL1 (TCP) | [l0-gl1-occupancy.md](l0-gl1-occupancy.md) | not a PIX MaxWaves row; thrash → memory-wait / weaker latency hiding |
 | *(out of min)* L2 | [l2-occupancy.md](l2-occupancy.md) | not a PIX MaxWaves row; thrash → memory-wait / weaker latency hiding (mid vs IC) |
+| *(out of min)* SPI / ACE / grid fill | [spi-ace-occupancy.md](spi-ace-occupancy.md) | not a PIX MaxWaves row; lack of work / launch-rate → measured < theory |
 
 `getMaxWorkGroupsPerCU` (AMDGPUBaseInfo.cpp) already packs **wave slots + barriers**:
 
@@ -80,9 +82,9 @@ Limited by: list every term that equals Occ
 | Wave slots / WGP | **64** | 64 |
 | Barriers / WGP | **32** | 16 per SIMD *pair* (= CU half) |
 | LDS pool | **128 KB** WGP / **64 KB** WG cap | same RDNA shape |
-| V620 WGP count | **40** (72 CU / 2) | ASIC-specific |
+| V620 WGP count | **36** (72 CU / 2) | ASIC-specific |
 
-Max theoretical wave slots on one V620 ≈ `40 × 4 × 16 = 2560`. A dispatch with fewer wavefronts **cannot** hit 100% measured occupancy even at full theory.
+Max theoretical wave slots on one V620 ≈ `36 × 4 × 16 = 2304`. A dispatch with fewer wavefronts **cannot** hit 100% measured occupancy even at full theory ([spi-ace-occupancy.md](spi-ace-occupancy.md)).
 
 ## 3. Worked folds (hand calc = CLI)
 
@@ -117,7 +119,7 @@ GPUOpen Occupancy explained (updated 2024-06-26):
 - **Measured** ≤ theory when (a) the grid cannot fill the ASIC, (b) end-of-dispatch drain, or (c) **launch-rate** (waves finish faster than SPI can refill; dependency barriers force empty-GPU ramp).
 - PIX `WaveOccupancyLimiters` percentages are **binary which-resource** signals, **not** “how occupancy-bound.” A non-zero limiter means that resource blocked a launch attempt that clock; duration of waves warps the percentage.
 
-Craft implication for extras kernels: if RGP / PIX shows theory high but measured low on a fat FA/W4 grid, first check **grid fill and barriers between dispatches**, not another VGPR shave. If theory equals measured and both are low, open the limiter sibling.
+Craft implication for extras kernels: if RGP / PIX shows theory high but measured low on a fat FA/W4 grid, first check **grid fill and barriers between dispatches** ([spi-ace-occupancy.md](spi-ace-occupancy.md)), not another VGPR shave. If theory equals measured and both are low, open the limiter sibling.
 
 ## 5. HIP API naming trap
 
