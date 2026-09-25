@@ -1,8 +1,12 @@
 # Compiler / hipcc
 
-Date: **2026-09-24**. Audience: someone compiling HIP for **gfx1030** (live), with later **gfx1100** and **gfx900** TUs.
+Date: **2026-09-25**. Audience: someone compiling HIP for **gfx1030** (live), with later **gfx1100** and **gfx900** TUs.
 
 Companions: [silicon/hip-craft.md](../silicon/hip-craft.md).
+
+## 2026-09-25 — systems pin b0aa8f2 + nightly tip 0925 (not dest)
+
+TheRock [#8470](https://github.com/ROCm/TheRock/pull/8470) **merged** systems **`9799b78` → `b0aa8f2`**. HEAD **`a2b67de9585e` → `49f90b5394`**. Nightly tip **`10.2.0a20260924` → `10.2.0a20260925` L+W** (core + libraries + device-gfx1030/1100/900). Compiler **unchanged**: ww-37-SMP1.1 / amd-llvm `4f43f4746ede`; hipify `501cd6c1`; spirv `2c14c774`; libraries still `5911365`. HIP/CLR tip deltas are runtime (UM staging blit, module enumerate, CO load, graph BARRIER profiler) — **not a gfx1030/1100/900 ISA / dest lever**. Official Core SDK remains **10.0.0**. **No RDNA dest bump** — live stays **7.14.0** `hipcc --offload-arch=gfx1030 -O3` wave32 WGP. Open watches: systems [#8506](https://github.com/ROCm/TheRock/pull/8506); libraries [#8472](https://github.com/ROCm/TheRock/pull/8472); draft COT [#8483](https://github.com/ROCm/TheRock/pull/8483); libhipcxx [#8448](https://github.com/ROCm/TheRock/pull/8448); [#7909](https://github.com/ROCm/TheRock/issues/7909)/[#7976](https://github.com/ROCm/TheRock/issues/7976); vLLM#52391; SGLang#37398. Drop merged #8470 / closed #8481.
 
 ## 2026-09-24 — systems/libraries pin move (not dest)
 

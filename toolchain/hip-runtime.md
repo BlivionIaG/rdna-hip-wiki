@@ -11,6 +11,22 @@ Date: **2026-09-03**.
 
 V620 official footnote remains Ubuntu-only. TheRock `gfx103X-dgpu` is a real compiler target; libraries stay excluded.
 
+## 2026-09-25 — TheRock systems `b0aa8f2` (#8470; tip, not dest)
+
+[TheRock#8470](https://github.com/ROCm/TheRock/pull/8470) **merged** 2026-09-25 ~07:02 Europe/Paris (`49f90b5394`). `rocm-systems` **`9799b78` → `b0aa8f2`**. Compiler pin unchanged (ww-37-SMP1.1). Libraries still `5911365`. Nightly **`10.2.0a20260925` L+W**.
+
+CLR/runtime notes now in the TheRock systems pin (still **not** live dest):
+
+- **Unified-memory blit**: [rocm-systems#10962](https://github.com/ROCm/rocm-systems/pull/10962) — staging copy instead of host pinning on unified-memory devices (`rocblit.cpp`).
+- **Module API**: [rocm-systems#11025](https://github.com/ROCm/rocm-systems/pull/11025) — `hipModuleEnumerateFunctions`.
+- **Code object load**: [rocm-systems#11542](https://github.com/ROCm/rocm-systems/pull/11542) — CO loading fix in `program.cpp`.
+- **Graph profiler**: [rocm-systems#11742](https://github.com/ROCm/rocm-systems/pull/11742) — report BARRIER_AND/OR packets on CLR profiler timeline.
+- **ROCR**: [rocm-systems#11617](https://github.com/ROCm/rocm-systems/pull/11617) — increase fallback cache line size.
+- **RCCL**: registration/teardown harden ([#11954](https://github.com/ROCm/rocm-systems/pull/11954)); same-domain NET path keyed on physical device ([#12051](https://github.com/ROCm/rocm-systems/pull/12051)).
+- **Profiler**: rocprofiler-sdk WSL2 compute/profiling for RDNA 3 ([#7016](https://github.com/ROCm/rocm-systems/pull/7016)) — gfx110x WSL path; not a gfx1030 dest lever.
+
+Follow-on open: [#8506](https://github.com/ROCm/TheRock/pull/8506) systems `b0aa8f2`→`a46ee26`. Live dest stays **7.14.0**.
+
 ## 2026-09-17 — CLR HIP minor 7.17 (upstream tip, not dest)
 
 [ROCm/clr `1cb204b7`](https://github.com/ROCm/clr/commit/1cb204b7) (2026-09-17 ~15:04 Europe/Paris): HIP minor **7.16 → 7.17**, OpenCL **3684 → 3686** for new APIs in ROCm **10.2**. Not in live dest; production pin stays **7.14.0**.
