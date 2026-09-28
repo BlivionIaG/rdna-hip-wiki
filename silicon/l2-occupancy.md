@@ -8,7 +8,7 @@ Does **not** change extras HIP or UNC tickets. No tok/s. Do not restate the FA p
 
 Date: **2026-09-23** Europe/Paris.
 
-Companions: [architecture.md](architecture.md) §4.3 / §4.4, [cache-policy.md](cache-policy.md) §1 / §3, [infinity-cache.md](infinity-cache.md), [occupancy-composite.md](occupancy-composite.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [icache-occupancy.md](icache-occupancy.md), [kcache-occupancy.md](kcache-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [fa-occupancy.md](fa-occupancy.md), [hip-craft.md](hip-craft.md) §1.3 / §6.
+Companions: [architecture.md](architecture.md) §4.3 / §4.4, [cache-policy.md](cache-policy.md) §1 / §3, [infinity-cache.md](infinity-cache.md), [infinity-cache-occupancy.md](infinity-cache-occupancy.md), [occupancy-composite.md](occupancy-composite.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [icache-occupancy.md](icache-occupancy.md), [kcache-occupancy.md](kcache-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [fa-occupancy.md](fa-occupancy.md), [hip-craft.md](hip-craft.md) §1.3 / §6.
 
 ## Take / Leave
 
@@ -74,7 +74,7 @@ waves/EU = min(VGPR, SGPR→always 16, LDS+WG+barrier)
 | K$ (SQC DCache) | **No** | Scalar-load wait ([kcache-occupancy.md](kcache-occupancy.md)) |
 | L0 / GL1 | **No** | CU/SA vector-filter thrash ([l0-gl1-occupancy.md](l0-gl1-occupancy.md)) |
 | **L2** | **No** | GPU-wide mid-cache thrash; measured occupancy can look “full” while miss latency grows |
-| Infinity Cache | **No** | GPU-wide last-level thrash ([infinity-cache.md](infinity-cache.md)) |
+| Infinity Cache | **No** | GPU-wide last-level thrash ([infinity-cache-occupancy.md](infinity-cache-occupancy.md); SKU/fit [infinity-cache.md](infinity-cache.md)) |
 
 GPUOpen Occupancy explained: compile-time reservation set is **VGPR, SGPR (fixed on RDNA), LDS, threadgroup size, barriers**. Cache hierarchy is the **other** side — “Peak occupancy does not always mean peak performance”: more waves can thrash scarce shared caches **outside** the WGP booking model. Occupancy is capacity to hide memory latency by switching waves; L2 thrash **increases** that latency and can make extra waves harmful. [occupancy-composite.md](occupancy-composite.md) already Leaves over-filling memory-bound kernels that thrash **IC/L2**.
 
@@ -123,7 +123,7 @@ Rule of thumb (capacity, not a measured hit rate): L2 is **4 MiB** — architect
 |---|---|---|
 | [architecture.md](architecture.md) §4.4 | L2 4 MB, 128 B, coherence point, channel unknown | Occupancy framing + explicit **not a PIX row** |
 | [cache-policy.md](cache-policy.md) | Topology, SLC/nontemporal, thrash via over-occupy | Ties L2 miss → effective latency hiding; Take/Leave for decode wave caps |
-| [infinity-cache.md](infinity-cache.md) | GPU-wide MALL thrash; L2 mid vs IC last | Separates **4 MiB L2** thrash from **128 MiB IC** thrash |
+| [infinity-cache.md](infinity-cache.md) / [infinity-cache-occupancy.md](infinity-cache-occupancy.md) | GPU-wide MALL thrash; L2 mid vs IC last | Separates **4 MiB L2** thrash from **128 MiB IC** thrash; IC gets its own occupancy sibling |
 | [l0-gl1-occupancy.md](l0-gl1-occupancy.md) | CU/SA vector filters out of min | Sibling for **GPU-wide mid** data path |
 | [icache-occupancy.md](icache-occupancy.md) | I$ fetch stalls out of min | Sibling for **data** L2 vs instruction path |
 | [occupancy-composite.md](occupancy-composite.md) | Leave thrash IC/L2 when over-filling | L2 as named out-of-min effective-occupancy sibling |
