@@ -11,7 +11,7 @@ Date: 2026-08-17. Engine slice. Occupancy / LDS / VGPR live in [silicon/fa-occup
 | Decode | 1 | 128 or 256 | grid B×H << 72 | `fa_rdna2_decode_paged` split-K (Br=1) |
 | Decode | 1 | 128 or 256 | grid already fills 72 CU | decode paged, fewer splits or no split |
 | Decode | 1 | 64 (and 80/96) | any | **hole** → Triton `kernel_paged_attention_2d` until a D=64 tile exists |
-| Short extend | small q (2–32) | 128/256 | — | fa_rdna2 short (not the 256-thread decode bounds) |
+| Short extend / MTP verify | small q (decode-first) | 128/256 | `nd_tok * H_q <= 256` | split-K decode + `cu_query_lens` (PR #29 @ `e0112c55`); above 256 rows → prefill |
 | Prefill | large q | 128/256 | — | fa_rdna2_prefill Br=16/32 |
 | Prefill / decode | any | other | — | Triton |
 | MLA decode | 1 | ragged / fp8_ds_mla | 16 CTAs/query, WG=32 | HIP `sparse_mla_decode_rdna2` if `VLLM_USE_RDNA2_MLA=1`, else Triton. Mix/spec off. |
@@ -52,6 +52,6 @@ INT8 QK via `sdot4` (pack 4×i8, `D%4==0`, i32 through K, scale in epilogue). PV
 
 ## Unknowns
 
-- Measured crossover B×H where split-K loses on V620.
+- Split-decode vs prefill row crossover locked at `nd_tok * H_q = 256` (`e0112c55`); deeper one-CTA-per-request verify still Later.
 - Whether any served model is actually d=64.
 - Exact fa_rdna2 source not all pushed.

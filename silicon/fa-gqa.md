@@ -1,5 +1,26 @@
 # FA GQA (gfx1030)
 
+## extras lock 2026-09-28 — tip `e0112c55` (PR #29 split decode + row gate)
+
+Dest: `opengfx1030/vllm-rdna` `rdna_extras` (`6ed39093`→`e0112c55`, +4 incl. merge of PR #29). Occupancy first. No tok/s. No fabricated occupancy %.
+
+`csrc/rocm/fa_rdna2.cu` + ops/bindings + `rdna_attn.py` dispatch:
+
+| Surface | Lock |
+|---|---|
+| Decode multi-token | Device helper `fa_decode_token_seq`: with optional `cu_query_lens`, map query token → sequence and per-token causal `kv_len = seq_len - (end - 1 - tok)` (graph padding past `cu[-1]` → 0). Without it, one query token per sequence (prior contract). |
+| Kernel signature | Decode kernels (D=128 `__launch_bounds__(128)`, D=256 / GQA `__launch_bounds__(256)`) take `cu_query_lens` + `num_seqs`; `block_table` / `seq_lens` indexed by **sequence**, not token. |
+| Host ops | `fa_rdna2_decode_paged(..., out, cu_query_lens=None)`; fp8/int8 decode paths pass `nullptr, 0` (no multi-token yet). |
+| Dispatch | Replaces the per-position verify-through-decode Python loop (`83e6af80`) with one `fa_rdna2_decode_paged` launch over decode-first tokens + `decode_query_start_loc`. Mixed batches: decode slice then `_forward_prefill` on the rest. |
+| Row gate | Split decode only when `num_decode_tokens * num_heads <= 256` (`_SPLIT_DECODE_MAX_ROWS`); above that route the batch through prefill. Env `VLLM_FA_RDNA2_SPLIT_DECODE` defaults **1**. |
+| Capture | With split decode + `VLLM_FA_RDNA2_VERIFY_FULL_GRAPH=1` (default **on**): `UNIFORM_BATCH`. Capture zeros `seq_lens` and `query_start_loc`. hippihx V1 single-token hook + `supports_draft_decode_metadata_update` retained. |
+| Unchanged ISA | Still `__launch_bounds__(128|256)` (prefill often `(N, 1)`); `__builtin_amdgcn_fdot2`; XOR LDS swizzle; `fa_clip_kv_walk` / `fa_masked` / GQA register softmax. CMake gfx1030 list unchanged. |
+| Later | One CTA per request owning all 1+k verify tokens (K/V read once) — not this tip. |
+
+Do not invent numbers. Do not copy tok/s.
+
+---
+
 ## extras lock 2026-09-28 — tip `ae5bedfd` (production launcher FA defaults)
 
 Dest: `opengfx1030/vllm-rdna` `rdna_extras`. Occupancy first. No tok/s. No fabricated occupancy %.
