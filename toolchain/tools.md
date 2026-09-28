@@ -1,6 +1,6 @@
 # Tooling around the RDNA HIP stack
 
-Date: **2026-09-03**. Owned by ROCM_specialist. Only tools that touch compiler / runtime / ISA plumbing. Engine and fork tooling stays in [engine/](../engine/) and [fork/](../fork/).
+Date: **2026-09-28**. Owned by ROCM_specialist. Only tools that touch compiler / runtime / ISA plumbing. Engine and fork tooling stays in [engine/](../engine/) and [fork/](../fork/).
 
 ## rocjitsu — AMD's own AMDGCN emulation toolkit
 
@@ -40,6 +40,11 @@ Being extended right now: [rocm-systems#9470](https://github.com/ROCm/rocm-syste
 `shared/machine-readable-isa/isa/` in the same monorepo carries full MR ISA XML per family, including **`amdgpu_isa_rdna2.xml` (11.2 MB)**, plus rdna1 / rdna3 / rdna3_5 / rdna4 and cdna1–cdna5. This is a structured instruction/encoding spec we can parse instead of scraping the RDNA2 handbook PDF — useful for building our own encoding tables, validators, and disasm cross-checks.
 
 `emulation/rocjitsu/docs/isa-gap-audit.md` documents AMD's own workflow for auditing handbook prose vs that XML vs rocjitsu's generated decoder, and its stated audit order is RDNA4, CDNA4, CDNA3, RDNA3 — **RDNA2 is not on the list**, which is the usual shape of the gap we track.
+
+
+## 2026-09-28 — rocjitsu tip activity (not dest)
+
+TheRock systems pin `2cd17fb` carries a burst of **rocjitsu** emulator commits (hazard/waitcheck, scratch/XCC topology, AVX-512 WMMA host vectorize, DRM close-and-reuse). Still **Experimental** for gfx1030 and **still no `gfx1030` topology JSON**. Not a dest/pin lever; continue as a GPU-less contrib opportunity only.
 
 ## Status
 

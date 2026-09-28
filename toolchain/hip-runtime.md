@@ -11,6 +11,24 @@ Date: **2026-09-03**.
 
 V620 official footnote remains Ubuntu-only. TheRock `gfx103X-dgpu` is a real compiler target; libraries stay excluded.
 
+## 2026-09-28 — TheRock systems `2cd17fb` + libraries `459a4ec` (tip, not dest)
+
+[TheRock#8508](https://github.com/ROCm/TheRock/pull/8508)/[#8525](https://github.com/ROCm/TheRock/pull/8525) **merged** `rocm-systems` **`b0aa8f2` → `2cd17fb`**. [#8512](https://github.com/ROCm/TheRock/pull/8512) **merged** `rocm-libraries` **`ecb3f35` → `459a4ec`**. Compiler pin unchanged (ww-37-SMP1.1). Nightly **`10.2.0a20260927` L+W**.
+
+CLR/runtime notes now in the TheRock systems pin (still **not** live dest):
+
+- **Graph deps**: [rocm-systems#12076](https://github.com/ROCm/rocm-systems/pull/12076) — barrier-value packets for single graph dependencies.
+- **rocjitsu**: multiple emulator harden/vectorize/hazard-detect commits (still Experimental for gfx1030; no topology JSON).
+- **rocSHMEM**: [rocm-systems#12195](https://github.com/ROCm/rocm-systems/pull/12195) — replace gfx1100 with general GFX11.
+- **Blit**: Accelerated Blit Copy Engine (ABCE) intro ([#12161](https://github.com/ROCm/rocm-systems/pull/12161)).
+- **hiprtc**: remove `HIPRTC_USE_RUNTIME_UNB…` env ([#12239](https://github.com/ROCm/rocm-systems/pull/12239)).
+
+Open follow-ons: systems [#8542](https://github.com/ROCm/TheRock/pull/8542) (`2cd17fb`→`e4826ad`, includes CLR same-device batch swap). Live dest stays **7.14.0**.
+
+## 2026-09-25 — TheRock libraries `ecb3f35` (#8472; tip, not dest)
+
+[TheRock#8472](https://github.com/ROCm/TheRock/pull/8472) **merged** 2026-09-25 ~13:49 Europe/Paris (`fac0dbc97d76`). `rocm-libraries` **`5911365` → `ecb3f35`**. Systems still `b0aa8f2`. Compiler pin unchanged (ww-37-SMP1.1). Nightly still **`10.2.0a20260925` L+W**. Math/comms library tip only (no CLR/HIP runtime pin move; no gfx1030 ISA lever). Live dest stays **7.14.0**.
+
 ## 2026-09-25 — TheRock systems `b0aa8f2` (#8470; tip, not dest)
 
 [TheRock#8470](https://github.com/ROCm/TheRock/pull/8470) **merged** 2026-09-25 ~07:02 Europe/Paris (`49f90b5394`). `rocm-systems` **`9799b78` → `b0aa8f2`**. Compiler pin unchanged (ww-37-SMP1.1). Libraries still `5911365`. Nightly **`10.2.0a20260925` L+W**.
