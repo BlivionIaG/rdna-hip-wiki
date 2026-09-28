@@ -1,5 +1,22 @@
 # FA GQA (gfx1030)
 
+## extras lock 2026-09-28 — tip `83e6af80` (PR #28 follow-up item 3)
+
+Dest: `opengfx1030/vllm-rdna` `rdna_extras`. Occupancy first. No tok/s. No fabricated occupancy %.
+
+**No `csrc/rocm` / CMake gfx1030 / `__launch_bounds__` / `fdot2` / LDS tile delta** — Python + MTP launcher only. Kernel ISA stays the PR #28 lock below.
+
+| Surface | Lock |
+|---|---|
+| MTP verify path | Uniform short causal batches (`1 < max_seqlen_q <= 8` and `sum(q_lens) == nseq * max`) run one `fa_rdna2_decode_paged` per position with `seq_len_i = S - (L-1-i)` — exact per-token causal prefix; reuses validated decode kernel (no prefill walk). |
+| Capture metadata | `RdnaAttentionMetadataBuilder` `_cudagraph_support` = `UNIFORM_BATCH` (was `UNIFORM_SINGLE_TOKEN_DECODE`); `supports_draft_decode_metadata_update = True`. Capture zeros `seq_lens` only; keeps capture-shaped `query_start_loc`. |
+| MTP launcher defaults | `serve_gfx1030_flashnext_mtp.sh`: `ATTN` default **fa** (was triton; `ATTN=triton` remains fallback). When fa: `VLLM_USE_RDNA2_FA=1` and `VLLM_FA_RDNA2_GQA_DECODE` defaults **1** (was opt-in off). |
+| Unchanged ISA | Still `__launch_bounds__(128|256)` (prefill often `(N, 1)`); `__builtin_amdgcn_fdot2`; XOR LDS swizzle; `fa_clip_kv_walk` / `fa_masked` / GQA register softmax as at `bfd5286d`. |
+
+QSA still blocks the fused draft path (`supports_draft_decode_metadata_update` is inert there). Do not invent numbers. Do not copy tok/s.
+
+---
+
 ## extras lock 2026-09-28 — tip `bfd5286d` (PR #28 / `690cbf02`)
 
 Dest: `opengfx1030/vllm-rdna` `rdna_extras`. Occupancy first. No tok/s. No fabricated occupancy %.

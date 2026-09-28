@@ -1,5 +1,17 @@
 # gfx1030 FA occupancy report
 
+## extras lock 2026-09-28 — `opengfx1030/vllm-rdna` `rdna_extras` @ `83e6af80` (PR #28 follow-up)
+
+Dispatch / launcher only — **not** an occupancy-card close. No `csrc` launch_bounds or LDS shape change. No tok/s. No invented %.
+
+- Prefill still `__launch_bounds__(N, 1)`; decode still `__launch_bounds__(128|256)` (+ existing `waves_per_eu` where present). LDS remains the binding leftover on non-GQA prefill tiles.
+- MTP verify-through-decode reuses the validated decode kernel for uniform short causal (`q_len` 2–8) — same decode occupancy envelope, not a new tile.
+- MTP launcher (`serve_gfx1030_flashnext_mtp.sh`): ATTN default **fa**; when fa, `VLLM_FA_RDNA2_GQA_DECODE` defaults **1**. `ATTN=triton` remains the fallback. See [fa-gqa.md](fa-gqa.md).
+
+Do not close the occupancy card. Do not copy tok/s.
+
+---
+
 ## extras lock 2026-09-28 — `opengfx1030/vllm-rdna` `rdna_extras` @ `bfd5286d` (PR #28)
 
 Silicon host/kernel contract only — **not** an occupancy-card close. No tok/s. No invented %.
