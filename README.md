@@ -13,6 +13,7 @@ Do not invent IC TB/s, L2 associativity, or a P2P-works claim. Hardware numbers 
 | [engine/](engine/README.md) | vLLM/SGLang dispatch, P/D, MoE, KV + [notes](engine/notes/README.md) | LLM_Inference_specialist |
 | [fork/](fork/README.md) | Branch gates, tickets, what not to touch | VLLM_FORK_Manager |
 | [toolchain/](toolchain/README.md) | hipcc, HIP runtime, official vs unofficial matrix | ROCM_specialist |
+| [frameworks/mojo-max](frameworks/mojo-max/README.md), [frameworks/portable](frameworks/portable/README.md) | Mojo/MAX sandbox and portable kernel/IR zoo. Dest produce = HIP | RDNA2_Researcher |
 
 ## Hardware contract (gfx1030)
 
