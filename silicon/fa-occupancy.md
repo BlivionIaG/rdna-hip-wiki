@@ -1,5 +1,18 @@
 # gfx1030 FA occupancy report
 
+## extras lock 2026-09-28 — `opengfx1030/vllm-rdna` `rdna_extras` @ `bfd5286d` (PR #28)
+
+Silicon host/kernel contract only — **not** an occupancy-card close. No tok/s. No invented %.
+
+- Prefill still `__launch_bounds__(N, 1)` on the varlen kernels; decode still `__launch_bounds__(128|256)` (+ existing `waves_per_eu` where present). LDS remains the binding leftover on non-GQA prefill tiles.
+- GQA prefill D=256: further LDS shrink — softmax left `sM`/`sL`/`sD` LDS for register `__shfl_xor`; O already register-resident. See [fa-gqa.md](fa-gqa.md).
+- Still `__builtin_amdgcn_fdot2` + XOR `fa_swz_d` where previously used. `fa_clip_kv_walk` / `fa_masked` change tile visitation, not launch bounds or LDS tile shapes (BR/BC).
+- Host: caller `out` + model `scale`; `rdna2_persist_empty` for overwritten persist slots. Default ATTN = triton; FA opt-in `VLLM_USE_RDNA2_FA`.
+
+Do not close the occupancy card. Do not copy tok/s.
+
+---
+
 ## extras lock 2026-09-17 — `opengfx1030/vllm-rdna` `rdna_extras` @ `50120e13` (`d1b200b1`)
 
 GQA prefill `fa_prefill_paged_varlen_gqa_kernel_256`: O left LDS for registers (see [fa-gqa.md](fa-gqa.md)). Launcher smem no longer reserves `HEADS*BR*HEAD_DIM` floats for `sO`. **Not** a `__launch_bounds__` flip; other FA prefill kernels still `(N, 1)`. Do not close the occupancy card. Do not copy tok/s.
@@ -10,7 +23,7 @@ GQA prefill `fa_prefill_paged_varlen_gqa_kernel_256`: O left LDS for registers (
 
 Official dest tip (BlivionIaG `rdna2_extras` is archive). FA HIP delta vs `8f2583d2`:
 
-- Decode: still `__launch_bounds__(128\|256)` + `amdgpu_waves_per_eu(4, 8)` (minBlocks=1 form **not** restored). INT8 fused into the same decode templates via `IS_INT8` (fp16 LDS + `fdot2`).
+- Decode: still `__launch_bounds__(128|256)` + `amdgpu_waves_per_eu(4, 8)` (minBlocks=1 form **not** restored). INT8 fused into the same decode templates via `IS_INT8` (fp16 LDS + `fdot2`).
 - Prefill fp16/FP8: still `__launch_bounds__(N, 1)`. New INT8 prefill splitk also `(N, 1)`.
 - LDS / BR/BC tile shapes unchanged (decode Bc 64/32; prefill Br 16). No new VGPR dump this hour — do not retip pin closed. Occupancy leftover still FA prefill LDS (1 WG / 64 KB).
 - Platform: `VLLM_USE_RDNA2_FA=1` prefers `RDNA_ATTN`; custom paged-attn gate allows head 128/256 and `block_size >= 1` (hybrids 784/1056).
