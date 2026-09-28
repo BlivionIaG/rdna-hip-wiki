@@ -2,6 +2,23 @@
 
 Date: 2026-08-17. Sourced only.
 
+## extras lock 2026-09-28 — tip `6ed39093` (prefill step cadence, non-DP)
+
+Dest: `opengfx1030/vllm-rdna` `rdna_extras`. Occupancy first. No tok/s. No fabricated numbers.
+
+**No `csrc/rocm` / CMake gfx1030 / `__launch_bounds__` / `fdot2` / LDS tile / KV-quant path delta** — engine + MTP launcher only. Kernel ISA unchanged from `ae5bedfd`.
+
+| Surface | Lock |
+|---|---|
+| Engine cadence | Base `EngineCore._should_throttle_prefills()` now consults `SchedulerConfig.prefill_schedule_interval` via a per-step `_prefill_step_counter` (shared predicate with DP). Default **1** = off (no behaviour change for existing deploys). |
+| CLI / config | `--prefill-schedule-interval` / `prefill_schedule_interval` (≥1). Admit new prefills only every N engine steps so decoders get pure-decode steps in between. |
+| MTP launcher | `serve_gfx1030_flashnext_mtp.sh` exposes `--prefill-schedule-interval ${PREFILL_INTERVAL:-1}` (opt-in; leave at 1 unless CoS pins a value). |
+| Leave | Commit message includes V620 validation cells — **do not copy tok/s / ITL into serve pins**. Dest tip / UNC stay with VLLM_FORK_Manager. |
+
+Not a silicon change. No group spam required from the silicon tip watch.
+
+---
+
 ## Mechanics
 
 - **Request-level** (FasterTransformer): admit a batch, all prefills, then decode until last finishes. New prefills wait.

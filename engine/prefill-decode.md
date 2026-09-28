@@ -19,6 +19,12 @@ SGLang Triton: `page_size = 1` (CSR indptr/indices). ExLlama: page = 256 because
 
 On V620 the prefill GEMM is VALU/DOT, not MFMA. Decode is GDDR6 512 GB/s plus 128 MB IC, not HBM. Instinct token-budget defaults do not transfer. See [batching.md](batching.md).
 
+## extras lock 2026-09-28 — tip `6ed39093` (prefill schedule interval)
+
+Engine-only: non-DP engines honor `prefill_schedule_interval` (default 1 = off). MTP launcher knob `PREFILL_INTERVAL` (default 1). No HIP/ISA delta. See [batching.md](batching.md). Do not copy tok/s.
+
+---
+
 ## How engines live with it
 
 **vLLM V1:** no separate P/D phases. Decode-first into `max_num_batched_tokens`, leftover budget is chunked prefill. Prefix cache on (hash complete 16-token blocks). Preemption is RECOMPUTE (swap removed). Chunked prefill cannot be turned off. FCFS default.
