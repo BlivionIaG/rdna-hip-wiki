@@ -1,5 +1,17 @@
 # gfx1030 FA occupancy report
 
+## extras lock 2026-09-28 — `opengfx1030/vllm-rdna` `rdna_extras` @ `ae5bedfd` (production launcher FA)
+
+Dispatch / launcher only — **not** an occupancy-card close. No `csrc` launch_bounds or LDS shape change. No tok/s. No invented %.
+
+- Prefill still `__launch_bounds__(N, 1)`; decode still `__launch_bounds__(128|256)` (+ existing `waves_per_eu` where present). LDS remains the binding leftover on non-GQA prefill tiles.
+- Production launcher (`serve_gfx1030_flashnext.sh`): `VLLM_USE_RDNA2_FA` defaults **1**; `VLLM_FA_RDNA2_GQA_DECODE` defaults **1**. Set `VLLM_USE_RDNA2_FA=0` for Triton fallback. Same decode/prefill occupancy envelope as the FA path already locked. See [fa-gqa.md](fa-gqa.md).
+- PYTHONPATH pin is import hygiene, not an occupancy delta.
+
+Do not close the occupancy card. Do not copy tok/s.
+
+---
+
 ## extras lock 2026-09-28 — `opengfx1030/vllm-rdna` `rdna_extras` @ `83e6af80` (PR #28 follow-up)
 
 Dispatch / launcher only — **not** an occupancy-card close. No `csrc` launch_bounds or LDS shape change. No tok/s. No invented %.

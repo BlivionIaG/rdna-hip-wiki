@@ -1,5 +1,21 @@
 # FA GQA (gfx1030)
 
+## extras lock 2026-09-28 — tip `ae5bedfd` (production launcher FA defaults)
+
+Dest: `opengfx1030/vllm-rdna` `rdna_extras`. Occupancy first. No tok/s. No fabricated occupancy %.
+
+**No `csrc/rocm` / CMake gfx1030 / `__launch_bounds__` / `fdot2` / LDS tile delta** — production launcher script only. Kernel ISA stays the PR #28 + MTP verify-decode locks below.
+
+| Surface | Lock |
+|---|---|
+| Production launcher FA | `serve_gfx1030_flashnext.sh`: `VLLM_USE_RDNA2_FA` defaults **1**; `VLLM_FA_RDNA2_GQA_DECODE` defaults **1** (overridable; `VLLM_USE_RDNA2_FA=0` falls back to Triton). Mirrors MTP launcher defaults at `83e6af80`. |
+| Tree pin | Same script exports `PYTHONPATH=<script's tree>` first so the served code matches the launcher (avoids a copied venv's other-tree editable finder winning). |
+| Unchanged ISA | Still `__launch_bounds__(128|256)` (prefill often `(N, 1)`); `__builtin_amdgcn_fdot2`; XOR LDS swizzle; `fa_clip_kv_walk` / `fa_masked` / GQA register softmax; MTP verify-through-decode as at `83e6af80`. |
+
+Production as-shipped confirmation run on this launcher was still pending free GPUs at commit time — do not invent numbers. Do not copy tok/s.
+
+---
+
 ## extras lock 2026-09-28 — tip `83e6af80` (PR #28 follow-up item 3)
 
 Dest: `opengfx1030/vllm-rdna` `rdna_extras`. Occupancy first. No tok/s. No fabricated occupancy %.
