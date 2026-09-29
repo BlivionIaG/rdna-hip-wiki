@@ -14,7 +14,7 @@ waves/EU = min(
 
 Does **not** change extras HIP or tickets. No tok/s. Do not restate the FA pin.
 
-Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [wave-size-occupancy.md](wave-size-occupancy.md), [wgp-cu-mode-occupancy.md](wgp-cu-mode-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [icache-occupancy.md](icache-occupancy.md), [kcache-occupancy.md](kcache-occupancy.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [l2-occupancy.md](l2-occupancy.md), [infinity-cache-occupancy.md](infinity-cache-occupancy.md), [spi-ace-occupancy.md](spi-ace-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §1.3 / §6, [fa-occupancy.md](fa-occupancy.md), [architecture.md](architecture.md) § occupancy.
+Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [wave-size-occupancy.md](wave-size-occupancy.md), [wgp-cu-mode-occupancy.md](wgp-cu-mode-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [icache-occupancy.md](icache-occupancy.md), [kcache-occupancy.md](kcache-occupancy.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [l2-occupancy.md](l2-occupancy.md), [infinity-cache-occupancy.md](infinity-cache-occupancy.md), [hard-clause-occupancy.md](hard-clause-occupancy.md), [spi-ace-occupancy.md](spi-ace-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §1.3 / §6, [fa-occupancy.md](fa-occupancy.md), [architecture.md](architecture.md) § occupancy.
 
 ## Take / Leave
 
@@ -33,6 +33,7 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occup
 | **Leave** | Do not put L0/GL1 capacity into the theoretical min — vector-cache thrash is effective occupancy only ([l0-gl1-occupancy.md](l0-gl1-occupancy.md)). |
 | **Leave** | Do not put L2 capacity into the theoretical min — GPU-wide mid-cache thrash is effective occupancy only ([l2-occupancy.md](l2-occupancy.md)). |
 | **Leave** | Do not put Infinity Cache capacity into the theoretical min — GPU-wide last-level thrash is effective occupancy only ([infinity-cache-occupancy.md](infinity-cache-occupancy.md)). |
+| **Leave** | Do not put hard-clause / `S_CLAUSE` length into the theoretical min — arbiter lock / burst is effective interleave only ([hard-clause-occupancy.md](hard-clause-occupancy.md)). |
 | **Leave** | Do not put SPI/ACE / launch-rate into the theoretical min — lack of work and refill drain are measured-only ([spi-ace-occupancy.md](spi-ace-occupancy.md)). |
 | **Leave** | Do not maximize occupancy as a goal. ALU-bound kernels want utilization, not more waves; memory-bound kernels can thrash IC/L2 if you over-fill ([GPUOpen Occupancy explained](https://gpuopen.com/learn/occupancy-explained/)). |
 | **Leave** | Do not open a ticket / retip extras for this fold. |
@@ -52,6 +53,7 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occup
 | *(out of min)* L0 / GL1 (TCP) | [l0-gl1-occupancy.md](l0-gl1-occupancy.md) | not a PIX MaxWaves row; thrash → memory-wait / weaker latency hiding |
 | *(out of min)* L2 | [l2-occupancy.md](l2-occupancy.md) | not a PIX MaxWaves row; thrash → memory-wait / weaker latency hiding (mid vs IC) |
 | *(out of min)* Infinity Cache / MALL | [infinity-cache-occupancy.md](infinity-cache-occupancy.md) | not a PIX MaxWaves row; thrash → GDDR6 miss latency / weaker latency hiding (last-level vs L2) |
+| *(out of min)* Hard clause / `S_CLAUSE` | [hard-clause-occupancy.md](hard-clause-occupancy.md) | not a PIX MaxWaves row; arbiter locks one wave on that instruction type for the burst |
 | *(out of min)* SPI / ACE / grid fill | [spi-ace-occupancy.md](spi-ace-occupancy.md) | not a PIX MaxWaves row; lack of work / launch-rate → measured < theory |
 
 `getMaxWorkGroupsPerCU` (AMDGPUBaseInfo.cpp) already packs **wave slots + barriers**:

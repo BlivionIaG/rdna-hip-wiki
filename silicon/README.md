@@ -29,6 +29,7 @@ How gfx1030 actually works, and what HIP can control.
 | [l0-gl1-occupancy.md](l0-gl1-occupancy.md) | Vector L0/TCP 16 KB/CU + GL1 128 KB/SA: not a PIX MaxWaves row; thrash vs effective occupancy |
 | [l2-occupancy.md](l2-occupancy.md) | L2 4 MiB GPU-wide (mid vs IC): not a PIX MaxWaves row; thrash vs effective occupancy |
 | [infinity-cache-occupancy.md](infinity-cache-occupancy.md) | IC/MALL 128 MiB GPU-wide (last-level vs L2): not a PIX MaxWaves row; thrash vs effective occupancy |
+| [hard-clause-occupancy.md](hard-clause-occupancy.md) | gfx10+ `S_CLAUSE` hard clauses: not a PIX MaxWaves row; arbiter lock / burst vs effective interleave |
 | [spi-ace-occupancy.md](spi-ace-occupancy.md) | SPI/ACE: measured ≤ theory (lack of work / launch-rate); V620 fill 36 WGP × 4 × 16 = 2304; not a PIX MaxWaves row |
 | [graph-capture.md](graph-capture.md) | Capture vs page-commit guard: no D2H on the captured path; `Tensor!` on every HIP out arg |
 | [codegen-stack.md](codegen-stack.md) | Use HIP+DOT; ignore CK XDL, hipBLASLt, rocWMMA, AITER |
