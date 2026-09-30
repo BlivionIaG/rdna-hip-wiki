@@ -7,7 +7,8 @@ Format contracts for the HIP kernels we write. Not engine dispatch. Feature inde
 | [fp16-moe.md](fp16-moe.md) | native fp16 `fdot2`, fp32 accum | Spec: tiny-M GEMM + grouped prefill |
 | [int8-moe.md](int8-moe.md) | W8A16 `fdot2` / W8A8 `sdot4` | Spec: dual route by expert rows/shape/scales |
 | [triton-skinny-gemm.md](triton-skinny-gemm.md) | stock dispatch baseline | Stock gfx1030 = BLAS; LLMM1/wvSplitK gate excludes gfx10 |
-| [w4a16.md](w4a16.md) | nibble dequant → `fdot2` | **Most complete** (dense). MoE GPTQ in-tree + resident skinny opt-in @ `e1315629`; MoE AWQ Not done. Modes: [engine/w4a16.md](../engine/w4a16.md) |
+| [w4a16.md](w4a16.md) | nibble dequant → `fdot2` | **Most complete** (dense). MoE GPTQ in-tree + resident skinny opt-in @ `e1315629`; MoE AWQ Not done. Modes: [engine/w4a16.md](../engine/w4a16.md). K_STEP split repair @ `3a0786ea` |
+| [w4a8.md](w4a8.md) | int4 W × int8 A → `sdot4` | **Live / opt-in** @ `3a0786ea` (`a8_lds_k32_ag`, M≥33); MoE same env, hard-off under resident. Default = W4A16 |
 | [w8a16.md](w8a16.md) | i8 → fp16 → `fdot2` | Incomplete. MoE in-tree; dense `.cu` absent at tip |
 | [w8a16-fp8.md](w8a16-fp8.md) | E4M3 LUT/bit-trick → `fdot2` | Incomplete |
 | [w8a8-fp8.md](w8a8-fp8.md) | both sides E4M3 → fp16 → `fdot2` | Incomplete. **Not** `sdot4` |
@@ -18,7 +19,7 @@ Format contracts for the HIP kernels we write. Not engine dispatch. Feature inde
 | [lightning-indexer.md](lightning-indexer.md) | scalar half FMA | Incomplete |
 | [int2.md](int2.md) | i2 unpack → `fdot2` (later `sdot4`) | Spec. Mixed INT2/INT4 MoE = two unpackers, one DOT |
 | [w4a4.md](w4a4.md) | i4×i4 `sdot8` | Explore. After W8A8. Not E2M1 |
-| [sdot4-explore.md](sdot4-explore.md) | when `sdot4` is legal | Explore: W8A8 INT8, Sage QK, W4A8 |
+| [sdot4-explore.md](sdot4-explore.md) | when `sdot4` is legal | Explore: W8A8 INT8, Sage QK; W4A8 → [w4a8.md](w4a8.md) Live opt-in |
 | [w8a8-mxfp4.md](w8a8-mxfp4.md) | W8A8 INT8 = `sdot4` | **Spec / not added** |
 | [sage-qk.md](sage-qk.md) | QK `sdot4`, PV `fdot2` | Spec |
 | [nvfp4.md](nvfp4.md) | E2M1 + E4M3 mul → `fdot2` | Spec |

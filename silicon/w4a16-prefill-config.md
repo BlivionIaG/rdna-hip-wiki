@@ -20,3 +20,30 @@ Dest: `opengfx1030/vllm-rdna` `rdna_extras` tip **`56f67111`**.
 - Persist zeros keepalive unchanged. Occupancy still FA-first.
 
 Companion: [kernels/w4a16.md](../kernels/w4a16.md).
+
+
+## K_STEP split-K repair (`3a0786ea`)
+
+Dest: `opengfx1030/vllm-rdna` `rdna_extras` @ **`3a0786ea`**. Object: `csrc/rocm/q_gemm_rdna2_prefill.cu` `compute_split_k` (gfx1030 W4A16 prefill; same TU W4A8 falls back into).
+
+### Take — repair-only policy
+- Kernel walks K in `K_STEP`-wide chunks and does **not** clamp the last chunk to `k_per_split`. A split with `(size_k / split) % K_STEP != 0` over-reads the split’s LDS row / global K (NaN/garbage; e.g. `k=4352`, legacy `split=16` → `k_per_split=272` at ConfigV1).
+- **Keep** the pre-W4A8 powers-of-two search (`legacy`) whenever usable: `size_k % legacy == 0 && (size_k / legacy) % K_STEP == 0`.
+- **Else only:** enumerate every usable split `s ∈ [1..16]` with `size_k % s == 0 && (size_k / s) % K_STEP == 0`, then apply the same LDS-budget / grid-growth heuristics. `size_k % K_STEP == 0` at entry ⇒ `split=1` always usable.
+- Debug: `VLLM_RDNA2_PREFILL_DEBUG` prints chosen split; force override still `VLLM_RDNA2_PREFILL_FORCE_SPLIT_K`.
+
+### Audit counts (grounded; no tok/s)
+From `bench_results/2026-09-29_w4a16-regression-audit/SUMMARY.md` + `split_table.txt` over 60 production shapes:
+
+| Class | Count | Lock |
+|---|---:|---|
+| Old invalid → repaired | **8** | `(225,4352,{3584,4096,5120,8704})`, `(2001,4352,8704)`, `(2001,8704,8704)`, `(2048,4352,8704)`, `(2048,8704,8704)` |
+| Legacy-valid retunes reverted | **13** | earlier full-enumeration path had changed them; repair restores legacy |
+| Deviation on legacy-valid | **0** | policy: repair, don’t re-tune |
+
+### Leave
+- Replacing powers-of-two with full enumeration for shapes that were already valid
+- Copying ms / % from the audit CSVs into dest claims
+- Changing ConfigA / `K_STEP=32` tile geometry (unchanged)
+
+Companion W4A8 opt-in: [kernels/w4a8.md](../kernels/w4a8.md).
