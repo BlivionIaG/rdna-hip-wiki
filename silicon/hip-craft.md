@@ -177,6 +177,8 @@ There is **no** HIP / Clang builtin named `__builtin_amdgcn_ds_read_b128`. Expos
 
 ## 2. `s_waitcnt`: `vmcnt` vs `vscnt` vs `lgkmcnt`
 
+Occupancy framing (not a PIX MaxWaves row; early drains weaken latency hiding): [waitcnt-occupancy.md](waitcnt-occupancy.md).
+
 ### 2.1 The counters (gfx1030)
 
 RDNA split the GCN combined load/store counter. GPUOpen RDNA architecture deck (https://gpuopen.com/download/RDNA_Architecture_public.pdf), “Load / Store Queues - RDNA”:
