@@ -178,6 +178,7 @@ There is **no** HIP / Clang builtin named `__builtin_amdgcn_ds_read_b128`. Expos
 ## 2. `s_waitcnt`: `vmcnt` vs `vscnt` vs `lgkmcnt`
 
 Occupancy framing (not a PIX MaxWaves row; early drains weaken latency hiding): [waitcnt-occupancy.md](waitcnt-occupancy.md).
+Occupancy framing for EXEC / lane divergence (not a PIX MaxWaves row; lane-idle NOPs): [exec-divergence-occupancy.md](exec-divergence-occupancy.md).
 
 ### 2.1 The counters (gfx1030)
 

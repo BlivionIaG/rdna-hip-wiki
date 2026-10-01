@@ -19,7 +19,7 @@ Craft of *which* wait / when lives in [hip-craft.md](hip-craft.md) §2. This pag
 
 Date: **2026-09-30** Europe/Paris.
 
-Companions: [occupancy-composite.md](occupancy-composite.md), [hip-craft.md](hip-craft.md) §2, [hard-clause-occupancy.md](hard-clause-occupancy.md), [kcache-occupancy.md](kcache-occupancy.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [l2-occupancy.md](l2-occupancy.md), [infinity-cache-occupancy.md](infinity-cache-occupancy.md), [lds-bank-occupancy.md](lds-bank-occupancy.md), [spi-ace-occupancy.md](spi-ace-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [architecture.md](architecture.md).
+Companions: [occupancy-composite.md](occupancy-composite.md), [hip-craft.md](hip-craft.md) §2, [hard-clause-occupancy.md](hard-clause-occupancy.md), [exec-divergence-occupancy.md](exec-divergence-occupancy.md), [kcache-occupancy.md](kcache-occupancy.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [l2-occupancy.md](l2-occupancy.md), [infinity-cache-occupancy.md](infinity-cache-occupancy.md), [lds-bank-occupancy.md](lds-bank-occupancy.md), [spi-ace-occupancy.md](spi-ace-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [architecture.md](architecture.md).
 
 ## Take / Leave
 
@@ -146,4 +146,5 @@ That is **not** “raise MaxWaves.” Fix wait placement, overlap independent wo
 | [l0-gl1-occupancy.md](l0-gl1-occupancy.md) / [l2-occupancy.md](l2-occupancy.md) / [infinity-cache-occupancy.md](infinity-cache-occupancy.md) | Vector miss traffic that keeps VMCNT high |
 | [lds-bank-occupancy.md](lds-bank-occupancy.md) | LDS bank conflicts stretch `lgkmcnt` wait — latency, not MaxWGsLDS |
 | [spi-ace-occupancy.md](spi-ace-occupancy.md) | Slot fill / launch-rate — not the scoreboard park |
+| [exec-divergence-occupancy.md](exec-divergence-occupancy.md) | Lane-idle under EXEC vs time-idle on waitcnt — dual effective-occupancy sibling |
 | [vgpr-occupancy.md](vgpr-occupancy.md) | Deeper software pipelines can raise live VGPR — measure the cliff; don’t invent a waitcnt MaxWaves row |
