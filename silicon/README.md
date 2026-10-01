@@ -48,7 +48,7 @@ How gfx1030 actually works, and what HIP can control.
 | [v340l-macos-tb.md](v340l-macos-tb.md) | Locked: 1× UT4G + 1× 88096 + 8× V340L. Repo [BlivionIaG/v340l-macos](https://github.com/BlivionIaG/v340l-macos) |
 | [v340l-tune.md](v340l-tune.md) | 8× V340L Linux tune: COMPUTE+MCLK lock, 110 W/die, 8 GB packing |
 | [hippih.md](hippih.md) | hippih stub: three ISAs (`fdot2` / WMMA / `mad_mix`); extras stays first |
-| [exl3.md](exl3.md) | EXL3/QTIP: Viterbi is quant-time; infer is 3-inst codebook → half → `fdot2`. Later |
+| [exl3.md](exl3.md) | EXL3/QTIP: Viterbi is quant-time; infer is 3-inst codebook → half → `fdot2`. mul1/K=1..8 lock @ `30b0bd4e` |
 | [../kernels/gdn-decode.md](../kernels/gdn-decode.md) | GDN decode HIP `(2,4)`, no LDS |
 | [../kernels/gdn-prefill.md](../kernels/gdn-prefill.md) | GDN prefill 5 HIP; kkt no `fdot2`; wy ~58 KB LDS |
 | [../kernels/layernorm.md](../kernels/layernorm.md) | HIP AOT RMSNorm, tiny LDS, no DOT; not FA leftover |
@@ -57,6 +57,6 @@ How gfx1030 actually works, and what HIP can control.
 | [petit-kernel.md](petit-kernel.md) | causalflow petit FP4: Take shuffle/LDS/denorm caveats; Leave MFMA/CDNA |
 | [curvedinf-int8-vllm.md](curvedinf-int8-vllm.md) | curvedinf INT8 fork: Take PTH-KV + GDN fp32; Leave CK/UA/XGMI; `sdot4` Later |
 - [w4a16-prefill-config.md](w4a16-prefill-config.md) — ConfigA K_STEP=32 dest; ConfigH Leave (`7ac98a26`); K_STEP split repair @ `3a0786ea` (8 repairs / 13 legacy keep / 0 deviation)
-| [../kernels/w4a8.md](../kernels/w4a8.md) | W4A8 `sdot4` Live opt-in @ `3a0786ea`; W4A16 default unchanged |
+| [../kernels/w4a8.md](../kernels/w4a8.md) | W4A8 `sdot4` Live opt-in @ `3a0786ea`; MoE accum dual-mode @ `30b0bd4e`; W4A16 default unchanged |
 | [fa-gqa.md](fa-gqa.md) | FA GQA subgroup default; true variant dropped |
 | [../kernels/qwen4exp-flash-next-hip.md](../kernels/qwen4exp-flash-next-hip.md) | Flash-Next HIP glue T46–T49 + mrope fixes @ 5c3c0c6f |

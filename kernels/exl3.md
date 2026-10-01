@@ -101,6 +101,28 @@ Inner GEMM still 16×16 → `decode_3inst` → `half2` → `fdot2`. Dequant is n
 
 Prefill unpack-once: `exl3_decode_trellis_rdna2` — 16×16 block, 256 thr, `decode_3inst` only, no LDS / no fdot2 / no launch_bounds. bits 2/3/4; bits=6 stays mul1 dequant. Dot work after unpack is rocBLAS, not a new HIP DOT tile. Fused decode GEMM path unchanged. Produce `3inst`. No tok/s.
 
+## extras lock 2026-10-01 (dest tip `30b0bd4e`)
+
+Range `3a0786ea` → `30b0bd4e` (+16). Silicon Take on EXL3 HIP (PR #32 family + loader backport). Occupancy still first. Do not copy tok/s.
+
+### mul1 decode + K=1..8 trellis
+
+| File | Delta |
+|---|---|
+| `csrc/rocm/exl3_dot2_common.cuh` | `cb==2` (`mul1`) byte-sum is **unsigned** (`0x6400` + byte adds), matching exllamav3 `decode_mul1_product_2` (signed sum was ~6 off on real tiles). `exl3_window_at`: `bits ∈ {5,6,8}` use the `dq4` batch reader (pair reader mis-aligns odd windows; found at K=6). `exl3_window_pos`: bitrate-independent inverse of `tensor_core_perm` except locked K=4 special case. |
+| `csrc/rocm/exl3_dot2_dense.cu` | Dense GEMM + `exl3_decode_trellis_rdna2` launch **bits ∈ {1..8}**. New **`exl3_project_rdna2`**: one host op queues `H_K(x,suh)` → `exl3_gemm_rdna2` → `H_N(mid,svh)` on the current stream (caller pre-zeros mid via `cudaMemsetAsync`). Inner K-loop still `decode_3inst` → `half2` → `__builtin_amdgcn_fdot2`. No new `__launch_bounds__` / `waves_per_eu` on GEMM. |
+| `csrc/rocm/exl3_dot2_moe.cu` | MoE launches bits 1..8 and **`cb==2`**. Trellis LDS stage bound to the block's real n-range (`n_tiles_stage`) so N<1024 / last expert k-tile does not over-read past the per-k_tile trellis (page-fault class). |
+
+Bindings: `ops.h` / `torch_bindings.cpp` register `exl3_project_rdna2`. CMake gfx1030 EXL3 list unchanged (no new `.cu`).
+
+### Leave (same tip, not ISA locks)
+
+- Python loader rewrite (`exl3.py`: mul1/mcg markers, suh grouping, TP column slices) — contract for feeding the kernels; not DOT.
+- `Exl3MoEMethod` / `Exl3NgramTable` (PLE gather) — Python; n-gram gather inert on `rdna_extras` until PLE offload rewrite.
+- PR #30 W4A16 compile-dispatch explore — opt-in, default off; not EXL3 DOT.
+
+Produce policy unchanged: experts **`-cb 3inst`**. `mul1` / mixed-codebook is load+decode support, not a produce flip. FA pin stays closed. No tok/s.
+
 ## Sources
 
 - [turboderp-org/exllamav3](https://github.com/turboderp-org/exllamav3) `codebook.cuh`, `exl3_dq.cuh` (2026-08-21)

@@ -101,3 +101,8 @@ Same page-commit family on the Python side; real HIP fix in `hc_rdna2.cu`. Not F
 | `hc_rdna2.py` | `_contig()` + outs `new_zeros` (page-commit; same freeze class as hc_combine / GDN / EXL3). |
 
 **Capture:** HC ops pass Triton parity in isolation. Arming `VLLM_RDNA_HC_PREFILL_HIP=1` still faults PIECEWISE capture in MoE (`moe_gemm_q4_kernel_rdna2` / `moe_align_block_size_kernel`). Gate stays default-off. Do not invent numbers. Occupancy still FA-first.
+
+
+## MoE fp32 scratch (tip `30b0bd4e`)
+
+When `VLLM_RDNA2_MOE_FP32_ACCUM=1`, `moe_fp32_scratch` in `moe_accum_rdna2.cuh` is a persistent per-(rows,N,device) tensor allocated outside capture; the per-call zero is `hipMemsetAsync` (legal capture node), never an alloc inside the captured region. Default CAS path does not use this scratch. Not a new freeze-heap class beside GDN/PLE/hc_combine — only the MoE epilogue opt-in.

@@ -8,7 +8,7 @@ Format contracts for the HIP kernels we write. Not engine dispatch. Feature inde
 | [int8-moe.md](int8-moe.md) | W8A16 `fdot2` / W8A8 `sdot4` | Spec: dual route by expert rows/shape/scales |
 | [triton-skinny-gemm.md](triton-skinny-gemm.md) | stock dispatch baseline | Stock gfx1030 = BLAS; LLMM1/wvSplitK gate excludes gfx10 |
 | [w4a16.md](w4a16.md) | nibble dequant → `fdot2` | **Most complete** (dense). MoE GPTQ in-tree + resident skinny opt-in @ `e1315629`; MoE AWQ Not done. Modes: [engine/w4a16.md](../engine/w4a16.md). K_STEP split repair @ `3a0786ea` |
-| [w4a8.md](w4a8.md) | int4 W × int8 A → `sdot4` | **Live / opt-in** @ `3a0786ea` (`a8_lds_k32_ag`, M≥33); MoE same env, hard-off under resident. Default = W4A16 |
+| [w4a8.md](w4a8.md) | int4 W × int8 A → `sdot4` | **Live / opt-in** @ `3a0786ea`; MoE epilogue CAS default / fp32 scratch opt-in @ `30b0bd4e`. Default = W4A16 |
 | [w8a16.md](w8a16.md) | i8 → fp16 → `fdot2` | Incomplete. MoE in-tree; dense `.cu` absent at tip |
 | [w8a16-fp8.md](w8a16-fp8.md) | E4M3 LUT/bit-trick → `fdot2` | Incomplete |
 | [w8a8-fp8.md](w8a8-fp8.md) | both sides E4M3 → fp16 → `fdot2` | Incomplete. **Not** `sdot4` |
@@ -35,4 +35,4 @@ Do not conflate W8A16 / W8A16-FP8 / W8A8-FP8 (`fdot2`) with spec W8A8 INT8 (`sdo
 | [gdn-prefill.md](gdn-prefill.md) | kkt scalar FMA; wy/delta_h/o `fdot2` | Prefill HIP Live (`77d6fdf8`). o BV 64 / ~56 KB. All `(2,4)` |
 | [layernorm.md](layernorm.md) | scalar fp32 FMA + shfl + tiny LDS | Live AOT HIP (`83de31cf` + gated `71a54552`). Cudagraph-safe. Not FA leftover |
 | [qwen4exp-flash-next-hip.md](qwen4exp-flash-next-hip.md) | T46 fdot2 glue; T47–T49 HC/QSA/PLE scalar | HC compute-correct @ `8960a3bc`; gates still default off (MoE PIECEWISE capture) |
-| [exl3.md](exl3.md) | trellis state → 3-inst → `fdot2` | Later. Not Marlin/MMA. Occupancy + W4 first |
+| [exl3.md](exl3.md) | trellis state → 3-inst → `fdot2` | Later. mul1 + K=1..8 + `exl3_project_rdna2` @ `30b0bd4e`. Occupancy + W4 first |

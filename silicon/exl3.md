@@ -152,6 +152,25 @@ Why: fused dense GEMM re-decodes each tile per M-block (`M_PER=8` cap). Prefill 
 
 Non-silicon in the same tip (for dest context only): `38595867` sliding_window arg on `fa_rdna2` splitk wrapper (Python); `9ba5d5f4` drops lm_head debug print. GDN HIP delta is on [kernels/gdn-prefill.md](../kernels/gdn-prefill.md).
 
+## extras lock 2026-10-01 (dest tip `30b0bd4e`)
+
+HIP/ISA delta since `3a0786ea` (W4A8 lock). Companion: [../kernels/exl3.md](../kernels/exl3.md).
+
+**Take — codebook / window**
+
+- `mul1` (`cb==2`) decode uses **unsigned** byte-sum into `0x6400` then `hfma` (`k_inv=0x1eee`, `k_bias=0xc931`). Still codebook-only `dp4a`-class math — **not** GEMM `sdot4`.
+- Window extract: `dq4` path for bits 5/6/8; `exl3_window_pos` matches exllamav3 `tensor_core_perm` inverse for all integer K (K=4 keeps its locked formula).
+
+**Take — launch surface**
+
+- Dense `exl3_gemm_rdna2` + unpack `exl3_decode_trellis_rdna2`: bits **1..8**, cb **0/1/2**.
+- MoE `moe_exl3_gemm_rdna2`: same bits; cb includes **mul1**; LDS trellis stage clipped to live n-tiles (correctness / page-fault).
+- New fused decode linear `exl3_project_rdna2` (Hadamard → GEMM → Hadamard on one stream). Tile / LDS / `fdot2` contract unchanged. Still **no** GEMM `__launch_bounds__` / `waves_per_eu`.
+
+**Unchanged:** produce `-cb 3inst`; no WMMA; occupancy leftover FA prefill `(N,1)` / EXL3 VGPR; CMake EXL3 sources unchanged. Do not invent numbers. Do not copy tok/s.
+
+Same tip also lands MoE epilogue dual-mode (`moe_accum_rdna2.cuh`) — see [../kernels/w4a8.md](../kernels/w4a8.md) + [../kernels/w4a16.md](../kernels/w4a16.md) (W4A16/W4A8 MoE; not EXL3 CAS).
+
 ## Sources
 
 - [turboderp-org/exllamav3](https://github.com/turboderp-org/exllamav3) `codebook.cuh`, `exl3_dq.cuh`, `exl3_gemm_inner.cuh`, `exl3_gemv.cu`, `doc/exl3.md` (read 2026-08-21)
