@@ -15,7 +15,7 @@ Does **not** change extras HIP or UNC tickets. No tok/s. Do not restate the FA p
 
 Date: **2026-10-01** Europe/Paris.
 
-Companions: [occupancy-composite.md](occupancy-composite.md), [wave-size-occupancy.md](wave-size-occupancy.md), [waitcnt-occupancy.md](waitcnt-occupancy.md), [hard-clause-occupancy.md](hard-clause-occupancy.md), [spi-ace-occupancy.md](spi-ace-occupancy.md), [hip-craft.md](hip-craft.md) §2.1 / DPP, [valu.md](valu.md), [architecture.md](architecture.md), [fa-occupancy.md](fa-occupancy.md).
+Companions: [occupancy-composite.md](occupancy-composite.md), [wave-size-occupancy.md](wave-size-occupancy.md), [waitcnt-occupancy.md](waitcnt-occupancy.md), [trans-occupancy.md](trans-occupancy.md), [hard-clause-occupancy.md](hard-clause-occupancy.md), [spi-ace-occupancy.md](spi-ace-occupancy.md), [hip-craft.md](hip-craft.md) §2.1 / DPP, [valu.md](valu.md), [architecture.md](architecture.md), [fa-occupancy.md](fa-occupancy.md).
 
 ## Take / Leave
 
