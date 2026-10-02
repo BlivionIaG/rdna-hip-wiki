@@ -59,5 +59,5 @@ How gfx1030 actually works, and what HIP can control.
 | [curvedinf-int8-vllm.md](curvedinf-int8-vllm.md) | curvedinf INT8 fork: Take PTH-KV + GDN fp32; Leave CK/UA/XGMI; `sdot4` Later |
 - [w4a16-prefill-config.md](w4a16-prefill-config.md) — ConfigA K_STEP=32 dest; ConfigH Leave (`7ac98a26`); K_STEP split repair @ `3a0786ea` (8 repairs / 13 legacy keep / 0 deviation)
 | [../kernels/w4a8.md](../kernels/w4a8.md) | W4A8 `sdot4` Live opt-in @ `3a0786ea`; MoE accum dual-mode @ `30b0bd4e`; W4A16 default unchanged |
-| [fa-gqa.md](fa-gqa.md) | FA GQA subgroup default; true variant dropped |
+| [fa-gqa.md](fa-gqa.md) | FA GQA subgroup default; HEAD_DIM 128/256 prefill (@ `bb40498c`); true variant dropped |
 | [../kernels/qwen4exp-flash-next-hip.md](../kernels/qwen4exp-flash-next-hip.md) | Flash-Next HIP glue T46–T49 + mrope fixes @ 5c3c0c6f |

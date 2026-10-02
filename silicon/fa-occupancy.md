@@ -1,5 +1,17 @@
 # gfx1030 FA occupancy report
 
+## extras lock 2026-10-02 — `opengfx1030/vllm-rdna` `rdna_extras` @ `bb40498c` (PR #34)
+
+GQA prefill LDS shrink for D=128 default path — **not** an occupancy-card close. No tok/s. No invented %.
+
+- Kernel renamed/templated: `fa_prefill_paged_varlen_gqa_kernel<HEAD_DIM,…>` still `__launch_bounds__(256, 1)`. Four instantiations (128/256 × even/odd).
+- Default `subgroup` dispatch sends D=128 prefill through the GQA register-O path (~14 KiB LDS/CTA) instead of `_short` (~45 KiB LDS/CTA). Other prefill kernels remain `(N, 1)`; LDS leftover on non-GQA tiles unchanged.
+- Still `__builtin_amdgcn_fdot2`. Tip-reported compile gate 80–93 VGPR / 0 spills / 0 scratch — not a new fatbin dump in this wiki pass. See [fa-gqa.md](fa-gqa.md).
+
+Do not close the occupancy card. Do not copy tok/s.
+
+---
+
 ## extras lock 2026-09-28 — `opengfx1030/vllm-rdna` `rdna_extras` @ `ae5bedfd` (production launcher FA)
 
 Dispatch / launcher only — **not** an occupancy-card close. No `csrc` launch_bounds or LDS shape change. No tok/s. No invented %.

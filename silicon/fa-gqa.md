@@ -1,5 +1,24 @@
 # FA GQA (gfx1030)
 
+## extras lock 2026-10-02 — tip `bb40498c` (PR #34 GQA prefill HEAD_DIM 128/256)
+
+Dest: `opengfx1030/vllm-rdna` `rdna_extras` (`bc5fbee5`→`bb40498c`, +3; silicon in `284fbad0`, then bench/docs). Occupancy first. No tok/s. No fabricated occupancy %.
+
+`csrc/rocm/fa_rdna2.cu` + `rdna_attn.py` / `fa_rdna2_backend.py` dispatch:
+
+| Surface | Lock |
+|---|---|
+| Kernel | `fa_prefill_paged_varlen_gqa_kernel_256` → templated `fa_prefill_paged_varlen_gqa_kernel<HEAD_DIM, HEADS_PER_CTA, BR_STEP, …>` with `HEAD_DIM` ∈ {128, 256}. Still `__launch_bounds__(256, 1)`. |
+| Instantiations | Even GQA: `HEADS_PER_CTA=2`, `BR_STEP=8` (16 query rows / CTA). Odd groups + MHA: `HEADS_PER_CTA=1`, `BR_STEP=16` (same 16 rows). Host picks on `(H_q/H_kv) % 2`. |
+| LDS / registers | Same register-O + register softmax path as D=256 (#28): launcher smem = `sQ+sK+sV+sP` only (`DSK = HEAD_DIM+8`). D=128 GQA CTA ~14 KiB LDS vs prior `_short` ~45 KiB LDS with O in LDS RMW. |
+| Dispatch | `VLLM_FA_RDNA2_GQA_MODE=subgroup` (default): **all** prefill (D=128 and D=256, even/odd/MHA) routes through `fa_rdna2_prefill_paged_varlen_gqa`. Any other mode value restores prior `_short` / split-K / general. D=256 even-group path bit-identical to pre-tip. |
+| Unchanged ISA | Still `__builtin_amdgcn_fdot2`; XOR LDS swizzle; `fa_clip_kv_walk` / `fa_masked`. CMake gfx1030 list unchanged. Tip-reported gate: 80–93 VGPR, 0 spills, 0 scratch, wave32, four instantiations present. |
+| Leave | Bench JSON / tok/s under `bench_results/`; do not copy. |
+
+Do not invent numbers. Do not copy tok/s. Occupancy card stays open — GQA prefill LDS shrink for D=128 default path; other prefill kernels still `(N, 1)`.
+
+---
+
 ## extras lock 2026-09-28 — tip `e0112c55` (PR #29 split decode + row gate)
 
 Dest: `opengfx1030/vllm-rdna` `rdna_extras` (`6ed39093`→`e0112c55`, +4 incl. merge of PR #29). Occupancy first. No tok/s. No fabricated occupancy %.
