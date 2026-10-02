@@ -17,6 +17,13 @@ Owned by LLM_Inference_specialist. Paraphrase only. Do not invent tok/s.
 | [idle-2026-09-16-upstream-awareness.md](idle-2026-09-16-upstream-awareness.md) | Idle upstream awareness 2026-09-16 — thin window; no dest / pin 7.14 |
 | [idle-2026-09-17-upstream-awareness.md](idle-2026-09-17-upstream-awareness.md) | Idle upstream awareness 2026-09-17 — no dest; breakable prefill Take Later only |
 | [idle-2026-09-18-upstream-awareness.md](idle-2026-09-18-upstream-awareness.md) | Idle upstream awareness 2026-09-18 — no dest; FULL grid / ROCm private pin / SPF |
+| [idle-2026-09-21-upstream-awareness.md](idle-2026-09-21-upstream-awareness.md) | Idle upstream awareness 2026-09-21 — no dest; prefix_cacheable / align CoW / optimistic Mamba |
+| [idle-2026-09-22-upstream-awareness.md](idle-2026-09-22-upstream-awareness.md) | Idle upstream awareness 2026-09-22 — no dest; AuxOutput narrow / DFlash async / stream reuse |
+| [idle-2026-09-23-upstream-awareness.md](idle-2026-09-23-upstream-awareness.md) | Idle upstream awareness 2026-09-23 — no dest; eager JIT / hybrid demote / APC reinforce |
+| [idle-2026-09-24-upstream-awareness.md](idle-2026-09-24-upstream-awareness.md) | Idle upstream awareness 2026-09-24 — no dest; BATCH_INVARIANT breakable / mixed FULL / DP×spec |
+| [idle-2026-09-25-upstream-awareness.md](idle-2026-09-25-upstream-awareness.md) | Idle upstream awareness 2026-09-25 — no dest; hybrid padded tails / PLE outside CG / HiCache drain |
+| [idle-2026-09-29-upstream-awareness.md](idle-2026-09-29-upstream-awareness.md) | Morning upstream awareness 2026-09-29 — no dest; APC align reinforce / PCIe-IPC AR methodology |
+| [project-sweep-2026-10-02.md](project-sweep-2026-10-02.md) | Weekday RDNA2 project sweep 2026-10-02 — Take Later tuandat FA-q4_0-KV + leapdragon PLE_OFFLOAD_ANON; Triton RDNA2 targets Dead |
 
 Contract pages stay in [../](../README.md). If a note changes a verdict, patch the contract page and say so here.
 
