@@ -1,14 +1,18 @@
 # Official vs unofficial matrix
 
-Date: **2026-09-28**.
+Date: **2026-10-02**.
 
 | Piece | Official AMD | This project | Do |
 |---|---|---|---|
 | HIP runtime + compiler | 10.0.0 latest. **7.14.1** quality | **Live 7.14.0** | Stay on 7.14.0 |
 | Wave size | `-mwavefrontsize64` deprecated. [TheRock#7909](https://github.com/ROCm/TheRock/issues/7909) asks for official wave64 (gfx1151) | gfx1030 dest is **wave32** | Do not flip extras to wave64 |
-| TheRock `gfx103X-dgpu` | gfx1030 Release Ready; libs excluded. Nightly tip **`10.2.0a20260927` L+W** (core + libraries + device-gfx1030/1100/900); compiler **ww-37-SMP1.1** / amd-llvm `4f43f4746ede` via [#8430](https://github.com/ROCm/TheRock/pull/8430) (base [#8369](https://github.com/ROCm/TheRock/pull/8369)); systems `2cd17fb` ([#8525](https://github.com/ROCm/TheRock/pull/8525)/[#8508](https://github.com/ROCm/TheRock/pull/8508)); libraries `459a4ec` ([#8512](https://github.com/ROCm/TheRock/pull/8512)); HEAD `8443579985f8` | Compiler target is real | Build for `gfx1030`; no CK/hipBLASLt. Live dest still 7.14.0 |
+| TheRock `gfx103X-dgpu` | gfx1030 Release Ready; libs excluded. Nightly tip **`10.2.0a20261002` L+W** (core + libraries + device-gfx1030/1100/900); compiler **ww-37-SMP1.1** / amd-llvm `4f43f4746ede` via [#8430](https://github.com/ROCm/TheRock/pull/8430) (base [#8369](https://github.com/ROCm/TheRock/pull/8369)); systems `bc176d4` ([#8588](https://github.com/ROCm/TheRock/pull/8588)); libraries `916d478` ([#8607](https://github.com/ROCm/TheRock/pull/8607)); HEAD `6447c1fb73b3` | Compiler target is real | Build for `gfx1030`; no CK/hipBLASLt. Live dest still 7.14.0 |
 | gfx900 | Official dead | TheRock `device-gfx900` nightly (Path A) | Later host; `mad_mix` |
 
+
+## 2026-10-02 — systems bc176d4 (#8588) + nightly tip 1002 (tip / soak-rebuild watch, not dest)
+
+TheRock [#8588](https://github.com/ROCm/TheRock/pull/8588) **merged** systems **`0bf70ef` → `bc176d4`** (+82). HEAD **`c9bde5b3d052` → `6447c1fb73b3`** (also CI/security and profiler-hub reverts; the material event is the systems pin). Nightly tip **`10.2.0a20261001` → `10.2.0a20261002` L+W** (core + libraries + device-gfx1030/1100/900). Libraries **unchanged**: `916d478` ([#8607](https://github.com/ROCm/TheRock/pull/8607)). Compiler **unchanged**: ww-37-SMP1.1 / amd-llvm `4f43f4746ede`; hipify `501cd6c1`; spirv `2c14c774`. Systems highlights: HIP `__half` integral assign ([systems#12269](https://github.com/ROCm/rocm-systems/pull/12269)); ROCR vmem handle flags ([systems#12201](https://github.com/ROCm/rocm-systems/pull/12201)); ROCR blit publish after AssembleShader ([systems#12209](https://github.com/ROCm/rocm-systems/pull/12209)); CLR Windows SVM aperture 256 GiB → 4 TiB ([systems#11414](https://github.com/ROCm/rocm-systems/pull/11414)). **No gfx1030/1100/900 ISA or support-matrix change** (gfx1030/1100 still Release Ready; gfx900 still Build Passing). hippihx stays per-arch fatbins under the 7.14.0 pin (fdot2/sdot4, no WMMA). Official Core SDK remains **10.0.0**. **No RDNA dest bump** — live dest stays **7.14.0** `hipcc --offload-arch=gfx1030 -O3` wave32 WGP. [#8696](https://github.com/ROCm/TheRock/pull/8696) closed unmerged. Open watches: libraries [#8697](https://github.com/ROCm/TheRock/pull/8697) (`916d478`→`762c581`, CI failing); draft SMP ww38.1.2 [#8569](https://github.com/ROCm/TheRock/pull/8569) (CI failing).
 
 ## 2026-09-28 — systems 2cd17fb + libraries 459a4ec + nightly tip 0927 (not dest)
 

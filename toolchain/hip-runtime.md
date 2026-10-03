@@ -1,6 +1,6 @@
 # HIP runtime / ROCm pin
 
-Date: **2026-09-03**.
+Date: **2026-10-02**.
 
 | Claim | Status |
 |---|---|
@@ -10,6 +10,19 @@ Date: **2026-09-03**.
 | Do we bump? | **No.** Not to 7.14.1 (RCCL IB + amdflang only) and not to 10.0 |
 
 V620 official footnote remains Ubuntu-only. TheRock `gfx103X-dgpu` is a real compiler target; libraries stay excluded.
+
+## 2026-10-02 — TheRock systems `bc176d4` (#8588; tip / soak-rebuild watch, not dest)
+
+[TheRock#8588](https://github.com/ROCm/TheRock/pull/8588) **merged** `rocm-systems` **`0bf70ef` → `bc176d4`** (+82). HEAD **`c9bde5b3d052` → `6447c1fb73b3`** (also CI/security and profiler-hub reverts; the material event is the systems pin). Libraries still `916d478` ([#8607](https://github.com/ROCm/TheRock/pull/8607)). Compiler pin unchanged (ww-37-SMP1.1 / amd-llvm `4f43f4746ede`; hipify `501cd6c1`; spirv `2c14c774`). Nightly **`10.2.0a20261001` → `10.2.0a20261002` L+W** (core + libraries + device-gfx1030/1100/900).
+
+CLR/runtime notes now in the TheRock systems pin (still **not** live dest):
+
+- **HIP `__half`**: [rocm-systems#12269](https://github.com/ROCm/rocm-systems/pull/12269) — integral assign.
+- **ROCR vmem**: [rocm-systems#12201](https://github.com/ROCm/rocm-systems/pull/12201) — vmem handle flags.
+- **ROCR blit**: [rocm-systems#12209](https://github.com/ROCm/rocm-systems/pull/12209) — publish blit kernel code after AssembleShader.
+- **Windows SVM**: [rocm-systems#11414](https://github.com/ROCm/rocm-systems/pull/11414) — default aperture 256 GiB → 4 TiB.
+
+**No gfx1030/1100/900 ISA or support-matrix change** (gfx1030/1100 still Release Ready; gfx900 still Build Passing). [#8696](https://github.com/ROCm/TheRock/pull/8696) closed unmerged. Open watches: libraries [#8697](https://github.com/ROCm/TheRock/pull/8697) (`916d478`→`762c581`, CI failing); draft SMP ww38.1.2 [#8569](https://github.com/ROCm/TheRock/pull/8569) (CI failing). Live dest stays **7.14.0** `hipcc --offload-arch=gfx1030 -O3` wave32 WGP.
 
 ## 2026-09-28 — TheRock systems `2cd17fb` + libraries `459a4ec` (tip, not dest)
 

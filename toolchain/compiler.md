@@ -1,8 +1,12 @@
 # Compiler / hipcc
 
-Date: **2026-09-28**. Audience: someone compiling HIP for **gfx1030** (live), with later **gfx1100** and **gfx900** TUs.
+Date: **2026-10-02**. Audience: someone compiling HIP for **gfx1030** (live), with later **gfx1100** and **gfx900** TUs.
 
 Companions: [silicon/hip-craft.md](../silicon/hip-craft.md).
+
+## 2026-10-02 — systems bc176d4 (#8588) + nightly tip 1002 (tip / soak-rebuild watch, not dest)
+
+TheRock [#8588](https://github.com/ROCm/TheRock/pull/8588) **merged** systems **`0bf70ef` → `bc176d4`** (+82). HEAD **`c9bde5b3d052` → `6447c1fb73b3`** (also CI/security and profiler-hub reverts; the material event is the systems pin). Nightly tip **`10.2.0a20261001` → `10.2.0a20261002` L+W** (core + libraries + device-gfx1030/1100/900). Libraries **unchanged**: `916d478` ([#8607](https://github.com/ROCm/TheRock/pull/8607)). Compiler **unchanged**: ww-37-SMP1.1 / amd-llvm `4f43f4746ede`; hipify `501cd6c1`; spirv `2c14c774`. Systems highlights are runtime, not codegen: HIP `__half` integral assign ([systems#12269](https://github.com/ROCm/rocm-systems/pull/12269)); ROCR vmem handle flags ([systems#12201](https://github.com/ROCm/rocm-systems/pull/12201)); ROCR blit publish after AssembleShader ([systems#12209](https://github.com/ROCm/rocm-systems/pull/12209)); CLR Windows SVM aperture 256 GiB → 4 TiB ([systems#11414](https://github.com/ROCm/rocm-systems/pull/11414)). **No gfx1030/1100/900 ISA / dest lever.** Support table unchanged (gfx1030/1100 Release Ready; gfx900 Build Passing). Official Core SDK remains **10.0.0**. **No RDNA dest bump** — live stays **7.14.0** `hipcc --offload-arch=gfx1030 -O3` wave32 WGP. [#8696](https://github.com/ROCm/TheRock/pull/8696) closed unmerged. Open watches: libraries [#8697](https://github.com/ROCm/TheRock/pull/8697) (`916d478`→`762c581`, CI failing); draft SMP ww38.1.2 [#8569](https://github.com/ROCm/TheRock/pull/8569) (CI failing).
 
 ## 2026-09-28 — systems 2cd17fb + libraries 459a4ec + nightly tip 0927 (not dest)
 
