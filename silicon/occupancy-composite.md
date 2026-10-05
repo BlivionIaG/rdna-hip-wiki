@@ -14,7 +14,7 @@ waves/EU = min(
 
 Does **not** change extras HIP or tickets. No tok/s. Do not restate the FA pin.
 
-Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [wave-size-occupancy.md](wave-size-occupancy.md), [wgp-cu-mode-occupancy.md](wgp-cu-mode-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [icache-occupancy.md](icache-occupancy.md), [kcache-occupancy.md](kcache-occupancy.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [l2-occupancy.md](l2-occupancy.md), [infinity-cache-occupancy.md](infinity-cache-occupancy.md), [hard-clause-occupancy.md](hard-clause-occupancy.md), [waitcnt-occupancy.md](waitcnt-occupancy.md), [exec-divergence-occupancy.md](exec-divergence-occupancy.md), [trans-occupancy.md](trans-occupancy.md), [spi-ace-occupancy.md](spi-ace-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §1.3 / §6, [fa-occupancy.md](fa-occupancy.md), [architecture.md](architecture.md) § occupancy.
+Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [wave-size-occupancy.md](wave-size-occupancy.md), [wgp-cu-mode-occupancy.md](wgp-cu-mode-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [icache-occupancy.md](icache-occupancy.md), [kcache-occupancy.md](kcache-occupancy.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [l2-occupancy.md](l2-occupancy.md), [infinity-cache-occupancy.md](infinity-cache-occupancy.md), [hard-clause-occupancy.md](hard-clause-occupancy.md), [waitcnt-occupancy.md](waitcnt-occupancy.md), [exec-divergence-occupancy.md](exec-divergence-occupancy.md), [trans-occupancy.md](trans-occupancy.md), [vgpr-bank-occupancy.md](vgpr-bank-occupancy.md), [spi-ace-occupancy.md](spi-ace-occupancy.md), [occupancy-dump.md](occupancy-dump.md), [hip-craft.md](hip-craft.md) §1.3 / §6, [fa-occupancy.md](fa-occupancy.md), [architecture.md](architecture.md) § occupancy.
 
 ## Take / Leave
 
@@ -37,6 +37,7 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occup
 | **Leave** | Do not put waitcnt / scoreboard depth into the theoretical min — memory-wait parks are effective occupancy only ([waitcnt-occupancy.md](waitcnt-occupancy.md)). |
 | **Leave** | Do not put EXEC / active-lane density into the theoretical min — lane-idle NOPs are effective utilization only ([exec-divergence-occupancy.md](exec-divergence-occupancy.md)). |
 | **Leave** | Do not put transcendental / SFU rate into the theoretical min — TRANS throughput starve is effective occupancy only ([trans-occupancy.md](trans-occupancy.md)). |
+| **Leave** | Do not put VGPR/SGPR operand-bank conflicts into the theoretical min — extra operand-read cycles inside a filled slot; LLVM ≥ 13 does not model them ([vgpr-bank-occupancy.md](vgpr-bank-occupancy.md)). |
 | **Leave** | Do not put SPI/ACE / launch-rate into the theoretical min — lack of work and refill drain are measured-only ([spi-ace-occupancy.md](spi-ace-occupancy.md)). |
 | **Leave** | Do not maximize occupancy as a goal. ALU-bound kernels want utilization, not more waves; memory-bound kernels can thrash IC/L2 if you over-fill ([GPUOpen Occupancy explained](https://gpuopen.com/learn/occupancy-explained/)). |
 | **Leave** | Do not open a ticket / retip extras for this fold. |
@@ -60,6 +61,7 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](lds-occup
 | *(out of min)* Waitcnt / scoreboard | [waitcnt-occupancy.md](waitcnt-occupancy.md) | not a PIX MaxWaves row; `s_waitcnt` park / weaker latency hiding while VGPR∩LDS looks full |
 | *(out of min)* EXEC / lane divergence | [exec-divergence-occupancy.md](exec-divergence-occupancy.md) | not a PIX MaxWaves row; inactive lanes NOP / weak SIMD util while VGPR∩LDS looks full |
 | *(out of min)* Transcendental / SFU | [trans-occupancy.md](trans-occupancy.md) | not a PIX MaxWaves row; ¼-rate / 8-wide TRANS starve while VGPR∩LDS looks full |
+| *(out of min)* VGPR / SGPR operand banks | [vgpr-bank-occupancy.md](vgpr-bank-occupancy.md) | not a PIX MaxWaves row; `vN mod 4` / SGPR-pair bank collision → extra operand-read cycle; no compiler pass since LLVM 13 |
 | *(out of min)* SPI / ACE / grid fill | [spi-ace-occupancy.md](spi-ace-occupancy.md) | not a PIX MaxWaves row; lack of work / launch-rate → measured < theory |
 
 `getMaxWorkGroupsPerCU` (AMDGPUBaseInfo.cpp) already packs **wave slots + barriers**:

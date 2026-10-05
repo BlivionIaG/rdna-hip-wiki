@@ -33,6 +33,7 @@ How gfx1030 actually works, and what HIP can control.
 | [waitcnt-occupancy.md](waitcnt-occupancy.md) | waitcnt / VMCNT+VSCNT+LGKMCNT scoreboard: not a PIX MaxWaves row; park vs effective occupancy |
 | [exec-divergence-occupancy.md](exec-divergence-occupancy.md) | EXEC / lane divergence: not a PIX MaxWaves row; lane-idle vs effective occupancy |
 | [trans-occupancy.md](trans-occupancy.md) | Transcendental / SFU (¼ rate, 8-wide, co-issue): not a PIX MaxWaves row; TRANS starve vs effective occupancy |
+| [vgpr-bank-occupancy.md](vgpr-bank-occupancy.md) | VGPR 4-bank (`vN mod 4`) / SGPR 8 paired-bank operand reads: not a PIX MaxWaves row; LLVM dropped bank reassign (D101313) — footnote, never trade VGPRs |
 | [spi-ace-occupancy.md](spi-ace-occupancy.md) | SPI/ACE: measured ≤ theory (lack of work / launch-rate); V620 fill 36 WGP × 4 × 16 = 2304; not a PIX MaxWaves row |
 | [graph-capture.md](graph-capture.md) | Capture vs page-commit guard: no D2H on the captured path; `Tensor!` on every HIP out arg |
 | [codegen-stack.md](codegen-stack.md) | Use HIP+DOT; ignore CK XDL, hipBLASLt, rocWMMA, AITER |
