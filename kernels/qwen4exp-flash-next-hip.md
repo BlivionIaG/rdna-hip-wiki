@@ -47,6 +47,26 @@ Wrappers from `d0d577f1` remain: `hc_{grouped_gemma_rmsnorm,silu,gate_mix,combin
 - `qsa_store_cache_rows` / `qsa_compress_groups` scalar; MQA host wrapper reuses existing `paged_mqa_logits_decode_rdna2` when layout matches.
 - Opt-in: `VLLM_RDNA_QSA_HIP=1` + `on_gfx10x()`. Default off.
 
+#### extras lock 2026-10-05 (tip `121af1b4`, was `ab5ccf3d`)
+
+QSA HIP path landed on dest (`d19b87ea` v0.30 port, `c5fd67ef` stride fix, merge `a6ab43cf`). Still opt-in, **default off** (author reports it slower than the Triton QSA reference; Triton stays source of truth). Correctness and launch-hygiene lock only — no `__launch_bounds__`, DOT, LDS-tile or CMake gfx1030 change (`qsa_rdna2.cu` was already in `EXT_SRC`).
+
+| Surface | Delta |
+|---|---|
+| `qsa_store_cache_rows_kernel` (QSA KV store) | Vectorised `uint4` copy now gated on **both** `stride_rows_dim == elem_bytes` and `stride_cache_dim == elem_bytes`; otherwise stride-aware scalar loop. Root bug: server passes the transposed `canonical_qsa_rope_positions` view (last-dim stride = tokens), and the dense-16 B read walked off the row → page-not-present fault under chunked prefill + MTP + prefix caching. Invalid slot now early-returns the whole CTA. |
+| dtypes | Slots, logical/raw positions, compressed slots, rope ring and `first_positions` are **int64** end to end (were int32). Store kernel handles 2/4/8-byte elems (fp16 rows and int64 rope rows share one kernel). Strides carried as int64 bytes. |
+| Cache rank | Cache/compressor-state/rope are 4-D `[blocks, PAGE, 1, W]`; host reads `stride(3)` for the width dim (was `stride(2)`). `raw_keys`/`pooled` keep the head=1 dim (`stride(2)`), no `squeeze().contiguous()` copy in the dispatcher. |
+| Launch hygiene | Both kernels launch on `getCurrentCUDAStream()` (were on the legacy default stream) + `C10_CUDA_KERNEL_LAUNCH_CHECK()`. Same class as the T44b / wvSplitK stream fixes: a HIP op off the torch stream is a capture/order bug, not a perf knob. |
+| `qsa_compress_groups` | Row count clamped to the shortest metadata buffer (warns once per call via host `printf`). Fallback "neither raw nor ring" first-position now writes 0 (matches Triton) instead of `first_position`. |
+| Op schema | Scalar ints (`page_size`, `width`, `compress_ratio`, `compressor_state_size`, `head_dim`, `max_model_len`) now passed as CPU int64 Tensors and read with `.item()` host-side. CPU tensor ⇒ no D2H sync, but a per-call host alloc. |
+| Debug | `VLLM_QSA_RDNA2_DEBUG` adds host prints and an in-kernel `printf` branch in `qsa_compress_groups_kernel` (runtime `DEBUG` int). Python debug path calls `torch.cuda.synchronize()` — never on in serve or under capture. |
+
+Take (Now): stride-dense gate before any `uint4` vector copy on a view we do not own; int64 slot/position contract for QSA; current-stream launch + launch check on every new HIP op.
+
+Watch / Later (hunches, not measured): neither QSA kernel has `__launch_bounds__` (launches are 256 and 128 threads), so the compiler budgets registers for 1024-thread blocks; and the device `printf` compiled into `qsa_compress_groups_kernel` costs code size / registers even when `DEBUG=0`. Check VGPR/scratch in the ISA before any default-on flip. Not an occupancy-first item — FA prefill leftover still leads.
+
+Leave: author tok/s and the HIP-vs-Triton gap figures. The same tip's adaptive prefill scheduler (`vllm/v1/core/sched/dynamic_prefill.py`, opt-in `VLLM_RDNA_DYNAMIC_PREFILL=1`) is engine-side Python, not silicon — see `engine/`.
+
 ### T49 `ple_short_conv_rdna2.cu` — dilated PLE short-conv
 
 - Depthwise dilated conv1d decode+prefill; per-channel threads; `history_buf[64]` in regs; scalar FMA + silu.
@@ -63,6 +83,7 @@ Wrappers from `d0d577f1` remain: `hc_{grouped_gemma_rmsnorm,silu,gate_mix,combin
 - No transplant of HC/PLE onto GLM KDA / norm-after-gate (same split as gated_rms_norm / causal_conv).
 - No WMMA/FP8 objects; gfx1030 stays fdot2 / EXL3.
 - No `__launch_bounds__` / DOT / LDS-tile / KV-quant / CMake gfx1030 list change in `8960a3bc` or `50120e13` (HC lock is Python dispatcher only).
+- Do not flip `VLLM_RDNA_QSA_HIP=1` on serve: `121af1b4` fixes the store fault but the path is still default-off (Triton QSA is the reference). No `__launch_bounds__` / DOT / LDS-tile / CMake change in `121af1b4`.
 
 ## Occupancy
 
