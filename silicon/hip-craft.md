@@ -559,7 +559,7 @@ There is no `v_wmma_*`, no rocWMMA, no AITER FA, no CK XDL/FMHA, no hipBLASLt Ex
 
 HIP Hardware implementation (https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html) describes a CDNA CU whose “issue arbiter can issue five instructions per cycle (VALU + VMEM + SALU/SMEM + LDS + branch).” That paragraph is **not** an RDNA 2 WGP fact.
 
-RDNA deck: **1 VALU instruction / cycle / SIMD32**; SALU and VMEM are separate pipes; exact issue-group width beyond that is **not quantified in the ISA**. Transcendentals are ¼ rate and can co-issue with non-transcendental VALU ([trans-occupancy.md](trans-occupancy.md) — out of PIX min). There is **no** VOPD (`v_dual_*`, LLVM `FeatureVOPDInsts`, gfx11+). GFX10 VGPR/SGPR operand-read banks exist but are an out-of-min footnote, not a lever ([vgpr-bank-occupancy.md](vgpr-bank-occupancy.md)).
+RDNA deck: **1 VALU instruction / cycle / SIMD32**; SALU and VMEM are separate pipes; exact issue-group width beyond that is **not quantified in the ISA**. Transcendentals are ¼ rate and can co-issue with non-transcendental VALU ([trans-occupancy.md](trans-occupancy.md) — out of PIX min). There is **no** VOPD (`v_dual_*`, LLVM `FeatureVOPDInsts`, gfx11+). GFX10 VGPR/SGPR operand-read banks exist but are an out-of-min footnote, not a lever ([vgpr-bank-occupancy.md](vgpr-bank-occupancy.md)). `S_SETPRIO` / `S_SLEEP` / `S_WAKEUP` are arbitration and park knobs, also out of the min ([wave-priority-occupancy.md](wave-priority-occupancy.md)).
 
 Schedule the inner loop as “one DOT2/sdot4 per cycle per SIMD, hide 5-cycle dest latency with ≥ 5 independent accums or other waves.” Do not write a 5-issue dependency graph and expect it to map.
 
