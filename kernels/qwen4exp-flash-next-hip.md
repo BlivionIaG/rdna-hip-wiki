@@ -41,6 +41,21 @@ Wrappers from `d0d577f1` remain: `hc_{grouped_gemma_rmsnorm,silu,gate_mix,combin
 
 `hc_rdna2.py` `_contig()`: per-call `.contiguous()` allocated a temp whose address was recorded under cudagraph capture and freed before replay (stale reads). Now caches one `torch.empty` buffer per `(shape, dtype, device)` and `copy_` into it. Gate `VLLM_RDNA_HC_PREFILL_HIP` still default-off (path inert in validated serve). Caveat: same-shape live values in one step can clobber; prefer per-call-site persistent buffers later (EXL3 CG-PATH style). No `csrc/rocm/hc_rdna2.cu` / launch_bounds / DOT / CMake change.
 
+#### extras lock 2026-10-06 (tip `c6d99ca3`, was `121af1b4`)
+
+First HIP-side HC fix since `8960a3bc`. Root cause of `VLLM_RDNA_HC_PREFILL_HIP=1` emitting garbage on gfx1030 (author: server reported success while output was a run of `!`). Two independent defects; no math, tile, DOT or LDS change.
+
+| Surface | Delta |
+|---|---|
+| `csrc/rocm/hc_rdna2.cu` launch sites | Every `grouped_gemma_rmsnorm` / `hc_silu` / `hc_gate_mix` / `hc_combine` / `hc_combine_norm` launch was bare `<<<grid, block>>>` = legacy null stream on ROCm, so it did not order against torch's current stream and raced tensors the forward was still writing. Now `<<<grid, block, 0, at::cuda::getCurrentCUDAStream()>>>` + `C10_CUDA_KERNEL_LAUNCH_CHECK()` in all five wrappers. Same class as the QSA stream fix (`60ee765f`, locked at `121af1b4` above) and T44b / wvSplitK. Block sizes unchanged (128; `hc_silu<2048>` 256). |
+| `hc_rdna2.py` `_contig()` | Cache key is now `(shape, dtype, device, data_ptr)`. Keying on shape alone aliased two distinct same-shaped strided views onto one buffer, so a kernel reading two inputs saw the second tensor twice. This closes the 2026-09-17 caveat above. Each source still gets a stable buffer address across cudagraph capture and replay. |
+
+Take (Now): no bare `<<<>>>` launch in any extras HIP op; stream + launch check is the contract. Contiguity scratch caches must be keyed per source pointer, not per shape.
+
+Watch / Later (hunch, not measured): none of the five HC kernels carries `__launch_bounds__` (launches are 128 / 256 threads), same note as QSA. Check VGPR in the ISA before any default-on flip.
+
+Leave: author tok/s and the HIP-vs-Triton gap. Gate stays **default-off**: author reports HC HIP now correct but much slower than the Triton baseline. The same tip's scheduler change (`e3bf3d33`, upstream mixed decode+prefill batching restored, `VLLM_ROCM_NO_MIXED_BATCH` removed from `serve_rdna.sh` / `full.env`) is engine-side Python, not silicon — see `engine/`.
+
 
 ### T48 `qsa_rdna2.cu` — QSA decode glue
 
@@ -83,6 +98,7 @@ Leave: author tok/s and the HIP-vs-Triton gap figures. The same tip's adaptive p
 - No transplant of HC/PLE onto GLM KDA / norm-after-gate (same split as gated_rms_norm / causal_conv).
 - No WMMA/FP8 objects; gfx1030 stays fdot2 / EXL3.
 - No `__launch_bounds__` / DOT / LDS-tile / KV-quant / CMake gfx1030 list change in `8960a3bc` or `50120e13` (HC lock is Python dispatcher only).
+- Do not flip `VLLM_RDNA_HC_PREFILL_HIP=1` on serve on perf grounds even after `c6d99ca3` fixed its stream race + `_contig` aliasing (correct, still slower than Triton). No `__launch_bounds__` / DOT / LDS-tile / KV-quant / CMake change in `c6d99ca3`.
 - Do not flip `VLLM_RDNA_QSA_HIP=1` on serve: `121af1b4` fixes the store fault but the path is still default-off (Triton QSA is the reference). No `__launch_bounds__` / DOT / LDS-tile / CMake change in `121af1b4`.
 
 ## Occupancy
