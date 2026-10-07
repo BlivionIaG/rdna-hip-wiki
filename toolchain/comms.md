@@ -3,6 +3,18 @@
 Date: **2026-09-03**. Owned by ROCM_specialist (library/runtime plumbing). Measured P2P and topology work stays in [silicon/rccl-p2p.md](../silicon/rccl-p2p.md).
 
 
+## 2026-10-07 — RCCL corruption traced to host amdgpu, not RCCL
+
+Silent `all_gather` / `reduce_scatter` corruption on gfx1030 and gfx1100 (first-enumerated GPU, SHM) is an amdgpu regression in the Ubuntu 24.04 stock 6.8 kernel; HWE 7.0 (amdgpu DRM 3.64) or `amdgpu-dkms` fixes it, `HSA_DISABLE_CACHE=1` works around it. Details and the related DRM-3.64 VMM hang: [hip-runtime.md](hip-runtime.md). Not a dest change.
+
+## 2026-09-29 — RCCL symmetric restore after sync (systems tip, not dest)
+
+Landed in TheRock systems pin `0bf70ef` via [#8567](https://github.com/ROCm/TheRock/pull/8567) / [rocm-systems#12025](https://github.com/ROCm/rocm-systems/pull/12025): restore RCCL cost-model constants (61 blocks vs NCCL 10), `nWarps` 256, drop per-task bootstrap allgather (~85 µs), set `maxChannels`. Measured on 8×gfx950; **not a gfx1030 dest lever** and does not change live PYNCCL / pin-7.14 policy (AR knobs stay server-side; `rdna_ar` remains opt-in/0). Watch follow-on TheRock [#8583](https://github.com/ROCm/TheRock/pull/8583) bkc RCCL cherry-picks →`4fbbb315`.
+
+## 2026-09-28 — RCCL LL 128-bit vector path (systems tip, not dest)
+
+Landed in TheRock systems pin `0ad5f73` via [#8533](https://github.com/ROCm/TheRock/pull/8533) / [rocm-systems#10670](https://github.com/ROCm/rocm-systems/pull/10670): explicit 128-bit vector loads/stores on the LL path. Reported test surface includes gfx1100 / gfx1201 / gfx950; GFX11 inline-asm b128 path preserved. **Not a gfx1030 dest lever** and does not change live PYNCCL / pin-7.14 policy (AR knobs stay server-side; `rdna_ar` remains opt-in/0).
+
 ## 2026-09-21 — RCCL Navi restores (systems tip, not dest)
 
 Landed in TheRock systems pin `9f9214b` window:
