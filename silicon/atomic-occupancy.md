@@ -81,7 +81,7 @@ waves/EU = min(VGPR, SGPR→always 16, LDS+WG+barrier)    // unchanged by atomic
 |---|---|---|
 | VGPR / LDS / WG / Barriers | **Yes** | Caps reserved wave slots |
 | **Global FP atomic (CAS loop)** | **No** | Wave parks on `vmcnt(0)` once per trip; trips ≥ same-address lanes; EXEC shrinks as lanes win; slot held throughout |
-| **LDS atomic (`ds_add_f32`)** | **No** | One `lgkmcnt` op; same-address lanes serialize inside the LDS, not in the shader |
+| **LDS atomic (`ds_add_f32`)** | **No** | One `lgkmcnt` op; same-address lanes are resolved by the LDS in one instruction (no shader retry loop); exact LDS atomic rate not in the ISA — do not invent |
 | **Integer global atomic** | **No** | One VMEM op; vscnt (no-return) or vmcnt (return) |
 
 Mental model:
