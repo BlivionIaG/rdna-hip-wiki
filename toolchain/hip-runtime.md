@@ -1,6 +1,6 @@
 # HIP runtime / ROCm pin
 
-Date: **2026-10-07**.
+Date: **2026-10-09**.
 
 | Claim | Status |
 |---|---|
@@ -19,6 +19,23 @@ Two independent upstream threads say ROCm 7.14-era userspace misbehaves on older
 - **HIP VMM hang below DRM 3.64.** `hipMemAddressReserve` → `hipMemCreate` → `hipMemMap` → `hipMemSetAccess` blocks forever in `DRM_IOCTL_SYNCOBJ_TIMELINE_WAIT` with 7.14 userspace on DRM 3.61, because libhsakmt asks for GEM_VA timeline output that older amdgpu silently ignores. PyTorch hits it through `PYTORCH_HIP_ALLOC_CONF=expandable_segments:True`; turning that off is the workaround. Fix is open, not merged: [rocm-systems#9820](https://github.com/ROCm/rocm-systems/issues/9820) / [#9821](https://github.com/ROCm/rocm-systems/pull/9821) (gates the timeline path on DRM ≥ 3.64).
 
 What this means for us: the live dest stays **7.14.0**, but a host on an older stock kernel can produce RCCL or allocator failures that look like our bugs. Record the amdgpu DRM version next to the ROCm version in any bring-up or bug report. No pin or dest change.
+
+## Gotcha — `hipMallocAsync` default pool can hand back zeroed or corrupted memory on RDNA (2026-10-09)
+
+On ROCm 7.2 (HIP 7.2.53211), memory from `hipMallocAsync` on the device's default pool can come back **zeroed while still in use**, with every call returning `hipSuccess`. Reported on **gfx1030** (RX 6950 XT, silent wrong output) and, as of 2026-10-08, on **gfx1100** (RX 7900 XTX, wrong output plus GPU page faults and a NULL read in `libamdhip64` at process exit). gfx1032 and gfx1201 crash at load instead. The runtime still reports `hipDeviceAttributeMemoryPoolsSupported = 1`, so libraries pick the async allocator by default; CTranslate2/faster-whisper silently loses 32–95% of a transcription this way.
+
+- Repro: allocate on stream 1, free on stream 2 after an event fails 151/600 iterations; a single-stream decoder with hundreds of thousands of small alloc/free pairs also fails. Serializing kernels, `GPU_MAX_HW_QUEUES=1`, `HSA_ENABLE_SDMA=0`, and the pool reuse flags change nothing.
+- Workaround: set `hipMemPoolAttrReleaseThreshold = UINT64_MAX` on the default pool before first use (0/600 failures), or use a caching allocator over plain `hipMalloc`. The reporter's hunch is that the pool releases physical backing at a sync point (default threshold 0) before queued work is done.
+- Threads: [rocm-systems#10943](https://github.com/ROCm/rocm-systems/issues/10943), [CTranslate2#2090](https://github.com/OpenNMT/CTranslate2/issues/2090) (both open, no AMD fix yet).
+
+What this means for us: not yet reproduced on our **7.14.0** dest, so treat it as open there too. In our HIP code and forks, don't use `hipMallocAsync` scratch on the hot path (the W4A16 split-K partials already moved to `torch::empty`, see [silicon/fa-occupancy.md](../silicon/fa-occupancy.md)). PyTorch's default caching allocator uses plain `hipMalloc`; `PYTORCH_HIP_ALLOC_CONF=backend:cudaMallocAsync` would opt into the affected path. If a tool must use stream-ordered allocation, raise the release threshold first. No pin or dest change.
+
+## Gotcha — MIOpen conv `miopenStatusInternalError` on gfx1030 comes from hipBLASLt, not CK (2026-10-09)
+
+AMD triage on [TheRock#8729](https://github.com/ROCm/TheRock/issues/8729): on **gfx1030** (V620/RDNA2), MIOpen convolution failures with `miopenStatusInternalError` are not caused by the missing CK grouped-conv library. MIOpen's `GemmFwdRest` solver sends its GEMM to **hipBLASLt**, which ships no gfx1030 kernels. Default find mode falls back to another solver and passes; `MIOPEN_FIND_MODE=FAST` fails every time.
+
+- Workaround: `MIOPEN_GEMM_ENFORCE_BACKEND=1` routes MIOpen's GEMMs to **rocBLAS**.
+- Fits the existing rule: hipBLASLt is excluded on gfx1030 (see [matrix.md](matrix.md)). No pin or dest change.
 
 ## Watch — ROCm 10.0 HIP graph hang on empty fork/join roots (2026-10-07)
 

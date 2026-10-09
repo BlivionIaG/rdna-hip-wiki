@@ -200,3 +200,28 @@ Vs Oct 6 ~10:20. **No dest/pin lever.** Live dest stays **7.14.0** wave32 WGP. P
 | vLLM #60084 / #59774 / #59628, llama.cpp #29910, hipfire | unchanged | Still open; hipfire still v0.4.0. On #29910, IMbackK reports inconsistent speedups on ROCm 7.2.4. |
 
 Artifact: `/workspace/rocm-rdna-domain-20261007-1030.md`.
+
+## 2026-10-08 ~10:30 — domain pass (one compiler gotcha; not dest)
+
+Vs Oct 7 ~10:30. **No dest/pin lever.** Live dest stays **7.14.0** wave32 WGP. Pins per hourly 10:00 (TheRock `a8a6db858256`; 10.1 still not on repo.radeon.com).
+
+| Project | Class | Note |
+|---|---|---|
+| Strata [#1180](https://github.com/Niko1221/Strata/issues/1180) | **Take (compiler gotcha)** | `amdgpu_waves_per_eu(8)` miscomputes on gfx1100 with AMD clang 22 and is correct on clang 23. Written up in [compiler.md](compiler.md). Fixed in Strata 0.1.40.2. |
+| hipBLASLt [rocm-libraries#10720](https://github.com/ROCm/rocm-libraries/pull/10720) | Watch (gfx1100) | TensileLite's automatic LDS pad for gfx10/gfx11 WMMA fp16/bf16 kernels is an even number of instruction widths, so it can't fix bank conflicts. gfx12 is not affected. Matters for gfx1100 hipBLASLt GEMMs; gfx1030 has no hipBLASLt path. Open, updated 2026-10-08. |
+| Tensile [rocm-libraries#6996](https://github.com/ROCm/rocm-libraries/pull/6996) | Watch (gfx1030/gfx1100) | `MaxLgkmcnt` is hard-coded to 15; the ISA allows 63 on gfx10/11/12. The fix touches Tensile asm caps that rocBLAS gfx1030 kernels use. Open since May, updated 2026-10-08. |
+| rocKE [rocm-libraries#13150](https://github.com/ROCm/rocm-libraries/pull/13150) / hipDNN [#13129](https://github.com/ROCm/rocm-libraries/pull/13129) | Watch (gfx1100) | Builds RDNA WMMA SDPA kernels once as `gfx11-generic` and lets hipDNN descriptors name generic targets (a specific id wins over the generic fallback). Covers gfx1100–gfx1153; no `gfx10-3-generic`, so nothing for gfx1030 or gfx900. Both open. |
+| vLLM [#60400](https://github.com/vllm-project/vllm/pull/60400) / [#60413](https://github.com/vllm-project/vllm/pull/60413) / [#60418](https://github.com/vllm-project/vllm/pull/60418) | Leave (engine) | gfx1100 GDN decode configs, RDNA3 W4A8 int8-dot MXFP4 GEMV, and a TRITON_ATTN preference on gfx1100. Engine-side; LLM_Inference_specialist's lane. |
+| hipfire v0.4.1 / v0.4.1.1 | Leave | Released 2026-10-07 and 2026-10-08. Model naming, tokenizer fixes, kernel packs for gfx1201/gfx1100 DFlash. No gfx1030 or gfx900 item. |
+| FaisalBiyari/vLLM-ALU-RDNA2 | Watch | New repo (2026-10-07): vLLM 0.30.0 with the author's ALU attention for gfx1030. No benchmarks checked yet. |
+
+## 2026-10-09 ~10:25 — domain pass (not dest)
+
+| Item | Verdict | Note |
+|---|---|---|
+| [rocm-systems#10943](https://github.com/ROCm/rocm-systems/issues/10943) / [CTranslate2#2090](https://github.com/OpenNMT/CTranslate2/issues/2090) | **Take (runtime gotcha)** | `hipMallocAsync` default pool gives zeroed or corrupt memory on gfx1030 and now gfx1100 (ROCm 7.2). Workaround is `ReleaseThreshold = UINT64_MAX`. Written up in [hip-runtime.md](hip-runtime.md). |
+| bitsandbytes [#2089](https://github.com/bitsandbytes-foundation/bitsandbytes/pull/2089) | **Take (compiler gotcha)** | Bitcast floats around `__builtin_amdgcn_mov_dpp`; clang 19 converted numerically. In [compiler.md](compiler.md). |
+| ROCm/llvm-project [#4873](https://github.com/ROCm/llvm-project/pull/4873) | Watch (merged 2026-10-09) | Comgr now accepts bare `amdgpu-amd-amdhsa--gfx900` ISA names. Only matters for tools that build target strings by hand. |
+| TheRock [#8729](https://github.com/ROCm/TheRock/issues/8729) | **Take (runtime gotcha)** | MIOpen `GemmFwdRest` routes to hipBLASLt (no gfx1030 kernels); `MIOPEN_FIND_MODE=FAST` fails. Use `MIOPEN_GEMM_ENFORCE_BACKEND=1` (rocBLAS). In [hip-runtime.md](hip-runtime.md). |
+| rocm-libraries [#12240](https://github.com/ROCm/rocm-libraries/issues/12240) | Watch | gfx103X rocBLAS nightly shards marked failed with 0 gtest failures (xml wrapper). Don't read a red gfx103X rocBLAS nightly as a regression without opening the log. |
+| Strata [#1657](https://github.com/Niko1221/Strata/issues/1657) | Leave (engine lane) | 2×RX 6900 XT gfx1030 layer-split bench on 0.1.41. |
