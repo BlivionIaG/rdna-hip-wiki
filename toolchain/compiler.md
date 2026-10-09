@@ -1,8 +1,16 @@
 # Compiler / hipcc
 
-Date: **2026-10-07**. Audience: someone compiling HIP for **gfx1030** (live), with later **gfx1100** and **gfx900** TUs.
+Date: **2026-10-09**. Audience: someone compiling HIP for **gfx1030** (live), with later **gfx1100** and **gfx900** TUs.
 
 Companions: [silicon/hip-craft.md](../silicon/hip-craft.md).
+
+## Gotcha — pass DPP operands as bits, not as `float` (2026-10-09)
+
+`__builtin_amdgcn_mov_dpp` is integer-typed. bitsandbytes [#2089](https://github.com/bitsandbytes-foundation/bitsandbytes/pull/2089) (open) found that passing a `float` straight in made ROCm 6.4.4 / clang 19 emit numeric float→int and int→float conversions around the DPP move, so the 4-bit `Linear4bit` warp reduction on gfx1100 had relative L1 error 0.125 instead of 0.002. ROCm 10 / clang 23 happened to lower it correctly. Always wrap with `__float_as_uint` / `__uint_as_float` (or `__builtin_bit_cast`) so the result doesn't depend on the compiler's implicit conversion. This also matches the bitcast form recorded in [silicon/dpp-crosslane-occupancy.md](../silicon/dpp-crosslane-occupancy.md). Craft note only, no pin change.
+
+## Gotcha — `amdgpu_waves_per_eu` VGPR caps can silently compute wrong on some compilers (2026-10-08)
+
+Strata [#1180](https://github.com/Niko1221/Strata/issues/1180) (fixed in Strata 0.1.40.2): a gfx11 WMMA MoE prefill kernel built with `__attribute__((amdgpu_waves_per_eu(8)))` gave **deterministically wrong output** (rel RMS 6.5e-2, 0/20 runs pass) on **gfx1100** with ROCm 7.10 / AMD clang 22; the same kernel with the cap at 1 passed 20/20. On ROCm 7.14.1 / AMD clang 23 (gfx1151), the capped build passes the FP64 parity test and is 4–16% faster, so it is compiler-specific, not a wrong idea. The source comment justified the cap with "only 0–5 regs spill", measured on an older compiler. Lesson: a `waves_per_eu` or `launch_bounds` occupancy cap is a per-compiler claim. When we bump the compiler, re-run the kernel's parity test with the cap on and re-check spills (`-Rpass-analysis=kernel-resource-usage`). Gate the cap on a measured toolchain, not on `__clang_major__ >= N`. The same issue also had a separate missing `__syncthreads()` after a double-buffered LDS write, which failed about 45% of runs. Not reproduced on our 7.14.0 dest; craft note only, no pin or dest change.
 
 ## Gotcha — HIP `__shfl_xor` keeps a bounds check in full-wave reductions (2026-10-07)
 
