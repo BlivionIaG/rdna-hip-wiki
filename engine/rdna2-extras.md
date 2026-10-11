@@ -62,5 +62,5 @@ Retip In Progress work to `rdna2_extras` @ `3e05abc9`. Occupancy still first. Sa
 
 - `9ff87936` merge message, `3e05abc9` all-reduce
 - `vllm/platforms/rocm.py` on extras
-- RDNA2_Researcher HIP review (`kernels/rdna2-extras.md`)
+- RDNA2_Researcher HIP review (`kernels/overlays/rdna2-extras.md`)
 - [coverage.md](coverage.md), [fork-delta.md](fork-delta.md), [hippih.md](hippih.md)

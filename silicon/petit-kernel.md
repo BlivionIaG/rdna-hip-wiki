@@ -1,6 +1,6 @@
 # causalflow-ai/petit-kernel — silicon Take / Leave (gfx1030)
 
-Date: 2026-09-05. [causalflow-ai/petit-kernel](https://github.com/causalflow-ai/petit-kernel) (BSD), tip skimmed via README + `RELEASE_NOTES` 0.0.5 + blog [Optimizing FP4 Mixed-Precision Inference on AMD GPUs](https://www.causalflow.ai/blogs/2025-08-optimizing-fp4-mixed-precision-inference-on-amd-gpus) (Aug 2025) + `lib/gemm/rocm/quantization/{dequant.cuh,types.h,fp4/*}`. Do not invent tok/s. Engine dispatch stays on [../kernels/mxfp4.md](../kernels/mxfp4.md) / [../kernels/nvfp4.md](../kernels/nvfp4.md).
+Date: 2026-09-05. [causalflow-ai/petit-kernel](https://github.com/causalflow-ai/petit-kernel) (BSD), tip skimmed via README + `RELEASE_NOTES` 0.0.5 + blog [Optimizing FP4 Mixed-Precision Inference on AMD GPUs](https://www.causalflow.ai/blogs/2025-08-optimizing-fp4-mixed-precision-inference-on-amd-gpus) (Aug 2025) + `lib/gemm/rocm/quantization/{dequant.cuh,types.h,fp4/*}`. Do not invent tok/s. Engine dispatch stays on [../kernels/mxfp4.md](../kernels/quant/mxfp4.md) / [../kernels/nvfp4.md](../kernels/quant/nvfp4.md).
 
 Petit = **CDNA2/3/4** (MI200 / MI300 / MI350) FP16/BF16 × FP4 dense + fused MoE. Requirements say CDNA only; MegaMoE needs `gfx950`. Inner path is Marlin-style offline shuffle → dequant to fp16/bf16 → **MFMA MatrixCore**, not `fdot2`.
 
@@ -14,7 +14,7 @@ Dest lock: gfx1030 V620, ROCm 7.14, wave32, 64 KiB LDS/WG, 64 banks × 4 B. **No
 | **LDS bank-conflict awareness + tile hyperparams** | Blog: CDNA LDS is **32 banks**, wave64 → conflicts bite hard; permute layouts; shared-memory tile shapes are sensitive — run benches. Transfer: same discipline on gfx1030 with **64 banks / wave32** ([lds-tiles.md](lds-tiles.md)). Do not copy their 32-bank XOR. |
 | **CDNA2 (MI200) denormal flush caveat** | README: MFMA on MI200 flushes denorm in/out → accuracy hit; their corrective path ~+10% overhead. Transfer as a **numerics warning**: gfx1030 `fdot2` is a different pipe, but any fold that relies on e4m3/fp16 subnormals (cf. radiance `kMag` into subnormals) must be **measured on V620**, not assumed from CDNA2 or gfx12 WMMA. |
 | **Bounded / clamp loads over predicated staging** | Blog: buffer loads with range discard OOB instead of branches. Aligns with radiance “clamp, never predicate” staging — useful for skinny M. |
-| **Scale-type split already in our contract** | Their `DataType` enum has `Fp4e2m1`, `MxFp4e2m1`, `Fp8e4m3`, `Fp8e8m0`, `Fp8e5m2Fnuz`. Confirms NVFP4 (E4M3 mul) ≠ MXFP4 (E8M0 exp) — same split as [../kernels/nvfp4.md](../kernels/nvfp4.md) / [../kernels/mxfp4.md](../kernels/mxfp4.md). |
+| **Scale-type split already in our contract** | Their `DataType` enum has `Fp4e2m1`, `MxFp4e2m1`, `Fp8e4m3`, `Fp8e8m0`, `Fp8e5m2Fnuz`. Confirms NVFP4 (E4M3 mul) ≠ MXFP4 (E8M0 exp) — same split as [../kernels/nvfp4.md](../kernels/quant/nvfp4.md) / [../kernels/mxfp4.md](../kernels/quant/mxfp4.md). |
 
 ## Leave
 
@@ -41,4 +41,4 @@ Dest lock: gfx1030 V620, ROCm 7.14, wave32, 64 KiB LDS/WG, 64 banks × 4 B. **No
 - https://github.com/causalflow-ai/petit-kernel (README, RELEASE_NOTES 0.0.5 2026-09-04)
 - https://www.causalflow.ai/blogs/2025-08-optimizing-fp4-mixed-precision-inference-on-amd-gpus
 - `lib/gemm/rocm/quantization/dequant.cuh`, `types.h`, `fp4/gemm_fp4.h`
-- [../kernels/mxfp4.md](../kernels/mxfp4.md), [../kernels/nvfp4.md](../kernels/nvfp4.md), [lds-tiles.md](lds-tiles.md), [exl3.md](exl3.md)
+- [../kernels/mxfp4.md](../kernels/quant/mxfp4.md), [../kernels/nvfp4.md](../kernels/quant/nvfp4.md), [lds-tiles.md](lds-tiles.md), [exl3.md](exl3.md)

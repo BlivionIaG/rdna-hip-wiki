@@ -1,6 +1,6 @@
 # INT2 + mixed INT2/INT4 MoE — engine spec
 
-Date: 2026-08-17. Engine contract. Silicon: [kernels/int2.md](../kernels/int2.md). Cards: INT2, mixed INT2/INT4 MoE on [project 4](https://github.com/users/BlivionIaG/projects/4). Not sdot4-explore (that is W8A8 / Sage / W4A8). Do not edit `perf/rdna2_w4a16` from this page. Occupancy still first.
+Date: 2026-08-17. Engine contract. Silicon: [kernels/quant/int2.md](../kernels/quant/int2.md). Cards: INT2, mixed INT2/INT4 MoE on [project 4](https://github.com/users/BlivionIaG/projects/4). Not sdot4-explore (that is W8A8 / Sage / W4A8). Do not edit `perf/rdna2_w4a16` from this page. Occupancy still first.
 
 **Verdict:** no i2 DOT on gfx1030. INT2 is a **weight pack**, not a new inner op. Unpack 16×i2/dword → fp16 → live `fdot2` (W2A16 first). Mixed MoE is the same DOT with **two unpackers**, bitwidth grouped **outside** the K loop. Not on the branch. Not INT2 KV (Triton #40633 is cache, different ticket family).
 
@@ -40,7 +40,7 @@ INT2 KV on this card
 
 Shared MoE control flow stays `moe_q_gemm_rdna2` (sorted tokens → expert tile → packed CAS). Engine work is the **bitwidth grouping** + two method objects, not a new scheduler.
 
-W2A8 / W2A4 ride the later sdot4 list (unpack i2→i8 then `sdot4`). Do not open those until W8A8 INT8 exists. See [kernels/sdot4-explore.md](../kernels/sdot4-explore.md).
+W2A8 / W2A4 ride the later sdot4 list (unpack i2→i8 then `sdot4`). Do not open those until W8A8 INT8 exists. See [kernels/quant/sdot4-explore.md](../kernels/quant/sdot4-explore.md).
 
 ## Dispatch vs live GEMMs
 
@@ -61,7 +61,7 @@ Occupancy flip. Sage QK. MLA fat tile. MTP / DFlash / DSpark. INT8 KV. NVFP4. A 
 
 ## Sources
 
-- Silicon: [kernels/int2.md](../kernels/int2.md)
-- Live W4A16: [kernels/w4a16.md](../kernels/w4a16.md), `q_gemm_rdna2` / `moe_q_gemm_rdna2`
+- Silicon: [kernels/quant/int2.md](../kernels/quant/int2.md)
+- Live W4A16: [kernels/quant/w4a16.md](../kernels/quant/w4a16.md), `q_gemm_rdna2` / `moe_q_gemm_rdna2`
 - MoE engine: [moe.md](moe.md)
 - Coverage: [coverage.md](coverage.md)

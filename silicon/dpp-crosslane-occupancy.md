@@ -8,7 +8,7 @@ No tok/s. No ms. Do not restate the FA pin.
 
 Date: **2026-10-08** Europe/Paris.
 
-Companions: [occupancy-composite.md](occupancy-composite.md), [waitcnt-occupancy.md](waitcnt-occupancy.md), [exec-divergence-occupancy.md](exec-divergence-occupancy.md), [lds-bank-occupancy.md](lds-bank-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [atomic-occupancy.md](atomic-occupancy.md) (register pre-reduce before the CAS), [hip-craft.md](hip-craft.md) §5.2, [lds-tiles.md](lds-tiles.md) (row-max / row-sum), [../toolchain/compiler.md](../toolchain/compiler.md) (`__shfl_xor` `v_cndmask` fix, rocm-systems#11618), [../kernels/skinny-gemm.md](../kernels/skinny-gemm.md).
+Companions: [occupancy-composite.md](occupancy-composite.md), [waitcnt-occupancy.md](waitcnt-occupancy.md), [exec-divergence-occupancy.md](exec-divergence-occupancy.md), [lds-bank-occupancy.md](lds-bank-occupancy.md), [lds-occupancy.md](lds-occupancy.md), [atomic-occupancy.md](atomic-occupancy.md) (register pre-reduce before the CAS), [hip-craft.md](hip-craft.md) §5.2, [lds-tiles.md](lds-tiles.md) (row-max / row-sum), [../toolchain/compiler.md](../toolchain/compiler.md) (`__shfl_xor` `v_cndmask` fix, rocm-systems#11618), [../kernels/skinny-gemm.md](../kernels/gemm-moe/skinny-gemm.md).
 
 ## Take / Leave
 

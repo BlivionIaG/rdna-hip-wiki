@@ -1,6 +1,6 @@
 # Native HIP INT8 MoE — W8A16 `fdot2` + W8A8 `sdot4`
 
-Date: 2026-08-18. **Spec / Todo.** Engine contract. Silicon: [kernels/int8-moe.md](../kernels/int8-moe.md). Target gfx1030 / wave32 / vLLM V1. This is one dispatch family with two numeric routes, not one kernel pretending they are equivalent.
+Date: 2026-08-18. **Spec / Todo.** Engine contract. Silicon: [kernels/gemm-moe/int8-moe.md](../kernels/gemm-moe/int8-moe.md). Target gfx1030 / wave32 / vLLM V1. This is one dispatch family with two numeric routes, not one kernel pretending they are equivalent.
 
 ## Two routes
 
@@ -90,7 +90,7 @@ Report kernel-only and routed MoE end-to-end; eager and graph; prefill and stead
 
 ## Project card
 
-One Todo card: **Native HIP INT8 MoE — W8A16 fdot2 + W8A8 sdot4**. Links this page and [kernels/int8-moe.md](../kernels/int8-moe.md). Priority after the current `fa_rdna2` occupancy subject.
+One Todo card: **Native HIP INT8 MoE — W8A16 fdot2 + W8A8 sdot4**. Links this page and [kernels/gemm-moe/int8-moe.md](../kernels/gemm-moe/int8-moe.md). Priority after the current `fa_rdna2` occupancy subject.
 
 - [ ] Audit existing `moe_w8a16_rdna2.cu` correctness/dispatch.
 - [ ] W8A16 decode shape matrix.

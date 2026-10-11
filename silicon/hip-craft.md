@@ -6,7 +6,7 @@ Companions (already on disk; not re-derived):
 - `silicon/architecture.md` — WGP/CU, DOT vs WMMA/MFMA, caches
 - `silicon/lds-tiles.md` — 64-bank math, seed tiles
 - `silicon/codegen-stack.md` — what to use / ignore
-- `kernels/w4a16.md` — packing, dequant, decode vs prefill
+- `kernels/quant/w4a16.md` — packing, dequant, decode vs prefill
 
 Rule: every concrete number is attributed. If a figure was not in a page opened this pass, it is marked **unknown**.
 
@@ -601,7 +601,7 @@ Schedule the inner loop as “one DOT2/sdot4 per cycle per SIMD, hide 5-cycle de
 2. GPUOpen RDNA architecture deck — https://gpuopen.com/download/RDNA_Architecture_public.pdf — VMCNT/VSCNT split, fire-and-forget stores, 5-cycle dest, I$/K$ 32/16 KB
 3. GPUOpen Occupancy explained — https://gpuopen.com/learn/occupancy-explained/ — 16 slots, SGPR not limiting, RGP
 4. GPUOpen WMMA on RDNA 3 — https://gpuopen.com/learn/wmma_on_rdna3/ — no WMMA/MFMA/bf16-matrix on RDNA2; FLOPS table
-5. Companion `silicon/architecture.md`, `silicon/lds-tiles.md`, `silicon/codegen-stack.md`, `kernels/w4a16.md`
+5. Companion `silicon/architecture.md`, `silicon/lds-tiles.md`, `silicon/codegen-stack.md`, `kernels/quant/w4a16.md`
 
 **LLVM / Clang**
 6. LLVM AMDGPUUsage — https://llvm.org/docs/AMDGPUUsage.html — `gfx1030` features, `cumode` / `wavefrontsize64`, address spaces, AMDHSA scopes, `amdgpu-waves-per-eu`, fine-grained metadata, DOT / permlane / DPP intrinsics

@@ -1,19 +1,19 @@
 # sdot4 explore — which kernels actually use it
 
-Explore list, not a land-now ticket. Occupancy leftover is **FA prefill `(N, 1)` / LDS 64 KiB WG** — pin closed. Extras vs contract: [w8a8.md](w8a8.md). Engine index: [fork-delta.md](../engine/fork-delta.md).
+Explore list, not a land-now ticket. Occupancy leftover is **FA prefill `(N, 1)` / LDS 64 KiB WG** — pin closed. Extras vs contract: [w8a8.md](w8a8.md). Engine index: [fork-delta.md](../../engine/fork-delta.md).
 
 `V_DOT4_I32_I8` / `__builtin_amdgcn_sdot4` is 4×i8 → i32. GPUOpen RDNA2: IU8 **512** ops/clk/CU vs packed FP16 **256**. That 2× only shows up when **both** operands are integer i8 **and** the kernel is compute-bound.
 
-`V_DOT8_I32_I4` / `sdot8` is 8×i4 → i32 (IU4 **1024**). **W4A4 integer only.** See [w4a4.md](../engine/w4a4.md).
+`V_DOT8_I32_I4` / `sdot8` is 8×i4 → i32 (IU4 **1024**). **W4A4 integer only.** See [w4a4.md](../../engine/w4a4.md).
 
 ## Yes — explore
 
 | Kernel | Why | Tile / notes | Existing page |
 |---|---|---|---|
 | **W8A8 INT8 dense + MoE** | Both sides i8. Prefill GEMM is compute-bound. | Prefill **64×64×64 i8**, WG=256, LDS 8 KB (recipe 9). BK%4==0. i32 through K, scale in epilogue. Decode `M=1/2/4` skinny, A in LDS. | extras vs contract: [w8a8.md](w8a8.md). Study: [w8a8-mxfp4.md](w8a8-mxfp4.md). **Not in extras @ `83de31cf`.** |
-| **Sage QK** (prefill) | Q and K both i8. QK is the FLOP side of prefill attn. | Pack D as 4×i8. PV stays `fdot2`. | [sage-qk.md](sage-qk.md) |
+| **Sage QK** (prefill) | Q and K both i8. QK is the FLOP side of prefill attn. | Pack D as 4×i8. PV stays `fdot2`. | [sage-qk.md](../attention/sage-qk.md) |
 | **W4A8** | W is i4, A is i8. Unpack nibble → i8, then `sdot4`. | **Live / opt-in** @ `3a0786ea`: wired tile `a8_lds_k32_ag` (not 64×64×64). `sdot8` is **W4A4 only**. | [w4a8.md](w4a8.md) |
-| **W4A4 integer** (later) | Both sides i4. `sdot8`. Prefill first. | After W8A8. Decode stays W4A16 unless measured. Not E2M1. | [w4a4.md](../engine/w4a4.md) |
+| **W4A4 integer** (later) | Both sides i4. `sdot8`. Prefill first. | After W8A8. Decode stays W4A16 unless measured. Not E2M1. | [w4a4.md](../../engine/w4a4.md) |
 
 ## No — do not open an sdot4 variant
 
@@ -35,14 +35,14 @@ sdot4 against packed A i8              // i32 accum
 epilogue: C *= a_scale * w_scale
 ```
 
-Pack W K-contiguous, `K % 8 == 0` (two sdot4 per dword of W). Same LDS seed as W8A8 after the unpack. No `sdot8` unless someone later ships integer W4A4 and accepts the numerics — that is [w4a4.md](../engine/w4a4.md), not this sketch.
+Pack W K-contiguous, `K % 8 == 0` (two sdot4 per dword of W). Same LDS seed as W8A8 after the unpack. No `sdot8` unless someone later ships integer W4A4 and accepts the numerics — that is [w4a4.md](../../engine/w4a4.md), not this sketch.
 
 ## Cards
 
-Reuse the existing W8A8 INT8 and Sage cards (spec / Todo). W4A8 `sdot4` **landed** opt-in on `rdna_extras` @ `3a0786ea` — see [w4a8.md](w4a8.md). Do not reopen an explore card for dense/MoE W4A8. Add **one** explore card: W4A4 integer `sdot8` ([w4a4.md](../engine/w4a4.md)). Do not clone a card per “no” row. Do not use the W4A4 card for MXFP4/NVFP4 A4.
+Reuse the existing W8A8 INT8 and Sage cards (spec / Todo). W4A8 `sdot4` **landed** opt-in on `rdna_extras` @ `3a0786ea` — see [w4a8.md](w4a8.md). Do not reopen an explore card for dense/MoE W4A8. Add **one** explore card: W4A4 integer `sdot8` ([w4a4.md](../../engine/w4a4.md)). Do not clone a card per “no” row. Do not use the W4A4 card for MXFP4/NVFP4 A4.
 
 ## Sources
 
 - RDNA 2 ISA 70648: `V_DOT4_I32_I8`, `V_DOT8_I32_I4`
 - GPUOpen WMMA table: IU8 512, IU4 1024, packed FP16 256
-- LDS recipe 9: [silicon/lds-tiles.md](../silicon/lds-tiles.md)
+- LDS recipe 9: [silicon/lds-tiles.md](../../silicon/lds-tiles.md)

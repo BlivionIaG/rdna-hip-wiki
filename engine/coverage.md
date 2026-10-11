@@ -16,25 +16,25 @@ Inner ops we actually have: `fdot2` (FP16 256), `sdot4` (IU8 512), `V_DOT8_I32_I
 
 What actually HIP-fires: **W4A16**, **W8A16** (i8→half→`fdot2`), **W8A16-FP8** / leftover **MXFP8** cvt, **W8A8-FP8** dense, **mxfp4** unpack. INT8 that’s “not too bad” is **W8A16** — same DOT as W4, twice the bytes. **W8A8 `sdot4`** is the real INT8 compute and is not shipped. INT8 KV is still the scalar `__hmul` kernel ([kv-int8.md](kv-int8.md)). EXL3 HIP is live WIP @ `a2c8d5cf` (compile fix `e268c7d3`; unmarked 2/3/4-bit 3inst → `fdot2`; mul1/mcg-marked fold fp16). `d24f6c25` FULL graphs are rebase glue, not this list.
 
-Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/sdot4-explore.md](../kernels/sdot4-explore.md) (W8A8, Sage QK, W4A8). W4A4 integer: [w4a4.md](w4a4.md). Dispatch: [attention-dispatch.md](attention-dispatch.md), [sage-attention.md](sage-attention.md). NVFP4: [nvfp4.md](nvfp4.md). INT8 KV: [kv-int8.md](kv-int8.md). INT2: [int2.md](int2.md). MTP / DFlash / DSpark: [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md). Native MoE: [fp16-moe.md](fp16-moe.md), [int8-moe.md](int8-moe.md). Stock baselines: [baseline-order.md](baseline-order.md), [triton-rocm.md](triton-rocm.md). FlyDSL: [flydsl.md](flydsl.md). DeepEP: [deepep.md](deepep.md). ROCmFPX: [rocmfpx.md](rocmfpx.md). EXL3: [exl3.md](exl3.md). DSv4 run: [dsv4-flash-run.md](dsv4-flash-run.md).
+Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/quant/sdot4-explore.md](../kernels/quant/sdot4-explore.md) (W8A8, Sage QK, W4A8). W4A4 integer: [w4a4.md](w4a4.md). Dispatch: [attention-dispatch.md](attention-dispatch.md), [sage-attention.md](sage-attention.md). NVFP4: [nvfp4.md](nvfp4.md). INT8 KV: [kv-int8.md](kv-int8.md). INT2: [int2.md](int2.md). MTP / DFlash / DSpark: [mtp.md](mtp.md), [dflash.md](dflash.md), [dspark.md](dspark.md). Native MoE: [fp16-moe.md](fp16-moe.md), [int8-moe.md](int8-moe.md). Stock baselines: [baseline-order.md](baseline-order.md), [triton-rocm.md](triton-rocm.md). FlyDSL: [flydsl.md](flydsl.md). DeepEP: [deepep.md](deepep.md). ROCmFPX: [rocmfpx.md](rocmfpx.md). EXL3: [exl3.md](exl3.md). DSv4 run: [dsv4-flash-run.md](dsv4-flash-run.md).
 
 ## Weight × activation GEMM
 
 | Scheme | Inner op | Status | Notes |
 |---|---|---|---|
-| FP16 × FP16 | `fdot2` / rocBLAS | Fallback | Stock linear on gfx1030 is `F.linear` / rocBLAS. `wvSplitK` / `LLMM1` require `on_gfx9() or on_gfx1x()`. `VLLM_ROCM_USE_SKINNY_GEMM` is a **no-op** here. [kernels/triton-skinny-gemm.md](../kernels/triton-skinny-gemm.md) |
-| **W4A16** | dequant → `fdot2` | **Live** | Dense + MoE. [kernels/w4a16.md](../kernels/w4a16.md) |
+| FP16 × FP16 | `fdot2` / rocBLAS | Fallback | Stock linear on gfx1030 is `F.linear` / rocBLAS. `wvSplitK` / `LLMM1` require `on_gfx9() or on_gfx1x()`. `VLLM_ROCM_USE_SKINNY_GEMM` is a **no-op** here. [kernels/gemm-moe/triton-skinny-gemm.md](../kernels/gemm-moe/triton-skinny-gemm.md) |
+| **W4A16** | dequant → `fdot2` | **Live** | Dense + MoE. [kernels/quant/w4a16.md](../kernels/quant/w4a16.md) |
 | **W8A16** | i8→half → `fdot2` | **Live** | “INT8 that’s not too bad.” Same DOT as W4, 2× bytes. Not IU8. Do not call this W8A8. |
 | **W8A16-FP8** | LUT → `fdot2` | **Live** | Shipping. Weight storage is FP8-looking; compute is still LUT+`fdot2`. Leftover DSv4 MXFP8 cvt is this family. |
 | **W8A8-FP8** (dense) | FP8 bytes → fp16 bit-trick → `fdot2` | **Live** | `750ca545`. Act dequant at LDS staging, not inner loop. Not `sdot4`. Not Instinct FP8 MMA. GPU verify pending per commit. |
-| **W8A8** INT8×INT8 | `sdot4`, i32 through K, scale epilogue | Must / explore | Prefill 64×64×64 i8. [kernels/w8a8-mxfp4.md](../kernels/w8a8-mxfp4.md) + [sdot4-explore.md](../kernels/sdot4-explore.md). No `sudot4`. |
+| **W8A8** INT8×INT8 | `sdot4`, i32 through K, scale epilogue | Must / explore | Prefill 64×64×64 i8. [kernels/quant/w8a8-mxfp4.md](../kernels/quant/w8a8-mxfp4.md) + [sdot4-explore.md](../kernels/quant/sdot4-explore.md). No `sudot4`. |
 | **Native HIP FP16 MoE** | `fdot2` | Must / queued | New unquantized backend. Decode skinny `M∈{1,2,4,8}` + prefill 64×64×32. Not a rewrite of `moe_q_gemm_rdna2`. [fp16-moe.md](fp16-moe.md) |
 | **Native HIP INT8 MoE** | W8A16 `fdot2` / W8A8 `sdot4` | Must / queued | Dual route. Dispatch by `(rows/expert, K, N, scale)`. Never call W8A16 “INT8 compute.” [int8-moe.md](int8-moe.md) |
 | **mxfp4** (E2M1+UE8M0) | unpack → `fdot2` | **Live sources** | `290715e6` + `d67577d6`. RDNA2_Researcher: `mxfp4_dot2_common.cuh` is 4× `fdot2` over 8 K. GPU smoke pending per commit. |
 | **NVFP4** (E2M1+E4M3×16) | unpack → `fdot2` | Must / queued | Same E2M1 LUT as mxfp4; scale is E4M3/16 + optional FP32. Spec: [nvfp4.md](nvfp4.md). Not Blackwell MMA. |
-| **INT2 / W2A16** | unpack 16×i2 → `fdot2` | Must / queued | No i2 DOT. Spec: [int2.md](int2.md) + [kernels/int2.md](../kernels/int2.md). Not INT2 KV. |
+| **INT2 / W2A16** | unpack 16×i2 → `fdot2` | Must / queued | No i2 DOT. Spec: [int2.md](int2.md) + [kernels/quant/int2.md](../kernels/quant/int2.md). Not INT2 KV. |
 | **Mixed INT2/INT4 MoE** | two unpackers, one `fdot2` | Must / queued | Bitwidth grouped outside K. Same [int2.md](int2.md). |
-| W4A8 | W4→i8 + `sdot4` A8 | Later / explore | After W8A8. `sdot8` is W4A4 only. [sdot4-explore.md](../kernels/sdot4-explore.md) |
+| W4A8 | W4→i8 + `sdot4` A8 | Later / explore | After W8A8. `sdot8` is W4A4 only. [sdot4-explore.md](../kernels/quant/sdot4-explore.md) |
 | **W4A4 integer** i4×i4 | `sdot8`, i32 through K | Later / explore | After W8A8. Prefill first; decode stays W4A16 unless measured. Spec: [w4a4.md](w4a4.md). Not E2M1. |
 | W4A4-native / MXFP4-native | FP4 MMA | **Dead** | No FP4 unit. Quark/NVFP4 W4A4: dequant A to fp16 or refuse. Do not `sdot8` E2M1. |
 | FP8 W8A8 / PTPC-FP8 (Instinct) | FP8 MMA | **Dead** | No FP8 unit. Do not confuse with W8A8-FP8 `fdot2` above. |
@@ -54,7 +54,7 @@ Silicon contracts: [kernels/](../kernels/README.md). `sdot4` explore: [kernels/s
 | `fa_rdna2` FA2 + `fdot2` D=128/256 | **Live** | Prefill Br=16/32, decode paged split-K. Occupancy ticket stands. |
 | Occupancy flip | Ticket | `fa_rdna2` **and** `skinny_gemms.cu`. Same trap: `amdgpu_waves_per_eu(1, 1)` / HIP second `launch_bounds` arg. Fix: drop min-blocks, `amdgpu_waves_per_eu(4, 8)` on decode-class kernels. |
 | FULL cudagraphs | **Live glue** @ `d24f6c25` | `_cudagraph_support = ALWAYS` on RDNA_ATTN. Recaptures the same `(1,1)` kernel. Rebase-must-keep, not occupancy. |
-| Sage INT8 QK `sdot4` | Ticket / Must | Prefill only. **v2 write #2** after occupancy. [sage-attention.md](sage-attention.md) + [kernels/sage-qk.md](../kernels/sage-qk.md) |
+| Sage INT8 QK `sdot4` | Ticket / Must | Prefill only. **v2 write #2** after occupancy. [sage-attention.md](sage-attention.md) + [kernels/attention/sage-qk.md](../kernels/attention/sage-qk.md) |
 | Head-64 FA2 tile | Ticket / Must | Triton hole. **v2 write #3** after Sage. |
 | Short vs split-K | Ticket (blocked) | Fill vs LDS, not occupancy |
 | HIP paged-decode (`attention.cu`) | **Dead** stock | `on_gfx1x` = gfx11/12. fa_rdna2 is the replacement |

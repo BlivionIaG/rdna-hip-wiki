@@ -2,7 +2,7 @@
 
 Date: 2026-08-18. Engine study. Occupancy on `fa_rdna2` + `skinny_gemms.cu` still first. Do not invent tok/s.
 
-Silicon contract: [silicon/fp16-rdna2.md](../silicon/fp16-rdna2.md) (peak numbers: [silicon/valu.md](../silicon/valu.md)). MoE: [fp16-moe.md](fp16-moe.md) + [kernels/fp16-moe.md](../kernels/fp16-moe.md). Baselines: [baseline-order.md](baseline-order.md), [kernels/triton-skinny-gemm.md](../kernels/triton-skinny-gemm.md). Attention: [attention-dispatch.md](attention-dispatch.md).
+Silicon contract: [silicon/fp16-rdna2.md](../silicon/fp16-rdna2.md) (peak numbers: [silicon/valu.md](../silicon/valu.md)). MoE: [fp16-moe.md](fp16-moe.md) + [kernels/gemm-moe/fp16-moe.md](../kernels/gemm-moe/fp16-moe.md). Baselines: [baseline-order.md](baseline-order.md), [kernels/gemm-moe/triton-skinny-gemm.md](../kernels/gemm-moe/triton-skinny-gemm.md). Attention: [attention-dispatch.md](attention-dispatch.md).
 
 ## The only inner op
 

@@ -6,7 +6,7 @@ Rule: every concrete number is attributed. If a figure is not in a source that w
 
 Companions (already on disk; not re-derived):
 - `silicon/architecture.md` — no WMMA, no MFMA, no FP8/FP4 unit; packed DOT only
-- `kernels/w4a16.md` — DOT2 decode/prefill geometry you reuse for mxfp4-after-unpack
+- `kernels/quant/w4a16.md` — DOT2 decode/prefill geometry you reuse for mxfp4-after-unpack
 - `silicon/hip-craft.md` — `sdot4` / `sdot8` / `fdot2` builtins, waitcnt, occupancy
 - `silicon/cache-policy.md` — IC fit: 7B W8A8 misses unsharded; 27B W8A8 ~7 MiB over at TP=4
 - `silicon/lds-tiles.md` — recipe 9: **64×64×64 i8**
@@ -640,7 +640,7 @@ If you need a reference implementation of **sdot4** GEMM, llama.cpp `ggml_cuda_d
 ### IC / tiles / map
 12. `silicon/cache-policy.md` §4.3–§4.4 — 7B W8A8 193.01 MiB miss; 27B W8A8 TP=4 135.00 MiB / **6.9 MiB over**
 13. `silicon/lds-tiles.md` recipe 9 — **64×64×64 i8**
-14. `kernels/w4a16.md` — DOT2 decode/prefill geometry reused after mxfp4 unpack
+14. `kernels/quant/w4a16.md` — DOT2 decode/prefill geometry reused after mxfp4 unpack
 15. `silicon/hip-craft.md` — builtins, waitcnt, occupancy 0
 16. `engine/vllm-sglang-map.md` — no vLLM DP4A / mxfp4 / AITER on gfx1030
 17. `silicon/architecture.md` — DOT feature list, no WMMA/MFMA

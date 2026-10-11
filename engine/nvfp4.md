@@ -99,5 +99,5 @@ Occupancy flip (`fa_rdna2` / `skinny_gemms`). Sage QK. HIP MLA fp16. W8A8 `sdot4
 
 - NVIDIA NVFP4: E2M1 + E4M3 / 16 + optional FP32 ([blog](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/), [TE](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/features/low_precision_training/nvfp4/nvfp4.html))
 - Live mxfp4: `mxfp4_dot2_common.cuh` @ `290715e6` (4× `fdot2` / 8 K)
-- [kernels/w8a8-mxfp4.md](../kernels/w8a8-mxfp4.md) §1 / §6—7 (unpack → `fdot2`; no `sdot8` on E2M1)
+- [kernels/quant/w8a8-mxfp4.md](../kernels/quant/w8a8-mxfp4.md) §1 / §6—7 (unpack → `fdot2`; no `sdot8` on E2M1)
 - [coverage.md](coverage.md)

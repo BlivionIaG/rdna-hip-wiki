@@ -2,7 +2,7 @@
 
 Date: 2026-08-17. Sourced from [charlie12345/ROCmFPX](https://github.com/charlie12345/ROCmFPX). Their tok/s stay here. Occupancy still first.
 
-**Contracts:** [../rocmfpx.md](../rocmfpx.md) (leverage), [../llamacpp-rocmfpx.md](../llamacpp-rocmfpx.md) (V620 side project), `kernels/rocmfpx.md` (silicon). Stock GGUF in vLLM is a loader for Q4_0/K/IQ*, not these types.
+**Contracts:** [../rocmfpx.md](../rocmfpx.md) (leverage), [../llamacpp-rocmfpx.md](../llamacpp-rocmfpx.md) (V620 side project), `kernels/quant/rocmfpx.md` (silicon). Stock GGUF in vLLM is a loader for Q4_0/K/IQ*, not these types.
 
 **Verdict:** do **not** port this into vLLM. It is a **llama.cpp GGUF family** (CPU + HIP + Vulkan), tuned on Strix Halo `gfx1151`. There is a `scripts/build-rdna2.sh` (gfx1030), not a vLLM backend, not a HIP FA/GEMM we can drop in.
 
@@ -37,7 +37,7 @@ FlashInfer / WMMA / FP4 MMA
 porting llama.cpp MMVQ into vLLM
 ```
 
-Closest contract we already have: **W4A8** (unpack → `sdot4`), [sdot4-explore.md](../../kernels/sdot4-explore.md). ROCmFP4 is a **different codebook** + UE4M3, same DOT class.
+Closest contract we already have: **W4A8** (unpack → `sdot4`), [sdot4-explore.md](../../kernels/quant/sdot4-explore.md). ROCmFP4 is a **different codebook** + UE4M3, same DOT class.
 
 NVFP4 rematch they document: same UE4M3, **7/8 codebook levels**; top mag is 12 (NV) vs 10 (ROCm). Still not our [nvfp4.md](../nvfp4.md) `fdot2` path unless we invent a second LUT.
 

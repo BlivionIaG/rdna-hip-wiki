@@ -1,6 +1,6 @@
 # Triton tuning knobs (not stock)
 
-Date: 2026-08-18. **Do not copy these onto stock pages.** Stock configs: [triton-rocm.md](triton-rocm.md), [triton-flash-attention.md](triton-flash-attention.md), [kernels/triton-skinny-gemm.md](../kernels/triton-skinny-gemm.md).
+Date: 2026-08-18. **Do not copy these onto stock pages.** Stock configs: [triton-rocm.md](triton-rocm.md), [triton-flash-attention.md](triton-flash-attention.md), [kernels/gemm-moe/triton-skinny-gemm.md](../kernels/gemm-moe/triton-skinny-gemm.md).
 
 Change one axis at a time. Reject NaN, OOB, spill blow-up, or tolerance fail. Compile/autotune time is a metric, not hidden.
 

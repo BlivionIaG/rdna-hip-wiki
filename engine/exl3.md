@@ -1,6 +1,6 @@
 # QTIP / EXL3 on gfx1030 — engine spec
 
-Date: 2026-08-22 (live extras retip 2026-08-28). Engine contract. Silicon: [silicon/exl3.md](../silicon/exl3.md) + [kernels/exl3.md](../kernels/exl3.md). DSv4 apply: [dsv4-flash-run.md](dsv4-flash-run.md). Occupancy still first.
+Date: 2026-08-22 (live extras retip 2026-08-28). Engine contract. Silicon: [silicon/exl3.md](../silicon/exl3.md) + [kernels/quant/exl3.md](../kernels/quant/exl3.md). DSv4 apply: [dsv4-flash-run.md](dsv4-flash-run.md). Occupancy still first.
 
 **Verdict:** QTIP quality-for-size, native HIP. One kernel, codebook id + 16×16 pack. Infer does **not** retune the trellis. Produce `-cb 3inst`. Still compile `mcg` (`cb=1`) for 0xSero K216 — same VALU (mul + LOP3-emulate). **Don’t produce `mul1`.** Pair two states → `half2` → one `fdot2`.
 

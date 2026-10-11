@@ -1,6 +1,6 @@
 # ROCmFPX — silicon (codebook → perm → sdot4)
 
-Engine: [engine/rocmfpx.md](../engine/rocmfpx.md). Side project: [engine/llamacpp-rocmfpx.md](../engine/llamacpp-rocmfpx.md). **Later.** Occupancy still first. No vLLM port.
+Engine: [engine/rocmfpx.md](../../engine/rocmfpx.md). Side project: [engine/llamacpp-rocmfpx.md](../../engine/llamacpp-rocmfpx.md). **Later.** Occupancy still first. No vLLM port.
 
 Source tree: [charlie12345/ROCmFPX](https://github.com/charlie12345/ROCmFPX) `ggml/rocmfp4/`. Opcode on gfx1030 is **not dumped yet** — this page is the expected contract. The V620 side project owns the `.s`.
 
@@ -60,6 +60,6 @@ No extra silicon in the prefix-cache path: it is “don’t recompute K/V for th
 ## Sources
 
 - `ggml/rocmfp4/rocmfp4_hip.cu`, `rocmfp4_hip_codebook.cuh`, `rocmfp4.h`
-- [silicon/valu.md](../silicon/valu.md)
+- [silicon/valu.md](../../silicon/valu.md)
 - Engine pages above
 - ROCmFPX README / `scripts/build-rdna2.sh`

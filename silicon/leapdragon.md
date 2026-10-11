@@ -46,7 +46,7 @@ Sweep extras skinny / W4. Do **not** paste 256. Same occupancy rule: `waves_per_
 
 `fd_rdna2` is a Triton plugin: **decode / batch=1 / D=256 / int8-per-token-head / GQA=6** only. Load KV as packed `i32`, sext four bytes to f16, four `tl.dot` on `(TILE,64)` so D stays permuted `d=4w+b` until the final store. That dodge exists because their v0 unpack-then-reshape `(TILE,64,4)→(TILE,256)` forced Triton to write 256-wide operands through LDS (`ds_write_b16`). HIP does **not** need that — we already have `fdot2` on `half2`.
 
-ISA they actually fire: i8 → f16 → `tl.dot` = **`fdot2`**, not `sdot4`. Matches [../kernels/kv-int8.md](../kernels/kv-int8.md).
+ISA they actually fire: i8 → f16 → `tl.dot` = **`fdot2`**, not `sdot4`. Matches [../kernels/kv-int8.md](../kernels/attention/kv-int8.md).
 
 Plugin hardcodes `GQA=6` / `PAD=8` (`q.shape[1] % 6 == 0`). **Hits their 27B (24Q/4KV).** Misses GQA-4 and 7B 28/4. Take **fused INT8 gather** into occupancy-fixed `fa_rdna2` (VGPR cvt + scale, existing tiles). Do not vendor the plugin, do not copy the 4-way Q permute, do not land gather on `(1,1)`.
 
@@ -82,4 +82,4 @@ Other dead ends they paid for (do not reopen): `dwordx4` KV (loads ~83% peak), 5
 - https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/00-HARDWARE.md
 - https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/01-PATCHES.md
 - https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/plugins/fd_rdna2/fd_rdna2/fd_kernel2.py (intent only; GPL — do not vendor)
-- [../engine/leapdragon.md](../engine/leapdragon.md), [../kernels/kv-int8.md](../kernels/kv-int8.md), [fa-occupancy.md](fa-occupancy.md), [infinity-cache.md](infinity-cache.md), [fp16-rdna2.md](fp16-rdna2.md)
+- [../engine/leapdragon.md](../engine/leapdragon.md), [../kernels/kv-int8.md](../kernels/attention/kv-int8.md), [fa-occupancy.md](fa-occupancy.md), [infinity-cache.md](infinity-cache.md), [fp16-rdna2.md](fp16-rdna2.md)

@@ -91,8 +91,8 @@ A direct Python ODS call to re-exported `rocdl.fdot2/sdot4` may be a faster smok
 
 Only after the atoms pass:
 
-1. Dense FP16 GEMV/GEMM `M=1/2/4/8` using the same ownership as [fp16-moe.md](../kernels/fp16-moe.md).
-2. W8A8 skinny GEMM with packed signed i8 and i32 scale epilogue from [int8-moe.md](../kernels/int8-moe.md).
+1. Dense FP16 GEMV/GEMM `M=1/2/4/8` using the same ownership as [fp16-moe.md](../kernels/gemm-moe/fp16-moe.md).
+2. W8A8 skinny GEMM with packed signed i8 and i32 scale epilogue from [int8-moe.md](../kernels/gemm-moe/int8-moe.md).
 3. Compare FlyDSL vs Triton vs direct HIP vs rocBLAS with identical layout and epilogue.
 4. MoE routing/epilogues later. FlashAttention last; current FlyDSL “generic” FA is wave64/MFMA, not RDNA2-generic.
 
