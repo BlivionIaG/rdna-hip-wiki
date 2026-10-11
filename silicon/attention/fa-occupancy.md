@@ -11,15 +11,17 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/d414eac51b3aec9bffe871457339e00341805185
   - https://raw.githubusercontent.com/BlivionIaG/vllm/rdna2_extras/csrc/rocm/fa_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/rdna2_extras/csrc/rocm/fa_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/rdna_launcher_common.sh
+  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/serve_rdna.sh
+  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/platforms/rocm.py
   - https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu
   - https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu
   - https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu
   - https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h
+  - https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/fa_rdna2.cu
+  - https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/sparse_mla_rdna2.cu
+  - https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/indexer_paged_mqa_rdna2.cu
+  - https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/ops.h
   - https://llvm.org/docs/AMDGPUUsage.html
   - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
   - https://github.com/opengfx1030/vllm-rdna/commit/e054854f239b139b8bec5991345056b49315735d
@@ -27,6 +29,21 @@ sources:
 ---
 
 # gfx1030 FA occupancy report
+
+## Current state at dest tip `1dc3bac4` (v0.31.0 port, checked 2026-10-11)
+
+Everything below this section is dated history; where it disagrees with this table, this table wins.
+
+| Item | State at `1dc3bac4` |
+|---|---|
+| Paged decode, D=128 | `fa_decode_paged_splitk_kernel`: `__launch_bounds__(128)` + `amdgpu_waves_per_eu(4, 8)`.[^fa-tip-dec128] |
+| Paged decode, D=256 | `fa_decode_paged_splitk_kernel_256`: `__launch_bounds__(256)` + `amdgpu_waves_per_eu(4, 8)`.[^fa-tip-dec256] |
+| GQA decode | `fa_decode_paged_splitk_gqa_kernel_256`: `__launch_bounds__(256)`, **no** `waves_per_eu` attribute.[^fa-tip-gqa-dec] |
+| Prefill (fp16, split-K, INT8, GQA) | Every `fa_prefill_paged_varlen_*` kernel is `__launch_bounds__(N, 1)` with N = 128 or 256; the GQA prefill is `(256, 1)`.[^fa-tip-prefill] |
+| KV-cache writers | `reshape_and_cache_int8_rdna2_kernel` `__launch_bounds__(HEAD_DIM, 4)`; `reshape_and_cache_flash_rdna2_kernel` `__launch_bounds__(128, 4)`.[^fa-tip-cache] |
+| FA selection | The platform pins `RDNA_ATTN` only when the attention backend is unset/auto, `VLLM_USE_RDNA2_FA == "1"` and the GPU is gfx10x; the `envs.py` default for `VLLM_USE_RDNA2_FA` is `"False"`.[^fa-tip-platform][^fa-tip-envs] |
+| GQA decode gate | **Off by env default** in the kernel library: `fa_gqa_decode_enabled()` is true only when `VLLM_FA_RDNA2_GQA_DECODE` starts with `1`, and the dispatch comment says it has been off by default since 2026-09-09 because `n_dec>=2` produced garbage.[^fa-tip-gqa-gate] **On in launcher serves:** `serve_rdna.sh` defaults `ATTN=fa`, and `rdna_select_attention fa` exports `VLLM_USE_RDNA2_FA=1` and `VLLM_FA_RDNA2_GQA_DECODE=${VLLM_FA_RDNA2_GQA_DECODE:-1}`, so any launcher serve that does not set the variable runs the GQA decode kernel.[^fa-tip-launcher][^fa-tip-select] This is an open fork question for `fork/`; this page records the code, not a decision. |
+| Occupancy conclusion | Unchanged and not re-measured at this tip: the §8 compiled dump (2026-08-24) found LDS, not the launch-bounds pin, limits FA to 1 WG per 64 KiB. No new fatbin dump was taken for `1dc3bac4`. |
 
 ## extras lock 2026-10-02 — `opengfx1030/vllm-rdna` `rdna_extras` @ `bb40498c` (PR #34)
 
@@ -71,7 +88,7 @@ Silicon host/kernel contract only — **not** an occupancy-card close. No tok/s.
 - Prefill still `__launch_bounds__(N, 1)` on the varlen kernels; decode still `__launch_bounds__(128|256)` (+ existing `waves_per_eu` where present). LDS remains the binding leftover on non-GQA prefill tiles.[^rocm-how-to-hip-cpp-language-extensions-html]
 - GQA prefill D=256: further LDS shrink — softmax left `sM`/`sL`/`sD` LDS for register `__shfl_xor`; O already register-resident. See [fa-gqa.md](fa-gqa.md).
 - Still `__builtin_amdgcn_fdot2` + XOR `fa_swz_d` where previously used. `fa_clip_kv_walk` / `fa_masked` change tile visitation, not launch bounds or LDS tile shapes (BR/BC).
-- Host: caller `out` + model `scale`; `rdna2_persist_empty` for overwritten persist slots. Default ATTN = triton; FA opt-in `VLLM_USE_RDNA2_FA`.
+- Host: caller `out` + model `scale`; `rdna2_persist_empty` for overwritten persist slots. Default ATTN = triton; FA opt-in `VLLM_USE_RDNA2_FA`. *(Historical at `bfd5286d`: at `1dc3bac4` `serve_rdna.sh` defaults `ATTN=fa`; see the current-state table.)*[^fa-tip-launcher]
 
 Do not close the occupancy card. Do not copy tok/s.
 
@@ -118,7 +135,7 @@ GDN `o` (`77d6fdf8`): still `(2, 4)`, BV=64, ~56 KB LDS, `fdot2`. No new ELF VGP
 
 This dump below is a **historical snapshot** of `perf/rdna2_w4a16` (tree SHA `9ac015d0a936e9e3bdbe5dc7483e1a8b48c65370`). Decode rows in the table are stale vs `d414eac5`.[^commit-d414eac5]
 
-Live tree: [`csrc/rocm/fa_rdna2.cu` on `rdna2_extras`](https://raw.githubusercontent.com/BlivionIaG/vllm/rdna2_extras/csrc/rocm/fa_rdna2.cu).[^raw-rocm-fa-rdna2-cu][^extras-fa-rdna2-cu]
+Live tree: [`csrc/rocm/fa_rdna2.cu` on dest `rdna_extras` @ `1dc3bac4`](https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu).[^extras-fa-rdna2-cu] *(The BlivionIaG `rdna2_extras` raw link is the archive overlay, historical.)*[^raw-rocm-fa-rdna2-cu]
 Snapshot sources: [`fa_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu), [`sparse_mla_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu), [`indexer_paged_mqa_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu), [`ops.h`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h).[^raw-rocm-fa-rdna2-cu-2][^raw-rocm-sparse-mla-rdna2-cu][^raw-rocm-indexer-paged-mqa-rdna2-cu][^raw-rocm-ops-h][^extras-fa-rdna2-cu][^extras-sparse-mla-rdna2-cu][^extras-indexer-paged-mqa-rdna2-cu][^extras-ops-h]
 
 VGPR columns below §8 are source comments or live-state estimates (as originally written). **§8 replaces the estimates with real compiled values from the `.hip_fatbin` of the built `_rocm_C.abi3.so`** (NT_AMDGPU_METADATA via pyelftools + msgpack). LDS bytes are the host `size_t smem` formulas (what HIP actually reserves).[^llvm-amdgpuusage]
@@ -171,7 +188,9 @@ MIN_WARPS_PER_EXECUTION_UNIT = (MIN_BLOCKS_PER_MULTIPROCESSOR * MAX_THREADS_PER_
 
 ---
 
-## 2. Short table
+## 2. Short table *(historical snapshot of BlivionIaG `perf/rdna2_w4a16`, not the dest tip)*
+
+The launch-bounds column below is the snapshot. At `1dc3bac4` both paged decode kernels carry `amdgpu_waves_per_eu(4, 8)`, not `(N, 1)`, and `sparse_mla_decode_kernel` / `paged_mqa_logits_decode_kernel` are not in dest (DSV4 now uses `csrc/rocm/rdna/dsv4/sparse_mla_decode.cu` and `indexer_mqa_logits.cu`). See the current-state table at the top.[^fa-tip-dec128][^fa-tip-dsv4]
 
 LDS-limited WGs use the 64 KB/WG cap (authors + HIP `MaxSharedMemoryPerBlock`). After the 1 KB ISA granule the rounded allocation is still ≤ 64 KB for every kernel, so **no LDS occupancy-0**. Closest is prefill-256 at 59620 B (5.9 KB headroom; 60416 B after 1 KB round).[^rocm-gpu-arch-specs][^llvm-baseinfo]
 
@@ -193,7 +212,7 @@ LDS-limited WGs use the 64 KB/WG cap (authors + HIP `MaxSharedMemoryPerBlock`). 
 
 ---
 
-## 3. Per-kernel detail
+## 3. Per-kernel detail *(historical snapshot; decode `(N, 1)` became `(N)` + `waves_per_eu(4, 8)` at `d414eac5` and is still so at `1dc3bac4`)*
 
 ### 3.1 Decode D=128 — `fa_decode_paged_splitk_kernel`
 
@@ -455,9 +474,9 @@ Footnotes:
 [^raw-rocm-sparse-mla-rdna2-cu]: raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu. https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu (checked 2026-10-11)
 [^raw-rocm-indexer-paged-mqa-rdna2-cu]: raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu. https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu (checked 2026-10-11)
 [^raw-rocm-ops-h]: raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h. https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h (checked 2026-10-11)
-[^extras-sparse-mla-rdna2-cu]: `vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu
-[^extras-indexer-paged-mqa-rdna2-cu]: `vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu
-[^extras-ops-h]: `vllm/perf/rdna2_w4a16/csrc/rocm/ops.h`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h
+[^extras-sparse-mla-rdna2-cu]: `csrc/rocm/sparse_mla_rdna2.cu` on BlivionIaG/vllm `perf/rdna2_w4a16` (archive overlay, historical snapshot), pinned to the branch head `3baecdb5` (last commit 2026-08-21). Not present on dest `rdna_extras` at `1dc3bac4`. https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/sparse_mla_rdna2.cu
+[^extras-indexer-paged-mqa-rdna2-cu]: `csrc/rocm/indexer_paged_mqa_rdna2.cu` on BlivionIaG/vllm `perf/rdna2_w4a16` (archive overlay, historical snapshot), pinned to the branch head `3baecdb5` (last commit 2026-08-21). Not present on dest `rdna_extras` at `1dc3bac4`. https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/indexer_paged_mqa_rdna2.cu
+[^extras-ops-h]: `csrc/rocm/ops.h` on BlivionIaG/vllm `perf/rdna2_w4a16` (archive overlay, historical snapshot), pinned to the branch head `3baecdb5` (last commit 2026-08-21). Dest has its own `csrc/rocm/ops.h` at `1dc3bac4` (https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/ops.h); this footnote is the snapshot file. https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/ops.h
 [^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)
 [^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
 [^commit-e054854f]: opengfx1030/vllm-rdna commit `e054854f239b`. https://github.com/opengfx1030/vllm-rdna/commit/e054854f239b139b8bec5991345056b49315735d (exists, verified via GitHub API 2026-10-11)
@@ -498,3 +517,14 @@ Extracted from the built `_rocm_C.abi3.so` (`.hip_fatbin` section, gfx1030 code 
 **Card resolution**: dump done, conclusion above. No FA patch on `rdna2_extras` — the ticket's premise ("128-thr prefill is the one that can actually move") is not supported by the compiled data; LDS binds all tiles equally.
 [^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
 [^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)
+[^fa-tip-dec128]: `fa_decode_paged_splitk_kernel` attributes, `csrc/rocm/fa_rdna2.cu`, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L283-L284
+[^fa-tip-dec256]: `fa_decode_paged_splitk_kernel_256` attributes, `csrc/rocm/fa_rdna2.cu`, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L535-L536
+[^fa-tip-gqa-dec]: `fa_decode_paged_splitk_gqa_kernel_256` attributes, `csrc/rocm/fa_rdna2.cu`, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L776
+[^fa-tip-prefill]: prefill kernels `__launch_bounds__(128|256, 1)` at L1054, L1272, L1527, L1819, L2088, L2447, L2695 and GQA prefill L3810 of `csrc/rocm/fa_rdna2.cu`, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L3810
+[^fa-tip-cache]: `reshape_and_cache_*_rdna2_kernel` attributes, `csrc/rocm/fa_rdna2.cu`, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L4554
+[^fa-tip-platform]: `VLLM_USE_RDNA2_FA=1` pins `RDNA_ATTN`, `vllm/platforms/rocm.py`, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/platforms/rocm.py#L1134-L1149
+[^fa-tip-envs]: `VLLM_USE_RDNA2_FA` default `"False"`, `vllm/envs.py`, dest at 1dc3bac4 (the type annotation at L165 says `bool = True`; the lambda default is what is read). https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/envs.py#L1439-L1444
+[^fa-tip-gqa-gate]: `fa_gqa_decode_enabled()` and the GQA decode dispatch comment, `csrc/rocm/fa_rdna2.cu`, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L2937-L2943 and https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L3061-L3068
+[^fa-tip-launcher]: `ATTN=${ATTN:-fa}` and `rdna_select_attention "$ATTN"`, `tools/rdna/serve_rdna.sh`, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/serve_rdna.sh#L146 and https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/serve_rdna.sh#L234-L238
+[^fa-tip-select]: `rdna_select_attention()` exports `VLLM_USE_RDNA2_FA=1` and `VLLM_FA_RDNA2_GQA_DECODE=${VLLM_FA_RDNA2_GQA_DECODE:-1}`, `tools/rdna/rdna_launcher_common.sh`, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/rdna_launcher_common.sh#L106-L119
+[^fa-tip-dsv4]: DSV4 HIP kernels `csrc/rocm/rdna/dsv4/` (`sparse_mla_decode.cu`, `indexer_mqa_logits.cu`, `kv_insert.cu`, `mhc.cu`), dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/tree/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/rdna/dsv4
