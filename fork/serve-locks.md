@@ -49,7 +49,7 @@ All serves go through one launcher, `bash tools/rdna/serve_rdna.sh RECIPE=<name>
 | APC state ≠ KV | Hybrid state rings (Engram/GDN/indexer) stay in heaps separate from KV, and merging them is a reject | [^qa3] |
 | Four separate freeze heaps: GDN / QSA KV / `hc_combine` / PLE | **(unsourced)**. Nothing at the tip names four freeze heaps. According to the port notes, on 2026-10-10 the port removed the capture-freeze flags (`rdna2_freeze_capture_persist` and others) and RDNA now uses upstream CUDA-graph capture and replay | [^freeze] |
 | W4A8 `sdot4`: serve-time opt-in | `VLLM_RDNA2_W4A8_SDOT4=1` (recipe knob `W4A8=1`), off by default (`27b-awq.env: W4A8=0`). Prefill only (M ≥ 33); decode stays W4A16; MoE W4A8 in serving not validated | [^w4a8][^w4a8gate][^w4a8env] |
-| EXL3 codebook `3inst`, inner `fdot2` | Default codebook is `cb==0` "3inst", the "RDNA2 produce target". `mcg`/`mul1` are picked per module from checkpoint markers. After decode the inner op is `V_DOT2_F32_F16` via `__builtin_amdgcn_fdot2`, never `sdot*` | [^exl3][^exl3cb] · format: [kernels/exl3.md](../kernels/exl3.md) |
+| EXL3 codebook `3inst`, inner `fdot2` | Default codebook is `cb==0` "3inst", the "RDNA2 produce target". `mcg`/`mul1` are picked per module from checkpoint markers. After decode the inner op is `V_DOT2_F32_F16` via `__builtin_amdgcn_fdot2`, never `sdot*` | [^exl3][^exl3cb] · format: [kernels/quant/exl3.md](../kernels/quant/exl3.md) |
 | Leftover BF16 stays dense | Tensors a checkpoint leaves unquantized stay on the dense path, served as fp16 (above). **(unsourced as a written lock)** | — |
 | Clients never export RDNA knobs | Server env is set by the launcher only. See [Client boundary](#client-boundary) | [^clients] |
 

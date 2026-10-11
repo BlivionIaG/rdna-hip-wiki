@@ -22,7 +22,7 @@ An SGLang fork does **not** get a new ISA. V620 is still gfx1030: `fdot2` / `sdo
 
 gfx1100 (W7800 attn tier) may use **local WMMA**. gfx900 (V340L) is hippih, own host — `mad_mix` / `pk_fma`, not these objects.[^m-gpuopen-com-learn-wmma-on-rdna3]
 
-Triton in SGLang is the same compile-time tax we already rejected for decode GEMV ([../kernels/ikantkode-gfx1030.md](../../kernels/ikantkode-gfx1030.md)). Overlay may keep Triton as a **fallback**, not as the inner loop we rewrite HIP to replace.
+Triton in SGLang is the same compile-time tax we already rejected for decode GEMV ([../kernels/ikantkode-gfx1030.md](../../kernels/overlays/ikantkode-gfx1030.md)). Overlay may keep Triton as a **fallback**, not as the inner loop we rewrite HIP to replace.
 
 ## Order
 

@@ -53,7 +53,7 @@ Existing HIP MLA, short ctx. No Spark 432/584. DSpark off until fat tile.
 - [BlivionIaG/DeepSeek-V4-Flash-0731-Int4-FP8](https://huggingface.co/BlivionIaG/DeepSeek-V4-Flash-0731-Int4-FP8) — W4A16 of MXFP4, 164.96 GiB
 - 0xSero K216 EXL3 99.48 GiB (size only)
 - extras `mxfp4_dot2_common.cuh` / `qdq_fp8_rdna2.cuh`
-- [kernels/exl3.md](../../kernels/exl3.md), [kernels/mxfp4.md](../../kernels/mxfp4.md)
+- [kernels/quant/exl3.md](../../kernels/quant/exl3.md), [kernels/quant/mxfp4.md](../../kernels/quant/mxfp4.md)
 
 Footnotes:
 

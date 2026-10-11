@@ -12,7 +12,7 @@ Session dump: [notes/session-2026-08-17.md](../notes/session-2026-08-17.md).
 
 Silicon index: [kernels/README.md](../../kernels/README.md). W8A16 / W8A16-FP8 / W8A8-FP8 are all `fdot2` (W8A8-FP8 is **not** `sdot4`). No `q_gemm_w8a16_rdna2.cu` at tip.
 
-Upstream on gfx1030: Triton / `torch.nn.functional.linear` / rocBLAS. AITER, CUTLASS, Marlin, FlashInfer, hipBLASLt-as-required-HW, `supports_fp8()`, `supports_mx()` — all off or CUDA/CDNA. Stock skinny (`wvSplitK` / `LLMM1`) is **not** compiled in: `on_gfx9() or on_gfx1x()` only. [kernels/triton-skinny-gemm.md](../../kernels/triton-skinny-gemm.md).
+Upstream on gfx1030: Triton / `torch.nn.functional.linear` / rocBLAS. AITER, CUTLASS, Marlin, FlashInfer, hipBLASLt-as-required-HW, `supports_fp8()`, `supports_mx()` — all off or CUDA/CDNA. Stock skinny (`wvSplitK` / `LLMM1`) is **not** compiled in: `on_gfx9() or on_gfx1x()` only. [kernels/gemm-moe/triton-skinny-gemm.md](../../kernels/gemm-moe/triton-skinny-gemm.md).
 
 **Dispatch watch (v0.27.1):** `on_rdna()` is gfx11/12 only. V620 is `on_gfx10x()`. New upstream `on_rdna()` gates skip gfx1030.
 
@@ -29,9 +29,9 @@ Upstream on gfx1030: Triton / `torch.nn.functional.linear` / rocBLAS. AITER, CUT
 | Skinny GEMM `skinny_gemms.cu` | Stock gfx1030 = `F.linear` / BLAS. `wvSplitK`/`LLMM1` need gfx9/gfx1x. | In-tree. MFMA path compiled out. | In Progress | `waves_per_eu(1,1)` — **same occupancy card** as FA. LLMM1 gfx1030 gate is a note on this card ([qwen35.md](../run-recipes/qwen35.md)). |
 | Native HIP FP16 MoE | `F.linear` / Triton grouped. | **Not on the branch.** | Todo | [fp16-moe.md](../moe/fp16-moe.md) — decode skinny + prefill grouped, `fdot2`. After occupancy. |
 | Native HIP INT8 MoE | AITER CK CDNA. | **Not on the branch.** | Todo | [int8-moe.md](../moe/int8-moe.md) — W8A16 `fdot2` + W8A8 `sdot4`. |
-| W8A8 INT8 `sdot4` | AITER CK CDNA. | **Not on the branch.** | Todo | [kernels/w8a8-mxfp4.md](../../kernels/w8a8-mxfp4.md) |
+| W8A8 INT8 `sdot4` | AITER CK CDNA. | **Not on the branch.** | Todo | [kernels/quant/w8a8-mxfp4.md](../../kernels/quant/w8a8-mxfp4.md) |
 | NVFP4 | FlashInfer / CUTLASS Blackwell. | **Not on the branch.** | Todo | [nvfp4.md](../quant-formats/nvfp4.md) |
-| INT2 / W2A16 | None. | **Not on the branch.** | Todo | [int2.md](../quant-formats/int2.md) + [kernels/int2.md](../../kernels/int2.md) |
+| INT2 / W2A16 | None. | **Not on the branch.** | Todo | [int2.md](../quant-formats/int2.md) + [kernels/quant/int2.md](../../kernels/quant/int2.md) |
 | Mixed INT2/INT4 MoE | None. | **Not on the branch.** | Todo | same [int2.md](../quant-formats/int2.md) — two unpackers, one DOT |
 | W4A4 integer `sdot8` | FlashInfer MXFP4 W4A4 = E2M1 / SM100. | **Not on the branch.** | Todo / explore | [w4a4.md](../quant-formats/w4a4.md) — i4×i4 only, after W8A8 |
 

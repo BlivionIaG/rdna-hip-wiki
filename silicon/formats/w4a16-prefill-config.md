@@ -28,7 +28,7 @@ Dest: `opengfx1030/vllm-rdna` `rdna_extras` tip **`56f67111`**.[^commit-56f67111
 - `VLLM_RDNA2_PREFILL_FORCE_SPLIT_K` debug override kept; natural `split_k` stays. Commit notes natural split_k=4 sits near the measured curve — fp16 CAS-loop atomic epilogue is not the bottleneck for a redesign.
 - Persist zeros keepalive unchanged. Occupancy still FA-first.
 
-Companion: [kernels/w4a16.md](../../kernels/w4a16.md).
+Companion: [kernels/quant/w4a16.md](../../kernels/quant/w4a16.md).
 
 
 ## K_STEP split-K repair (`3a0786ea`)
@@ -55,7 +55,7 @@ From `bench_results/2026-09-29_w4a16-regression-audit/SUMMARY.md` + `split_table
 - Copying ms / % from the audit CSVs into dest claims
 - Changing ConfigA / `K_STEP=32` tile geometry (unchanged)
 
-Companion W4A8 opt-in: [kernels/w4a8.md](../../kernels/w4a8.md).
+Companion W4A8 opt-in: [kernels/quant/w4a8.md](../../kernels/quant/w4a8.md).
 
 ## Sources
 
