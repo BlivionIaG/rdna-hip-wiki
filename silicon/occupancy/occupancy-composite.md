@@ -57,6 +57,22 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](../lds-an
 | **Leave** | Do not maximize occupancy as a goal. ALU-bound kernels want utilization, not more waves; memory-bound kernels can thrash IC/L2 if you over-fill ([GPUOpen Occupancy explained](https://gpuopen.com/learn/occupancy-explained/)). [^gpuopen-occupancy] |
 | **Leave** | Do not open a ticket / retip extras for this fold. |
 
+
+```mermaid
+flowchart TB
+  V["VGPR count"] --> FV["getOccupancyWithNumVGPRs"]
+  S["SGPR count"] --> FS["getOccupancyWithNumSGPRs<br/>always 16 on GFX10+"]
+  L["LDS bytes + WG size"] --> FW["getOccupancyWithWorkGroupSizes<br/>LDS, wave slots, barriers"]
+  FV --> MIN(("min"))
+  FS --> MIN
+  FW --> MIN
+  MIN --> T["theoretical waves/EU (EU = SIMD32)"]
+  T --> M["measured occupancy ≤ theory"]
+  X["scratch, I$, K$, L0/GL1/L2/IC, waitcnt, clauses,<br/>EXEC, TRANS, banks, priority, atomics,<br/>cross-lane, hazards, SPI/ACE fill"] -. "effective occupancy only,<br/>not in the min" .-> M
+```
+
+*Diagram: The fold this page describes: three LLVM terms feed the min; everything on the "out of min" rows of §1 only lowers measured or effective occupancy.*[^llvm-calc-occupancy][^llvm-baseinfo]
+
 ## 1. PIX four → LLVM fold
 
 | PIX / GPUOpen limiter | Wiki page | LLVM hook |

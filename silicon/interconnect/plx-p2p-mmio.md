@@ -32,6 +32,26 @@ Reference fabric (not a brochure):
 
 `NCCL_P2P_LEVEL=PIX` per backplane. Do not assume the two boards are one PIX domain. Cascade is Later — measure one-board PIX first.
 
+
+```mermaid
+flowchart TB
+  CPU["Host CPU<br/>two root ports"]
+  subgraph B1["Backplane 1: PEX88096 (CPU USP x16 + 5 DSP x16)"]
+    SW1["PEX88096 switch"]
+    SW1 --- A1["V620"] & A2["V620"] & A3["V620"] & A4["V620"] & A5["slot 5"]
+  end
+  subgraph B2["Backplane 2: PEX88096 (CPU USP x16 + 5 DSP x16)"]
+    SW2["PEX88096 switch"]
+    SW2 --- C1["V620"] & C2["V620"] & C3["V620"] & C4["V620"] & C5["slot 5"]
+  end
+  CPU ---|"Gen4 x16"| SW1
+  CPU ---|"Gen4 x16"| SW2
+  SW1 -. "same board: PIX (cut-through DSP to DSP, ACS off)" .- SW1
+  SW1 <-. "cross-board: PHB via CPU<br/>(PXB only if cascaded)" .-> SW2
+```
+
+*Diagram: Reference fabric from "This box": two 5-slot Gen4 x16 PEX88096 backplanes, up to 8 V620, TP=4 placed on one board so RCCL stays PIX. The 4+4 split shown is one of the placements the section names; it is not a measured topology dump.*[^docs-doc-bc-0484en][^pcisig-pcie4]
+
 ## What this hop is (silicon)
 
 A PEX is a **packet switch**, not a GPU fabric. Peer traffic is ordinary PCIe TLPs that the switch either:

@@ -81,20 +81,20 @@ So: shrinking BR/BC to free LDS is still the occupancy move for FA. Cutting thre
 4. Named barriers / `amdgpu.max_num_named_barrier` (newer LLVM `MCResourceInfo`) are **not** a gfx1030 extras dest. Stick to `__syncthreads()` / `s_barrier`.
 5. `llvm-calc-occupancy -mcpu=gfx1030 --wg-size=… --vgprs=… --lds=…` already folds the WG/barrier packing via the same `GCNSubtarget` math; it has no separate `--barriers` flag — pass the real WG size.[^llvm-calc-occupancy]
 
-## 5. Sources
+## Sources
 
-1. LLVM `IsaInfo::getMaxWorkGroupsPerCU` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp[^llvm-baseinfo]
-2. LLVM `isSGPROccupancyLimited` (Major < 10) — same file[^llvm-baseinfo]
-3. GPUOpen Occupancy explained (updated 2024-06-26) — https://gpuopen.com/learn/occupancy-explained/ — 16 barriers / SIMD pair; PIX limiters; Thread Group Size vs Barriers[^gpuopen-occupancy]
-4. `llvm-calc-occupancy` — https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html[^llvm-calc-occupancy]
-5. RDNA 2 ISA 70648 §2.3.1 / §10.3 — WGP vs CU, `s_barrier` scope[^isa70648]
+
+
+1. LLVM `IsaInfo::getMaxWorkGroupsPerCU` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
+2. LLVM `isSGPROccupancyLimited` (Major < 10) — same file
+3. GPUOpen Occupancy explained (updated 2024-06-26) — https://gpuopen.com/learn/occupancy-explained/ — 16 barriers / SIMD pair; PIX limiters; Thread Group Size vs Barriers
+4. `llvm-calc-occupancy` — https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
+5. RDNA 2 ISA 70648 §2.3.1 / §10.3 — WGP vs CU, `s_barrier` scope
 6. Wiki priors: [architecture.md](../arch-and-memory/architecture.md), [hip-craft.md](../hip-craft/hip-craft.md), [lds-tiles.md](../lds-and-tiles/lds-tiles.md)
 
 Idle pass 2026-09-03.
 
-## Sources
-
-Primary sources for this page, cited inline as footnotes:
+Footnotes:
 
 [^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
 [^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)

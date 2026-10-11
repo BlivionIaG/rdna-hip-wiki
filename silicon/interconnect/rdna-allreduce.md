@@ -5,20 +5,37 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/3b59ee16e553168b1e3809c9a141088662171448
   - https://github.com/opengfx1030/vllm-rdna/commit/a4060647cfbb32d3b907eba6018501bb8b251d22
   - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/distributed/device_communicators/rdna_all_reduce.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/envs.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/rdna_allreduce.cuh
+  - https://github.com/opengfx1030/vllm-rdna/commit/00fcc97ff5015158da93f52bd32f2c70757f0f8a
 ---
 
 # gfx1030 push one-shot all-reduce (`rdna_ar`) — silicon lock
 
-## extras lock 2026-09-28 — tip `bfd5286d` (`101a16c8` / prior `22d6e346`+`c782696a`)
+## Current state at dest tip `1dc3bac4` (checked 2026-10-11)
+
+This section supersedes the two-shot and persist-out rows further down; those are kept as history.
+
+| Item | State at `1dc3bac4` |
+|---|---|
+| Algorithm | **One-shot push only.** The two-shot kernel was removed: it returned zeros above the one-shot gate and made the boot self-test disable the whole backend.[^dest-envs-1dc3][^dest-cuh-1dc3][^dest-py-1dc3] |
+| Gate | `RDNA_AR_ONESHOT_MAX` = **65536** (64 KiB). Eligible messages are ≤ min(`VLLM_RDNA_AR_MAX_KB`, `VLLM_RDNA_AR_ONESHOT_KB`), both 64 KiB by default; larger messages go to RCCL.[^dest-cuh-1dc3][^dest-envs-1dc3] |
+| Dtypes | fp16, bf16, fp32.[^dest-envs-1dc3][^extras-rdna-allreduce-cu] |
+| Two-shot requests | `VLLM_RDNA_AR_ALGO=twoshot`, or a `MAX_KB` above the one-shot gate, is ignored with one warning.[^dest-py-1dc3] |
+| Output buffer | Each call returns a **fresh output tensor** (`at::empty_like`). Since `00fcc97f` (PR #47), the old shared persistent buffer (`rdna2_persist_zeros`) is gone: it was clobbered by the next all-reduce while callers still held the result (the embedding output kept as the decoder residual).[^extras-rdna-allreduce-cu][^dest-00fcc97f] |
+| Wait bound | Each one-shot wait is bounded in wall-clock time by `VLLM_RDNA_AR_WAIT_MS` (default 120000 ms), replacing the old poll-count cap; waits over about 2 s that complete are logged as a late peer.[^dest-cuh-1dc3][^dest-py-1dc3] |
+| Default | Off: `VLLM_RDNA_AR` defaults to `"0"` and is not implied by `VLLM_FORCE_CUSTOM_ALL_REDUCE`.[^dest-envs-1dc3] |
+
+## Historical: extras lock 2026-09-28 — tip `bfd5286d` (`101a16c8` / prior `22d6e346`+`c782696a`)
 
 Dest: `opengfx1030/vllm-rdna` `rdna_extras`. Occupancy still first (FA prefill leftover). No tok/s.
 
 | Item | Lock |
 |---|---|
 | `RDNA_AR_ONESHOT_MAX` | **65536** (64 KiB) in `csrc/rocm/rdna_allreduce.cuh` — was 32768; env-less callers stay one-shot ≤ 64 KiB. [^extras-rdna-allreduce-cu] |
-| Default path | One-shot ≤ 64 KiB, RCCL above. Two-shot only if explicitly opted in (wide `VLLM_RDNA_AR_MAX_KB` without matching oneshot / algo override). Serve scripts + library `max_kb` default back to **64**. |
-| Two-shot kernel | Present (`rdna_ar_twoshot`: push reduce-scatter + allgather, abort phases 3/4, bf16, flag row `RDNA_AR_FLAG_STRIDE`). |
-| Two-shot race | Peer-flag handshake wedges under co-tenant PCIe load (`rdna_ar_check` / wedge marker → RCCL). **Later/rework** — not dest-safe. Do not re-arm wide gate until phases 2/4 fixed. |
+| Default path | *(historical, two-shot removed at `1dc3bac4`)* One-shot ≤ 64 KiB, RCCL above. Two-shot only if explicitly opted in (wide `VLLM_RDNA_AR_MAX_KB` without matching oneshot / algo override). Serve scripts + library `max_kb` default back to **64**. |
+| Two-shot kernel | *(historical, removed at `1dc3bac4`)* Was present (`rdna_ar_twoshot`: push reduce-scatter + allgather, abort phases 3/4, bf16, flag row `RDNA_AR_FLAG_STRIDE`). |
+| Two-shot race | *(historical, kernel removed at `1dc3bac4`)* Peer-flag handshake wedges under co-tenant PCIe load (`rdna_ar_check` / wedge marker → RCCL). **Later/rework** — not dest-safe. Do not re-arm wide gate until phases 2/4 fixed. |
 | Gate | Still opt-in `VLLM_RDNA_AR=1`; serve default stays PYNCCL. No DOT / FA `__launch_bounds__` / LDS tile. |
 
 Prior protocol lock (Uncached staging, VRAM flags, on-device seq, T44b abort, push fanout) below still holds for the one-shot path.
@@ -36,7 +53,7 @@ Companions: [rccl-p2p.md](rccl-p2p.md) (why stock custom AR is off), [leapdragon
 | Files | `csrc/rocm/rdna_allreduce.cuh` (kernel), `csrc/rocm/rdna_allreduce.cu` (host), `ops.h` / `torch_bindings.cpp`, `vllm/distributed/device_communicators/rdna_all_reduce.py`, hook in `cuda_communicator.py` [^extras-rdna-allreduce-cu][^extras-rdna-all-reduce-py] |
 | CMake | `rdna_allreduce.cu` in base `VLLM_ROCM_EXT_SRC` (not the gfx1030-only append list) |
 | Gate | **Opt-in.** `VLLM_RDNA_AR=1` + world 2..8. Default env remains `"0"`. Serve default stays PYNCCL / stock path; `VLLM_FORCE_CUSTOM_ALL_REDUCE` does **not** arm this. |
-| Attribution | Protocol / abort-record / wedge marker from leapdragon/vllm-rdna2-qwen T44/T44b (Aron Hsiao). Persist-out (`rdna2_persist_zeros`), integer device index, PIX logging, default-off are this fork. |
+| Attribution | Protocol / abort-record / wedge marker from leapdragon/vllm-rdna2-qwen T44/T44b (Aron Hsiao). Persist-out (`rdna2_persist_zeros`; *historical*, replaced by a fresh output per call in `00fcc97f`), integer device index, PIX logging, default-off are this fork. |
 | DOT / LDS / launch_bounds | **None of the FA leftover.** Tiny `__shared__ int` only (seq + abort). No `fdot2`, no tile pad, no `__launch_bounds__`. |
 
 ## Protocol (T44b @ tip `3b59ee16`)
@@ -57,6 +74,22 @@ World max: `RDNA_AR_MAX_WORLD = 8`. Launch: **256** threads; blocks auto by payl
 
 Eligibility: contiguous CUDA `half`/`float`, `nbytes ≤ max_bytes`. Larger / other dtypes stay on stock RCCL path. When armed, eligible tensors dispatch **ahead of** stock CUSTOM / PYNCCL.
 
+
+```mermaid
+flowchart TB
+  T["all_reduce(tensor)"] --> G{"VLLM_RDNA_AR=1,<br/>world 2..8,<br/>no wedge marker?"}
+  G -- "no (serve default)" --> R["stock path: PYNCCL / RCCL"]
+  G -- "yes" --> E{"contiguous fp16/bf16/fp32<br/>and nbytes ≤ min(MAX_KB, ONESHOT_KB), default 64 KiB?"}
+  E -- "no" --> R
+  E -- "yes" --> O["one-shot push"]
+  O --> P1["push own slice into every peer's<br/>Uncached staging (rank-staggered)"]
+  P1 --> P2["posted P2P flag store;<br/>poll local uncached flags"]
+  P2 --> P3["fixed-order fp32 reduce rank 0..W-1"]
+  P2 -- "wait bound hit" --> AB["abort record + wedge marker<br/>next boot stays on RCCL"]
+```
+
+*Diagram: Dispatch split and the one-shot protocol as written in the Status, Protocol and eligibility paragraphs above (tip `3b59ee16`), updated to dest `1dc3bac4`: one-shot only, 64 KiB gate, RCCL above. Two-shot no longer exists.*[^extras-rdna-allreduce-cu][^commit-3b59ee16][^dest-cuh-1dc3]
+
 ## What this is not
 
 - Not a replacement for FA occupancy work.
@@ -68,7 +101,7 @@ Eligibility: contiguous CUDA `half`/`float`, `nbytes ≤ max_bytes`. Larger / ot
 
 | | |
 |---|---|
-| **Take** | Uncached staging + **VRAM uncached flags** + on-device seq + push fanout + fixed-order reduce + T44b host-mapped abort record / `rdna_ar_check()` / wedge marker. Fabric knobs (`BLOCKS` / `PACE` / `SPIN_CAP`). Default `MAX_KB=64`. Persist-out for graph safety. |
+| **Take** | Uncached staging + **VRAM uncached flags** + on-device seq + push fanout + fixed-order reduce + T44b host-mapped abort record / `rdna_ar_check()` / wedge marker. Fabric knobs (`BLOCKS` / `PACE` / `SPIN_CAP`). Default `MAX_KB=64`. Fresh output per call (persist-out is historical since `00fcc97f`). |
 | **Leave** | Default-on; host-coherent flag page; mid-serve silent spin-to-cap without wedge fail; any claimed µs/GB/s until remeasured on this 4×/8× 88096 box; auto-arming because P2P is on. |
 
 ## Sources
@@ -80,3 +113,7 @@ Primary sources for this page, cited inline as footnotes:
 [^commit-a4060647]: opengfx1030/vllm-rdna commit `a4060647cfbb`. https://github.com/opengfx1030/vllm-rdna/commit/a4060647cfbb32d3b907eba6018501bb8b251d22 (exists, verified via GitHub API 2026-10-11)
 [^extras-rdna-all-reduce-py]: `vllm/distributed/device_communicators/rdna_all_reduce.py`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/distributed/device_communicators/rdna_all_reduce.py
 [^m-78e84a272cf-csrc-rocm-rdna-allreduce-cuh]: github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/rdna_allreduce.cuh. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/rdna_allreduce.cuh (checked 2026-10-11)
+[^dest-envs-1dc3]: `vllm/envs.py`, `VLLM_RDNA_AR` comment block, opengfx1030/vllm-rdna at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/envs.py#L1469-L1476
+[^dest-cuh-1dc3]: `csrc/rocm/rdna_allreduce.cuh`, `RDNA_AR_ONESHOT_MAX` and its comment, opengfx1030/vllm-rdna at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/rdna_allreduce.cuh#L58-L70
+[^dest-py-1dc3]: `vllm/distributed/device_communicators/rdna_all_reduce.py` module docstring, opengfx1030/vllm-rdna at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/distributed/device_communicators/rdna_all_reduce.py#L15-L30
+[^dest-00fcc97f]: opengfx1030/vllm-rdna commit 00fcc97f "fix(rocm): rdna_ar returns a fresh output tensor per all-reduce" (PR #47; an ancestor of 1dc3bac4). https://github.com/opengfx1030/vllm-rdna/commit/00fcc97ff5015158da93f52bd32f2c70757f0f8a

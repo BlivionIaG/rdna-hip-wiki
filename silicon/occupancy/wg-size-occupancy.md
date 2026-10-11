@@ -1,14 +1,14 @@
 ---
 title: "Thread Group Size vs occupancy (gfx1030)"
 sources:
+  - https://clang.llvm.org/docs/AttributeReference.html#amdgpu-flat-work-group-size
   - https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
   - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
   - https://gpuopen.com/learn/occupancy-explained/
+  - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp
   - https://llvm.org/docs/AMDGPUUsage.html
   - https://gpuopen.com/learn/optimizing-gpu-occupancy-resource-usage-large-thread-groups/
   - https://devblogs.microsoft.com/pix/hardware-counters-in-gpu-captures/
-  - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp
-  - https://clang.llvm.org/docs/AttributeReference.html#amdgpu-flat-work-group-size
 ---
 
 # Thread Group Size vs occupancy (gfx1030)
@@ -24,7 +24,7 @@ Companions: [barrier-occupancy.md](barrier-occupancy.md), [vgpr-occupancy.md](vg
 | | |
 |---|---|
 | **Take** | Treat Thread Group Size and Barriers as **two different PIX counters**. Both need `N ≥ 2` waves/WG. TG-size = mid-WG retire left a free slot that cannot start a new WG. Barriers = slots+resources free, no barrier left. |
-| **Take** | Pin `__attribute__((amdgpu_flat_work_group_size(min, max)))` to the **real** launch flat size (product of dim). Default IR is `1,1024`; Clang `0,0` implies `128,256`. Unpinned max budgets a 1024-thread block you never launch and under-states waves/EU. |
+| **Take** | Pin `__attribute__((amdgpu_flat_work_group_size(min, max)))` to the **real** launch flat size (product of dim). Default IR is `1,1024`; Clang `0,0` implies `128,256`. Unpinned max budgets a 1024-thread block you never launch and under-states waves/EU. [^clang-docs-attributereference-html] |
 | **Take** | LLVM occupancy w.r.t. WG size is a **range**: `getOccupancyWithWorkGroupSizes(LDS, {min,max})` → `{min_waves/EU, max_waves/EU}`. `llvm-calc-occupancy` without a fixed `--wg-size` prints a range for the same reason (PR #123748). [^llvm-calc-occupancy] |
 | **Take** | For multi-wave WGs, theoretical WGs/WGP (ignoring LDS) = `min(MaxWaves/N, MaxBarriers)` with `MaxWaves=64` WGP / `32` CU and `MaxBarriers=32` WGP / `16` CU — same `getMaxWorkGroupsPerCU` math as the barrier page. TG-size is the *dynamic* hole that formula does not show. [^llvm-baseinfo] |
 | **Leave** | Do not shrink FA/GDN from 256→128 thr solely to chase PIX "Thread Group Size". Fat LDS (45–64 KB) already caps at **1 WG / 64 KB addressable** ([lds-occupancy.md](../lds-and-tiles/lds-occupancy.md)). Cutting threads without cutting LDS does not raise concurrent WGs. [^rocm-gpu-arch-specs][^llvm-baseinfo] |
@@ -66,7 +66,7 @@ else:
   MaxWGs = min(MaxWaves / N, MaxBarriers)
 ```
 
-`AMDGPUSubtarget::getOccupancyWithWorkGroupSizes` (PR #123748 / `AMDGPUSubtarget.cpp`):
+`AMDGPUSubtarget::getOccupancyWithWorkGroupSizes` (PR #123748 / `AMDGPUSubtarget.cpp`):[^github-amdgpu-amdgpusubtarget-cpp]
 
 ```text
 MaxWGsLDS = LocalMemorySize / alignTo(LDSBytes, LDSAllocationGranularity)
@@ -93,7 +93,7 @@ Pass the **real** `--wg-size=` to `llvm-calc-occupancy -mcpu=gfx1030 -mattr=+wav
 
 | Attribute | Effect |
 |---|---|
-| `amdgpu_flat_work_group_size(min, max)` | Pins legal flat launch size; better barrier codegen + scratch promotion estimate (Clang AttributeReference). |
+| `amdgpu_flat_work_group_size(min, max)` | Pins legal flat launch size; better barrier codegen + scratch promotion estimate (Clang AttributeReference). [^clang-docs-attributereference-html] |
 | `(0, 0)` | Clang default **128, 256**. |
 | IR omit | Backend default **1, 1024** (`AMDGPUUsage` / `getDefaultFlatWorkGroupSize` for kernels). [^llvm-amdgpuusage] |
 | vs `amdgpu_waves_per_eu` | If incompatible, **WG-size occupancy bound wins** (`AMDGPUUsage`). [^llvm-amdgpuusage] |
@@ -122,35 +122,35 @@ Assert `hipOccupancyMaxActiveBlocksPerMultiprocessor > 0` before graph capture (
 
 1. When PIX / RGP shows **Thread Group Size > 0%**, read it as binary ("this is a limiter"), not as severity — GPUOpen: limiter % is clocks failing to launch / total clocks, not an occupancy fraction.
 2. Do **not** conflate with Barriers. Diagnose: if LDS ≥ 32 KB on a 128–256 thr WG, attribute low `hipOccupancy*` to LDS first ([lds-occupancy.md](../lds-and-tiles/lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md) §4).
-3. Always pin `amdgpu_flat_work_group_size` to the launched flat size; pair with `amdgpu_waves_per_eu` / `__launch_bounds__` for the VGPR term.
+3. Always pin `amdgpu_flat_work_group_size` to the launched flat size; pair with `amdgpu_waves_per_eu` / `__launch_bounds__` for the VGPR term.[^clang-docs-attributereference-html]
 4. Prefer **two** concurrent WGs on a WGP when LDS allows (≤ 32 KB each) — GPUOpen large-thread-group: overlapping allocate/free hides the TG-size ramp-down. Fat 64 KB tiles cannot do this; that is the LDS card, not a thr-count card.[^rocm-gpu-arch-specs][^llvm-baseinfo]
 5. Single-wave WGs (`N == 1`) skip both TG-size and barrier limiters — use when the algorithm fits 32 thr and needs max slot fill (causal_conv update path).
 6. Peak occupancy ≠ peak perf when IC/L2 thrash ([infinity-cache.md](../arch-and-memory/infinity-cache.md)); TG-size cleanup is latency-hiding capacity only.
 
-## 6. Sources
+## Sources
 
-1. GPUOpen Occupancy explained (updated 2024-06-26) — https://gpuopen.com/learn/occupancy-explained/ — PIX Thread Group Size vs Barriers walkthrough[^gpuopen-occupancy]
-2. GPUOpen Optimizing GPU occupancy with large thread groups — https://gpuopen.com/learn/optimizing-gpu-occupancy-resource-usage-large-thread-groups/ — atomic WG allocate/free[^gpuopen-learn-optimizing-gpu-occupancy-resource]
-3. PIX hardware counters — https://devblogs.microsoft.com/pix/hardware-counters-in-gpu-captures/ — `CSLimitedByThreadGroupLimit`[^devblogs-pix-hardware-counters-in-gpu-captures]
-4. LLVM `IsaInfo::getMaxWorkGroupsPerCU` / `getWavesPerWorkGroup` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp[^llvm-baseinfo]
-5. LLVM `AMDGPUSubtarget::getOccupancyWithWorkGroupSizes` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp — PR #123748[^github-amdgpu-amdgpusubtarget-cpp]
-6. `llvm-calc-occupancy` — https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html — ranged occupancy when WG size unspecified[^llvm-calc-occupancy]
-7. Clang `amdgpu_flat_work_group_size` — https://clang.llvm.org/docs/AttributeReference.html#amdgpu-flat-work-group-size[^clang-docs-attributereference-html]
-8. LLVM AMDGPUUsage `amdgpu-flat-work-group-size` / waves-per-eu precedence[^llvm-amdgpuusage]
+
+
+1. GPUOpen Occupancy explained (updated 2024-06-26) — https://gpuopen.com/learn/occupancy-explained/ — PIX Thread Group Size vs Barriers walkthrough
+2. GPUOpen Optimizing GPU occupancy with large thread groups — https://gpuopen.com/learn/optimizing-gpu-occupancy-resource-usage-large-thread-groups/ — atomic WG allocate/free
+3. PIX hardware counters — https://devblogs.microsoft.com/pix/hardware-counters-in-gpu-captures/ — `CSLimitedByThreadGroupLimit`
+4. LLVM `IsaInfo::getMaxWorkGroupsPerCU` / `getWavesPerWorkGroup` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
+5. LLVM `AMDGPUSubtarget::getOccupancyWithWorkGroupSizes` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp — PR #123748
+6. `llvm-calc-occupancy` — https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html — ranged occupancy when WG size unspecified
+7. Clang `amdgpu_flat_work_group_size` — https://clang.llvm.org/docs/AttributeReference.html#amdgpu-flat-work-group-size
+8. LLVM AMDGPUUsage `amdgpu-flat-work-group-size` / waves-per-eu precedence
 9. Wiki priors: [barrier-occupancy.md](barrier-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](../lds-and-tiles/lds-occupancy.md), [hip-craft.md](../hip-craft/hip-craft.md)
 
 Idle pass 2026-09-09.
 
-## Sources
+Footnotes:
 
-Primary sources for this page, cited inline as footnotes:
-
+[^clang-docs-attributereference-html]: Attributes in Clang - Clang. https://clang.llvm.org/docs/AttributeReference.html#amdgpu-flat-work-group-size (checked 2026-10-11)
 [^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
 [^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
 [^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
+[^github-amdgpu-amdgpusubtarget-cpp]: llvm-project/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp at eb61ef62df4fd5151c4c379302f636ac430bc32d · llvm/llvm-project. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp (checked 2026-10-11)
 [^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)
 [^gpuopen-learn-optimizing-gpu-occupancy-resource]: Optimizing GPU occupancy and resource usage with large thread groups - AMD GPUOpen. https://gpuopen.com/learn/optimizing-gpu-occupancy-resource-usage-large-thread-groups/ (checked 2026-10-11)
 [^devblogs-pix-hardware-counters-in-gpu-captures]: Hardware Counters in GPU Captures - PIX on Windows. https://devblogs.microsoft.com/pix/hardware-counters-in-gpu-captures/ (checked 2026-10-11)
-[^github-amdgpu-amdgpusubtarget-cpp]: llvm-project/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp at eb61ef62df4fd5151c4c379302f636ac430bc32d · llvm/llvm-project. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp (checked 2026-10-11)
-[^clang-docs-attributereference-html]: Attributes in Clang - Clang. https://clang.llvm.org/docs/AttributeReference.html#amdgpu-flat-work-group-size (checked 2026-10-11)
 [^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)

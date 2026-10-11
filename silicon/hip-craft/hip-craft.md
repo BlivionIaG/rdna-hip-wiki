@@ -3,6 +3,7 @@ title: "gfx1030 HIP kernel-craft brief (RDNA 2)"
 sources:
   - https://llvm.org/docs/AMDGPUUsage.html
   - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
+  - https://clang.llvm.org/docs/AttributeReference.html#amdgpu-waves-per-eu
   - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
   - https://gpuopen.com/download/RDNA_Architecture_public.pdf
   - https://rocm.docs.amd.com/en/latest/reference/gpu-atomics-operation.html
@@ -11,7 +12,6 @@ sources:
   - https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html
   - https://gpuopen.com/learn/occupancy-explained/
   - https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/hip_cpp_language_extensions.html
-  - https://clang.llvm.org/docs/AttributeReference.html#amdgpu-waves-per-eu
   - https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.0.0/LLVM/llvm/html/AMDGPU/gfx1030_waitcnt.html
   - https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/hip_runtime_api/memory_management/coherence_control.html
   - https://rocm.docs.amd.com/projects/HIP/en/latest/reference/env_variables.html
@@ -50,7 +50,7 @@ Do these before the first `hipcc` of a W4A16 / W8A8 / mxfp4 kernel.
 | # | Do | Why | Source |
 |---|---|---|---|
 | 1 | `hipcc --offload-arch=gfx1030`. Default is **wave32 + WGP**. Do **not** add `-mwavefrontsize64` or `-mcumode` until you have a measured reason. | HIP: “HIP doesn’t support `warpSize` of 64 on gfx10 and above.” LLVM default is `-mno-wavefrontsize64`, `-mno-cumode`. | HIP C++ language extensions; LLVM AMDGPUUsage Target Features [^llvm-amdgpuusage] |
-| 2 | Pin occupancy: `__launch_bounds__(256, 4)` **or** `__attribute__((amdgpu_waves_per_eu(4, 8)))` + `__attribute__((amdgpu_flat_work_group_size(256, 256)))`. EU = **one SIMD32**. | Unconstrained compile assumes 1024-thread blocks and will over-allocate VGPR. 4 waves/SIMD ⇒ VGPR ≤ 256; 8 waves ⇒ VGPR ≤ 128; 16 waves ⇒ VGPR ≤ 64. | HIP `__launch_bounds__`; Clang `amdgpu_waves_per_eu`; LLVM `getTotalNumVGPRs` = 1024 [^llvm-baseinfo] |
+| 2 | Pin occupancy: `__launch_bounds__(256, 4)` **or** `__attribute__((amdgpu_waves_per_eu(4, 8)))` + `__attribute__((amdgpu_flat_work_group_size(256, 256)))`. EU = **one SIMD32**. | Unconstrained compile assumes 1024-thread blocks and will over-allocate VGPR. 4 waves/SIMD ⇒ VGPR ≤ 256; 8 waves ⇒ VGPR ≤ 128; 16 waves ⇒ VGPR ≤ 64. | HIP `__launch_bounds__`; Clang `amdgpu_waves_per_eu`; LLVM `getTotalNumVGPRs` = 1024 [^llvm-baseinfo][^clang-docs-attributereference-html] |
 | 3 | Align `__shared__` tiles: `alignas(16)` on every 128-bit view; allocation is **1 KB granule, 1 KB aligned**. Cap **64 KB/WG**. Before capture: `TILE×head×el×stages+256 ≤ 65536` ([lds-tiles.md](../lds-and-tiles/lds-tiles.md) Radiance clamp). | ISA §3.6.6. `ds_read_b128` needs 16 B alignment (LLVM D92767). No HIP builtin for `ds_read_b128`. | RDNA 2 ISA 70648; LLVM `ds_read_b128`; radiance `patch_unified_attention_lds.py` @ 22c69cd [^isa70648] |
 | 4 | In the K-loop: wait **`lgkmcnt`** for LDS, **`vmcnt`** for vector loads, **`vscnt`** for vector stores. Never `s_waitcnt vmcnt(0)` “to be safe” — that does **not** wait for stores on RDNA. | RDNA split the store counter. Non-atomic stores are fire-and-forget. `s_waitcnt vscnt(0)` belongs before `s_barrier` / atomics. | GPUOpen RDNA architecture deck [^rdna-arch] |
 | 5 | `__syncthreads()` is enough for LDS reuse. Before a **global** atomic or a store that another WG will read: wait `vscnt(0)` (compiler usually does this). `atomicAdd` = **device/agent**. `atomicAdd_system` + `__threadfence_system` only on **fine-grained** memory. `hipMalloc` is **coarse-grained**; system-scope on it is **downgraded**. | HIP fences; ROCm gpu-atomics; HIP coherence control. | HIP C++ language extensions; https://rocm.docs.amd.com/en/latest/reference/gpu-atomics-operation.html [^rocm-reference-gpu-atomics-operation-html] |
@@ -142,7 +142,7 @@ __attribute__((amdgpu_flat_work_group_size(min, max)))
 - Optimization hint. Backend **limits VGPR / LDS / scratch** so that at least `min` and at most `max` waves fit on an EU.
 - `0, 0` = no limit. Warning if the backend cannot meet it; **error** if values violate the subtarget or conflict with other attributes.
 - `amdgpu_num_vgpr` / `amdgpu_num_sgpr` are **deprecated**; use `waves_per_eu`.
-- `amdgpu_flat_work_group_size(0, 0)` implies default **128, 256**. Helps barrier codegen and scratch promotion.
+- `amdgpu_flat_work_group_size(0, 0)` implies default **128, 256**. Helps barrier codegen and scratch promotion.[^clang-docs-attributereference-html]
 - LLVM IR: `"amdgpu-waves-per-eu"="m,n"`, `"amdgpu-flat-work-group-size"="min,max"`.
 - If the range is incompatible with `"amdgpu-flat-work-group-size"`, **the workgroup-size occupancy bound wins** (LLVM AMDGPUUsage Attributes).[^llvm-amdgpuusage]
 
@@ -623,33 +623,36 @@ Schedule the inner loop as “one DOT2/sdot4 per cycle per SIMD, hide 5-cycle de
 
 ---
 
-## 9. Sources actually opened
+## Sources
+
+_Sources actually opened_
+
 
 **ISA / silicon**
-1. AMD “RDNA 2” ISA 70648 — https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture — §2.1 wave32/64, §2.3.1 / §10.3 WGP vs CU, §3.6.2 SGPR, §3.6.4 VGPR granule, §3.6.6 LDS alloc, ch. 10 `ds_*`, feature list DOT[^isa70648]
-2. GPUOpen RDNA architecture deck — https://gpuopen.com/download/RDNA_Architecture_public.pdf — VMCNT/VSCNT split, fire-and-forget stores, 5-cycle dest, I$/K$ 32/16 KB[^rdna-arch]
-3. GPUOpen Occupancy explained — https://gpuopen.com/learn/occupancy-explained/ — 16 slots, SGPR not limiting, RGP[^gpuopen-occupancy]
-4. GPUOpen WMMA on RDNA 3 — https://gpuopen.com/learn/wmma_on_rdna3/ — no WMMA/MFMA/bf16-matrix on RDNA2; FLOPS table[^gpuopen-learn-wmma-on-rdna3]
+1. AMD “RDNA 2” ISA 70648 — https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture — §2.1 wave32/64, §2.3.1 / §10.3 WGP vs CU, §3.6.2 SGPR, §3.6.4 VGPR granule, §3.6.6 LDS alloc, ch. 10 `ds_*`, feature list DOT
+2. GPUOpen RDNA architecture deck — https://gpuopen.com/download/RDNA_Architecture_public.pdf — VMCNT/VSCNT split, fire-and-forget stores, 5-cycle dest, I$/K$ 32/16 KB
+3. GPUOpen Occupancy explained — https://gpuopen.com/learn/occupancy-explained/ — 16 slots, SGPR not limiting, RGP
+4. GPUOpen WMMA on RDNA 3 — https://gpuopen.com/learn/wmma_on_rdna3/ — no WMMA/MFMA/bf16-matrix on RDNA2; FLOPS table
 5. Companion `silicon/arch-and-memory/architecture.md`, `silicon/lds-and-tiles/lds-tiles.md`, `silicon/hip-craft/codegen-stack.md`, `kernels/w4a16.md`
 
 **LLVM / Clang**
-6. LLVM AMDGPUUsage — https://llvm.org/docs/AMDGPUUsage.html — `gfx1030` features, `cumode` / `wavefrontsize64`, address spaces, AMDHSA scopes, `amdgpu-waves-per-eu`, fine-grained metadata, DOT / permlane / DPP intrinsics[^llvm-amdgpuusage]
-7. LLVM `llvm-calc-occupancy` — https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html[^llvm-calc-occupancy]
-8. LLVM gfx1030 waitcnt — https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.0.0/LLVM/llvm/html/AMDGPU/gfx1030_waitcnt.html[^rocm-amdgpu-gfx1030-waitcnt-html]
+6. LLVM AMDGPUUsage — https://llvm.org/docs/AMDGPUUsage.html — `gfx1030` features, `cumode` / `wavefrontsize64`, address spaces, AMDHSA scopes, `amdgpu-waves-per-eu`, fine-grained metadata, DOT / permlane / DPP intrinsics
+7. LLVM `llvm-calc-occupancy` — https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
+8. LLVM gfx1030 waitcnt — https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.0.0/LLVM/llvm/html/AMDGPU/gfx1030_waitcnt.html
 9. LLVM `SIInsertWaitcnts` / `f2c164c` — vscnt is memory-legalizer only; barrier waits include vscnt
-10. Clang AttributeReference `amdgpu_waves_per_eu` / `amdgpu_flat_work_group_size` — https://clang.llvm.org/docs/AttributeReference.html#amdgpu-waves-per-eu[^clang-docs-attributereference-html]
-11. Clang AMDGPU builtins — https://clang.llvm.org/docs/AMDGPUBuiltinReference.html[^clang-docs-amdgpubuiltinreference-html]
+10. Clang AttributeReference `amdgpu_waves_per_eu` / `amdgpu_flat_work_group_size` — https://clang.llvm.org/docs/AttributeReference.html#amdgpu-waves-per-eu
+11. Clang AMDGPU builtins — https://clang.llvm.org/docs/AMDGPUBuiltinReference.html
 12. LLVM D44210 / D92767 — `ds_read_b128` generation and 16-byte alignment
 13. llvm-project `ba1b867` — `fdot2` HIP `_Float16` signature
 
 **HIP / ROCm**
-14. HIP C++ language extensions — https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/hip_cpp_language_extensions.html — `__launch_bounds__`, `__shared__`, `warpSize`, fences, atomics, unsafe FP atomics, “no warpSize 64 on gfx10+”[^rocm-how-to-hip-cpp-language-extensions-html]
-15. HIP env vars — https://rocm.docs.amd.com/projects/HIP/en/latest/reference/env_variables.html — `HIP_FORCE_DEV_KERNARG` default 1, 2–3 µs[^rocm-reference-env-variables-html]
-16. HIP coherence control — https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/hip_runtime_api/memory_management/coherence_control.html[^rocm-memory-management-coherence-control-html]
-17. ROCm hardware atomics — https://rocm.docs.amd.com/en/latest/reference/gpu-atomics-operation.html — coarse vs fine, system-scope downgrade, L2 vs Infinity Fabric[^rocm-reference-gpu-atomics-operation-html]
-18. HIP Hardware implementation — https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html — LDS 64 banks, CDNA 5-issue paragraph (do not reuse)[^hip-hw-impl]
-19. vLLM ROCm optimization — https://rocm.docs.amd.com/projects/ai-ecosystem/en/latest/optimization/vllm-v1-optimization.html — `HIP_FORCE_DEV_KERNARG=1`[^rocm-optimization-vllm-v1-optimization-html]
-20. GPUOpen lab notes, Laplacian part 3 — https://gpuopen.com/learn/amd-lab-notes/amd-lab-notes-finite-difference-docs-laplacian_part3/ — `__launch_bounds__(256)`[^gpuopen-amd-lab-notes-amd-lab-notes-finite-diffe]
+14. HIP C++ language extensions — https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/hip_cpp_language_extensions.html — `__launch_bounds__`, `__shared__`, `warpSize`, fences, atomics, unsafe FP atomics, “no warpSize 64 on gfx10+”
+15. HIP env vars — https://rocm.docs.amd.com/projects/HIP/en/latest/reference/env_variables.html — `HIP_FORCE_DEV_KERNARG` default 1, 2–3 µs
+16. HIP coherence control — https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/hip_runtime_api/memory_management/coherence_control.html
+17. ROCm hardware atomics — https://rocm.docs.amd.com/en/latest/reference/gpu-atomics-operation.html — coarse vs fine, system-scope downgrade, L2 vs Infinity Fabric
+18. HIP Hardware implementation — https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html — LDS 64 banks, CDNA 5-issue paragraph (do not reuse)
+19. vLLM ROCm optimization — https://rocm.docs.amd.com/projects/ai-ecosystem/en/latest/optimization/vllm-v1-optimization.html — `HIP_FORCE_DEV_KERNARG=1`
+20. GPUOpen lab notes, Laplacian part 3 — https://gpuopen.com/learn/amd-lab-notes/amd-lab-notes-finite-difference-docs-laplacian_part3/ — `__launch_bounds__(256)`
 
 **Bugs / kernels**
 21. llama.cpp #24672 / #23310 — 203 VGPR occupancy 0
@@ -661,12 +664,11 @@ Schedule the inner loop as “one DOT2/sdot4 per cycle per SIMD, hide 5-cycle de
 27. lemonade-sdk/vllm-rocm #24 — gfx1151 WMMA garbage
 28. vLLM `q_gemm_rdna3.cu` — hipcc does not peephole DOT2
 
-## Sources
-
-Primary sources for this page, cited inline as footnotes:
+Footnotes:
 
 [^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)
 [^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
+[^clang-docs-attributereference-html]: Attributes in Clang - Clang. https://clang.llvm.org/docs/AttributeReference.html#amdgpu-waves-per-eu (checked 2026-10-11)
 [^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
 [^rdna-arch]: AMD, "RDNA Architecture" (GPUOpen, 2019). https://gpuopen.com/download/RDNA_Architecture_public.pdf (checked 2026-10-11)
 [^rocm-reference-gpu-atomics-operation-html]: AMD GPU atomics operation support — AMD ROCm 10.1.0. https://rocm.docs.amd.com/en/latest/reference/gpu-atomics-operation.html (checked 2026-10-11)
@@ -675,7 +677,6 @@ Primary sources for this page, cited inline as footnotes:
 [^hip-hw-impl]: ROCm HIP docs, "Hardware implementation". https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html (checked 2026-10-11)
 [^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
 [^rocm-how-to-hip-cpp-language-extensions-html]: HIP C++ language extensions — HIP 7.16.0 Documentation. https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/hip_cpp_language_extensions.html (checked 2026-10-11)
-[^clang-docs-attributereference-html]: Attributes in Clang - Clang. https://clang.llvm.org/docs/AttributeReference.html#amdgpu-waves-per-eu (checked 2026-10-11)
 [^rocm-amdgpu-gfx1030-waitcnt-html]: waitcnt — LLVM 19.0.0git documentation. https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.0.0/LLVM/llvm/html/AMDGPU/gfx1030_waitcnt.html (checked 2026-10-11)
 [^rocm-memory-management-coherence-control-html]: Coherence control — HIP 7.16.0 Documentation. https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/hip_runtime_api/memory_management/coherence_control.html (checked 2026-10-11)
 [^rocm-reference-env-variables-html]: HIP environment variables — HIP 7.16.0 Documentation. https://rocm.docs.amd.com/projects/HIP/en/latest/reference/env_variables.html (checked 2026-10-11)

@@ -33,11 +33,20 @@ Companions: [occupancy-composite.md](occupancy-composite.md), [waitcnt-occupancy
 | **Leave** | Do **not** invent hazard-cycle counts. Neither ISA 70648 nor the LLVM feature text gives a stall cost for the gfx101x workarounds. [^isa70648] |
 | **Leave** | Do **not** open UNC / retip extras / edit `rdna_extras` from this page. |
 
-## 1. Sources
+## Sources
 
-1. AMD "RDNA 2" ISA, Document 70648 (local `/workspace/rdna2-src/rdna2-isa.txt`): §4.5 "Manually Inserted Wait States (NOPs)" is the single line quoted above. §8.2 puts VMEM data hazards on the developer only via VMCNT/VSCNT (see [waitcnt-occupancy.md](waitcnt-occupancy.md)). `S_WAITCNT_DEPCTR` (SOPP 35) exists on RDNA2.[^isa70648]
-2. LLVM `llvm/lib/Target/AMDGPU/AMDGPU.td`, `release/22.x` (fetched 2026-10-09): `FeatureGFX10` includes `FeatureNoDataDepHazard` ("Does not need SW waitstates"). `FeatureISAVersion10_1_Common` adds the "gfx101x bugs" block listed in the lock. `FeatureISAVersion10_3_0` = `FeatureISAVersion10_Common` + encodings + Dot1/2/5/6/7/10 + shader-cycles. **No** hazard features. `FeatureISAVersion10_1_3` (gfx1013) = 10_1_Common + GFX10_A encoding, so it inherits every gfx101x hazard and has no Dot2 (`fdot2` needs `dot10-insts`).[^llvm-amdgpu-td]
-3. clang/LLVM 22.1.8 (Debian, `/usr/lib/llvm-22`). Probe sources and `.s` in `/workspace/hazard-probe/`. The ROCm 7.14 amd-llvm pin was not re-checked; feature sets for gfx1030 have been stable across upstream releases, but confirm with `-mattr=help` / a probe on the pin before quoting it as pin-verified.[^probe-hazard]
+
+
+1. AMD "RDNA 2" ISA, Document 70648 (local `/workspace/rdna2-src/rdna2-isa.txt`): §4.5 "Manually Inserted Wait States (NOPs)" is the single line quoted above. §8.2 puts VMEM data hazards on the developer only via VMCNT/VSCNT (see [waitcnt-occupancy.md](waitcnt-occupancy.md)). `S_WAITCNT_DEPCTR` (SOPP 35) exists on RDNA2.
+2. LLVM `llvm/lib/Target/AMDGPU/AMDGPU.td`, `release/22.x` (fetched 2026-10-09): `FeatureGFX10` includes `FeatureNoDataDepHazard` ("Does not need SW waitstates"). `FeatureISAVersion10_1_Common` adds the "gfx101x bugs" block listed in the lock. `FeatureISAVersion10_3_0` = `FeatureISAVersion10_Common` + encodings + Dot1/2/5/6/7/10 + shader-cycles. **No** hazard features. `FeatureISAVersion10_1_3` (gfx1013) = 10_1_Common + GFX10_A encoding, so it inherits every gfx101x hazard and has no Dot2 (`fdot2` needs `dot10-insts`).
+3. clang/LLVM 22.1.8 (Debian, `/usr/lib/llvm-22`). Probe sources and `.s` in `/workspace/hazard-probe/`. The ROCm 7.14 amd-llvm pin was not re-checked; feature sets for gfx1030 have been stable across upstream releases, but confirm with `-mattr=help` / a probe on the pin before quoting it as pin-verified.
+
+Footnotes:
+
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
+[^llvm-amdgpu-td]: LLVM AMDGPU.td, main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td (checked 2026-10-11)
+[^probe-hazard]: Box compiler probe `/workspace/hazard-probe/` (HIP sources and `.s` output; `.ident` "Debian clang version 22.1.8 (1~deb13u4)", upstream clang 22.1.8, not the ROCm 7.14.0 pin). Local box path, not a public URL; re-run to reproduce.
 
 ## 2. What GFX10 still makes the compiler pad (and gfx1030 does not)
 
@@ -72,13 +81,3 @@ Not audited: GitHub code search (default-branch index only) found no `s_nop` / `
 ## 4. Where it sits in the occupancy composite
 
 Out of the theoretical min, like waitcnt and divergence. On gfx1030 the row is **empty** for compiler-generated code. The only ways to pay it are hand-inserted NOP/depctr asm, or a gfx101x fatbin. If a gfx1030 kernel profile shows `s_nop` / `s_waitcnt_depctr` in the hot loop, it came from inline asm or a copied gfx9/gfx101x helper. Remove it there, don't model it.
-
-## Sources
-
-Primary sources for this page, cited inline as footnotes:
-
-[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
-[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
-[^llvm-amdgpu-td]: LLVM AMDGPU.td, main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td (checked 2026-10-11)
-[^probe-hazard]: Box compiler probe `/workspace/hazard-probe/` (HIP sources and `.s` output; `.ident` "Debian clang version 22.1.8 (1~deb13u4)", upstream clang 22.1.8, not the ROCm 7.14.0 pin). Local box path, not a public URL; re-run to reproduce.
-

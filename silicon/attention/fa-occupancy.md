@@ -1,6 +1,7 @@
 ---
 title: "gfx1030 FA occupancy report"
 sources:
+  - https://rocm.docs.amd.com/projects/HIP/en/docs-6.3.1/how-to/hip_cpp_language_extensions.html
   - https://github.com/opengfx1030/vllm-rdna/commit/8f2583d2c6e49664c59c490d9843f6265f79b90a
   - https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html
   - https://github.com/opengfx1030/vllm-rdna/commit/0fdb1884cb9705f2c45653afb3c0e1bf1d1b462b
@@ -22,7 +23,6 @@ sources:
   - https://llvm.org/docs/AMDGPUUsage.html
   - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
   - https://github.com/opengfx1030/vllm-rdna/commit/e054854f239b139b8bec5991345056b49315735d
-  - https://rocm.docs.amd.com/projects/HIP/en/docs-6.3.1/how-to/hip_cpp_language_extensions.html
   - https://github.com/ROCm/hip/issues/2521
 ---
 
@@ -32,9 +32,9 @@ sources:
 
 GQA prefill LDS shrink for D=128 default path — **not** an occupancy-card close. No tok/s. No invented %.
 
-- Kernel renamed/templated: `fa_prefill_paged_varlen_gqa_kernel<HEAD_DIM,…>` still `__launch_bounds__(256, 1)`. Four instantiations (128/256 × even/odd).
+- Kernel renamed/templated: `fa_prefill_paged_varlen_gqa_kernel<HEAD_DIM,…>` still `__launch_bounds__(256, 1)`. Four instantiations (128/256 × even/odd).[^rocm-how-to-hip-cpp-language-extensions-html]
 - Default `subgroup` dispatch sends D=128 prefill through the GQA register-O path (~14 KiB LDS/CTA) instead of `_short` (~45 KiB LDS/CTA). Other prefill kernels remain `(N, 1)`; LDS leftover on non-GQA tiles unchanged.
-- Still `__builtin_amdgcn_fdot2`. Tip-reported compile gate 80–93 VGPR / 0 spills / 0 scratch — not a new fatbin dump in this wiki pass. See [fa-gqa.md](fa-gqa.md).[^extras-fa-rdna2-cu]
+- Still `__builtin_amdgcn_fdot2`. Tip-reported compile gate 80–93 VGPR / 0 spills / 0 scratch — not a new fatbin dump in this wiki pass. See [fa-gqa.md](fa-gqa.md).
 
 Do not close the occupancy card. Do not copy tok/s.
 
@@ -44,7 +44,7 @@ Do not close the occupancy card. Do not copy tok/s.
 
 Dispatch / launcher only — **not** an occupancy-card close. No `csrc` launch_bounds or LDS shape change. No tok/s. No invented %.
 
-- Prefill still `__launch_bounds__(N, 1)`; decode still `__launch_bounds__(128|256)` (+ existing `waves_per_eu` where present). LDS remains the binding leftover on non-GQA prefill tiles.
+- Prefill still `__launch_bounds__(N, 1)`; decode still `__launch_bounds__(128|256)` (+ existing `waves_per_eu` where present). LDS remains the binding leftover on non-GQA prefill tiles.[^rocm-how-to-hip-cpp-language-extensions-html]
 - Production launcher (`serve_gfx1030_flashnext.sh`): `VLLM_USE_RDNA2_FA` defaults **1**; `VLLM_FA_RDNA2_GQA_DECODE` defaults **1**. Set `VLLM_USE_RDNA2_FA=0` for Triton fallback. Same decode/prefill occupancy envelope as the FA path already locked. See [fa-gqa.md](fa-gqa.md).
 - PYTHONPATH pin is import hygiene, not an occupancy delta.
 
@@ -56,7 +56,7 @@ Do not close the occupancy card. Do not copy tok/s.
 
 Dispatch / launcher only — **not** an occupancy-card close. No `csrc` launch_bounds or LDS shape change. No tok/s. No invented %.
 
-- Prefill still `__launch_bounds__(N, 1)`; decode still `__launch_bounds__(128|256)` (+ existing `waves_per_eu` where present). LDS remains the binding leftover on non-GQA prefill tiles.
+- Prefill still `__launch_bounds__(N, 1)`; decode still `__launch_bounds__(128|256)` (+ existing `waves_per_eu` where present). LDS remains the binding leftover on non-GQA prefill tiles.[^rocm-how-to-hip-cpp-language-extensions-html]
 - MTP verify-through-decode reuses the validated decode kernel for uniform short causal (`q_len` 2–8) — same decode occupancy envelope, not a new tile.
 - MTP launcher (`serve_gfx1030_flashnext_mtp.sh`): ATTN default **fa**; when fa, `VLLM_FA_RDNA2_GQA_DECODE` defaults **1**. `ATTN=triton` remains the fallback. See [fa-gqa.md](fa-gqa.md).
 
@@ -68,7 +68,7 @@ Do not close the occupancy card. Do not copy tok/s.
 
 Silicon host/kernel contract only — **not** an occupancy-card close. No tok/s. No invented %.
 
-- Prefill still `__launch_bounds__(N, 1)` on the varlen kernels; decode still `__launch_bounds__(128|256)` (+ existing `waves_per_eu` where present). LDS remains the binding leftover on non-GQA prefill tiles.
+- Prefill still `__launch_bounds__(N, 1)` on the varlen kernels; decode still `__launch_bounds__(128|256)` (+ existing `waves_per_eu` where present). LDS remains the binding leftover on non-GQA prefill tiles.[^rocm-how-to-hip-cpp-language-extensions-html]
 - GQA prefill D=256: further LDS shrink — softmax left `sM`/`sL`/`sD` LDS for register `__shfl_xor`; O already register-resident. See [fa-gqa.md](fa-gqa.md).
 - Still `__builtin_amdgcn_fdot2` + XOR `fa_swz_d` where previously used. `fa_clip_kv_walk` / `fa_masked` change tile visitation, not launch bounds or LDS tile shapes (BR/BC).
 - Host: caller `out` + model `scale`; `rdna2_persist_empty` for overwritten persist slots. Default ATTN = triton; FA opt-in `VLLM_USE_RDNA2_FA`.
@@ -79,7 +79,7 @@ Do not close the occupancy card. Do not copy tok/s.
 
 ## extras lock 2026-09-17 — `opengfx1030/vllm-rdna` `rdna_extras` @ `50120e13` (`d1b200b1`)
 
-GQA prefill `fa_prefill_paged_varlen_gqa_kernel_256`: O left LDS for registers (see [fa-gqa.md](fa-gqa.md)). Launcher smem no longer reserves `HEADS*BR*HEAD_DIM` floats for `sO`. **Not** a `__launch_bounds__` flip; other FA prefill kernels still `(N, 1)`. Do not close the occupancy card. Do not copy tok/s.
+GQA prefill `fa_prefill_paged_varlen_gqa_kernel_256`: O left LDS for registers (see [fa-gqa.md](fa-gqa.md)). Launcher smem no longer reserves `HEADS*BR*HEAD_DIM` floats for `sO`. **Not** a `__launch_bounds__` flip; other FA prefill kernels still `(N, 1)`. Do not close the occupancy card. Do not copy tok/s.[^rocm-how-to-hip-cpp-language-extensions-html]
 
 ---
 
@@ -87,8 +87,8 @@ GQA prefill `fa_prefill_paged_varlen_gqa_kernel_256`: O left LDS for registers (
 
 Official dest tip (BlivionIaG `rdna2_extras` is archive). FA HIP delta vs `8f2583d2`:[^commit-8f2583d2]
 
-- Decode: still `__launch_bounds__(128|256)` + `amdgpu_waves_per_eu(4, 8)` (minBlocks=1 form **not** restored). INT8 fused into the same decode templates via `IS_INT8` (fp16 LDS + `fdot2`).
-- Prefill fp16/FP8: still `__launch_bounds__(N, 1)`. New INT8 prefill splitk also `(N, 1)`.
+- Decode: still `__launch_bounds__(128|256)` + `amdgpu_waves_per_eu(4, 8)` (minBlocks=1 form **not** restored). INT8 fused into the same decode templates via `IS_INT8` (fp16 LDS + `fdot2`).[^rocm-how-to-hip-cpp-language-extensions-html]
+- Prefill fp16/FP8: still `__launch_bounds__(N, 1)`. New INT8 prefill splitk also `(N, 1)`.[^rocm-how-to-hip-cpp-language-extensions-html]
 - LDS / BR/BC tile shapes unchanged (decode Bc 64/32; prefill Br 16). No new VGPR dump this hour — do not retip pin closed. Occupancy leftover still FA prefill LDS (1 WG / 64 KB).[^rocm-gpu-arch-specs][^llvm-baseinfo]
 - Platform: `VLLM_USE_RDNA2_FA=1` prefers `RDNA_ATTN`; custom paged-attn gate allows head 128/256 and `block_size >= 1` (hybrids 784/1056).
 
@@ -102,7 +102,7 @@ Live human branch: **`rdna2_extras`** @ **`0fdb1884`** (prep half2 vectorize; GD
 
 ## extras lock 2026-08-30 — `097f62a4` (FA vectorize + W4 alloc)
 
-Tip after `07ebb0d6`. D=256 Q/KV global loads are `uint4` (16 B / 8 halves) into LDS rows padded 256→264. Inner QK is still `__builtin_amdgcn_fdot2`. Prefill still `__launch_bounds__(N, 1)`. INT8/FP8 path still scalar `fa_kv_load`. **Not** occupancy. Do not copy 2.4×/3.6×.[^commit-07ebb0d6]
+Tip after `07ebb0d6`. D=256 Q/KV global loads are `uint4` (16 B / 8 halves) into LDS rows padded 256→264. Inner QK is still `__builtin_amdgcn_fdot2`. Prefill still `__launch_bounds__(N, 1)`. INT8/FP8 path still scalar `fa_kv_load`. **Not** occupancy. Do not copy 2.4×/3.6×.[^rocm-how-to-hip-cpp-language-extensions-html][^commit-07ebb0d6]
 
 W4: `hipMallocAsync` split-K partials raced (mempool reuse, missing K-split). `torch::empty` is the fix. DOT/nibble lock stays `f263172a`. Dispatch restored `32<M≤128` HIP.[^commit-f263172a]
 
@@ -131,10 +131,10 @@ Hardware model used for occupancy (as requested): **16 waves/SIMD32**, **1024 VG
 
 | Kernel | Now | Still leftover |
 |---|---|---|
-| `fa_decode_paged_splitk_kernel` | `__launch_bounds__(128)` + `waves_per_eu(4, 8)` | VGPR / hipOccupancy not dumped |
-| `fa_decode_paged_splitk_kernel_256` | `__launch_bounds__(256)` + **same** `(4, 8)` | Wiki CUDA-port for 256-thr is min **8** (`(256,8)`). `(4,8)` is looser min, max 8 = 1 WG/SIMD |
+| `fa_decode_paged_splitk_kernel` | `__launch_bounds__(128)` + `waves_per_eu(4, 8)` | VGPR / hipOccupancy not dumped [^rocm-how-to-hip-cpp-language-extensions-html] |
+| `fa_decode_paged_splitk_kernel_256` | `__launch_bounds__(256)` + **same** `(4, 8)` | Wiki CUDA-port for 256-thr is min **8** (`(256,8)`). `(4,8)` is looser min, max 8 = 1 WG/SIMD [^rocm-how-to-hip-cpp-language-extensions-html] |
 | `wvSplitKrc_` | dropped `waves_per_eu(1,1)` | no max pin |
-| prefill `fa_prefill_*` 128/256 / splitk / int8 | `__launch_bounds__(N, 1)` | **still the trap** |
+| prefill `fa_prefill_*` 128/256 / splitk / int8 | `__launch_bounds__(N, 1)` | **still the trap** [^rocm-how-to-hip-cpp-language-extensions-html] |
 
 `(4, 8)` is a compiler occupancy *range*, not a runtime query. If decode already sat ≤128 VGPR, +1% is expected. Do not close the occupancy card. Fat-M W4 / ConfigA unchanged.[^extras-fa-rdna2-cu]
 
@@ -145,7 +145,7 @@ Hardware model used for occupancy (as requested): **16 waves/SIMD32**, **1024 VG
 
 HIP does **not** treat the second argument as CUDA `minBlocksPerMultiprocessor`.
 
-HIP docs (`__launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_WARPS_PER_EXECUTION_UNIT)`) and the `amd_hip_runtime.h` macro (ROCm/hip#2521) lower:[^hip-hw-impl]
+HIP docs (`__launch_bounds__(MAX_THREADS_PER_BLOCK, MIN_WARPS_PER_EXECUTION_UNIT)`) and the `amd_hip_runtime.h` macro (ROCm/hip#2521) lower:[^hip-hw-impl][^rocm-how-to-hip-cpp-language-extensions-html][^github-issues-2521]
 
 ```c
 __attribute__((amdgpu_flat_work_group_size(1, requiredMaxThreadsPerBlock),
@@ -156,9 +156,9 @@ The second argument is passed **verbatim** as `amdgpu_waves_per_eu(N)` = **minim
 
 | Written in source | Lowers to | Meaning on gfx1030 wave32 | If they meant CUDA min-blocks=1 they should have written |
 |---|---|---|---|
-| `__launch_bounds__(128, 1)` | `flat_work_group_size(1,128)` + `amdgpu_waves_per_eu(1)` | max WG 128; **min 1 wave/SIMD32** (default). VGPR cap ≈ 1024/1 = 256 (file max). | `__launch_bounds__(128, 4)` because `(1 * 128) / 32 = 4` |
-| `__launch_bounds__(256, 1)` | `flat_work_group_size(1,256)` + `amdgpu_waves_per_eu(1)` | max WG 256; **min 1 wave/SIMD32**. Same default VGPR cap (256). Does **not** mean “1 block/CU”. | `__launch_bounds__(256, 8)` because `(1 * 256) / 32 = 8` |
-| `__launch_bounds__(THREADS)` with `THREADS=32` | `flat_work_group_size(1,32)` only (no 2nd arg) | max WG 32; waves/EU defaults to 1 | n/a |
+| `__launch_bounds__(128, 1)` | `flat_work_group_size(1,128)` + `amdgpu_waves_per_eu(1)` | max WG 128; **min 1 wave/SIMD32** (default). VGPR cap ≈ 1024/1 = 256 (file max). | `__launch_bounds__(128, 4)` because `(1 * 128) / 32 = 4` [^rocm-how-to-hip-cpp-language-extensions-html] |
+| `__launch_bounds__(256, 1)` | `flat_work_group_size(1,256)` + `amdgpu_waves_per_eu(1)` | max WG 256; **min 1 wave/SIMD32**. Same default VGPR cap (256). Does **not** mean “1 block/CU”. | `__launch_bounds__(256, 8)` because `(1 * 256) / 32 = 8` [^rocm-how-to-hip-cpp-language-extensions-html] |
+| `__launch_bounds__(THREADS)` with `THREADS=32` | `flat_work_group_size(1,32)` only (no 2nd arg) | max WG 32; waves/EU defaults to 1 | n/a [^rocm-how-to-hip-cpp-language-extensions-html] |
 | no attribute | compiler assumes device-max block (1024) | worse VGPR budget than pinning the real WG size | pin the real size |
 
 **`(256, 1)` on HIP = 1 wave per SIMD32.** That is a *minimum-occupancy* hint, and 1 is the default, so it does **not** force 1-wave occupancy and does **not** encode the “1 block/CU” the LDS comments want. It only pins `maxThreadsPerBlock=256`. The compiler is free to spend up to 256 VGPR/lane. A CUDA-style “please keep enough registers for 1 block of 256” would have been `(256, 8)` = 8 waves/EU = VGPR ≤ 128.
@@ -175,7 +175,7 @@ MIN_WARPS_PER_EXECUTION_UNIT = (MIN_BLOCKS_PER_MULTIPROCESSOR * MAX_THREADS_PER_
 
 LDS-limited WGs use the 64 KB/WG cap (authors + HIP `MaxSharedMemoryPerBlock`). After the 1 KB ISA granule the rounded allocation is still ≤ 64 KB for every kernel, so **no LDS occupancy-0**. Closest is prefill-256 at 59620 B (5.9 KB headroom; 60416 B after 1 KB round).[^rocm-gpu-arch-specs][^llvm-baseinfo]
 
-| Kernel | `__launch_bounds__` | `amdgpu_waves_per_eu` | WG | waves/WG | LDS B (KiB) | VGPR | Br / Bc / D | split-K | LDS WGs / 64KB | occ-0? [^rocm-gpu-arch-specs][^llvm-baseinfo] |
+| Kernel | `__launch_bounds__` | `amdgpu_waves_per_eu` | WG | waves/WG | LDS B (KiB) | VGPR | Br / Bc / D | split-K | LDS WGs / 64KB | occ-0? [^rocm-how-to-hip-cpp-language-extensions-html] |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `fa_decode_paged_splitk_kernel` | `(128, 1)` | **1** | 128 | 4 | 33300 (32.52) | not in source | 1 / 64 / 128 | yes (grid.z, max 16) | 1 | no (LDS) |
 | `fa_decode_paged_splitk_kernel_256` | **`(256, 1)`** | **1** | 256 | 8 | 33444 (32.66) | not in source | 1 / 32 / 256 | yes | 1 | **VGPR risk** if compiled VGPR is huge; LDS OK |
@@ -230,7 +230,7 @@ __global__ __launch_bounds__(256, 1) void fa_decode_paged_splitk_kernel_256(...)
 
 ### 3.3 Decode combine — `fa_decode_combine_kernel`
 
-- No `__launch_bounds__`. Launch `block2(D)` = 128 or 256.
+- No `__launch_bounds__`. Launch `block2(D)` = 128 or 256.[^rocm-how-to-hip-cpp-language-extensions-html]
 - LDS: `(3 * kv_splits + 1) * 4` → 196 B at `kv_splits=16`.
 - Softmax merge of split partials. Not occupancy-interesting.
 
@@ -278,7 +278,7 @@ __global__ __launch_bounds__(256, 1) void fa_prefill_paged_varlen_kernel_256(...
 
 ### 3.7 Prefill split-K 128 / 256
 
-Same `__launch_bounds__` and same host LDS formulas as the non-split twins.
+Same `__launch_bounds__` and same host LDS formulas as the non-split twins.[^rocm-how-to-hip-cpp-language-extensions-html]
 
 - Grid.z = `num_seqs * kv_splits`. Each CTA owns a KV slice; writes unnormalized `(O,M,L)`.
 - **Split-K 128 does not call `fa_swz_d`** (linear stores), unlike the non-split 128 kernel. Inconsistency in the same file.
@@ -306,9 +306,9 @@ total                1168 B
 
 ### 3.9 Paged MQA logits (Lightning Indexer fallback)
 
-- No `__launch_bounds__`. Instantiation `HEAD_DIM=128, N_HEADS=64, BLOCK_THREADS=64, BLOCK_K=128`.
+- No `__launch_bounds__`. Instantiation `HEAD_DIM=128, N_HEADS=64, BLOCK_THREADS=64, BLOCK_K=128`.[^rocm-how-to-hip-cpp-language-extensions-html]
 - LDS: `sizeof(uint16_t)*64*128 + sizeof(float)*64*128 = 16384 + 32768 = 49152 B` exactly 48 KiB.
-- Occupancy: 2 waves/WG, 1 WG/64 KB.[^extras-fa-rdna2-cu]
+- Occupancy: 2 waves/WG, 1 WG/64 KB.
 
 ### 3.10 Not in this tree
 
@@ -409,7 +409,7 @@ Assumptions: wave32, WGP mode (4 SIMD32), one WG’s waves spread across the WGP
 1. **LDS > 64 KB:** none. Worst is 59620 B.[^rocm-gpu-arch-specs][^llvm-baseinfo]
 2. **`(256, 1)` VGPR blow-up:** four kernels (`decode_256`, `prefill_128_short`, `prefill_256`, `prefill_splitk_256`). The hint does not *cause* occ-0; it *fails to prevent* a 256-VGPR compile. A 256-thread WG at 256 VGPR still places 1 WG in WGP mode (2 waves × 256 = 512 ≤ 1024). Occ-0 needs VGPR > 256 (compile fail / spill) or a tool that requires all 8 waves on one SIMD (`1024/align(vgpr,16) < 8`). hip-craft notes a **203 VGPR / 256-thread** tile reported occ-0 on gfx1030 in that accounting — **unverified here** (no resource dump). Treat `(256, 1)` as “unpinned occupancy”, not as a 1-block guarantee.
 3. **MLA V1 (dead):** 1028 fp32/thread would be occ-0 / scratch. V2 is fine.
-4. **Wanted “1 block/CU”** is achieved by LDS size, not by `__launch_bounds__(*, 1)`.
+4. **Wanted “1 block/CU”** is achieved by LDS size, not by `__launch_bounds__(*, 1)`.[^rocm-how-to-hip-cpp-language-extensions-html]
 
 Recommended pin if they actually want the LDS-era 1–2 WG occupancy *and* a VGPR cap that matches it:
 
@@ -424,18 +424,44 @@ Do not keep `(256, 1)` under the belief it means 1 block/CU.
 
 ---
 
-## 7. Sources
+## Sources
 
-- https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu[^raw-rocm-fa-rdna2-cu-2][^extras-fa-rdna2-cu]
-- https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu[^raw-rocm-sparse-mla-rdna2-cu][^extras-sparse-mla-rdna2-cu]
-- https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu[^raw-rocm-indexer-paged-mqa-rdna2-cu][^extras-indexer-paged-mqa-rdna2-cu]
-- https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h[^raw-rocm-ops-h][^extras-ops-h]
-- HIP `__launch_bounds__`: https://rocm.docs.amd.com/projects/HIP/en/docs-6.3.1/how-to/hip_cpp_language_extensions.html (second arg = `MIN_WARPS_PER_EXECUTION_UNIT`; CUDA port formula)[^rocm-how-to-hip-cpp-language-extensions-html]
-- Macro lowering: https://github.com/ROCm/hip/issues/2521[^github-issues-2521]
-- Live branch: `rdna2_extras` @ `0fdb1884cb` (FA pins unchanged: decode `(4, 8)`, prefill `(N, 1)`).[^commit-0fdb1884]
+
+
+- https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu
+- https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu
+- https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu
+- https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h
+- HIP `__launch_bounds__`: https://rocm.docs.amd.com/projects/HIP/en/docs-6.3.1/how-to/hip_cpp_language_extensions.html (second arg = `MIN_WARPS_PER_EXECUTION_UNIT`; CUDA port formula)
+- Macro lowering: https://github.com/ROCm/hip/issues/2521
+- Live branch: `rdna2_extras` @ `0fdb1884cb` (FA pins unchanged: decode `(4, 8)`, prefill `(N, 1)`).
 - Snapshot tree listing: `GET /repos/BlivionIaG/vllm/git/trees/perf/rdna2_w4a16?recursive=1` SHA `9ac015d0…`
 
 ---
+
+Footnotes:
+
+[^rocm-how-to-hip-cpp-language-extensions-html]: HIP C++ language extensions — HIP 6.3.42133 Documentation. https://rocm.docs.amd.com/projects/HIP/en/docs-6.3.1/how-to/hip_cpp_language_extensions.html (checked 2026-10-11)
+[^commit-8f2583d2]: opengfx1030/vllm-rdna commit `8f2583d2c6e4`. https://github.com/opengfx1030/vllm-rdna/commit/8f2583d2c6e49664c59c490d9843f6265f79b90a (exists, verified via GitHub API 2026-10-11)
+[^hip-hw-impl]: ROCm HIP docs, "Hardware implementation". https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html (checked 2026-10-11)
+[^commit-0fdb1884]: opengfx1030/vllm-rdna commit `0fdb1884cb97`. https://github.com/opengfx1030/vllm-rdna/commit/0fdb1884cb9705f2c45653afb3c0e1bf1d1b462b (exists, verified via GitHub API 2026-10-11)
+[^commit-07ebb0d6]: opengfx1030/vllm-rdna commit `07ebb0d6b13c`. https://github.com/opengfx1030/vllm-rdna/commit/07ebb0d6b13cf6fa47cad7db894a69e18e7420f4 (exists, verified via GitHub API 2026-10-11)
+[^commit-f263172a]: opengfx1030/vllm-rdna commit `f263172a45b5`. https://github.com/opengfx1030/vllm-rdna/commit/f263172a45b55f78cdfa1b4fef4b3be5c2aad09c (exists, verified via GitHub API 2026-10-11)
+[^commit-77d6fdf8]: opengfx1030/vllm-rdna commit `77d6fdf801f8`. https://github.com/opengfx1030/vllm-rdna/commit/77d6fdf801f8618a66dee12e6df14d983b530b33 (exists, verified via GitHub API 2026-10-11)
+[^commit-d414eac5]: opengfx1030/vllm-rdna commit `d414eac51b3a`. https://github.com/opengfx1030/vllm-rdna/commit/d414eac51b3aec9bffe871457339e00341805185 (exists, verified via GitHub API 2026-10-11)
+[^raw-rocm-fa-rdna2-cu]: raw.githubusercontent.com/BlivionIaG/vllm/rdna2_extras/csrc/rocm/fa_rdna2.cu. https://raw.githubusercontent.com/BlivionIaG/vllm/rdna2_extras/csrc/rocm/fa_rdna2.cu (checked 2026-10-11)
+[^extras-fa-rdna2-cu]: `csrc/rocm/fa_rdna2.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu
+[^raw-rocm-fa-rdna2-cu-2]: raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu. https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu (checked 2026-10-11)
+[^raw-rocm-sparse-mla-rdna2-cu]: raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu. https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu (checked 2026-10-11)
+[^raw-rocm-indexer-paged-mqa-rdna2-cu]: raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu. https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu (checked 2026-10-11)
+[^raw-rocm-ops-h]: raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h. https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h (checked 2026-10-11)
+[^extras-sparse-mla-rdna2-cu]: `vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu
+[^extras-indexer-paged-mqa-rdna2-cu]: `vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu
+[^extras-ops-h]: `vllm/perf/rdna2_w4a16/csrc/rocm/ops.h`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h
+[^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^commit-e054854f]: opengfx1030/vllm-rdna commit `e054854f239b`. https://github.com/opengfx1030/vllm-rdna/commit/e054854f239b139b8bec5991345056b49315735d (exists, verified via GitHub API 2026-10-11)
+[^github-issues-2521]: __launch_bounds__ lowers to the wrong thing. · Issue #2521 · ROCm/hip. https://github.com/ROCm/hip/issues/2521 (checked 2026-10-11)
 
 ## 8. Compiled resource dump (2026-08-24) — the missing data
 
@@ -461,7 +487,7 @@ Extracted from the built `_rocm_C.abi3.so` (`.hip_fatbin` section, gfx1030 code 
 
 1. **The predicted VGPR blow-up did not materialize.** Every prefill kernel compiles at ≤111 VGPR with **zero spills**. The loose `(N, 1)` cap did not cause the compiler to over-allocate registers. VGPR-limited occupancy is 9–21 waves/SIMD — never the binding constraint. (unsourced)
 
-2. **LDS is the sole occupancy limiter.** All FA tiles reserve 33–60 KB → exactly **1 workgroup per 64 KB CU budget**, independent of the launch-bounds pin. Occupancy is 1–2 waves/SIMD (12.5–25% of the 16-wave model) and no `__launch_bounds__` argument can change that.
+2. **LDS is the sole occupancy limiter.** All FA tiles reserve 33–60 KB → exactly **1 workgroup per 64 KB CU budget**, independent of the launch-bounds pin. Occupancy is 1–2 waves/SIMD (12.5–25% of the 16-wave model) and no `__launch_bounds__` argument can change that.[^rocm-how-to-hip-cpp-language-extensions-html]
 
 3. **The decode `(4, 8)` flip was occupancy-neutral.** Decode compiles at 40–43 VGPR — the `(4,8)` VGPR≤128 cap was never binding. The observed +1% on Qwen3.8-27B-AWQ 16k/1k TP=4 is noise, as the merge note already suspected.
 
@@ -470,31 +496,5 @@ Extracted from the built `_rocm_C.abi3.so` (`.hip_fatbin` section, gfx1030 code 
 5. **The only lever that could move FA occupancy is an LDS-tile shrink** (smaller BR/BC), which is a kernel restructure with real correctness/perf risk — not a launch-bounds edit. As written, the prefill `(N, 1)` is semantically wrong per HIP docs (§1) but **functionally identical** to `(N)` on this silicon. Cleaning it to `(N)` (or `(N, 2)` for the 256-thr tiles) is zero-risk documentation hygiene; expecting it to change measured throughput would be wrong.[^hip-hw-impl]
 
 **Card resolution**: dump done, conclusion above. No FA patch on `rdna2_extras` — the ticket's premise ("128-thr prefill is the one that can actually move") is not supported by the compiled data; LDS binds all tiles equally.
-
-## Sources
-
-Primary sources for this page, cited inline as footnotes:
-
-[^commit-8f2583d2]: opengfx1030/vllm-rdna commit `8f2583d2c6e4`. https://github.com/opengfx1030/vllm-rdna/commit/8f2583d2c6e49664c59c490d9843f6265f79b90a (exists, verified via GitHub API 2026-10-11)
-[^hip-hw-impl]: ROCm HIP docs, "Hardware implementation". https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html (checked 2026-10-11)
-[^commit-0fdb1884]: opengfx1030/vllm-rdna commit `0fdb1884cb97`. https://github.com/opengfx1030/vllm-rdna/commit/0fdb1884cb9705f2c45653afb3c0e1bf1d1b462b (exists, verified via GitHub API 2026-10-11)
-[^commit-07ebb0d6]: opengfx1030/vllm-rdna commit `07ebb0d6b13c`. https://github.com/opengfx1030/vllm-rdna/commit/07ebb0d6b13cf6fa47cad7db894a69e18e7420f4 (exists, verified via GitHub API 2026-10-11)
-[^commit-f263172a]: opengfx1030/vllm-rdna commit `f263172a45b5`. https://github.com/opengfx1030/vllm-rdna/commit/f263172a45b55f78cdfa1b4fef4b3be5c2aad09c (exists, verified via GitHub API 2026-10-11)
-[^commit-77d6fdf8]: opengfx1030/vllm-rdna commit `77d6fdf801f8`. https://github.com/opengfx1030/vllm-rdna/commit/77d6fdf801f8618a66dee12e6df14d983b530b33 (exists, verified via GitHub API 2026-10-11)
-[^commit-d414eac5]: opengfx1030/vllm-rdna commit `d414eac51b3a`. https://github.com/opengfx1030/vllm-rdna/commit/d414eac51b3aec9bffe871457339e00341805185 (exists, verified via GitHub API 2026-10-11)
-[^raw-rocm-fa-rdna2-cu]: raw.githubusercontent.com/BlivionIaG/vllm/rdna2_extras/csrc/rocm/fa_rdna2.cu. https://raw.githubusercontent.com/BlivionIaG/vllm/rdna2_extras/csrc/rocm/fa_rdna2.cu (checked 2026-10-11)
-[^extras-fa-rdna2-cu]: `csrc/rocm/fa_rdna2.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu
-[^raw-rocm-fa-rdna2-cu-2]: raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu. https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu (checked 2026-10-11)
-[^raw-rocm-sparse-mla-rdna2-cu]: raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu. https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu (checked 2026-10-11)
-[^raw-rocm-indexer-paged-mqa-rdna2-cu]: raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu. https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu (checked 2026-10-11)
-[^raw-rocm-ops-h]: raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h. https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h (checked 2026-10-11)
-[^extras-sparse-mla-rdna2-cu]: `vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu
-[^extras-indexer-paged-mqa-rdna2-cu]: `vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu
-[^extras-ops-h]: `vllm/perf/rdna2_w4a16/csrc/rocm/ops.h`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h
-[^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)
-[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
-[^commit-e054854f]: opengfx1030/vllm-rdna commit `e054854f239b`. https://github.com/opengfx1030/vllm-rdna/commit/e054854f239b139b8bec5991345056b49315735d (exists, verified via GitHub API 2026-10-11)
-[^rocm-how-to-hip-cpp-language-extensions-html]: HIP C++ language extensions — HIP 6.3.42133 Documentation. https://rocm.docs.amd.com/projects/HIP/en/docs-6.3.1/how-to/hip_cpp_language_extensions.html (checked 2026-10-11)
-[^github-issues-2521]: __launch_bounds__ lowers to the wrong thing. · Issue #2521 · ROCm/hip. https://github.com/ROCm/hip/issues/2521 (checked 2026-10-11)
 [^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
 [^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)

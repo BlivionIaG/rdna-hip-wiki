@@ -18,10 +18,9 @@ No tok/s. No ms. Do not restate the FA pin.
 
 Date: **2026-10-08** Europe/Paris.
 
-Companions: [occupancy-composite.md](occupancy-composite.md), [waitcnt-occupancy.md](waitcnt-occupancy.md), [exec-divergence-occupancy.md](exec-divergence-occupancy.md), [lds-bank-occupancy.md](../lds-and-tiles/lds-bank-occupancy.md), [lds-occupancy.md](../lds-and-tiles/lds-occupancy.md), [atomic-occupancy.md](atomic-occupancy.md) (register pre-reduce before the CAS), [hip-craft.md](../hip-craft/hip-craft.md) §5.2, [lds-tiles.md](../lds-and-tiles/lds-tiles.md) (row-max / row-sum), [../toolchain/compiler.md](../../toolchain/compiler.md) (`__shfl_xor` `v_cndmask` fix, rocm-systems#11618), [../kernels/skinny-gemm.md](../../kernels/skinny-gemm.md).
+Companions: [occupancy-composite.md](occupancy-composite.md), [waitcnt-occupancy.md](waitcnt-occupancy.md), [exec-divergence-occupancy.md](exec-divergence-occupancy.md), [lds-bank-occupancy.md](../lds-and-tiles/lds-bank-occupancy.md), [lds-occupancy.md](../lds-and-tiles/lds-occupancy.md), [atomic-occupancy.md](atomic-occupancy.md) (register pre-reduce before the CAS), [hip-craft.md](../hip-craft/hip-craft.md) §5.2, [lds-tiles.md](../lds-and-tiles/lds-tiles.md) (row-max / row-sum), [../toolchain/compiler/README.md](../../toolchain/compiler/README.md) (`__shfl_xor` `v_cndmask` fix, rocm-systems#11618), [../kernels/skinny-gemm.md](../../kernels/skinny-gemm.md).
 
 
-Toolchain note: the CLR `__shfl_xor` lane bounds check that survives as a `v_cndmask` on the 7.14.0 pin (rocm-systems#11618, unmerged) is a version-specific compiler/runtime bug owned by [toolchain/compiler.md](../../toolchain/compiler.md); this page keeps only the ISA-level lowering and the probe results.
 
 ## Take / Leave
 
@@ -47,6 +46,19 @@ Toolchain note: the CLR `__shfl_xor` lane bounds check that survives as a `v_cnd
 - §6.10: `V_PERMLANE` may not occur immediately after a `V_CMPX`; insert any VALU.
 - §4.5: "Inserting S_NOP is not required to achieve correct operation."
 - §10.4.4 LDS lane-permute ops: `ds_permute_b32` (scatter) / `ds_bpermute_b32` (gather) across 32 lanes; index in **bytes** (×4), only bits [6:2] used, wraps; EXEC honored; reading a disabled lane returns 0; no LDS storage used.
+
+
+```mermaid
+flowchart LR
+  subgraph A["Full wave32 reduce (every lane gets the sum)"]
+    a1["v_add_dpp row_xmask:1"] --> a2["row_xmask:2"] --> a3["row_xmask:4"] --> a4["row_xmask:8"] --> a5["v_permlanex16_b32 + v_add"]
+  end
+  subgraph B["extras REDUCE_SUM_DPP_WAVE32 (sum in last lane)"]
+    b1["v_add_dpp row_shr:8 (0x118)"] --> b2["row_shr:4 (0x114)"] --> b3["row_shr:2 (0x112)"] --> b4["row_shr:1 (0x111)"] --> b5["cross-row: __shfl_xor(v,16)<br/>= ds_bpermute + lgkmcnt(0)"]
+  end
+```
+
+*Diagram: The two reduce shapes from Take/Leave and the probe table: path A is all VALU (0 LDS ops, no waitcnt); path B is what extras ships and is correct on gfx1030, with one LDS-pipe step that `v_permlanex16_b32` could replace (Later).*[^isa70648][^probe-dpp]
 
 ## 2. Cost model inside a held slot
 

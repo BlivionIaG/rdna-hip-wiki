@@ -2,15 +2,15 @@
 title: "VGPR / SGPR operand-read banks vs effective occupancy (gfx1030)"
 sources:
   - https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
+  - https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-12.0.0/llvm/lib/Target/AMDGPU/GCNRegBankReassign.cpp
   - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
+  - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/GCNVOPDUtils.cpp
   - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
   - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td
-  - https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-12.0.0/llvm/lib/Target/AMDGPU/GCNRegBankReassign.cpp
   - https://reviews.llvm.org/D61344
   - https://reviews.llvm.org/D101313
   - https://gpuopen.com/learn/occupancy-explained/
   - https://gpuopen.com/download/RDNA_Architecture_public.pdf
-  - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/GCNVOPDUtils.cpp
 ---
 
 # VGPR / SGPR operand-read banks vs effective occupancy (gfx1030)
@@ -23,13 +23,13 @@ Does **not** change extras HIP or UNC tickets. No tok/s. Do not restate the FA p
 
 | Term | Meaning on gfx1030 |
 |---|---|
-| **VGPR bank** | `bank = vN mod 4` — `v0, v4, v8, …` bank 0; `v1, v5, v9, …` bank 1; etc. (LLVM `GCNRegBankReassign.cpp` header, GFX10). Tuples start at their `sub0` bank and walk round-robin. |
-| **SGPR bank** | 8 banks, allocated **in pairs**: `s[0:1], s[16:17], s[32:33]` bank 0; `s[2:3], s[18:19], …` bank 1; … (same source). [^isa70648] |
+| **VGPR bank** | `bank = vN mod 4` — `v0, v4, v8, …` bank 0; `v1, v5, v9, …` bank 1; etc. (LLVM `GCNRegBankReassign.cpp` header, GFX10). Tuples start at their `sub0` bank and walk round-robin. [^raw-amdgpu-gcnregbankreassign-cpp] |
+| **SGPR bank** | 8 banks, allocated **in pairs**: `s[0:1], s[16:17], s[32:33]` bank 0; `s[2:3], s[18:19], …` bank 1; … (same source). |
 | **Operand-read cycle** | “The shader can read one dword from each of these banks once per cycle. If an instruction has to read more register operands from the same bank an additional cycle is needed.” Example from the source: `V_FMA_F32 V111 = V0 + V4 * V8` → **3** operand-read cycles, **up to 2** stall cycles. |
 | **Input operand gathering** | Same source: “HW attempts to pre-load registers through input operand gathering, but a stall cycle may occur if that fails.” The old pass weighted a collision lower when both operands were defined well before the use (“old enough to be pre-loaded”). |
 | **DPP `BANK_MASK`** | **Different thing.** ISA 70648 §13.3 DPP16 `BANK_MASK[59:56]` is a 4-lane-group **write mask**; the ISA itself notes “the term ‘bank’ here is not the same as was used for the VGPR bank.” [^isa70648] |
 | **LDS bank** | **Different thing.** 64 × dword LDS banks per WGP ([lds-bank-occupancy.md](../lds-and-tiles/lds-bank-occupancy.md)). |
-| **VOPD bank rules** | gfx11+ dual-issue legality (`GCNVOPDUtils.cpp` bank masks). **Dead** on gfx1030 — no VOPD ([valu.md](../arch-and-memory/valu.md)). |
+| **VOPD bank rules** | gfx11+ dual-issue legality (`GCNVOPDUtils.cpp` bank masks). **Dead** on gfx1030 — no VOPD ([valu.md](../arch-and-memory/valu.md)). [^github-amdgpu-gcnvopdutils-cpp] |
 
 Date: **2026-10-05** Europe/Paris.
 
@@ -75,7 +75,7 @@ Source: https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-12.0.0/llvm/
 
 > Experiments show that the GCNRegBankReassign pass significantly impacts the compilation time and there is no case for which we see any improvement in performance. This patch removes this pass and its associated test cases from the tree.
 
-Checked: `GCNRegBankReassign.cpp` exists at `llvmorg-12.0.1`, **404 at `llvmorg-13.0.0`**. `FeatureRegisterBanking` is still declared in `llvmorg-13.0.0` `AMDGPU.td` but has **no** match in current `main` `AMDGPU.td` / `GCNSubtarget.h` (checked 2026-10-05). The current `FeatureISAVersion10_3_0` list (LDS 1024 granule, Dot1/2/5/6/7/10, `FeatureMaxWavesPerEU16`, …) carries no banking feature.[^llvm-amdgpu-td]
+Checked: `GCNRegBankReassign.cpp` exists at `llvmorg-12.0.1`, **404 at `llvmorg-13.0.0`**. `FeatureRegisterBanking` is still declared in `llvmorg-13.0.0` `AMDGPU.td` but has **no** match in current `main` `AMDGPU.td` / `GCNSubtarget.h` (checked 2026-10-05). The current `FeatureISAVersion10_3_0` list (LDS 1024 granule, Dot1/2/5/6/7/10, `FeatureMaxWavesPerEU16`, …) carries no banking feature.[^llvm-amdgpu-td][^raw-amdgpu-gcnregbankreassign-cpp]
 
 Source: https://reviews.llvm.org/D101313[^reviews-d101313]
 
@@ -126,15 +126,30 @@ three-source VALU / DOT with two+ sources in the same vN mod 4 bank
 | [lds-bank-occupancy.md](../lds-and-tiles/lds-bank-occupancy.md) | LDS 64-bank conflicts = latency | Different “bank”; register banks are per-instruction operand reads |
 | [occupancy-composite.md](occupancy-composite.md) | Out-of-min siblings | Register operand banks as named *(out of min)* row |
 
-## 5. Sources
+## Sources
 
-1. LLVM `GCNRegBankReassign.cpp` @ `llvmorg-12.0.0` — bank layout, read rule, gather, occupancy-capped scavenging — https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-12.0.0/llvm/lib/Target/AMDGPU/GCNRegBankReassign.cpp[^raw-amdgpu-gcnregbankreassign-cpp]
-2. LLVM D61344 — gfx1010 GCNRegBankReassign pass — https://reviews.llvm.org/D61344[^reviews-d61344]
-3. LLVM D101313 — drop the pass (no perf win, compile-time cost) — https://reviews.llvm.org/D101313[^reviews-d101313]
-4. LLVM `AMDGPU.td` @ `llvmorg-12.0.0` (`FeatureRegisterBanking` in `FeatureGFX10`) and current `main` (absent; `FeatureISAVersion10_3_0`) — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td[^llvm-amdgpu-td]
-5. RDNA 2 ISA Reference Guide, Document **70648** — §13.3 DPP16 `BANK_MASK` note. Local `/workspace/rdna2-src/rdna2-isa.txt`[^isa70648]
-6. GPUOpen Occupancy explained — PIX limiters — https://gpuopen.com/learn/occupancy-explained/[^gpuopen-occupancy]
-7. LLVM `GCNVOPDUtils.cpp` — gfx11+ VOPD bank masks (Dead on gfx1030) — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/GCNVOPDUtils.cpp[^github-amdgpu-gcnvopdutils-cpp]
+
+
+1. LLVM `GCNRegBankReassign.cpp` @ `llvmorg-12.0.0` — bank layout, read rule, gather, occupancy-capped scavenging — https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-12.0.0/llvm/lib/Target/AMDGPU/GCNRegBankReassign.cpp
+2. LLVM D61344 — gfx1010 GCNRegBankReassign pass — https://reviews.llvm.org/D61344
+3. LLVM D101313 — drop the pass (no perf win, compile-time cost) — https://reviews.llvm.org/D101313
+4. LLVM `AMDGPU.td` @ `llvmorg-12.0.0` (`FeatureRegisterBanking` in `FeatureGFX10`) and current `main` (absent; `FeatureISAVersion10_3_0`) — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td
+5. RDNA 2 ISA Reference Guide, Document **70648** — §13.3 DPP16 `BANK_MASK` note. Local `/workspace/rdna2-src/rdna2-isa.txt`
+6. GPUOpen Occupancy explained — PIX limiters — https://gpuopen.com/learn/occupancy-explained/
+7. LLVM `GCNVOPDUtils.cpp` — gfx11+ VOPD bank masks (Dead on gfx1030) — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/GCNVOPDUtils.cpp
+
+Footnotes:
+
+[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
+[^raw-amdgpu-gcnregbankreassign-cpp]: raw.githubusercontent.com/llvm/llvm-project/llvmorg-12.0.0/llvm/lib/Target/AMDGPU/GCNRegBankReassign.cpp. https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-12.0.0/llvm/lib/Target/AMDGPU/GCNRegBankReassign.cpp (checked 2026-10-11)
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^github-amdgpu-gcnvopdutils-cpp]: llvm-project/llvm/lib/Target/AMDGPU/GCNVOPDUtils.cpp at eb61ef62df4fd5151c4c379302f636ac430bc32d · llvm/llvm-project. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/GCNVOPDUtils.cpp (checked 2026-10-11)
+[^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
+[^llvm-amdgpu-td]: LLVM AMDGPU.td, main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td (checked 2026-10-11)
+[^reviews-d61344]: ⚙ D61344 (AMDGPU) gfx1010 GCNRegBankReassign pass. https://reviews.llvm.org/D61344 (checked 2026-10-11)
+[^reviews-d101313]: ⚙ D101313 (AMDGPU) Drop the GCNRegBankReassign pass. https://reviews.llvm.org/D101313 (checked 2026-10-11)
+[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
+[^rdna-arch]: AMD, "RDNA Architecture" (GPUOpen, 2019). https://gpuopen.com/download/RDNA_Architecture_public.pdf (checked 2026-10-11)
 
 ## 6. Cross-links
 
@@ -148,18 +163,3 @@ three-source VALU / DOT with two+ sources in the same vN mod 4 bank
 | [lds-bank-occupancy.md](../lds-and-tiles/lds-bank-occupancy.md) | The *other* bank conflict (LDS) |
 | [trans-occupancy.md](trans-occupancy.md) | Sibling: SFU mix inside a filled slot |
 | [waitcnt-occupancy.md](waitcnt-occupancy.md) | Sibling: time-idle park |
-
-## Sources
-
-Primary sources for this page, cited inline as footnotes:
-
-[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
-[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
-[^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
-[^llvm-amdgpu-td]: LLVM AMDGPU.td, main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td (checked 2026-10-11)
-[^raw-amdgpu-gcnregbankreassign-cpp]: raw.githubusercontent.com/llvm/llvm-project/llvmorg-12.0.0/llvm/lib/Target/AMDGPU/GCNRegBankReassign.cpp. https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-12.0.0/llvm/lib/Target/AMDGPU/GCNRegBankReassign.cpp (checked 2026-10-11)
-[^reviews-d61344]: ⚙ D61344 (AMDGPU) gfx1010 GCNRegBankReassign pass. https://reviews.llvm.org/D61344 (checked 2026-10-11)
-[^reviews-d101313]: ⚙ D101313 (AMDGPU) Drop the GCNRegBankReassign pass. https://reviews.llvm.org/D101313 (checked 2026-10-11)
-[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
-[^rdna-arch]: AMD, "RDNA Architecture" (GPUOpen, 2019). https://gpuopen.com/download/RDNA_Architecture_public.pdf (checked 2026-10-11)
-[^github-amdgpu-gcnvopdutils-cpp]: llvm-project/llvm/lib/Target/AMDGPU/GCNVOPDUtils.cpp at eb61ef62df4fd5151c4c379302f636ac430bc32d · llvm/llvm-project. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/GCNVOPDUtils.cpp (checked 2026-10-11)

@@ -3,11 +3,11 @@ title: "LDS bytes vs occupancy (gfx1030)"
 sources:
   - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
   - https://llvm.org/docs/AMDGPUUsage.html
+  - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp
   - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
   - https://gpuopen.com/learn/occupancy-explained/
   - https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
   - https://github.com/llvm/llvm-project/blob/llvmorg-22.1.8/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp#L3676
-  - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp
 ---
 
 # LDS bytes vs occupancy (gfx1030)
@@ -31,7 +31,7 @@ Companions: [lds-tiles.md](lds-tiles.md), [barrier-occupancy.md](../occupancy/ba
 
 ## 1. LLVM formula (source of truth)
 
-From `AMDGPUSubtarget::getOccupancyWithWorkGroupSizes` (`AMDGPUSubtarget.cpp`, main tip 2026-09-07) and `IsaInfo::getLocalMemorySize` (`AMDGPUBaseInfo.cpp`):[^llvm-baseinfo]
+From `AMDGPUSubtarget::getOccupancyWithWorkGroupSizes` (`AMDGPUSubtarget.cpp`, main tip 2026-09-07) and `IsaInfo::getLocalMemorySize` (`AMDGPUBaseInfo.cpp`):[^llvm-baseinfo][^github-amdgpu-amdgpusubtarget-cpp]
 
 ```text
 // Pool for concurrent WGs on the block the WG must share:
@@ -115,26 +115,26 @@ Double-buffered / staged tiles: count **all** live LDS at the fattest pipeline p
 4. `llvm-calc-occupancy -mcpu=gfx1030 --wg-size=… --vgprs=… --lds=…` — pass **aligned launch LDS**, not raw metadata 0.[^llvm-calc-occupancy]
 5. Occupancy is latency-hiding capacity. An LDS-bound FA tile at 2 WGs/WGP can still be the right shape; raising occupancy by starving the tile of K/V footprint is a measured trade, not a free win (GPUOpen: peak occupancy ≠ peak perf when caches thrash).
 
-## 6. Sources
+## Sources
 
-1. LLVM `IsaInfo::getLocalMemorySize` / `getAddressableLocalMemorySize` / `getPhysicalLocalMemorySize` / `getLdsDwGranularity` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (`getPhysicalLocalMemorySize` is on this main snapshot; `getLdsDwGranularity` is no longer on it and is cited at llvmorg-22.1.8: https://github.com/llvm/llvm-project/blob/llvmorg-22.1.8/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp#L3676)[^llvm-baseinfo][^github-utils-amdgpubaseinfo-cpp]
-2. LLVM `AMDGPUSubtarget::getOccupancyWithWorkGroupSizes` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp[^github-amdgpu-amdgpusubtarget-cpp]
+
+
+1. LLVM `IsaInfo::getLocalMemorySize` / `getAddressableLocalMemorySize` / `getPhysicalLocalMemorySize` / `getLdsDwGranularity` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (`getPhysicalLocalMemorySize` is on this main snapshot; `getLdsDwGranularity` is no longer on it and is cited at llvmorg-22.1.8: https://github.com/llvm/llvm-project/blob/llvmorg-22.1.8/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp#L3676)
+2. LLVM `AMDGPUSubtarget::getOccupancyWithWorkGroupSizes` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp
 3. LLVM commit `10cef70` — “Clean up LDS-related occupancy calculations” (WGP pool vs 64 KB addressable)
-4. RDNA 2 ISA 70648 §2.3.1 / §3.6.6 / §10.3 — https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture[^isa70648]
-5. GPUOpen Occupancy explained (updated 2024-06-26) — https://gpuopen.com/learn/occupancy-explained/ — LDS limiter; SGPR unlimited on RDNA[^gpuopen-occupancy]
+4. RDNA 2 ISA 70648 §2.3.1 / §3.6.6 / §10.3 — https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
+5. GPUOpen Occupancy explained (updated 2024-06-26) — https://gpuopen.com/learn/occupancy-explained/ — LDS limiter; SGPR unlimited on RDNA
 6. Wiki priors: [architecture.md](../arch-and-memory/architecture.md), [lds-tiles.md](lds-tiles.md), [occupancy-dump.md](../occupancy/occupancy-dump.md), [barrier-occupancy.md](../occupancy/barrier-occupancy.md)
 
 Idle pass 2026-09-07.
 
-## Sources
-
-Primary sources for this page, cited inline as footnotes:
+Footnotes:
 
 [^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
 [^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)
+[^github-amdgpu-amdgpusubtarget-cpp]: llvm-project/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp at eb61ef62df4fd5151c4c379302f636ac430bc32d · llvm/llvm-project. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp (checked 2026-10-11)
 [^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
 [^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
 [^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
 [^github-utils-amdgpubaseinfo-cpp]: llvm-project/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp at llvmorg-22.1.8 · llvm/llvm-project. https://github.com/llvm/llvm-project/blob/llvmorg-22.1.8/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp#L3676 (checked 2026-10-11)
-[^github-amdgpu-amdgpusubtarget-cpp]: llvm-project/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp at eb61ef62df4fd5151c4c379302f636ac430bc32d · llvm/llvm-project. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp (checked 2026-10-11)
 [^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)

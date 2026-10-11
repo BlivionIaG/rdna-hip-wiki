@@ -146,16 +146,28 @@ That is **not** “raise MaxWaves.” Fix math placement (hoist, approximate wit
 | [occupancy-composite.md](occupancy-composite.md) | Leave caches / clauses / waitcnt / EXEC / SPI out of min | TRANS as named *(out of min)* sibling |
 | [fa-occupancy.md](../attention/fa-occupancy.md) / [fa-gqa.md](../attention/fa-gqa.md) | FA LDS/VGPR/`__launch_bounds__` | Softmax uses exp/rcp — craft only; do not restate FA pin |
 
-## 6. Sources
+## Sources
 
-1. GPUOpen RDNA Architecture presentation — transcendental ¼ rate + co-issue — https://gpuopen.com/download/RDNA_Architecture_public.pdf[^rdna-arch]
-2. GPUOpen GPC24 Occupancy explained (PDF) — Transcendental (8-wide) on CU diagram; not a reservation limiter — https://gpuopen.com/download/GPC24_Occupancy_explained.pdf[^gpuopen-download-gpc24-occupancy-explained-pdf][^gpuopen-occupancy]
-3. GPUOpen Occupancy explained — PIX limiters VGPR / LDS / threadgroup / barriers — https://gpuopen.com/learn/occupancy-explained/[^gpuopen-occupancy]
-4. GPUOpen RDNA Performance Guide — minimize TRANS; `tan`→3; avoid arc expansions — https://gpuopen.com/learn/rdna-performance-guide/[^gpuopen-learn-rdna-performance-guide]
-5. RDNA 2 ISA Reference Guide, Document ID **70648** — ch. 12 VOP1 opcodes (`V_EXP_F32`, `V_RCP_*`, …). Local: `/workspace/rdna2-src/rdna2-isa.txt`[^isa70648]
-6. LLVM `GCNSubtarget::computeOccupancy` / `llvm-calc-occupancy` — no TRANS term — https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html[^llvm-calc-occupancy]
-7. LLVM D81011 — transcendental sched classes (quarter rate) — https://reviews.llvm.org/D81011[^reviews-d81011]
+
+
+1. GPUOpen RDNA Architecture presentation — transcendental ¼ rate + co-issue — https://gpuopen.com/download/RDNA_Architecture_public.pdf
+2. GPUOpen GPC24 Occupancy explained (PDF) — Transcendental (8-wide) on CU diagram; not a reservation limiter — https://gpuopen.com/download/GPC24_Occupancy_explained.pdf
+3. GPUOpen Occupancy explained — PIX limiters VGPR / LDS / threadgroup / barriers — https://gpuopen.com/learn/occupancy-explained/
+4. GPUOpen RDNA Performance Guide — minimize TRANS; `tan`→3; avoid arc expansions — https://gpuopen.com/learn/rdna-performance-guide/
+5. RDNA 2 ISA Reference Guide, Document ID **70648** — ch. 12 VOP1 opcodes (`V_EXP_F32`, `V_RCP_*`, …). Local: `/workspace/rdna2-src/rdna2-isa.txt`
+6. LLVM `GCNSubtarget::computeOccupancy` / `llvm-calc-occupancy` — no TRANS term — https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
+7. LLVM D81011 — transcendental sched classes (quarter rate) — https://reviews.llvm.org/D81011
 8. Wiki companions: [occupancy-composite.md](occupancy-composite.md), [architecture.md](../arch-and-memory/architecture.md), [hip-craft.md](../hip-craft/hip-craft.md), [lds-tiles.md](../lds-and-tiles/lds-tiles.md)
+
+Footnotes:
+
+[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
+[^rdna-arch]: AMD, "RDNA Architecture" (GPUOpen, 2019). https://gpuopen.com/download/RDNA_Architecture_public.pdf (checked 2026-10-11)
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
+[^gpuopen-download-gpc24-occupancy-explained-pdf]: gpuopen.com/download/GPC24_Occupancy_explained.pdf. https://gpuopen.com/download/GPC24_Occupancy_explained.pdf (checked 2026-10-11)
+[^gpuopen-learn-rdna-performance-guide]: RDNA Performance Guide - AMD GPUOpen. https://gpuopen.com/learn/rdna-performance-guide/ (checked 2026-10-11)
+[^reviews-d81011]: ⚙ D81011 (AMDGPU) Introduce new sched classes for transcendental instructions. https://reviews.llvm.org/D81011 (checked 2026-10-11)
 
 ## 7. Cross-links
 
@@ -171,16 +183,3 @@ That is **not** “raise MaxWaves.” Fix math placement (hoist, approximate wit
 | [hard-clause-occupancy.md](hard-clause-occupancy.md) | Clause is same-type burst; TRANS mix is a different pipe story |
 | [spi-ace-occupancy.md](spi-ace-occupancy.md) | Slot fill — not SFU mix inside a slot |
 | [fa-occupancy.md](../attention/fa-occupancy.md) | Softmax TRANS class — craft only, no FA pin |
-
-## Sources
-
-Primary sources for this page, cited inline as footnotes:
-
-[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
-[^rdna-arch]: AMD, "RDNA Architecture" (GPUOpen, 2019). https://gpuopen.com/download/RDNA_Architecture_public.pdf (checked 2026-10-11)
-[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
-[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
-[^gpuopen-download-gpc24-occupancy-explained-pdf]: gpuopen.com/download/GPC24_Occupancy_explained.pdf. https://gpuopen.com/download/GPC24_Occupancy_explained.pdf (checked 2026-10-11)
-[^gpuopen-learn-rdna-performance-guide]: RDNA Performance Guide - AMD GPUOpen. https://gpuopen.com/learn/rdna-performance-guide/ (checked 2026-10-11)
-[^reviews-d81011]: ⚙ D81011 (AMDGPU) Introduce new sched classes for transcendental instructions. https://reviews.llvm.org/D81011 (checked 2026-10-11)
-

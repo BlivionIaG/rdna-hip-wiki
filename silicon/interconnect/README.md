@@ -11,3 +11,7 @@ Up: [silicon/](../README.md)
 | [plx-p2p-mmio.md](plx-p2p-mmio.md) | PEX88096/8749 lane budget, ACS `+0x6`, BAR0/MMIO, Linux dump |
 | [deepep-v620.md](deepep-v620.md) | DeepEP insight → mapped-peer PCIe scatter, not IBGDA |
 | [hetero-moe-w7800-v620.md](hetero-moe-w7800-v620.md) | Spark×2 (GB10 CUDA) + 8×V620: activations-only hop, KV on Spark; W7800 row dead |
+
+## Sources
+
+This is an index page; it makes no technical claims of its own. Primary sources are cited with footnotes and a `## Sources` section on each linked page.

@@ -380,7 +380,7 @@ Small messages → Tree (latency). Large → Ring (bandwidth). That is the NCCL/
 
 ### 3.2 NCCL-compat env (the ones that matter here)
 
-> **Boundary (2026-10-11):** RCCL/NCCL env knobs are version-specific and owned by [toolchain/comms.md](../../toolchain/comms.md) (ROCM_specialist). This section is kept until toolchain/ absorbs it; then it shrinks to a one-line summary plus that link. Silicon keeps the PCIe/P2P topology and all-reduce mechanics.
+> **Boundary (2026-10-11):** RCCL/NCCL env knobs are version-specific and owned by [toolchain/comms/README.md](../../toolchain/comms/README.md) (ROCM_specialist). This section is kept until toolchain/ absorbs it; then it shrinks to a one-line summary plus that link. Silicon keeps the PCIe/P2P topology and all-reduce mechanics.
 
 RCCL accepts the NCCL names. Canonical text:[^docs-docs-env-html]
 https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html
@@ -596,7 +596,7 @@ AMD’s own V620 SR-IOV test host was a **Supermicro AS-4124GS-TNR**, EPYC 7552,
 
 ### 5.6 HIP / RCCL software bugs (the ones that kill TP)
 
-> **Boundary (2026-10-11):** HIP/RCCL release bugs and their workarounds are version-specific and owned by [toolchain/comms.md](../../toolchain/comms.md) (ROCM_specialist). This section is kept until toolchain/ absorbs it; then it shrinks to a one-line summary plus that link. Silicon keeps the PCIe/P2P topology and all-reduce mechanics.
+> **Boundary (2026-10-11):** HIP/RCCL release bugs and their workarounds are version-specific and owned by [toolchain/comms/README.md](../../toolchain/comms/README.md) (ROCM_specialist). This section is kept until toolchain/ absorbs it; then it shrinks to a one-line summary plus that link. Silicon keeps the PCIe/P2P topology and all-reduce mechanics.
 
 These are **Radeon / PCIe** failures, not Instinct XGMI failures. None of them is a published V620 rccl-tests table. They are the failure modes that show up when RCCL tries P2P on discrete Radeon.
 
@@ -809,7 +809,7 @@ Footnotes:
 
 ## ROCm 10.0 RCCL / GIN (2026-08-27)
 
-> **Boundary (2026-10-11):** RCCL release features (ROCm 10.0 / GIN) are version-specific and owned by [toolchain/comms.md](../../toolchain/comms.md) (ROCM_specialist). This section is kept until toolchain/ absorbs it; then it shrinks to a one-line summary plus that link. Silicon keeps the PCIe/P2P topology and all-reduce mechanics.
+> **Boundary (2026-10-11):** RCCL release features (ROCm 10.0 / GIN) are version-specific and owned by [toolchain/comms/README.md](../../toolchain/comms/README.md) (ROCM_specialist). This section is kept until toolchain/ absorbs it; then it shrinks to a one-line summary plus that link. Silicon keeps the PCIe/P2P topology and all-reduce mechanics.
 
 [ROCm 10.0 blog](https://rocm.blogs.amd.com/ecosystems-and-partners/rocm-x-blog/README.html): RCCL merges NCCL 2.30.4, adds symmetric memory and a **GIN** device API (GPU-initiated networking over **GDA / SDMA**, not the CPU bounce). That is the DeepEP/IBGDA class. **Not** 88096 PIX BAR `hipMemcpyPeer`. Do not retip [deepep-v620.md](deepep-v620.md). Live host stays **7.14.0**. Do not invent V620 GIN bandwidth.[^rocm-rocm-x-blog-readme-html]
 [^kfd-crat]: Linux v6.12 amdkfd kfd_crat.c, sienna_cichlid_cache_info (Navi 21: TCP 16 KB/CU, I$ 32 KB/2 CU, K$ 16 KB/2 CU, GL1 128 KB/10 CU, L2 4096 KB, L3 128 MB). https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/amd/amdkfd/kfd_crat.c#L556 (checked 2026-10-11)

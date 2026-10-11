@@ -119,14 +119,23 @@ That is **not** “raise MaxWaves.” If a skinny decode loop never clauses, fix
 4. Confirm with disassembly: `s_clause 0xN` then N+1 same-class ops. Missing `s_clause` on an obviously adjacent run → check for `s_waitcnt`, SALU, or type mix breaking the pass.
 5. Occupancy still sized with `llvm-calc-occupancy` + `hipOccupancyMaxActiveBlocksPerMultiprocessor` — clauses do not appear in either.[^llvm-calc-occupancy]
 
-## 5. Sources
+## Sources
 
-1. RDNA 2 ISA Reference Guide, Document ID **70648** — §2.4 Device Memory (load clause overlap cache); §4.1.1 Instruction Clauses; §7.4 Scalar Memory Clauses and Groups; SOPP `S_CLAUSE` (length 2–63, mix bans, illegal types). Local text: `/workspace/rdna2-src/rdna2-isa.txt`.[^isa70648]
+
+
+1. RDNA 2 ISA Reference Guide, Document ID **70648** — §2.4 Device Memory (load clause overlap cache); §4.1.1 Instruction Clauses; §7.4 Scalar Memory Clauses and Groups; SOPP `S_CLAUSE` (length 2–63, mix bans, illegal types). Local text: `/workspace/rdna2-src/rdna2-isa.txt`.
 2. LLVM `SIInsertHardClauses.cpp` (main) — soft→hard history; gfx10 VMEM/FLAT/SMEM kinds; insert after schedule.
-3. LLVM `AMDGPU.td` — `FeatureGFX10` includes `FeatureMaxHardClauseLength63`; `FeatureGFX11` uses `FeatureMaxHardClauseLength32`.[^llvm-amdgpu-td]
+3. LLVM `AMDGPU.td` — `FeatureGFX10` includes `FeatureMaxHardClauseLength63`; `FeatureGFX11` uses `FeatureMaxHardClauseLength32`.
 4. LLVM `GCNSubtarget.h` — `hasHardClauses()` / `maxHardClauseLength()`.
 5. LLVM `SIFormMemoryClauses.cpp` — XNACK restartable groups (distinct); RP / occupancy preservation while bundling.
-6. GPUOpen Occupancy explained — reservation limiters only; latency-hiding definition — https://gpuopen.com/learn/occupancy-explained/ (2023-12-20 / 2024-06-26).[^gpuopen-occupancy]
+6. GPUOpen Occupancy explained — reservation limiters only; latency-hiding definition — https://gpuopen.com/learn/occupancy-explained/ (2023-12-20 / 2024-06-26).
+
+Footnotes:
+
+[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^llvm-amdgpu-td]: LLVM AMDGPU.td, main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td (checked 2026-10-11)
+[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
 
 ## 6. Cross-links
 
@@ -138,13 +147,3 @@ That is **not** “raise MaxWaves.” If a skinny decode loop never clauses, fix
 | [kcache-occupancy.md](kcache-occupancy.md) | SMEM / kernarg path; SMEM hard clauses are the scalar cousin |
 | [l0-gl1-occupancy.md](l0-gl1-occupancy.md) / [l2-occupancy.md](l2-occupancy.md) / [infinity-cache-occupancy.md](infinity-cache-occupancy.md) | Cache thrash from *too many* waves — orthogonal; clauses change *who issues* on a pipe, not MaxWaves |
 | [vgpr-occupancy.md](vgpr-occupancy.md) | Scheduler may keep more live addresses to form longer clusters pre-RA — measure VGPR, don’t invent a clause limiter |
-
-## Sources
-
-Primary sources for this page, cited inline as footnotes:
-
-[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
-[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
-[^llvm-amdgpu-td]: LLVM AMDGPU.td, main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td (checked 2026-10-11)
-[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
-

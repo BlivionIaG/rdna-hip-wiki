@@ -113,6 +113,31 @@ Die (monolithic; not a GCD pair)
 
 HIP’s three-level description matches the *names* (SE → SA → CU) but its RDNA diagram text is slightly loose on where L1 sits; the kernel and the RDNA architecture deck put **GL1 / “L1” on the shader array**, not inside the WGP. Use the kernel + RDNA deck for cache placement (below).[^rdna-arch]
 
+
+```mermaid
+flowchart TB
+  subgraph SA["Shader Array: GL1 128 KB, shared by 10 CU on full Navi 21"]
+    subgraph WGP["WGP (HIP default mode): 4 SIMD32"]
+      direction TB
+      subgraph CU0["CU 0"]
+        S0["SIMD32"]
+        S1["SIMD32"]
+        L00["Vector L0 16 KB"]
+      end
+      subgraph CU1["CU 1"]
+        S2["SIMD32"]
+        S3["SIMD32"]
+        L01["Vector L0 16 KB"]
+      end
+      LDS["LDS 128 KB: 64 banks, 2 x 32 (one half per CU); max 64 KB per workgroup"]
+      IK["I$ 32 KB + K$ 16 KB, shared by the 2 CUs"]
+    end
+  end
+  SA --> L2["L2 4 MB, GPU-wide"]
+```
+
+*Diagram: WGP / CU / SIMD32 layout of gfx1030 as stated in §1 and §4 of this page: a CU is 2 SIMD32 sharing one path to memory, a WGP is 2 CUs with a shared 128 KB LDS and shared I$/K$. SE count is SKU-level and not drawn.*[^isa70648][^kfd-crat][^rocm-gpu-arch-specs]
+
 ### 1.1 How many SE / SA / WGP / CU?
 
 The ISA does **not** give SE/SA counts. Those are SKU-level.
@@ -363,6 +388,20 @@ HIP: vector L1/L0 is **write-through** to L2, “typical size of 16 KB per CU”
 **Associativity:** **unknown** in the ISA, the RDNA deck, HIP, and `kfd_crat.c`. Do not invent 16-way. If you need it, it lives in an unreleased block diagram or a microbenchmark (Chips and Cheese reports 16-way L1/L2 on RDNA 2; that is not an AMD doc).[^kfd-crat][^rdna-arch]
 
 ISA §2.4 read path: “multiple channels of L2 cache that provides data to Read-only L1 caches, and finally to L0 caches per WGP.” That is the official topology: **L0 (per CU/WGP) → L1 (per SA) → L2 (GPU) → (Infinity Cache) → GDDR6**.[^isa70648]
+
+
+```mermaid
+flowchart LR
+  V["SIMD32 lanes"] --> L0["Vector L0<br/>16 KB per CU<br/>128 B line, RO"]
+  L0 --> GL1["GL1<br/>128 KB per SA<br/>128 B line, RO"]
+  GL1 --> L2["L2<br/>4 MB GPU-wide<br/>128 B line, R/W<br/>coherence point, atomics"]
+  L2 --> IC["Infinity Cache (MALL / L3)<br/>128 MB GPU-wide<br/>64 B line"]
+  IC --> MEM["GDDR6<br/>V620: 32 GB, 256-bit, 512 GB/s"]
+  SQ["Scalar unit"] --> K["K$ 16 KB per WGP"] --> GL1
+  F["Instruction fetch"] --> I["I$ 32 KB per WGP"] --> GL1
+```
+
+*Diagram: Read path L0 → L1 (GL1) → L2 → Infinity Cache → GDDR6 (ISA §2.4 order); sizes and line widths from the Sienna Cichlid `kfd_crat.c` table and ROCm GPU specs; V620 memory from the product page. Associativity and IC bandwidth stay unknown and are not drawn.*[^isa70648][^kfd-crat][^rocm-gpu-arch-specs][^v620-product]
 
 ### 4.4 L2
 
@@ -645,3 +684,4 @@ Primary sources for this page, cited inline as footnotes:
 [^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
 [^github-commit-03663e4130d700c6c8ea28b357fcac4d31]: (AMDGPU) Add occupancy level tests for GFX10.3. NFC. · llvm/llvm-project@03663e4. https://github.com/llvm/llvm-project/commit/03663e4130d700c6c8ea28b357fcac4d31b617f7 (checked 2026-10-11)
 [^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)
+[^v620-product]: AMD Radeon PRO V620 product page (72 CU, 4608 stream processors, 32 GB GDDR6, 256-bit, 512 GB/s, 300 W TBP, 2.2 GHz peak engine clock, 20.28 TFLOPs FP32 / 40.55 TFLOPs FP16 vector). https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html (checked 2026-10-11)

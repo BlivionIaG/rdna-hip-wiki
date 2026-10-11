@@ -37,7 +37,7 @@ Companions: [occupancy-composite.md](occupancy-composite.md), [waitcnt-occupancy
 | **Take** | Spin / poll loops on device flags: keep a `__builtin_amdgcn_s_sleep(N)` backoff between polls so a polling wave yields issue to siblings on the same SIMD. Extras custom AR already does this (`__builtin_amdgcn_s_sleep(8)` ≈ 448–512 clocks per back-off; [rdna-allreduce.md](../interconnect/rdna-allreduce.md) item 5) — this page only names why it is cheap for neighbours. |
 | **Take** | Intra-WG producer/consumer waits on a memory flag: `S_SLEEP` in the waiter + `S_WAKEUP` from the writer is ISA-blessed and race-safe (missed ping ⇒ sleep just expires). No HIP builtin for `s_wakeup` on gfx10 (LLVM has only `int_amdgcn_s_wakeup_barrier`, gfx12) — inline `asm volatile("s_wakeup")` if ever needed. **Later** craft only; prefer `__syncthreads()` when a plain barrier fits ([barrier-occupancy.md](barrier-occupancy.md)). |
 | **Take** | Treat `__builtin_amdgcn_s_setprio(p)` as a **measured A/B**, never default craft. If tried, bracket a compute burst (raise, then **restore 0**) so a long VALU stretch in one wave does not starve younger waves' VMEM issue — the same intent as LLVM's pass (§2). |
-| **Take** | LLVM pass `-mllvm -amdgpu-set-wave-priority` (off by default) is a zero-code A/B: raises to prio 3 at entry, lowers to 0 after the last VMEM load that precedes ≥ threshold VALU (default 100; per-kernel `"amdgpu-wave-priority-threshold"` attribute). Confirm it exists in the pinned ROCm LLVM (see [toolchain/matrix.md](../../toolchain/matrix.md)) with `--save-temps` + grep `s_setprio` before relying on it — **Watch**, not verified on the pin here. |
+| **Take** | LLVM pass `-mllvm -amdgpu-set-wave-priority` (off by default) is a zero-code A/B: raises to prio 3 at entry, lowers to 0 after the last VMEM load that precedes ≥ threshold VALU (default 100; per-kernel `"amdgpu-wave-priority-threshold"` attribute). Confirm it exists in the pinned ROCm LLVM (see [toolchain/pin/README.md](../../toolchain/pin/README.md)) with `--save-temps` + grep `s_setprio` before relying on it — **Watch**, not verified on the pin here. [^llvm-amdgpuusage] |
 | **Leave** | Do **not** put priority, sleep time, or wake-up latency into `llvm-calc-occupancy` or PIX `WaveOccupancyLimiters`. [^llvm-calc-occupancy] |
 | **Leave** | Do **not** copy radiance-vllm-mxfp4's `s_setprio(1)` around a WMMA run: it is a gfx11/gfx12 WMMA kernel and they measured it as a loss on every prefill shape they tried (`autoround-tests/RESULTS.md`, "Measured and rejected"). Data point only; WMMA is absent on gfx1030. |
 | **Leave** | Do **not** use CDNA `s_setprio` around-MFMA recipes as gfx1030 craft — no MFMA here ([hip-craft.md](../hip-craft/hip-craft.md) §7.5). |
@@ -104,18 +104,18 @@ s_setprio raised forever → age tiebreak overridden → younger waves' VMEM iss
 | [barrier-occupancy.md](barrier-occupancy.md) | Barrier slots | `S_SLEEP`+`S_WAKEUP` as intra-TG alternative (Later) |
 | [occupancy-composite.md](occupancy-composite.md) | Out-of-min siblings | Priority / sleep as named *(out of min)* row |
 
-## 6. Sources
-
-1. RDNA 2 ISA Reference Guide, Document ID **70648** — §3.4 STATUS `SPI_PRIO`/`USER_PRIO`; §4.1 Table 7; SOPP `S_WAKEUP` (3), `S_SLEEP` (14), `S_SETPRIO` (15). Local: `/workspace/rdna2-src/rdna2-isa.txt`.[^isa70648]
-2. LLVM `llvm/lib/Target/AMDGPU/AMDGPUSetWavePriority.cpp` (main) — pass logic, `amdgpu-set-wave-priority-valu-insts-threshold` default 100 — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUSetWavePriority.cpp[^github-amdgpu-amdgpusetwavepriority-cpp]
-3. LLVM `AMDGPUTargetMachine.cpp` — `-amdgpu-set-wave-priority` hidden, `cl::init(false)`.
-4. LLVM `IntrinsicsAMDGPU.td` / `SOPInstructions.td` — `int_amdgcn_s_setprio`, `int_amdgcn_s_sleep`, `S_WAKEUP` gfx8–12, `S_SLEEP_VAR` gfx12/13, `S_SETPRIO_INC_WG` GFX1250/13.[^llvm-amdgpu-td]
-5. LLVM AMDGPUUsage — `"amdgpu-wave-priority-threshold"` attribute; `COMPUTE_PGM_RSRC1.PRIORITY` "Must be 0", CP fills — https://llvm.org/docs/AMDGPUUsage.html[^llvm-amdgpuusage]
-6. radiance-vllm-mxfp4 (codeberg ggz14) @ `22c69cdf` — `autoround-tests/RESULTS.md` "Measured and rejected: `s_setprio(1)` around the WMMA run"; `ar_prefill_opt.h` `SETPRIO` template flag. Leave (WMMA arch).
-
 ## Sources
 
-Primary sources for this page, cited inline as footnotes:
+
+
+1. RDNA 2 ISA Reference Guide, Document ID **70648** — §3.4 STATUS `SPI_PRIO`/`USER_PRIO`; §4.1 Table 7; SOPP `S_WAKEUP` (3), `S_SLEEP` (14), `S_SETPRIO` (15). Local: `/workspace/rdna2-src/rdna2-isa.txt`.
+2. LLVM `llvm/lib/Target/AMDGPU/AMDGPUSetWavePriority.cpp` (main) — pass logic, `amdgpu-set-wave-priority-valu-insts-threshold` default 100 — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUSetWavePriority.cpp
+3. LLVM `AMDGPUTargetMachine.cpp` — `-amdgpu-set-wave-priority` hidden, `cl::init(false)`.
+4. LLVM `IntrinsicsAMDGPU.td` / `SOPInstructions.td` — `int_amdgcn_s_setprio`, `int_amdgcn_s_sleep`, `S_WAKEUP` gfx8–12, `S_SLEEP_VAR` gfx12/13, `S_SETPRIO_INC_WG` GFX1250/13.
+5. LLVM AMDGPUUsage — `"amdgpu-wave-priority-threshold"` attribute; `COMPUTE_PGM_RSRC1.PRIORITY` "Must be 0", CP fills — https://llvm.org/docs/AMDGPUUsage.html
+6. radiance-vllm-mxfp4 (codeberg ggz14) @ `22c69cdf` — `autoround-tests/RESULTS.md` "Measured and rejected: `s_setprio(1)` around the WMMA run"; `ar_prefill_opt.h` `SETPRIO` template flag. Leave (WMMA arch).
+
+Footnotes:
 
 [^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
 [^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)

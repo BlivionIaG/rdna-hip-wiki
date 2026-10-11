@@ -120,13 +120,22 @@ That is **not** “raise MaxWaves.” Fix predicate shape (uniformize, predicati
 | [occupancy-composite.md](occupancy-composite.md) | Leave caches / clauses / waitcnt / SPI out of min | EXEC / divergence as named *(out of min)* sibling |
 | [fa-occupancy.md](../attention/fa-occupancy.md) | FA LDS/VGPR/`__launch_bounds__` | Do not restate FA pin; causal/window masks are the classic divergence class — craft only |
 
-## 6. Sources
+## Sources
 
-1. RDNA 2 ISA Reference Guide, Document ID **70648** — §2 program organization (scalar CF + EXEC); §2.1 wave32/64 half-skip; §3.3 EXECute mask + EXEC=0 skip limitations; §4.2 branching / subvector. Local text: `/workspace/rdna2-src/rdna2-isa.txt`.[^isa70648]
-2. GPUOpen Occupancy explained — reservation limiters only; latency hiding via wave switch — https://gpuopen.com/learn/occupancy-explained/ (2023-12-20 / 2024-06-26)[^gpuopen-occupancy]
-3. LLVM AMDGPUUsage — gfx1030 / wavefrontsize / cumode — https://llvm.org/docs/AMDGPUUsage.html[^llvm-amdgpuusage]
+
+
+1. RDNA 2 ISA Reference Guide, Document ID **70648** — §2 program organization (scalar CF + EXEC); §2.1 wave32/64 half-skip; §3.3 EXECute mask + EXEC=0 skip limitations; §4.2 branching / subvector. Local text: `/workspace/rdna2-src/rdna2-isa.txt`.
+2. GPUOpen Occupancy explained — reservation limiters only; latency hiding via wave switch — https://gpuopen.com/learn/occupancy-explained/ (2023-12-20 / 2024-06-26)
+3. LLVM AMDGPUUsage — gfx1030 / wavefrontsize / cumode — https://llvm.org/docs/AMDGPUUsage.html
 4. LLVM control-flow / execz — `SIAnnotateControlFlow`; PR #117567 (closed) / #123749 (follow-on) on spurious `s_cbranch_execz` when predicates are likely varying
 5. Wiki companions: [occupancy-composite.md](occupancy-composite.md), [wave-size-occupancy.md](wave-size-occupancy.md), [waitcnt-occupancy.md](waitcnt-occupancy.md), [hip-craft.md](../hip-craft/hip-craft.md)
+
+Footnotes:
+
+[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
+[^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)
 
 ## 7. Cross-links
 
@@ -140,13 +149,3 @@ That is **not** “raise MaxWaves.” Fix predicate shape (uniformize, predicati
 | [hip-craft.md](../hip-craft/hip-craft.md) | Wave32 contract; DPP / predication craft |
 | [valu.md](../arch-and-memory/valu.md) | Per-lane DOT still under EXEC |
 | [vgpr-occupancy.md](vgpr-occupancy.md) | Divergent live ranges can raise VGPR — measure the cliff; don’t invent an EXEC MaxWaves row |
-
-## Sources
-
-Primary sources for this page, cited inline as footnotes:
-
-[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
-[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
-[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
-[^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)
-

@@ -46,4 +46,8 @@ flowchart LR
 | [../kernels/layernorm.md](../kernels/layernorm.md) | HIP AOT RMSNorm, tiny LDS, no DOT; not FA leftover |
 | [../kernels/w4a8.md](../kernels/w4a8.md) | W4A8 `sdot4` Live opt-in @ `3a0786ea`; MoE accum dual-mode @ `30b0bd4e`; W4A16 default unchanged |
 | [../kernels/qwen4exp-flash-next-hip.md](../kernels/qwen4exp-flash-next-hip.md) | Flash-Next HIP glue T46–T49 + mrope fixes @ 5c3c0c6f |
-| [../toolchain/matrix.md](../toolchain/matrix.md) | Live ROCm pin (source of truth) |
+| [../toolchain/pin/README.md](../toolchain/pin/README.md) | Live ROCm pin (source of truth) |
+
+## Sources
+
+This is an index page; it makes no technical claims of its own. Primary sources are cited with footnotes and a `## Sources` section on each linked page.

@@ -8,6 +8,8 @@ sources:
   - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
   - https://gpuopen.com/download/RDNA_Architecture_public.pdf
   - https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/amd/amdkfd/kfd_crat.c#L556
+  - https://rocm.docs.amd.com/projects/llvm-project/en/latest/reference/rocmcc.html
+  - https://clang.llvm.org/docs/AttributeReference.html
   - https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
   - https://codeberg.org/ggz14/radiance-vllm-mxfp4
   - https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/hardware/lds_bank_conflicts.html
@@ -19,8 +21,6 @@ sources:
   - https://ar5iv.labs.arxiv.org/html/2205.14135
   - https://tridao.me/publications/flash2/flash2.pdf
   - https://gpuopen.com/learn/wmma_on_rdna3/
-  - https://clang.llvm.org/docs/AttributeReference.html
-  - https://rocm.docs.amd.com/projects/llvm-project/en/latest/reference/rocmcc.html
   - https://github.com/ggml-org/llama.cpp/issues/24672
   - https://github.com/ggml-org/llama.cpp/discussions/23310
   - https://vllm.ai/blog/2026-03-04-vllm-triton-backend-deep-dive
@@ -223,6 +223,23 @@ bank[lane] = (64 * lane) % 64 = 0    // every lane, different dword
 ```
 
 All 32 lanes serialize on bank 0. This is the “leading dimension is a multiple of 64 dwords” foot-gun.
+
+
+```mermaid
+flowchart LR
+  A["byte address a"] --> D["dword = a / 4"]
+  D --> B["bank = dword mod 64<br/>(WGP mode)"]
+  B --> Q{"two lanes, same bank,<br/>different dword?"}
+  Q -- "yes" --> C["serialized (conflict)"]
+  Q -- "no, or same dword" --> OK["one pass (broadcast if same dword)"]
+  subgraph S["row stride S dwords, column walk"]
+    S32["S = 32: bank = (32 row + col) mod 64<br/>2 banks, 16-way"]
+    S64["S = 64: every row same bank<br/>32-way"]
+    S65["S = 65 (≡ 1 mod 64): bank shifts 1 per row<br/>conflict-free"]
+  end
+```
+
+*Diagram: LDS bank mapping and the stride/padding cases worked in §1.5 of this page. The modulo form is the unique mapping consistent with the ISA sentence "Dwords are placed in the banks serially" across 64 banks; it is not printed as a formula in the ISA.*[^isa70648]
 
 #### Padding recipes
 
@@ -601,7 +618,7 @@ Bank count is still 64 (HIP). Workgroup LDS cap is still 64 KB. Wave slots still
 
 **Default to wave32.** Wave64 doubles the VGPR cost of a wave and turns every VALU into two beats. Measure wave64 only if you have a wide reduction / interpolation-class reason, or you are matching a wave64 WMMA intrinsic on gfx1100.
 
-Clang: `-m[no-]wavefrontsize64` (LLVM AMDGPUUsage Target Features; ROCm `rocmcc` page).[^llvm-amdgpuusage]
+Clang: `-m[no-]wavefrontsize64` (LLVM AMDGPUUsage Target Features; ROCm `rocmcc` page).[^llvm-amdgpuusage][^rocm-reference-rocmcc-html]
 
 ### 7.2 WGP vs CU mode
 
@@ -625,13 +642,13 @@ __attribute__((amdgpu_flat_work_group_size(256, 256)))
 
 Clang AttributeReference:
 
-- `amdgpu_waves_per_eu(min[, max])` — optimization hint. Backend **limits VGPR/LDS/scratch** so that at least `min` and at most `max` waves fit on an EU (SIMD32). Requesting more waves hides latency and risks spill; requesting fewer can cut cache thrash. `0,0` = no limit. A warning is emitted if the backend cannot meet it.
-- `amdgpu_flat_work_group_size(min, max)` — dispatch will stay in `[min, max]`. `0,0` implies default **128, 256**. Helps barrier codegen and scratch promotion.
+- `amdgpu_waves_per_eu(min[, max])` — optimization hint. Backend **limits VGPR/LDS/scratch** so that at least `min` and at most `max` waves fit on an EU (SIMD32). Requesting more waves hides latency and risks spill; requesting fewer can cut cache thrash. `0,0` = no limit. A warning is emitted if the backend cannot meet it.[^clang-docs-attributereference-html]
+- `amdgpu_flat_work_group_size(min, max)` — dispatch will stay in `[min, max]`. `0,0` implies default **128, 256**. Helps barrier codegen and scratch promotion.[^clang-docs-attributereference-html]
 - `amdgpu_num_vgpr` / `amdgpu_num_sgpr` — **deprecated**; use `waves_per_eu`.
 
 LLVM IR names: `"amdgpu-waves-per-eu"="m,n"`, `"amdgpu-flat-work-group-size"="min,max"`.
 
-EU on RDNA = one SIMD32 (GPUOpen Occupancy explained; LLVM `getMaxWavesPerEU`). So `amdgpu_waves_per_eu(4)` means “compile so 4 waves fit on each SIMD32” → 64 VGPR at wave32 (1024/4 = 256 is the *max* VGPR at 4 waves; 4 waves is the *min occupancy*, so VGPR ≤ 256). Read it as occupancy, not as a VGPR cap.[^gpuopen-occupancy][^llvm-baseinfo]
+EU on RDNA = one SIMD32 (GPUOpen Occupancy explained; LLVM `getMaxWavesPerEU`). So `amdgpu_waves_per_eu(4)` means “compile so 4 waves fit on each SIMD32” → 64 VGPR at wave32 (1024/4 = 256 is the *max* VGPR at 4 waves; 4 waves is the *min occupancy*, so VGPR ≤ 256). Read it as occupancy, not as a VGPR cap.[^gpuopen-occupancy][^llvm-baseinfo][^clang-docs-attributereference-html]
 
 Pre-check:
 
@@ -702,32 +719,33 @@ Source: [ggz14/radiance-vllm-mxfp4](https://codeberg.org/ggz14/radiance-vllm-mxf
 
 ---
 
-## 9. Sources actually opened
-
-1. AMD “RDNA 2” ISA 70648 — https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (§2.3.1, §3.6.6, §10.1, §10.3, §10.4.3)[^isa70648]
-2. Companion brief `silicon/arch-and-memory/architecture.md` (WGP/CU, VGPR, caches, DOT/WMMA absence)
-3. HIP Hardware implementation — https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html (64 banks, 256 B/cycle, 64 B port, broadcast, WGP)[^hip-hw-impl]
-4. CK Tile LDS bank conflicts — https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/hardware/lds_bank_conflicts.html[^rocm-hardware-lds-bank-conflicts-html]
-5. CK Tile LDS index swapping — https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/lds_index_swapping.html (`K0'`, `MLdsLayer`, `KPack`)[^rocm-ck-tile-lds-index-swapping-html]
-6. ROCm blog, LDS bank conflict / XOR — https://rocm.blogs.amd.com/software-tools-optimization/lds-bank-conflict/README.html (64×32, KPack 8, 2-way naive read)[^rocm-lds-bank-conflict-readme-html]
-7. ROCm blog, CK-Tile FlashAttention-v2 — https://rocm.blogs.amd.com/software-tools-optimization/ck-tile-flash/README.html (128/128/32 tiles, Q in VGPR)[^rocm-ck-tile-flash-readme-html]
-8. Triton AMD pad interval — https://github.com/triton-lang/triton/commit/3c3f48beaea14b2b58dcaf6aab5768f0ab0a5827 (`64*4/elemBytes`)[^github-commit-3c3f48beaea14b2b58dcaf6aab5768f0ab]
-9. Triton padded layout + row permute — https://github.com/triton-lang/triton/pull/7929[^github-pull-7929]
-10. FlashAttention (Dao et al. 2022) — https://ar5iv.labs.arxiv.org/html/2205.14135 — `Bc=⌈M/4d⌉`, `Br=min(⌈M/4d⌉,d)`[^ar5iv-html-2205-14135]
-11. FlashAttention-2 (Dao 2023) — https://tridao.me/publications/flash2/flash2.pdf — `{64,128}×{64,128}`, Q-split warps, no split-K[^tridao-flash2-flash2-pdf]
-12. GPUOpen WMMA on RDNA 3 — https://gpuopen.com/learn/wmma_on_rdna3/ (fragments, replication, 16×16×16, FLOPS table)[^gpuopen-learn-wmma-on-rdna3]
-13. LLVM AMDGPUUsage — https://llvm.org/docs/AMDGPUUsage.html (`cumode`, `wavefrontsize64`, gfx1030 features)[^llvm-amdgpuusage]
-14. Clang `amdgpu_waves_per_eu` / `amdgpu_flat_work_group_size` — https://clang.llvm.org/docs/AttributeReference.html[^clang-docs-attributereference-html]
-15. ROCm `rocmcc` — https://rocm.docs.amd.com/projects/llvm-project/en/latest/reference/rocmcc.html (`-mcumode`, `-mwavefrontsize64`)[^rocm-reference-rocmcc-html]
-16. GPUOpen Occupancy explained — https://gpuopen.com/learn/occupancy-explained/[^gpuopen-occupancy]
-17. llama.cpp HIP FA occupancy on gfx1030 — https://github.com/ggml-org/llama.cpp/issues/24672 and https://github.com/ggml-org/llama.cpp/discussions/23310[^github-issues-24672][^github-discussions-23310]
-18. vLLM Triton backend / ROCm FA enablement — https://vllm.ai/blog/2026-03-04-vllm-triton-backend-deep-dive ; https://github.com/vllm-project/vllm/pull/32944 ; https://rocm.docs.amd.com/projects/ai-ecosystem/en/latest/optimization/vllm-v1-optimization.html[^vllm-blog-2026-03-04-vllm-triton-backend-deep-di][^github-pull-32944][^rocm-optimization-vllm-v1-optimization-html]
-19. TileLang RDNA FA block sizes — https://github.com/tile-ai/tilelang/blob/17c4b384/examples/amd/example_amd_flash_attn_fwd.py[^github-amd-example-amd-flash-attn-fwd-py]
-20. RDNA architecture deck — https://gpuopen.com/download/RDNA_Architecture_public.pdf (5-cycle dest, VMCNT/VSCNT, I$ 32 KB)[^rdna-arch]
-
 ## Sources
 
-Primary sources for this page, cited inline as footnotes:
+_Sources actually opened_
+
+
+1. AMD “RDNA 2” ISA 70648 — https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (§2.3.1, §3.6.6, §10.1, §10.3, §10.4.3)
+2. Companion brief `silicon/arch-and-memory/architecture.md` (WGP/CU, VGPR, caches, DOT/WMMA absence)
+3. HIP Hardware implementation — https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html (64 banks, 256 B/cycle, 64 B port, broadcast, WGP)
+4. CK Tile LDS bank conflicts — https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/hardware/lds_bank_conflicts.html
+5. CK Tile LDS index swapping — https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/lds_index_swapping.html (`K0'`, `MLdsLayer`, `KPack`)
+6. ROCm blog, LDS bank conflict / XOR — https://rocm.blogs.amd.com/software-tools-optimization/lds-bank-conflict/README.html (64×32, KPack 8, 2-way naive read)
+7. ROCm blog, CK-Tile FlashAttention-v2 — https://rocm.blogs.amd.com/software-tools-optimization/ck-tile-flash/README.html (128/128/32 tiles, Q in VGPR)
+8. Triton AMD pad interval — https://github.com/triton-lang/triton/commit/3c3f48beaea14b2b58dcaf6aab5768f0ab0a5827 (`64*4/elemBytes`)
+9. Triton padded layout + row permute — https://github.com/triton-lang/triton/pull/7929
+10. FlashAttention (Dao et al. 2022) — https://ar5iv.labs.arxiv.org/html/2205.14135 — `Bc=⌈M/4d⌉`, `Br=min(⌈M/4d⌉,d)`
+11. FlashAttention-2 (Dao 2023) — https://tridao.me/publications/flash2/flash2.pdf — `{64,128}×{64,128}`, Q-split warps, no split-K
+12. GPUOpen WMMA on RDNA 3 — https://gpuopen.com/learn/wmma_on_rdna3/ (fragments, replication, 16×16×16, FLOPS table)
+13. LLVM AMDGPUUsage — https://llvm.org/docs/AMDGPUUsage.html (`cumode`, `wavefrontsize64`, gfx1030 features)
+14. Clang `amdgpu_waves_per_eu` / `amdgpu_flat_work_group_size` — https://clang.llvm.org/docs/AttributeReference.html
+15. ROCm `rocmcc` — https://rocm.docs.amd.com/projects/llvm-project/en/latest/reference/rocmcc.html (`-mcumode`, `-mwavefrontsize64`)
+16. GPUOpen Occupancy explained — https://gpuopen.com/learn/occupancy-explained/
+17. llama.cpp HIP FA occupancy on gfx1030 — https://github.com/ggml-org/llama.cpp/issues/24672 and https://github.com/ggml-org/llama.cpp/discussions/23310
+18. vLLM Triton backend / ROCm FA enablement — https://vllm.ai/blog/2026-03-04-vllm-triton-backend-deep-dive ; https://github.com/vllm-project/vllm/pull/32944 ; https://rocm.docs.amd.com/projects/ai-ecosystem/en/latest/optimization/vllm-v1-optimization.html
+19. TileLang RDNA FA block sizes — https://github.com/tile-ai/tilelang/blob/17c4b384/examples/amd/example_amd_flash_attn_fwd.py
+20. RDNA architecture deck — https://gpuopen.com/download/RDNA_Architecture_public.pdf (5-cycle dest, VMCNT/VSCNT, I$ 32 KB)
+
+Footnotes:
 
 [^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
 [^hip-hw-impl]: ROCm HIP docs, "Hardware implementation". https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html (checked 2026-10-11)
@@ -736,6 +754,8 @@ Primary sources for this page, cited inline as footnotes:
 [^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
 [^rdna-arch]: AMD, "RDNA Architecture" (GPUOpen, 2019). https://gpuopen.com/download/RDNA_Architecture_public.pdf (checked 2026-10-11)
 [^kfd-crat]: Linux v6.12 amdkfd kfd_crat.c, sienna_cichlid_cache_info (Navi 21: TCP 16 KB/CU, I$ 32 KB/2 CU, K$ 16 KB/2 CU, GL1 128 KB/10 CU, L2 4096 KB, L3 128 MB). https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/amd/amdkfd/kfd_crat.c#L556 (checked 2026-10-11)
+[^rocm-reference-rocmcc-html]: ROCm compiler reference — llvm-project 22.0.0 Documentation. https://rocm.docs.amd.com/projects/llvm-project/en/latest/reference/rocmcc.html (checked 2026-10-11)
+[^clang-docs-attributereference-html]: Attributes in Clang - Clang. https://clang.llvm.org/docs/AttributeReference.html (checked 2026-10-11)
 [^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
 [^codeberg-ggz14-radiance-vllm-mxfp4]: ggz14/radiance-vllm-mxfp4: For the latest updates on this repo make sure to check the discord - Codeberg.org. https://codeberg.org/ggz14/radiance-vllm-mxfp4 (checked 2026-10-11)
 [^rocm-hardware-lds-bank-conflicts-html]: Understanding AMD GPU LDS and Bank Conflicts — Composable Kernel 1.3.0 Documentation. https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/hardware/lds_bank_conflicts.html (checked 2026-10-11)
@@ -747,8 +767,6 @@ Primary sources for this page, cited inline as footnotes:
 [^ar5iv-html-2205-14135]: (2205.14135) FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness. https://ar5iv.labs.arxiv.org/html/2205.14135 (checked 2026-10-11)
 [^tridao-flash2-flash2-pdf]: tridao.me/publications/flash2/flash2.pdf. https://tridao.me/publications/flash2/flash2.pdf (checked 2026-10-11)
 [^gpuopen-learn-wmma-on-rdna3]: How to accelerate AI applications on RDNA 3 using WMMA - AMD GPUOpen. https://gpuopen.com/learn/wmma_on_rdna3/ (checked 2026-10-11)
-[^clang-docs-attributereference-html]: Attributes in Clang - Clang. https://clang.llvm.org/docs/AttributeReference.html (checked 2026-10-11)
-[^rocm-reference-rocmcc-html]: ROCm compiler reference — llvm-project 22.0.0 Documentation. https://rocm.docs.amd.com/projects/llvm-project/en/latest/reference/rocmcc.html (checked 2026-10-11)
 [^github-issues-24672]: Eval bug: flash attention asserts max_blocks_per_sm > 0 on RDNA2 (gfx1031) HIP · Issue #24672 · ggml-org/llama.cpp. https://github.com/ggml-org/llama.cpp/issues/24672 (checked 2026-10-11)
 [^github-discussions-23310]: RNDA2 Flash Attention: happy assertion path referenced in #16643 cudaOccupancyMaxActiveBlocksPerMultiprocessor returns 0 · ggml-org/llama.cpp · Discussion #23310. https://github.com/ggml-org/llama.cpp/discussions/23310 (checked 2026-10-11)
 [^vllm-blog-2026-03-04-vllm-triton-backend-deep-di]: vLLM Triton Attention Backend Deep Dive | vLLM Blog. https://vllm.ai/blog/2026-03-04-vllm-triton-backend-deep-dive (checked 2026-10-11)
