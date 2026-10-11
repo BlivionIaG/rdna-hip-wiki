@@ -1,6 +1,6 @@
 # PLX / PEX switches — engine contract
 
-Date: 2026-08-19. Engine page for **PEX88096** (Gen4) and **PEX8749** (Gen3). Silicon/register dump: [silicon/plx-p2p-mmio.md](../../silicon/plx-p2p-mmio.md). Bench lives in [v620_toolbox/pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/main/pcie_p2p). Do **not** invent GB/s or a “P2P works” claim for an unmeasured hop. Occupancy still first.
+Date: 2026-08-19. Engine page for **PEX88096** (Gen4) and **PEX8749** (Gen3). Silicon/register dump: [silicon/plx-p2p-mmio.md](../../silicon/plx-p2p-mmio.md). Bench lives in [v620_toolbox/pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/master/pcie_p2p). Do **not** invent GB/s or a “P2P works” claim for an unmeasured hop. Occupancy still first.
 
 Companions: [silicon/plx-p2p-mmio.md](../../silicon/plx-p2p-mmio.md), [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md), [deepep.md](deepep.md), [multi-tier.md](../moe/multi-tier.md).
 
@@ -84,7 +84,7 @@ A V620 is Gen4 x16 **to the slot**. If the path is 8749 (or a V340L), the **devi
 | BIOS | Above 4G Decoding on, ReBAR on, CSM off, ACS off for bare metal |
 | IOMMU | Remap is AMD’s Radeon-P2P story; `iommu=pt` is the RCCL hang workaround. **Measure both.** |
 | HIP | `hipDeviceCanAccessPeer` all 1s; `isLargeBar==1` |
-| RCCL | `HSA_FORCE_FINE_GRAIN_PCIE=1`; log shows **P2P** not only SHM; small-S not ~215 ms ([ROCm #6576](https://github.com/ROCm/ROCm/issues/6576)) |
+| RCCL | `HSA_FORCE_FINE_GRAIN_PCIE=1`; log shows **P2P** not only SHM; small-S not ~215 ms ([ROCm #6576](https://github.com/ROCm/legacy-rocm-build/issues/6576)) |
 | Toolbox | `amd-smi topology` GPU↔GPU **ENABLED**, hops 2, PCIE — validated 4×V620 state in `pcie_p2p/AGENTS.md` |
 
 `pcie_acs_override=` is a **kernel patch**, not a hardware ACS clear. Prefer `setpci` on the PEX ports.
@@ -120,4 +120,4 @@ Later. One platform card: “PEX ACS + PIX matrix” after occupancy. do not ret
 - https://docs.broadcom.com/doc/12351856 (PEX8749 brief, 2011-08-22)
 - [silicon/plx-p2p-mmio.md](../../silicon/plx-p2p-mmio.md)
 - [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md)
-- [v620_toolbox pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/main/pcie_p2p)
+- [v620_toolbox pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/master/pcie_p2p)

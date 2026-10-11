@@ -48,7 +48,7 @@ Use `on_gfx10x()` for our kernels. Any new upstream `on_rdna()` gate will **skip
 |---|---|
 | [vllm-rdna-docker](https://github.com/BlivionIaG/vllm-rdna-docker) | Image build. Stay on extras, not ikantkode overlay. |
 | [v620_toolbox](https://github.com/BlivionIaG/v620_toolbox) | Power + `pcie_p2p`. Later measured-P2P source for DeepEP/hetero. Not first. |
-| [hippih](https://github.com/BlivionIaG/hippih) | In-house HIP engine (README stub). Path #3 after extras + Llaminar. Contract: [hippih.md](../alt-engines/hippih.md). Do not start before occupancy. |
+| [hippih](https://github.com/BlivionIaG/hippih) (private repo) | In-house HIP engine (README stub). Path #3 after extras + Llaminar. Contract: [hippih.md](../alt-engines/hippih.md). Do not start before occupancy. |
 
 ## Next release rebase
 

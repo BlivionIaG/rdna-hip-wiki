@@ -14,6 +14,32 @@ Sourced alternatives on this box: colocate + [chunked prefill](../scheduling/bat
 
 This is collectives / a KV fabric, not something RCCL P2P unlocks. See [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md).
 
+## Diagram — PD request path (generic)
+
+```mermaid
+sequenceDiagram
+  participant C as Client
+  participant X as Proxy / router
+  participant P as Prefill instance
+  participant D as Decode instance
+  C->>X: request
+  X->>P: same request, max_tokens = 1
+  P->>P: prefill, KV kept in registered memory
+  X->>D: request + remote block ids
+  alt pull (vLLM Nixl default: READ)
+    D->>P: read KV blocks
+  else push (MoRI WRITE, SGLang)
+    P->>D: write KV per layer / per request
+  end
+  D-->>C: stream tokens
+```
+
+Proxy flow and connector modes from the vLLM disaggregated-prefill docs[^vllm-disagg] and MoRI-IO docs[^vllm-moriio]; SGLang pushes from P[^sglang-pd]. Dest has an **open, unmerged** local variant — PR #23 `PcieP2pConnector` (HIP IPC export + `hipMemcpy` pull across two PLX switches, based on the archived 0.28 line)[^dest-pr23]. It does not change the verdict below until measured.
+
+![vLLM disaggregated prefill: proxy sends max_tokens=1 to prefill, KV transfer thread, decode skips prefill](../assets/vllm-disagg-prefill-overview.jpg)
+
+*Figure: vLLM disaggregated prefill overview. Source: [vLLM docs, Disaggregated Prefilling](https://docs.vllm.ai/en/latest/features/disagg_prefill.html), file `docs/assets/features/disagg_prefill/overview.jpg` in [vllm-project/vllm](https://github.com/vllm-project/vllm). Licence: [Apache-2.0](https://github.com/vllm-project/vllm/blob/main/LICENSE).*
+
 ## What moves
 
 Payload is prefill KV (plus token ids so decode can skip re-tokenize). Classic path does not move decode-generated KV until bidirectional/multi-turn.

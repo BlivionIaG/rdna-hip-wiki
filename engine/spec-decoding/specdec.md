@@ -18,6 +18,19 @@ Per-method engine specs (not sdot4; no new DOT):
 | DFlash | [dflash.md](dflash.md) | same |
 | DSpark | [dspark.md](dspark.md) | same |
 
+## Diagram — draft / verify loop and the gfx1030 gate
+
+```mermaid
+flowchart LR
+  T["target at step t"] --> DR["drafter proposes k tokens<br/>n-gram · EAGLE · MTP heads · DFlash block"]
+  DR --> V["ONE target forward over 1 + k tokens<br/>= extend / short prefill, q = 1 + k"]
+  V --> RS["rejection sampler"]
+  RS -->|"accepted prefix + 1 token"| T
+  V -.- G["gfx1030 gate: needs q > 1 attention<br/>MHA: fa_rdna2 split-decode with cu_query_lens (dest PR #29)<br/>MLA: fat tile not written yet"]
+```
+
+Draft/verify and rejection sampling from Leviathan et al.[^leviathan] and the vLLM spec-decode docs[^vllm-specdec]; the MHA verify path is dest PR #29[^dest-pr29].
+
 ## Families
 
 Draft-model, n-gram/suffix, Medusa, EAGLE/EAGLE-3, MTP (DeepSeek D=1), DFlash, DSpark (DFlash backbone + Markov + confidence). Tree vs chain: tree raises tokens verified, not batch size. SpecDecode-Bench: wide trees <1× at bs=64.

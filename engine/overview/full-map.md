@@ -14,6 +14,34 @@ The work is not "port AITER." Write Wave32 paged-decode + skinny GEMM + DOT-base
 
 **Live in the fork** (not paged-decode first): W4A16 / W8A16 / W8A16-FP8 (LUT→`fdot2`) and `fa_rdna2`. **Not shipping:** W8A8/`sdot4`, mxfp4 — those are format contracts, not launched kernels. See [kernels/](../../kernels/README.md) and [attention-dispatch.md](../attention/attention-dispatch.md).
 
+## Diagram — technique verdicts at a glance
+
+```mermaid
+flowchart LR
+  subgraph USE["Use"]
+    direction TB
+    cb["continuous batching"] ~~~ cp["chunked prefill<br/>(measure MBT)"] ~~~ pc["prefix cache<br/>(dest lock: APC off for now)"]
+  end
+  subgraph LATER["Later"]
+    direction TB
+    sd["speculative decoding<br/>(needs q > 1 attention)"] ~~~ pp["pipeline parallel<br/>(unmeasured)"]
+  end
+  subgraph CAP["Capacity, not speed"]
+    direction TB
+    tp["TP=4 over PCIe 4.0, RCCL<br/>(PYNCCL, VLLM_RDNA_AR=0)"] ~~~ moe["huge-MoE expert offload"] ~~~ kvo["KV offload: prefix / preempt only"]
+  end
+  subgraph SKIP["Skip / Dead here"]
+    direction TB
+    pd["PD disaggregation as a win"] ~~~ fp8["FP8 KV (no FP8 unit)"] ~~~ aiter["AITER / CK FA (CDNA)"]
+  end
+```
+
+Verdicts are this page's technique table; serve locks (APC, PYNCCL, ROCm pin) live in [fork/](../../fork/README.md) and [toolchain/matrix.md](../../toolchain/matrix.md).
+
+![vLLM V1 process architecture with 4 GPUs, TP=4: API server, engine core, 4 GPU workers](../assets/vllm-v1-process-architecture-tp4.png)
+
+*Figure: vLLM V1 process layout at TP=4 (1 API server + 1 engine core + 4 GPU workers) — the shape a 4× V620 TP=4 serve runs. Source: [vLLM docs, Architecture Overview](https://docs.vllm.ai/en/latest/design/arch_overview.html), file `docs/assets/design/arch_overview/v1_process_architecture_tp4.png` (downscaled) in [vllm-project/vllm](https://github.com/vllm-project/vllm). Licence: [Apache-2.0](https://github.com/vllm-project/vllm/blob/main/LICENSE).*
+
 ## Technique table
 
 | Technique | Verdict on 4× V620 |

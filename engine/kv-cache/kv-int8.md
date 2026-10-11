@@ -58,6 +58,21 @@ Same paged block table as fp16. Payload is 1 byte/elem instead of 2. Scales are 
 
 Do **not** reuse the FP8 reshape path or view the cache as `fp8_e4m3`.
 
+#### Diagram — one layout, writer and reader
+
+```mermaid
+flowchart LR
+  NEW["new K / V (fp16)<br/>per token, per head"] --> AM["absmax over head_dim"]
+  AM --> SC["scale = max(absmax / 127, 1e-6)<br/>fp32 auxiliary buffer"]
+  NEW --> QZ["rint(clamp(x / scale, ±127))<br/>int8 into the paged slot"]
+  QZ --> C[("paged INT8 KV<br/>+ per-(token, head) scales")]
+  SC --> C
+  C -->|"i8 load + cvt in registers"| FA["fa_rdna2 decode<br/>dequant fused → fdot2"]
+  C -. "dequant whole cache to fp16 first<br/>Forbidden (erases the win)" .-> X["fp16 copy"]
+```
+
+Mode names (`int8_per_token_head` etc.) are vLLM's KV-quant modes[^vllm-quant-kv]; the fused-vs-unfused rule is this page's contract.
+
 ### Read — fused into `fa_rdna2`
 
 Decode (`fa_rdna2_decode_paged`) and prefill (`fa_rdna2_prefill_*`):

@@ -20,6 +20,28 @@ Date: 2026-08-17. Engine slice. Occupancy / LDS / VGPR live in [silicon/fa-occup
 
 Stock HIP `attention.cu` instantiates 64 and 128 but gfx1030 never launches it (`on_gfx1x` = 11/12). gfx11 runtime gate is head==128 only. Head 256: HIP has no instantiation; fa_rdna2 claims D=256 decode (DeepSeek/MLA-adjacent). Keep it.
 
+## Diagram — attention dispatch, gfx1030 vs gfx1100
+
+```mermaid
+flowchart TD
+  A{"GPU arch"} -->|"gfx1030 (gfx10x)"| R2{"RDNA_ATTN accepts?<br/>VLLM_USE_RDNA2_FA (dest default 1),<br/>head 128/256, fp16, non-quant KV"}
+  R2 -- "no (e.g. head 64)" --> TR["ROCM_ATTN / TRITON_ATTN<br/>Triton prefill + Triton kernel_paged_attention_2d"]
+  R2 -- "yes" --> SPLIT["decode-first split<br/>(VLLM_FA_RDNA2_SPLIT_DECODE=1)"]
+  SPLIT -->|"decode, MTP-verify, short-extend rows"| DEC["fa_rdna2_decode_paged<br/>split-K, kv_splits=16, cu_query_lens"]
+  SPLIT -->|"prefill rows"| G{"GQA mode = subgroup?"}
+  G -- "yes" --> PG["prefill_paged_varlen_gqa"]
+  G -- "no" --> SH{"max_seqlen_k below 4096 and D = 128?"}
+  SH -- "yes" --> PS["prefill_paged_varlen_short"]
+  SH -- "no" --> SK{"kv_splits ≥ 2, num_seqs ≤ 4,<br/>heads × splits ≥ 64?"}
+  SK -- "yes" --> PK["prefill_paged_varlen_splitk"]
+  SK -- "no" --> PV["prefill_paged_varlen"]
+  A -->|"gfx1100 (stock vLLM)"| R3{"ROCM_ATTN custom HIP decode?<br/>on_gfx1x, head 128, block 16,<br/>GQA 3–16, no alibi, kv dtype auto"}
+  R3 -- "yes" --> H3["Triton prefill +<br/>HIP paged_attention_rocm decode"]
+  R3 -- "no" --> T3["Triton prefill + Triton decode"]
+```
+
+gfx1030 branch: dest `rdna_attn.py` on `rdna_extras`[^dest-rdna-attn] (head-size set, env defaults, `_forward_prefill` heuristics) and dest PR #29 (decode-first split for verify/mixed rows)[^dest-pr29]. gfx1100 branch: stock `use_rocm_custom_paged_attention` constraints in `rocm.py`[^vllm-rocm-py], summarised in [vllm-sglang-map.md §2.2](../serving-stack/vllm-sglang-map.md#22-attention). MLA (`VLLM_USE_RDNA2_MLA`) is a separate path, see the table above.
+
 ## Head-64 hole
 
 fa_rdna2 decode/prefill as reported: D=128/256 only. Treat 64 as the first missing FA2 tile after 128/256 are solid. Confirm which served models are actually d=64 (many Llama/Gemma/Mistral 7B are d=128). GQA packing can look like 64.

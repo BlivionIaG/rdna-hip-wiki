@@ -18,6 +18,29 @@ Fork today: DSv4 gfx10x routing keeps MTP off (`VLLM_DISABLE_DSPARK_MTP` / mix o
 
 Wrong tool when the batch is already compute-bound, accept rate is low, or k is large under high concurrency (DeepSeek kept MTP-1 in prod for that reason).
 
+## Diagram — MTP vs DFlash vs DSpark drafting
+
+```mermaid
+flowchart TB
+  subgraph MTP["MTP · serial, target-native heads"]
+    direction LR
+    h0["target hidden"] --> m1["MTP step 1 → t+1"] --> m2["step 2 → t+2"] --> mk["… step k"]
+  end
+  subgraph DF["DFlash · parallel block drafter"]
+    direction LR
+    hs["target hidden states"] --> pj["project into speculator KV"] --> blk["one pass → block of k"]
+  end
+  subgraph DS["DSpark · DFlash + Markov head + confidence"]
+    direction LR
+    b2["DFlash block"] --> mh["Markov logit-bias head"] --> cf["confidence head prunes tail<br/>(load-aware verify length)"]
+  end
+  mk --> V["target verify, q = 1 + k (extend)"]
+  blk --> V
+  cf --> V
+```
+
+MTP from DeepSeek-V3[^deepseek-v3]; DFlash parallel drafting from the vLLM Speculators blog[^vllm-parallel-drafting]; DSpark from its paper[^dspark]. All three hit the same verify shape, so the same gfx1030 gate (q > 1 attention) applies — see [specdec.md](specdec.md).
+
 ## gfx1030 contract
 
 ```

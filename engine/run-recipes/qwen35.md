@@ -17,6 +17,10 @@ Their tok/s stay on the note page.
 | MTP | Ships. On an M=1-optimized gfx1030 decode stack they measured it **slower** than plain decode. Matches [mtp.md](../spec-decoding/mtp.md). |
 | Attn backend | `TRITON_ATTN` blows 64 KB LDS. Live: `ROCM_ATTN` → Triton paged (`paged_attention_rocm` dead: arch-gate, no HEAD=256, non-pow2 block). |
 
+![vLLM hybrid KV cache manager: KVCacheManager → HybridKVCacheCoordinator → per-type managers](../assets/vllm-hybrid-kv-cache-manager-overview.png)
+
+*Figure: how vLLM keeps one KV pool for hybrid models (full-attention + linear/state layers get separate single-type managers under one coordinator) — the mechanism a Qwen3.5 GDN + full-attn checkpoint goes through. Source: [vLLM docs, Hybrid KV Cache Manager](https://docs.vllm.ai/en/latest/design/hybrid_kv_cache_manager.html), file `docs/assets/design/hybrid_kv_cache_manager/overview.png` in [vllm-project/vllm](https://github.com/vllm-project/vllm). Licence: [Apache-2.0](https://github.com/vllm-project/vllm/blob/main/LICENSE). Tensor-level contracts for the family belong to LLM_Arch_specialist briefs.*
+
 ## Steal (tickets)
 
 | Card | Action |

@@ -20,6 +20,25 @@ Mixed INT2/INT4: sort tokens by expert, **then** group by bitwidth. Two unpacker
 
 Hetero later: attn+router+**live KV** on W7800 (gfx1100); experts on V620 (gfx1030); activations only; fp16 on the hop. Do not park live KV on V620.
 
+## Diagram — MoE layer data flow and where gfx1030 sits
+
+```mermaid
+flowchart LR
+  X["hidden states"] --> RT["router → top-k experts per token"]
+  RT --> AL["align / sort tokens by expert"]
+  AL --> P{"parallel mode"}
+  P -->|"TP + EP"| AR["each rank runs its expert shard<br/>→ AllReduce"]
+  P -->|"DP + EP"| A2A["AllToAll dispatch → experts → AllToAll combine<br/>ROCm vLLM: allgather_reducescatter on RCCL"]
+  AR --> PH{"phase"}
+  A2A --> PH
+  PH -->|"decode: few rows per expert"| GV["skinny GEMM per expert<br/>gfx1030: moe_q_gemm_rdna2, dequant → fdot2"]
+  PH -->|"prefill: fat expert batches"| GG["grouped GEMM"]
+  GV --> CB["weighted combine + shared expert"]
+  GG --> CB
+```
+
+TP+EP = AllReduce and DP+EP = AllToAll from the vLLM EP guide[^vllm-ep]; shared + routed experts from DeepSeek-V3[^deepseek-v3]; density rule of thumb from AMD's MoE playbook[^amd-moe-playbook]. The gfx1030 expert kernel is dest `csrc/rocm/moe_q_gemm_rdna2.cu`[^dest-moe-q-gemm].
+
 ## Basics
 
 DeepSeek-V3: 1 shared + 256 routed, 8 activated/token, 671B/37B. Prefill wants fat expert batches (EP32). Decode: one expert per GPU at EP320, batch/expert usually ≤256, memory-bound.

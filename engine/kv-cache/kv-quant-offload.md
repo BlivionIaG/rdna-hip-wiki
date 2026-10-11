@@ -16,6 +16,19 @@ GPU L1 → host L2 → Mooncake/NIXL/LMCache L3. Helps **prefix reuse and preemp
 
 OffloadingConnector is GPU→CPU, not PD. Streaming decode KV over PCIe every token is the wrong physics.
 
+## Diagram — KV tiers and what each hop is allowed to do
+
+```mermaid
+flowchart TB
+  D["decode step (q = 1)"] -->|"reads hot pages only"| G1
+  G1["G1 · GPU VRAM<br/>live paged KV"] <-->|"evict / reload:<br/>prefix reuse + preemption"| G2["G2 · host DRAM<br/>OffloadingConnector, HiCache L2"]
+  G2 <--> G3["G3 · local SSD"]
+  G3 <--> G4["G4 · networked store<br/>Mooncake / NIXL / LMCache"]
+  D -. "per-token decode H2D over PCIe<br/>Dead: wrong physics" .-> G2
+```
+
+Tier names follow the Kiely ladder on this page (book, no public URL verified — see [notes/kiely-inference-engineering.md](../notes/kiely-inference-engineering.md)); the GPU→CPU offload connector is documented in vLLM[^vllm-kv-offload]. Dest fixed ROCm RAM KV-offload corruption in PR #24[^dest-pr24].
+
 ## Unknowns
 
 - Specdec / FP8-KV quality on gfx1030.

@@ -134,6 +134,21 @@ BF16 check uses `has_device_capability(80)`. gfx1030 parses as capability **(10,
 
 ---
 
+### 1.5 Diagram — arch gates → which island you land on
+
+```mermaid
+flowchart TD
+  G["_GCN_ARCH"] --> C{"gfx9* or gfx1250?<br/>on_cdna()"}
+  C -- "yes" --> CD["CDNA island<br/>AITER if cdna_version > 2 · custom AR gfx94/95 · FP8"]
+  C -- "no" --> X{"gfx11* or gfx12*?<br/>on_gfx1x() / on_rdna()"}
+  X -- "yes" --> GX["gfx1x island<br/>wvSplitK skinny · custom paged-attn (head 128)<br/>Triton-FA opt-in · gfx1100 RDNA3 GPTQ/WMMA if built"]
+  X -- "no" --> T{"gfx103x?<br/>on_gfx10x()"}
+  T -- "yes, stock vLLM" --> ST["gfx1030 stock: Triton attention<br/>+ rocBLAS / F.linear + Triton AWQ"]
+  T -- "yes, dest rdna_extras" --> DS["on_rdna_family() / on_rdna2()<br/>RDNA_ATTN (fa_rdna2) · q_gemm_rdna2 / moe_q_gemm_rdna2 (fdot2)<br/>PYNCCL all-reduce"]
+```
+
+Stock gates quoted in §1.4 from `rocm.py`[^vllm-rocm-py]; the dest gate is `vllm/platforms/rdna.py::on_rdna_family()` (gfx10x or RDNA3/4) introduced with the v0.31.0 port[^dest-rdna-py][^dest-pr47].
+
 ## 2. vLLM hot-path map
 
 AITER gate used everywhere below, from https://github.com/vllm-project/vllm/blob/main/vllm/_aiter_ops.py (opened raw):
@@ -193,7 +208,7 @@ Custom HIP paged-attention (`use_rocm_custom_paged_attention`):
 - **else:** requires `_ON_GFX1X` **and** head==128, block==16, GQA 3–16, no alibi, `kv_cache_dtype=="auto"`.
 - **gfx1030 hits the else branch and fails `_ON_GFX1X` → returns False.**
 
-RDNA4 later relaxed GQA/block and added software FP8 KV (commit ebaeda8, 2026-05-07). **gfx11 keeps the tight limits; gfx1030 is not in that commit.**
+RDNA4 relaxed GQA/block and software FP8 KV were proposed in [vLLM PR #34741](https://github.com/vllm-project/vllm/pull/34741) (commit `ebaeda8` cited here earlier is not on `main`; the PR is still **open** as of 2026-10-11). **gfx11 keeps the tight limits; gfx1030 is not in that commit.**
 
 ROCM_ATTN implementation notes (https://github.com/vllm-project/vllm/blob/main/vllm/v1/attention/backends/rocm_attn.py):
 - Native C++ paged attn: block 16 or 32 (LDS).
@@ -433,7 +448,7 @@ llama.cpp is not vLLM. It is the existence proof that RDNA2 silicon can serve LL
 22. https://github.com/vllm-project/vllm/issues/41622 — gfx1030 LoRA/TP; TRITON_ATTN
 23. https://github.com/vllm-project/vllm/issues/22590 + PR #31079 — Docker `PYTORCH_ROCM_ARCH=gfx1030`
 24. https://github.com/vllm-project/vllm/issues/4514 — historical gfx1100 Triton FA stack-frame (2024)
-25. https://github.com/vllm-project/vllm/commit/ebaeda88562bfde2d870e6f1f9d31d4df82e0106 — RDNA4 paged-attn FP8; gfx11 limits unchanged
+25. https://github.com/vllm-project/vllm/pull/34741 — RDNA4 paged-attn FP8 + relaxed constraints (open PR; earlier-cited commit `ebaeda8` not on `main`); gfx11 limits unchanged
 
 ### SGLang
 26. https://github.com/sgl-project/sglang/issues/30599 — RDNA3/4 tracking; allowlist quote; decode still broken on gfx1100

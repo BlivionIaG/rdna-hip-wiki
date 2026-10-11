@@ -11,6 +11,26 @@ Date: 2026-08-20. Engine contract. Batching mechanics: [batching.md](batching.md
 
 extras has **no** custom cache-aware scheduler. Stock V1 is the lever. SGLang radix / cache-aware router is steal-later, not the next engine.
 
+## Diagram — prefix (APC) hit path
+
+```mermaid
+flowchart LR
+  REQ["new request tokens"] --> SPL["split into full 16-token blocks"]
+  SPL --> HSH["block hash = f(parent hash, block tokens, extra keys)"]
+  HSH --> Q{"hash already cached?"}
+  Q -- "yes" --> HIT["reuse physical block<br/>skip its prefill"]
+  HIT --> SPL
+  Q -- "no (first novel token)" --> MISS["allocate from free-block queue<br/>prefill from here on"]
+  MISS --> LAST{"last block full?"}
+  LAST -- "no" --> NR["not hashed, not reusable yet"]
+```
+
+Hashing of complete blocks and the free-block queue are from the vLLM prefix-caching design doc[^vllm-prefix-caching]. **Dest serve lock:** APC is currently **off** on dest (see [fork/](../../fork/README.md)); this page describes the stock lever, not the live pin.
+
+![vLLM prefix caching: block pool, free block queue, cache blocks and request blocks](../assets/vllm-prefix-caching-overview.png)
+
+*Figure: vLLM prefix-caching block pool / free block queue. Source: [vLLM docs, Automatic Prefix Caching design](https://docs.vllm.ai/en/latest/design/prefix_caching.html), file `docs/assets/design/prefix_caching/overview.png` in [vllm-project/vllm](https://github.com/vllm-project/vllm). Licence: [Apache-2.0](https://github.com/vllm-project/vllm/blob/main/LICENSE).*
+
 ## What stock V1 already does
 
 - **Prefix cache:** skip prefill for hashed complete 16-token blocks. Put stable context first (system / repo / RAG / history); unique user tokens last. Reuse **ends at the first novel token** ([batching.md](batching.md) Kiely).

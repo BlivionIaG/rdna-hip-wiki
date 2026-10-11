@@ -20,6 +20,26 @@ Silicon: [silicon/hetero-moe-w7800-v620.md](../../silicon/hetero-moe-w7800-v620.
 
 Live form is **CUDA GB10 + HIP gfx1030**, not two HIP targets. extras cannot drive Spark. V620 stays `fdot2`/`sdot4`. Do not park live KV on V620. Decode hop is tiny; **prefill is the bus**. 88096 PIX P2P stays **V620-internal**; Spark→V620 is CX-7 / host-staged, not `hipMemcpyPeer`. Historical W7800↔V620 P2P is obsolete. Silicon: [silicon/hetero-moe-w7800-v620.md](../../silicon/hetero-moe-w7800-v620.md).
 
+## Diagram — hot / cold expert placement
+
+```mermaid
+flowchart LR
+  subgraph A["Pool A · hot tier<br/>page plan: 2× Spark GB10 · dest PR #40 draft: gfx1100, pluggable"]
+    direction TB
+    EMB["embeddings, attention,<br/>hybrid state"] --- RT["router + shared experts"]
+    RT --- HOT["hot routed experts"]
+    HOT --- KV[("primary / live KV")]
+  end
+  subgraph B["Pool B · 8× V620 gfx1030 cold tier"]
+    direction TB
+    COLD["cold routed experts, EP<br/>moe_gptq_gemm_rdna2 (fdot2)"] --- KV2[("LRU second-tier KV block store")]
+  end
+  RT -->|"activations only, fp16 on the hop"| COLD
+  COLD -->|"expert outputs"| RT
+```
+
+Pool split, kernels and default-off flag (`VLLM_HETERO_MOE`) are from dest draft PR #40[^dest-pr40], which also refuses RDNA3 WMMA units on gfx1030. The "activations only, fp16 on the hop, never live KV on V620" rule and the Spark retip are this page's own plan (2026-08-27). The PR's design cites MegaScale-Infer[^megascale-infer] and Step-3 AFD[^step3-afd]. Silicon side: [silicon/hetero-moe-w7800-v620.md](../../silicon/hetero-moe-w7800-v620.md).
+
 ## Engine base (locked 2026-08-20, corrected)
 
 | Order | Engine | Why |
@@ -69,7 +89,7 @@ Own rebase-on-release fork. Radix + overlap. Import extras HIP; refuse AITER/MFM
 
 ## hippih (in-house, after extras + SGLang + Llaminar)
 
-[hippih](https://github.com/BlivionIaG/hippih) — empty tree today. Same three-ISA split as this page. Do not start it before extras occupancy. Contract: [hippih.md](../alt-engines/hippih.md).
+[hippih](https://github.com/BlivionIaG/hippih) (private repo) — empty tree today. Same three-ISA split as this page. Do not start it before extras occupancy. Contract: [hippih.md](../alt-engines/hippih.md).
 
 ## Implementation order
 

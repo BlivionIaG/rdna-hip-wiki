@@ -19,6 +19,23 @@ SGLang Triton: `page_size = 1` (CSR indptr/indices). ExLlama: page = 256 because
 
 On V620 the prefill GEMM is VALU/DOT, not MFMA. Decode is GDDR6 512 GB/s plus 128 MB IC, not HBM. Instinct token-budget defaults do not transfer. See [batching.md](batching.md).
 
+## Diagram — one request, two programs
+
+```mermaid
+flowchart LR
+  P["Prompt tokens"] --> PF["Prefill<br/>one parallel pass, matrix-matrix<br/>usually compute-bound"]
+  PF -->|"reshape_and_cache<br/>(block writer)"| KV[("Paged KV cache<br/>vLLM blocks of 16 tokens")]
+  PF --> T1["First token"]
+  T1 --> DC["Decode step<br/>q = 1, GEMV + gather of every past K/V<br/>memory-bandwidth-bound"]
+  KV -->|"gather by block table"| DC
+  DC -->|"append this token's K/V"| KV
+  DC -->|"next token"| DC
+  PF -.-> K1["gfx1030 prefill attn:<br/>fa_rdna2_prefill_* (D=128/256)"]
+  DC -.-> K2["gfx1030 decode attn:<br/>fa_rdna2_decode_paged (D=128/256)<br/>other head sizes: Triton"]
+```
+
+Split and block size from PagedAttention[^pagedattn]; gfx1030 kernel names from the dest `RDNA_ATTN` backend[^dest-rdna-attn] (head sizes 128/256 only, everything else falls back to `ROCM_ATTN`/`TRITON_ATTN`).
+
 ## extras lock 2026-09-28 — tip `6ed39093` (prefill schedule interval)
 
 Engine-only: non-DP engines honor `prefill_schedule_interval` (default 1 = off). MTP launcher knob `PREFILL_INTERVAL` (default 1). No HIP/ISA delta. See [batching.md](batching.md). Do not copy tok/s.

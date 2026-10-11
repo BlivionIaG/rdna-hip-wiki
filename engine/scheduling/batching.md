@@ -19,6 +19,24 @@ Not a silicon change. No group spam required from the silicon tip watch.
 
 ---
 
+## Diagram — one vLLM V1 scheduler step (dest flavour)
+
+```mermaid
+flowchart TD
+  S(["engine step"]) --> R["1 · RUNNING first<br/>decodes + partial prefills<br/>packed into token_budget = max_num_batched_tokens"]
+  R --> PRE{"a request was preempted<br/>this step? (RECOMPUTE, no swap)"}
+  PRE -- yes --> NOADMIT["no WAITING admits this step"]
+  PRE -- no --> IV{"prefill_schedule_interval = N<br/>admit step? (default N = 1 = every step)"}
+  IV -- no --> NOADMIT
+  IV -- yes --> W["2 · WAITING into leftover budget<br/>prefix-cache hit skips hashed blocks<br/>long prompt → chunk (chunked prefill)"]
+  W --> B["one mixed batch:<br/>many q=1 decodes + ≤ max_num_partial_prefills chunks"]
+  NOADMIT --> B
+  B --> F["model forward"] --> S
+  DYN["dest opt-in VLLM_RDNA_DYNAMIC_PREFILL=1<br/>tunes chunk cap + interval per window"] -.-> IV
+```
+
+Decode-first packing, leftover-budget prefill and RECOMPUTE preemption are stock V1[^vllm-anatomy][^vllm-v1-guide]; the token-budget idea is Sarathi-Serve[^sarathi]. Mixed decode+prefill steps were restored on dest in PR #38[^dest-pr38]; the interval knob and the adaptive controller are dest PR #36[^dest-pr36].
+
 ## Mechanics
 
 - **Request-level** (FasterTransformer): admit a batch, all prefills, then decode until last finishes. New prefills wait.
