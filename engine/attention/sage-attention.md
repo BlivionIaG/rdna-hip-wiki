@@ -73,3 +73,17 @@ Mark each against the implementation, not this prose.
 - Whether K-smoothing is required for the models we serve.
 - Occupancy of a sdot4 QK tile vs current fdot2 prefill (D=256 LDS is already tight at 59620).
 - Short-extend crossover where QK stops being compute-bound.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/users/BlivionIaG/projects/4>
+- <https://arxiv.org/abs/2411.10958>
+- <https://arxiv.org/abs/2505.11594>
+
+Added in the 2026-10-11 sourcing pass:
+
+- SageAttention repository — <https://github.com/thu-ml/SageAttention>
+- AMD, *RDNA 2 Shader Instruction Set Architecture* (ISA 70648) — <https://www.amd.com/content/dam/amd/en/documents/radeon-tech-docs/instruction-set-architectures/rdna2-shader-instruction-set-architecture.pdf>
+

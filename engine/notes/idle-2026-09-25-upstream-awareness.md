@@ -31,3 +31,47 @@ Window ≈ 2026-09-24 16:14 → 2026-09-25 ~15:56 Europe/Paris. Prior watches + 
 ## Leave
 
 - Custom ROCm AR [#57182](https://github.com/vllm-project/vllm/pull/57182); AITER/ROCm MXFP8 gfx950 / TRTLLM defer finalize [#58635](https://github.com/vllm-project/vllm/pull/58635) / XQA SpecDec [#32269](https://github.com/sgl-project/sglang/pull/32269) / DeepEP per-rank bound [#41201](https://github.com/sgl-project/sglang/pull/41201) / PD deferred release [#41023](https://github.com/sgl-project/sglang/pull/41023) / `none` retraction [#41103](https://github.com/sgl-project/sglang/pull/41103) as product; HiCache/Mooncake/NIXL/MoRIIO/UCX product; Ascend/NPU; DecodeBench [#58472](https://github.com/vllm-project/vllm/pull/58472); ExL codebook suffix [#391](https://github.com/turboderp-org/exllamav3/pull/391); Engram THP [#56926](https://github.com/vllm-project/vllm/pull/56926) as product; HIP ISA; claimed tok/s.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/vllm-project/vllm/pull/57807>
+- <https://github.com/vllm-project/vllm/pull/55507>
+- <https://github.com/vllm-project/vllm/pull/57908>
+- <https://github.com/vllm-project/vllm/pull/57182>
+- <https://github.com/vllm-project/vllm/pull/58368>
+- <https://github.com/vllm-project/vllm/pull/49371>
+- <https://github.com/vllm-project/vllm/pull/58288>
+- <https://github.com/vllm-project/vllm/pull/58434>
+- <https://github.com/vllm-project/vllm/pull/58489>
+- <https://github.com/vllm-project/vllm/pull/57497>
+- <https://github.com/vllm-project/vllm/pull/57775>
+- <https://github.com/vllm-project/vllm/pull/55528>
+- <https://github.com/sgl-project/sglang/pull/40907>
+- <https://github.com/sgl-project/sglang/pull/40680>
+- <https://github.com/sgl-project/sglang/pull/41092>
+- <https://github.com/sgl-project/sglang/pull/41179>
+- <https://github.com/sgl-project/sglang/pull/40960>
+- <https://github.com/sgl-project/sglang/pull/40456>
+- <https://github.com/sgl-project/sglang/pull/41062>
+- <https://github.com/sgl-project/sglang/pull/41194>
+- <https://github.com/sgl-project/sglang/pull/41196>
+- <https://github.com/sgl-project/sglang/pull/40988>
+- <https://github.com/sgl-project/sglang/pull/41091>
+- <https://github.com/vllm-project/vllm/pull/58642>
+- <https://github.com/vllm-project/vllm/pull/58676>
+- <https://github.com/sgl-project/sglang/pull/41218>
+- <https://github.com/sgl-project/sglang/pull/41171>
+- <https://github.com/sgl-project/sglang/pull/41173>
+- <https://github.com/sgl-project/sglang/pull/41182>
+- <https://github.com/ggml-org/llama.cpp/pull/29353>
+- <https://github.com/vllm-project/vllm/pull/58635>
+- <https://github.com/sgl-project/sglang/pull/32269>
+- <https://github.com/sgl-project/sglang/pull/41201>
+- <https://github.com/sgl-project/sglang/pull/41023>
+- <https://github.com/sgl-project/sglang/pull/41103>
+- <https://github.com/vllm-project/vllm/pull/58472>
+- <https://github.com/turboderp-org/exllamav3/pull/391>
+- <https://github.com/vllm-project/vllm/pull/56926>
+

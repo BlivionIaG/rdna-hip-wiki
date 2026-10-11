@@ -57,3 +57,8 @@ Occupancy. Sage. INT2. MTP / DSpark (own cards). INT8 KV. Writing a parallel-dra
 - [vLLM Speculators blog](https://vllm.ai/blog/2026-07-28-speculators-parallel-drafting) (P-EAGLE / DFlash / DSpark)
 - [specdec.md](specdec.md)
 - Lock: HIP MLA still q=1; fat tile before any of these fire
+
+Added in the 2026-10-11 sourcing pass:
+
+- vLLM docs, Speculative Decoding — <https://docs.vllm.ai/en/latest/features/speculative_decoding/>
+

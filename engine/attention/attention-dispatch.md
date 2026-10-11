@@ -2,7 +2,7 @@
 
 Date: 2026-08-17. Engine slice. Occupancy / LDS / VGPR live in [silicon/fa-occupancy.md](../../silicon/fa-occupancy.md). Live tree details from VLLM_FORK_Manager (not all pushed).
 
-`VLLM_USE_RDNA2_FA=1` splits MHA: `fa_rdna2_decode_paged` vs `fa_rdna2_prefill_*`.
+`VLLM_USE_RDNA2_FA=1` splits MHA: `fa_rdna2_decode_paged` vs `fa_rdna2_prefill_*`.[^dest-rdna-attn]
 
 ## Dispatch table
 
@@ -11,14 +11,14 @@ Date: 2026-08-17. Engine slice. Occupancy / LDS / VGPR live in [silicon/fa-occup
 | Decode | 1 | 128 or 256 | grid B×H << 72 | `fa_rdna2_decode_paged` split-K (Br=1) |
 | Decode | 1 | 128 or 256 | grid already fills 72 CU | decode paged, fewer splits or no split |
 | Decode | 1 | 64 (and 80/96) | any | **hole** → Triton `kernel_paged_attention_2d` until a D=64 tile exists |
-| Short extend / MTP verify | small q (decode-first) | 128/256 | `nd_tok * H_q <= 256` | split-K decode + `cu_query_lens` (PR #29 @ `e0112c55`); above 256 rows → prefill |
+| Short extend / MTP verify | small q (decode-first) | 128/256 | `nd_tok * H_q <= 256` | split-K decode + `cu_query_lens` (PR #29 @ `e0112c55`)[^dest-pr29]; above 256 rows → prefill |
 | Prefill | large q | 128/256 | — | fa_rdna2_prefill Br=16/32 |
 | Prefill / decode | any | other | — | Triton |
 | MLA decode | 1 | ragged / fp8_ds_mla | 16 CTAs/query, WG=32 | HIP `sparse_mla_decode_rdna2` if `VLLM_USE_RDNA2_MLA=1`, else Triton. Mix/spec off. |
 | MLA prefill | T queries | plain fp16 `[skv,D]` | grid `(T, H/4)`, WG=32 | HIP `sparse_mla_prefill_rdna2` @ `66bb24d7` (same env). Many Q rows ≠ fat tile. |
 | MLA | q>1 verify / draft | — | — | no fat tile yet. Blocks MTP / DFlash / DSpark. |
 
-Stock HIP `attention.cu` instantiates 64 and 128 but gfx1030 never launches it (`on_gfx1x` = 11/12). gfx11 runtime gate is head==128 only. Head 256: HIP has no instantiation; fa_rdna2 claims D=256 decode (DeepSeek/MLA-adjacent). Keep it.
+Stock HIP `attention.cu` instantiates 64 and 128 but gfx1030 never launches it (`on_gfx1x` = 11/12).[^vllm-rocm-py] gfx11 runtime gate is head==128 only. Head 256: HIP has no instantiation; fa_rdna2 claims D=256 decode (DeepSeek/MLA-adjacent). Keep it.
 
 ## Diagram — attention dispatch, gfx1030 vs gfx1100
 
@@ -50,14 +50,14 @@ fa_rdna2 decode/prefill as reported: D=128/256 only. Treat 64 as the first missi
 
 **Locked:** Split-K = grid-fill when B×H leaves 72 CUs idle. Short Br=32 = small-q. Do **not** use D=256 split-K to "fix occupancy." Occupancy is [silicon/fa-occupancy.md](../../silicon/fa-occupancy.md): drop the second `__launch_bounds__` arg, add `amdgpu_waves_per_eu(4, 8)` on decode 128/256.
 
-Split-K (Flash-Decoding): extra parallel axis = KV partitions + LSE reduce.
+Split-K (Flash-Decoding): extra parallel axis = KV partitions + LSE reduce.[^flash-decoding]
 
 - B=1, GQA (e.g. 8 KV heads): 8 WGs. 16 CTAs/query on MLA is the same idea. Split-K or multi-CTA/query is mandatory.
 - B×H ≳ 72: split-K adds reduce traffic and can lose.
 - Short (small q, no KV split): wins when q_len is a few tokens (spec/chunk) and the Br tile already occupies, or when seqlen_kv is short enough that one pass is the whole working set (IC-hot pages).
 - Prefill Br=16/32: never split-K the Q axis the decode way; occupancy comes from q tiles.
 
-#44899 (DSv4 split-K) is gfx950. Copy the heuristic (`CUs / (B×H)`), not the kernel.
+#44899 (DSv4 split-K) is gfx950.[^vllm-pr44899] Copy the heuristic (`CUs / (B×H)`), not the kernel.
 
 ## Sage
 
@@ -77,3 +77,16 @@ INT8 QK via `sdot4` (pack 4×i8, `D%4==0`, i32 through K, scale in epilogue). PV
 - Split-decode vs prefill row crossover locked at `nd_tok * H_q = 256` (`e0112c55`); deeper one-CTA-per-request verify still Later.
 - Whether any served model is actually d=64.
 - Exact fa_rdna2 source not all pushed.
+
+## Sources
+
+Added in the 2026-10-11 sourcing pass:
+
+- dest `csrc/rocm/fa_rdna2.cu` — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/csrc/rocm/fa_rdna2.cu>
+- vLLM `rocm_attn.py` (ROCM_ATTN backend) — <https://github.com/vllm-project/vllm/blob/main/vllm/v1/attention/backends/rocm_attn.py>
+
+[^dest-rdna-attn]: dest `vllm/v1/attention/backends/rdna_attn.py` (RDNA_ATTN: head 128/256, fp16, split-decode, prefill heuristics) — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/vllm/v1/attention/backends/rdna_attn.py>
+[^dest-pr29]: dest PR #29 — FA-RDNA2 decode kernel for spec-decode verify and mixed batches — <https://github.com/opengfx1030/vllm-rdna/pull/29>
+[^vllm-rocm-py]: vLLM `vllm/platforms/rocm.py` (arch gates, `supports_fp8`, custom paged-attn, custom AR) — <https://github.com/vllm-project/vllm/blob/main/vllm/platforms/rocm.py>
+[^flash-decoding]: Dao et al., *Flash-Decoding for long-context inference* (split-K over KV) — <https://crfm.stanford.edu/2023/10/12/flashdecoding.html>
+[^vllm-pr44899]: vLLM PR #44899 — DSv4 split-K (gfx950) — <https://github.com/vllm-project/vllm/pull/44899>

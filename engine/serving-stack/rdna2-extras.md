@@ -1,5 +1,7 @@
 # `rdna2_extras` — release-based overlay
 
+> **Dest today (2026-10-11):** [`opengfx1030/vllm-rdna` `rdna_extras`](https://github.com/opengfx1030/vllm-rdna/tree/rdna_extras) = vLLM **v0.31.0** port ([PR #47](https://github.com/opengfx1030/vllm-rdna/pull/47)), tip `1dc3bac4` (contains `8abf4c97`). Tips and branch names quoted below (`rdna2_extras` on BlivionIaG/vllm, `perf/rdna2_w4a16`) are **historical snapshots**. Serve locks (ROCm pin, APC, PYNCCL / `VLLM_RDNA_AR=0`) live in [fork/](../../fork/README.md) and [toolchain/matrix.md](../../toolchain/matrix.md); this page only says what the engine does.
+
 Date: 2026-08-19. Engine review of [BlivionIaG/vllm](https://github.com/BlivionIaG/vllm) branch **`rdna2_extras`** @ **`3e05abc9`**.
 
 **Policy (locked):** human work goes on `rdna2_extras` = **vLLM release tag + gfx1030 overlay**. `perf/rdna2_w4a16` is the historical source, not the forward branch. Bots still do not PR upstream or edit the human branch. Occupancy still first.
@@ -64,3 +66,9 @@ Retip In Progress work to `rdna2_extras` @ `3e05abc9`. Occupancy still first. Sa
 - `vllm/platforms/rocm.py` on extras
 - RDNA2_Researcher HIP review (`kernels/rdna2-extras.md`)
 - [coverage.md](../overview/coverage.md), [fork-delta.md](fork-delta.md), [hippih.md](../alt-engines/hippih.md)
+
+Added in the 2026-10-11 sourcing pass:
+
+- dest `docs/rdna2/v0.31.0-port-notes.md` — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/docs/rdna2/v0.31.0-port-notes.md>
+- dest commit `8abf4c97` (v0.31 port merge tail; ancestor of tip `1dc3bac4`) — <https://github.com/opengfx1030/vllm-rdna/commit/8abf4c9719d588349b6ed5afc75e9d0133a43984>
+

@@ -120,3 +120,13 @@ One project card: **Native HIP FP16 MoE (gfx1030)**, Status **Todo**, priority a
 ## Non-goals
 
 AITER/CK ports, MFMA emulation, bf16, expert offload, RCCL collectives inside the GEMM, changing the router, and merging this into quantized MoE kernels.
+
+## Sources
+
+Added in the 2026-10-11 sourcing pass:
+
+- vLLM PR #37826 — Triton MoE ROCm whitelist excludes gfx10xx — <https://github.com/vllm-project/vllm/pull/37826>
+- vLLM PR #44075 — fused MoE W4A16 HIP for RDNA3 (gfx1100) — <https://github.com/vllm-project/vllm/pull/44075>
+- dest `csrc/rocm/moe_q_gemm_rdna2.cu` — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/csrc/rocm/moe_q_gemm_rdna2.cu>
+- AMD, *RDNA 2 Shader Instruction Set Architecture* (ISA 70648) — <https://www.amd.com/content/dam/amd/en/documents/radeon-tech-docs/instruction-set-architectures/rdna2-shader-instruction-set-architecture.pdf>
+

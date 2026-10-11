@@ -20,3 +20,30 @@ Window ≈ 2026-09-18 16:10 → 2026-09-21 ~16:23 Europe/Paris. `gh search prs -
 ## Leave
 
 - Custom ROCm AR [#57182](https://github.com/vllm-project/vllm/pull/57182); SWA bounded-replay ROCm disable [#57906](https://github.com/vllm-project/vllm/pull/57906); HiCache/Mooncake/NIXL/MoRIIO product; Ascend/NPU/AITER/FlyDSL; DeepGEMM/NVFP4/Blackwell; ExL sc_measure [#364](https://github.com/turboderp-org/exllamav3/pull/364); claimed tok/s.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/vllm-project/vllm/pull/57908>
+- <https://github.com/vllm-project/vllm/pull/57182>
+- <https://github.com/vllm-project/vllm/pull/56810>
+- <https://github.com/vllm-project/vllm/pull/56404>
+- <https://github.com/vllm-project/vllm/pull/56734>
+- <https://github.com/vllm-project/vllm/pull/57570>
+- <https://github.com/vllm-project/vllm/pull/57874>
+- <https://github.com/vllm-project/vllm/pull/57745>
+- <https://github.com/vllm-project/vllm/pull/57785>
+- <https://github.com/vllm-project/vllm/pull/57881>
+- <https://github.com/sgl-project/sglang/pull/40184>
+- <https://github.com/sgl-project/sglang/pull/39777>
+- <https://github.com/sgl-project/sglang/pull/35452>
+- <https://github.com/sgl-project/sglang/pull/40376>
+- <https://github.com/turboderp-org/exllamav3/pull/377>
+- <https://github.com/turboderp-org/exllamav3/pull/376>
+- <https://github.com/turboderp-org/exllamav3/pull/334>
+- <https://github.com/vllm-project/vllm/pull/57943>
+- <https://github.com/ggml-org/llama.cpp/pull/29191>
+- <https://github.com/vllm-project/vllm/pull/57906>
+- <https://github.com/turboderp-org/exllamav3/pull/364>
+

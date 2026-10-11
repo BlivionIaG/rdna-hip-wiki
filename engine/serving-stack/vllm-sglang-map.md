@@ -419,7 +419,9 @@ llama.cpp is not vLLM. It is the existence proof that RDNA2 silicon can serve LL
 
 ---
 
-## 8. Sources actually opened
+## Sources
+
+### 8. Sources actually opened
 
 ### Official docs / blogs
 1. https://docs.vllm.ai/en/latest/getting_started/installation/gpu/index.html — vLLM ROCm GPU list, wheels, `vllm/vllm-openai-rocm`, deprecated `rocm/vllm`
@@ -471,3 +473,12 @@ llama.cpp is not vLLM. It is the existence proof that RDNA2 silicon can serve LL
 ### Local
 40. `silicon/architecture.md`
 41. `silicon/lds-tiles.md`
+
+Added in the 2026-10-11 sourcing pass:
+
+- SGLang ROCm kernel build allowlist (`setup_rocm.py`, current path) — <https://github.com/sgl-project/sglang/blob/main/python/sglang/kernels/aot/setup_rocm.py>
+
+[^vllm-rocm-py]: vLLM `vllm/platforms/rocm.py` (arch gates, `supports_fp8`, custom paged-attn, custom AR) — <https://github.com/vllm-project/vllm/blob/main/vllm/platforms/rocm.py>
+[^dest-rdna-py]: dest `vllm/platforms/rdna.py` (`on_rdna_family`, `on_rdna2`) — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/vllm/platforms/rdna.py>
+[^dest-pr47]: dest PR #47 — port `rdna_extras` onto vLLM v0.31.0 — <https://github.com/opengfx1030/vllm-rdna/pull/47>
+

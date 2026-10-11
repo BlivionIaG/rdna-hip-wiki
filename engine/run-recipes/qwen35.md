@@ -43,3 +43,12 @@ Paged Triton `num_warps=8` folds into the existing occupancy / head-64 Triton-pa
 ## Done-when (if we take the cards)
 
 LLMM1 either launches on gfx1030 or we document why HIP skinny supersedes it. wvSplitK stays off. A Qwen3.5 checkpoint with `(1+w)`-correct norms serves without garbage. No tok/s from this page.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/ikantkode/gfx1030-vllm-0.26>
+- <https://huggingface.co/ikantkode/Qwen3.5-4B-AWQ-vd>
+- <https://github.com/users/BlivionIaG/projects/4>
+

@@ -1,5 +1,7 @@
 # vLLM / HIP coverage on gfx1030
 
+> **Dest today (2026-10-11):** [`opengfx1030/vllm-rdna` `rdna_extras`](https://github.com/opengfx1030/vllm-rdna/tree/rdna_extras) = vLLM **v0.31.0** port ([PR #47](https://github.com/opengfx1030/vllm-rdna/pull/47)), tip `1dc3bac4` (contains `8abf4c97`). Tips and branch names quoted below (`rdna2_extras` on BlivionIaG/vllm, `perf/rdna2_w4a16`) are **historical snapshots**. Serve locks (ROCm pin, APC, PYNCCL / `VLLM_RDNA_AR=0`) live in [fork/](../../fork/README.md) and [toolchain/matrix.md](../../toolchain/matrix.md); this page only says what the engine does.
+
 Date: 2026-08-22. Progress map. Tip of human branch: **`rdna2_extras`** @ **`d24f6c25`** (read-only). Overlay of vLLM **v0.27.1** + gfx1030 work (`9ff87936` merge). Historical source: `perf/rdna2_w4a16` (stale @ `3baecdb516`). Review: [rdna2-extras.md](../serving-stack/rdna2-extras.md). Tickets stay on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not invent tok/s. Do not edit that branch from this page.
 
 Session dump: [notes/session-2026-08-17.md](../notes/session-2026-08-17.md).
@@ -114,3 +116,22 @@ Native HIP FP16 / INT8 MoE sit after occupancy (and after a measured stock basel
 ## Progress
 
 Locked 2026-08-22: human branch is **`rdna2_extras`** @ **`d24f6c25`**. Overlay merge `9ff87936` onto v0.27.1. `4cc1fe59` INT8 KV is not the fused contract. `d24f6c25` FULL graphs are glue. Occupancy still first. Allowlist ≠ fire list. EXL3 HIP live WIP ([exl3.md](../quant-formats/exl3.md); tip `e268c7d3`, ISA `a2c8d5cf`). Occupancy still first. Engine tickets live on GitHub project 4 (V620 inference); this page is the index.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/users/BlivionIaG/projects/4>
+
+Added in the 2026-10-11 sourcing pass:
+
+- dest `docs/rdna2/v0.31.0-port-notes.md` — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/docs/rdna2/v0.31.0-port-notes.md>
+- dest `csrc/rocm/q_gemm_rdna2.cu` (W4A16 dequant → fdot2) — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/csrc/rocm/q_gemm_rdna2.cu>
+- dest `csrc/rocm/moe_q_gemm_rdna2.cu` — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/csrc/rocm/moe_q_gemm_rdna2.cu>
+- dest `csrc/rocm/skinny_gemms.cu` — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/csrc/rocm/skinny_gemms.cu>
+- dest `csrc/rocm/fa_rdna2.cu` — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/csrc/rocm/fa_rdna2.cu>
+- dest `csrc/rocm/q_gemm_rdna3_wmma.cu` (gfx1100-only WMMA path, separate fatbin target) — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/csrc/rocm/q_gemm_rdna3_wmma.cu>
+- vLLM `vllm/platforms/rocm.py` (arch gates, `supports_fp8`, custom paged-attn, custom AR) — <https://github.com/vllm-project/vllm/blob/main/vllm/platforms/rocm.py>
+- AMD, *RDNA 2 Shader Instruction Set Architecture* (ISA 70648) — <https://www.amd.com/content/dam/amd/en/documents/radeon-tech-docs/instruction-set-architectures/rdna2-shader-instruction-set-architecture.pdf>
+- LLVM AMDGPU backend usage (processor feature table, dot insts per target) — <https://llvm.org/docs/AMDGPUUsage.html>
+

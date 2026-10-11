@@ -6,7 +6,7 @@ Date: 2026-08-20. Engine contract. Batching mechanics: [batching.md](batching.md
 
 | Cache | What it holds | Scheduler lever we already have |
 |---|---|---|
-| **KV prefix** (paged, `block_size=16`) | Reusable tokens | vLLM V1 **APC on by default**. Hash complete blocks. Incomplete last block is not reusable. |
+| **KV prefix** (paged, `block_size=16`) | Reusable tokens | vLLM V1 **APC on by default**. Hash complete blocks. Incomplete last block is not reusable.[^vllm-prefix-caching] |
 | **Infinity Cache** (128 MB L3) | Hot **weight shard + this-step pages** | Working set + decode-first. **No persist bit.** |
 
 extras has **no** custom cache-aware scheduler. Stock V1 is the lever. SGLang radix / cache-aware router is steal-later, not the next engine.
@@ -35,7 +35,7 @@ Hashing of complete blocks and the free-block queue are from the vLLM prefix-cac
 
 - **Prefix cache:** skip prefill for hashed complete 16-token blocks. Put stable context first (system / repo / RAG / history); unique user tokens last. Reuse **ends at the first novel token** ([batching.md](batching.md) Kiely).
 - **Decode first:** `schedule()` packs running decodes into `token_budget`, then waiting only if no preemption. That is the IC-friendly order — same W4 shard reread every token.
-- **Chunked prefill:** leftover budget, `max_num_partial_prefills` default **1**. One fat chunk + many `l_q=1` still fights the 128 MB.
+- **Chunked prefill:** leftover budget, `max_num_partial_prefills` default **1**.[^vllm-v1-guide] One fat chunk + many `l_q=1` still fights the 128 MB.
 - Policy: FCFS or priority. Not “route to the GPU that already has this prefix” (that is a **router**, multi-replica).
 
 Measure `max_num_batched_tokens` on V620. Do not copy Instinct 8k/16k.
@@ -61,3 +61,11 @@ Same occupancy card. APC/MBT is tune-and-measure after occupancy, not a new firs
 
 - [batching.md](batching.md), [infinity-cache.md](../kv-cache/infinity-cache.md), [silicon/cache-policy.md](../../silicon/cache-policy.md)
 - Note 2026-08-20 (user: cache-aware scheduling)
+
+Added in the 2026-10-11 sourcing pass:
+
+- Agrawal et al., *Taming Throughput-Latency Tradeoff in LLM Inference with Sarathi-Serve* (OSDI 2024) — <https://arxiv.org/abs/2403.02310>
+
+[^vllm-prefix-caching]: vLLM docs, Automatic Prefix Caching design — <https://docs.vllm.ai/en/latest/design/prefix_caching.html>
+[^vllm-v1-guide]: vLLM docs, V1 user guide — <https://docs.vllm.ai/en/latest/usage/v1_guide/>
+

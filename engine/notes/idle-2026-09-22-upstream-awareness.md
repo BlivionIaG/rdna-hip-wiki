@@ -22,3 +22,32 @@ Window ≈ 2026-09-21 16:23 → 2026-09-22 ~16:21 Europe/Paris. `gh search prs -
 ## Leave
 
 - Custom ROCm AR [#57182](https://github.com/vllm-project/vllm/pull/57182); AITER MXFP4 EP [#57866](https://github.com/vllm-project/vllm/pull/57866); HiCache/Mooncake/NIXL/MoRIIO/UCX product; Ascend/NPU/AITER/FlyDSL; DeepGEMM/NVFP4/Blackwell; RDNA3/4 kv-split [#58156](https://github.com/vllm-project/vllm/pull/58156); claimed tok/s.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/vllm-project/vllm/pull/57908>
+- <https://github.com/sgl-project/sglang/pull/40517>
+- <https://github.com/vllm-project/vllm/pull/57182>
+- <https://github.com/vllm-project/vllm/pull/57389>
+- <https://github.com/vllm-project/vllm/pull/58065>
+- <https://github.com/vllm-project/vllm/pull/57951>
+- <https://github.com/sgl-project/sglang/pull/40658>
+- <https://github.com/sgl-project/sglang/pull/40640>
+- <https://github.com/vllm-project/vllm/pull/57785>
+- <https://github.com/vllm-project/vllm/pull/57881>
+- <https://github.com/sgl-project/sglang/pull/40645>
+- <https://github.com/sgl-project/sglang/pull/40711>
+- <https://github.com/turboderp-org/exllamav3/pull/392>
+- <https://github.com/turboderp-org/exllamav3/pull/396>
+- <https://github.com/vllm-project/vllm/pull/57943>
+- <https://github.com/ggml-org/llama.cpp/pull/29191>
+- <https://github.com/vllm-project/vllm/pull/57867>
+- <https://github.com/vllm-project/vllm/pull/58150>
+- <https://github.com/ai-dynamo/nixl/pull/2224>
+- <https://github.com/turboderp-org/exllamav3/pull/380>
+- <https://github.com/sgl-project/sglang/pull/40563>
+- <https://github.com/vllm-project/vllm/pull/57866>
+- <https://github.com/vllm-project/vllm/pull/58156>
+

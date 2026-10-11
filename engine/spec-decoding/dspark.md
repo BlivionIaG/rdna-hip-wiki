@@ -63,3 +63,8 @@ Occupancy. Sage. INT2. MTP / DFlash (own cards). INT8 KV. Writing a Markov-head 
 - [DeepSeek-V4-Flash recipe](https://recipes.vllm.ai/deepseek-ai/DeepSeek-V4-Flash)
 - [specdec.md](specdec.md)
 - Lock: HIP MLA still q=1; fat tile before any of these fire
+
+Added in the 2026-10-11 sourcing pass:
+
+- vLLM docs, Speculative Decoding — <https://docs.vllm.ai/en/latest/features/speculative_decoding/>
+

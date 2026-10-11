@@ -62,3 +62,9 @@ No new first kernel. Occupancy + V620 HIP MoE still first. Nontemporal on the 27
 
 - [silicon/infinity-cache.md](../../silicon/infinity-cache.md), [silicon/cache-policy.md](../../silicon/cache-policy.md)
 - Note 2026-08-19 (user: can we use IC to speed inference)
+
+Added in the 2026-10-11 sourcing pass:
+
+- AMD Radeon PRO V620 product page — <https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html>
+- AMD, *RDNA 2 Shader Instruction Set Architecture* (ISA 70648) — <https://www.amd.com/content/dam/amd/en/documents/radeon-tech-docs/instruction-set-architectures/rdna2-shader-instruction-set-architecture.pdf>
+

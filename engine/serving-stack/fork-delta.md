@@ -1,5 +1,7 @@
 # Fork vs upstream — gfx1030 features
 
+> **Dest today (2026-10-11):** [`opengfx1030/vllm-rdna` `rdna_extras`](https://github.com/opengfx1030/vllm-rdna/tree/rdna_extras) = vLLM **v0.31.0** port ([PR #47](https://github.com/opengfx1030/vllm-rdna/pull/47)), tip `1dc3bac4` (contains `8abf4c97`). Tips and branch names quoted below (`rdna2_extras` on BlivionIaG/vllm, `perf/rdna2_w4a16`) are **historical snapshots**. Serve locks (ROCm pin, APC, PYNCCL / `VLLM_RDNA_AR=0`) live in [fork/](../../fork/README.md) and [toolchain/matrix.md](../../toolchain/matrix.md); this page only says what the engine does.
+
 Date: 2026-08-19. Tip **`rdna2_extras`** @ **`3e05abc9`** (read-only). Overlay of vLLM **v0.27.1** + gfx1030 work (`9ff87936` merge). Historical source: `perf/rdna2_w4a16`. Review: [rdna2-extras.md](rdna2-extras.md). Index of **features this fork added** vs stock vLLM. Completeness bar: **W4A16 dense**. On the branch = **In Progress**. Spec-only = **Todo**. Tickets: one card per row on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not edit that branch from this page.
 
 Session dump: [notes/session-2026-08-17.md](../notes/session-2026-08-17.md).
@@ -115,3 +117,18 @@ Reuse a card if it already exists. In-tree → In Progress. Spec-only → Todo. 
 29. DeepEP / PCIe A2A — Later, not a first ticket — [deepep.md](../multi-gpu/deepep.md)
 
 Occupancy still first. Rebase did not fix occupancy, MLA `load_row` OOB, or the stock skinny gate. No tok/s invented here.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/users/BlivionIaG/projects/4>
+
+Added in the 2026-10-11 sourcing pass:
+
+- dest `docs/rdna2/v0.31.0-port-notes.md` — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/docs/rdna2/v0.31.0-port-notes.md>
+- dest `vllm/platforms/rdna.py` (`on_rdna_family`, `on_rdna2`) — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/vllm/platforms/rdna.py>
+- vLLM `vllm/platforms/rocm.py` (arch gates, `supports_fp8`, custom paged-attn, custom AR) — <https://github.com/vllm-project/vllm/blob/main/vllm/platforms/rocm.py>
+- vLLM PR #37826 — Triton MoE ROCm whitelist excludes gfx10xx — <https://github.com/vllm-project/vllm/pull/37826>
+- vLLM PR #34709 — wvSplitK skinny GEMM for gfx1x (gfx1030 not included) — <https://github.com/vllm-project/vllm/pull/34709>
+

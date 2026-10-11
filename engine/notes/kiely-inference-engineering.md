@@ -67,3 +67,9 @@ See the long-form keep/adapt/skip writeup on disk at `optional long-form notes (
 ---
 
 *Digest written 2026-08-17 (PT). Source: user-provided PDF. Paraphrase only. No long verbatim excerpts.*
+
+## Sources
+
+- Philip Kiely, *Inference Engineering* (Baseten Books, 2026) — <https://www.baseten.co/inference-engineering/> (Kiely addendum)
+
+

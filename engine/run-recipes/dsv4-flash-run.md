@@ -46,3 +46,15 @@ Do **not** MXFP4 → Int4/W4, then EXL3. Do **not** Viterbi all 256 then REAP. D
 ## Not this ticket
 
 SparkInfer. Viterbi-then-REAP. EXL3-from-Int4. Copied tok/s. Official upstream PR.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://huggingface.co/BlivionIaG/DeepSeek-V4-Flash-0731-Int4-FP8>
+- <https://huggingface.co/BlivionIaG/DeepSeek-V4-Flash-0731-Int4-FP8-REAP-216B>
+
+Added in the 2026-10-11 sourcing pass:
+
+- dest `opengfx1030/vllm-rdna` branch `rdna_extras` (v0.31.0 port) — <https://github.com/opengfx1030/vllm-rdna/tree/rdna_extras>
+

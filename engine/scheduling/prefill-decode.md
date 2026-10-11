@@ -8,7 +8,7 @@ A request is two programs that share a KV cache.
 - **Decode:** one new token per step. Matrix-vector plus a gather of every past K/V. Memory-bandwidth-bound.
 - **KV:** the coupling. Grows by one token per step. Decode re-reads weights and that cache every time.
 
-PagedAttention (SOSP'23): prefill can use matrix-matrix; decode is sequential, typically matrix-vector. vLLM pages KV into blocks of **16 tokens**. After split:
+PagedAttention (SOSP'23): prefill can use matrix-matrix; decode is sequential, typically matrix-vector. vLLM pages KV into blocks of **16 tokens**.[^pagedattn] After split:
 
 ```
 K: [num_blocks, num_kv_heads, head_size/x, block_size, x]   x = 16/sizeof
@@ -44,11 +44,11 @@ Engine-only: non-DP engines honor `prefill_schedule_interval` (default 1 = off).
 
 ## How engines live with it
 
-**vLLM V1:** no separate P/D phases. Decode-first into `max_num_batched_tokens`, leftover budget is chunked prefill. Prefix cache on (hash complete 16-token blocks). Preemption is RECOMPUTE (swap removed). Chunked prefill cannot be turned off. FCFS default.
+**vLLM V1:** no separate P/D phases. Decode-first into `max_num_batched_tokens`, leftover budget is chunked prefill. Prefix cache on (hash complete 16-token blocks). Preemption is RECOMPUTE (swap removed).[^vllm-anatomy] Chunked prefill cannot be turned off.[^vllm-v1-guide] FCFS default.
 
-**SGLang:** waiting / chunked_req / running_batch. Mixed P+D is **off** by default because the whole batch still goes through the prefill kernel. Chunk size heuristic: 8192 on A100/H100, 16384 on MI300, 4096 fallback. Overlap schedule on. Retract = recompute.
+**SGLang:** waiting / chunked_req / running_batch. Mixed P+D is **off** by default because the whole batch still goes through the prefill kernel.[^sglang-mixed-chunk] Chunk size heuristic: 8192 on A100/H100, 16384 on MI300, 4096 fallback. *(unsourced)* Overlap schedule on. Retract = recompute.
 
-**Orca** invented iteration-level batching. **Sarathi-Serve** named stall-free batching: pack decodes, continue partial prefill, admit new only into leftover τ. On A100, one decode token ≈ 128 prefill tokens in linear cost; crossover ~500–600 tokens. That number is A100, not RDNA.
+**Orca** invented iteration-level batching.[^orca] **Sarathi-Serve** named stall-free batching: pack decodes, continue partial prefill, admit new only into leftover τ. On A100, one decode token ≈ 128 prefill tokens in linear cost; crossover ~500–600 tokens.[^sarathi] That number is A100, not RDNA.
 
 ## Kernel hit-list
 
@@ -56,7 +56,7 @@ Engine-only: non-DP engines honor `prefill_schedule_interval` (default 1 = off).
 2. **Prefill / varlen FA** — causal, GEMM-like QK/PV tiles. Live: `fa_rdna2_prefill_*` Br=16/32.
 3. **Extend / chunked-context** — new tokens attend to already-paged prefix. Short Br=32 for small-q. DeepSeek V4 chunked prefill must be a separate prefill step, not V1 leftover-MBT mix, until an MLA fat tile exists.
 4. **reshape_and_cache / block write** — matching writer for that layout. A gather without a matching write is wasted. Do not assume AITER shuffle's 15–20% (CDNA number).
-5. **QKV + FFN GEMM vs GEMV** — prefill: large-M. Decode: M=1. Skinny GEMM is gated off gfx10.
+5. **QKV + FFN GEMM vs GEMV** — prefill: large-M. Decode: M=1. Skinny GEMM is gated off gfx10.[^vllm-pr34709]
 6. **MLA decode** — sparse MLA only today (q=`[B,H,D]`, WG=32, 16 CTAs/query). Mix/spec off until fat tile.
 
 Kernel vs scheduler: kernels decide occupancy/layout/GEMV. Scheduler decides whether a step is pure-decode or mixed, and whether PD is worth the KV copy.
@@ -76,3 +76,17 @@ Kernel vs scheduler: kernels decide occupancy/layout/GEMV. Scheduler decides whe
 - [Anatomy of vLLM](https://vllm.ai/blog/2025-09-05-anatomy-of-vllm)
 - [ROCm attention backends](https://vllm.ai/blog/2026-02-27-rocm-attention-backend)
 - [Sarathi-Serve](https://arxiv.org/abs/2403.02310)
+
+Added in the 2026-10-11 sourcing pass:
+
+- dest PR #36 — adaptive prefill scheduling (chunk cap + step cadence, opt-in) — <https://github.com/opengfx1030/vllm-rdna/pull/36>
+
+[^pagedattn]: Kwon et al., *Efficient Memory Management for LLM Serving with PagedAttention* (SOSP 2023) — <https://arxiv.org/abs/2309.06180>
+[^dest-rdna-attn]: dest `vllm/v1/attention/backends/rdna_attn.py` (RDNA_ATTN: head 128/256, fp16, split-decode, prefill heuristics) — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/vllm/v1/attention/backends/rdna_attn.py>
+[^vllm-anatomy]: vLLM blog, *Inside vLLM: Anatomy of a High-Throughput LLM Inference System* — <https://vllm.ai/blog/2025-09-05-anatomy-of-vllm>
+[^vllm-v1-guide]: vLLM docs, V1 user guide — <https://docs.vllm.ai/en/latest/usage/v1_guide/>
+[^sglang-mixed-chunk]: SGLang discussion #1163 — mixed chunked prefill — <https://github.com/sgl-project/sglang/discussions/1163>
+[^orca]: Yu et al., *Orca: A Distributed Serving System for Transformer-Based Generative Models* (OSDI 2022) — <https://www.usenix.org/system/files/osdi22-yu.pdf>
+[^sarathi]: Agrawal et al., *Taming Throughput-Latency Tradeoff in LLM Inference with Sarathi-Serve* (OSDI 2024) — <https://arxiv.org/abs/2403.02310>
+[^vllm-pr34709]: vLLM PR #34709 — wvSplitK skinny GEMM for gfx1x (gfx1030 not included) — <https://github.com/vllm-project/vllm/pull/34709>
+

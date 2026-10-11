@@ -35,6 +35,10 @@ retip the “Not on RHEL” cell in `silicon/rccl-p2p.md` to **official Ubuntu-o
 - Note 2026-08-19
 - AMD ROCm 7.2 / 7.14 install system-requirements (V620 footnote)
 
+Added in the 2026-10-11 sourcing pass:
+
+- AMD Radeon PRO V620 product page — <https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html>
+
 ## ROCm 10.0 (2026-08-27) — do not bump
 
 [Newsroom](https://newsroom.amd.com/news/rocm-10-software-ai-native-developer-experiences/) is PR. [Blog](https://rocm.blogs.amd.com/ecosystems-and-partners/rocm-x-blog/README.html) is TheRock-on-7.14 plus ROCm.AI (CLI / amd/skills / Hyperloom). Skills/Hyperloom/vLLM adapters are Instinct (MI300/325/350/355) and EPYC. Official 3.3×/2.4× is MI355x — do not copy.

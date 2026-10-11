@@ -125,3 +125,12 @@ Occupancy still first.
 - LLVM `fdot2.ll` (gfx900 → mix/FMA, gfx906 → `v_dot2_f32_f16`)
 - Phoronix: Vega20 DL = fdot2/sdot4/sdot8, not Vega10
 - [silicon/v340l.md](../../silicon/v340l.md), [silicon/hetero-moe-w7800-v620.md](../../silicon/hetero-moe-w7800-v620.md), [plx.md](../multi-gpu/plx.md)
+
+Added in the 2026-10-11 sourcing pass:
+
+- LLVM test `llvm.amdgcn.fdot2.ll` (per-target lowering) — <https://github.com/llvm/llvm-project/blob/main/llvm/test/CodeGen/AMDGPU/llvm.amdgcn.fdot2.ll>
+
+[^dest-pr40]: dest PR #40 — default-off hetero MoE, gfx1100 hot / gfx1030 cold (draft) — <https://github.com/opengfx1030/vllm-rdna/pull/40>
+[^megascale-infer]: *MegaScale-Infer* (disaggregated expert parallelism) — <https://arxiv.org/abs/2504.02263>
+[^step3-afd]: *Step-3* attention-FFN disaggregation — <https://arxiv.org/abs/2507.19427>
+

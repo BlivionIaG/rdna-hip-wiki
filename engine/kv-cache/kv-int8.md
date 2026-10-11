@@ -2,7 +2,7 @@
 
 Date: 2026-08-21. Engine contract. Silicon: [kernels/kv-int8.md](../../kernels/kv-int8.md). Policy page (FP8 dead as a *unit*, offload physics): [kv-quant-offload.md](kv-quant-offload.md). One card on [project 4](https://github.com/users/BlivionIaG/projects/4). Human branch is **`rdna2_extras`**. Occupancy still first.
 
-**Verdict:** cut KV bytes 2× vs fp16 by storing INT8 and **dequantizing inside `fa_rdna2`**. An unfused “dequant to an fp16 cache, then attend” kernel erases the memory win. Native FP8 KV stays **Dead** (`supports_fp8()` false). Sage INT8 QK is prefill *Q*, not this.
+**Verdict:** cut KV bytes 2× vs fp16 by storing INT8 and **dequantizing inside `fa_rdna2`**. An unfused “dequant to an fp16 cache, then attend” kernel erases the memory win. Native FP8 KV stays **Dead** (`supports_fp8()` false).[^vllm-rocm-py] Sage INT8 QK is prefill *Q*, not this.
 
 ## Live on extras (`4cc1fe59`) — not the contract
 
@@ -32,7 +32,7 @@ Kiely ladder: KV is more sensitive than weights, less than softmax. Leave softma
 
 Ship **one** mode: `int8_per_token_head`.
 
-vLLM already has the contract (`KVQuantMode`, `AttentionSpec.auxiliary_buffer_specs`, `bind_auxiliary_buffers`). Triton `int8_per_token` (absmax over all heads, one scale/token) and `int8_per_tensor` exist. On gfx1100 they **closed** per-tensor HIP and kept `int8_per_token_head` (same 50% VRAM, better long-decode). We copy that decision, not the gfx1100 kernel.
+vLLM already has the contract (`KVQuantMode`, `AttentionSpec.auxiliary_buffer_specs`, `bind_auxiliary_buffers`). Triton `int8_per_token` (absmax over all heads, one scale/token) and `int8_per_tensor` exist. On gfx1100 they **closed** per-tensor HIP and kept `int8_per_token_head` (same 50% VRAM, better long-decode). *(unsourced)* We copy that decision, not the gfx1100 kernel.
 
 | Mode | Scale | Take |
 |---|---|---|
@@ -130,3 +130,12 @@ Occupancy flip. Sage QK (`sdot4` on prefill Q). HIP MLA fp16. NVFP4. W8A8 `sdot4
 - extras `4cc1fe59` (verbatim port of `3baecdb516`)
 - [kv-quant-offload.md](kv-quant-offload.md), [coverage.md](../overview/coverage.md), [attention-dispatch.md](../attention/attention-dispatch.md)
 - Note 2026-08-21: silicon lock on `4cc1fe59`
+
+Added in the 2026-10-11 sourcing pass:
+
+- dest `csrc/rocm/fa_rdna2.cu` — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/csrc/rocm/fa_rdna2.cu>
+- dest `csrc/rocm/rdna/common/convert.cuh` (software fp8 ↔ fp16) — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/csrc/rocm/rdna/common/convert.cuh>
+
+[^vllm-rocm-py]: vLLM `vllm/platforms/rocm.py` (arch gates, `supports_fp8`, custom paged-attn, custom AR) — <https://github.com/vllm-project/vllm/blob/main/vllm/platforms/rocm.py>
+[^vllm-quant-kv]: vLLM docs, Quantized KV cache — <https://docs.vllm.ai/en/latest/features/quantization/quantized_kvcache.html>
+

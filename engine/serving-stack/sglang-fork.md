@@ -52,3 +52,10 @@ Later, after occupancy. One overlay card (rebase + gfx10x dispatch + import extr
 
 - [batching.md](../scheduling/batching.md), [cache-aware.md](../scheduling/cache-aware.md), [rdna2-extras.md](rdna2-extras.md), [hippih.md](../alt-engines/hippih.md)
 - Note 2026-08-20: own SGLang fork / own path
+
+Added in the 2026-10-11 sourcing pass:
+
+- SGLang repository — <https://github.com/sgl-project/sglang>
+- SGLang ROCm kernel build allowlist (`setup_rocm.py`, current path) — <https://github.com/sgl-project/sglang/blob/main/python/sglang/kernels/aot/setup_rocm.py>
+- SGLang discussion #1163 — mixed chunked prefill — <https://github.com/sgl-project/sglang/discussions/1163>
+

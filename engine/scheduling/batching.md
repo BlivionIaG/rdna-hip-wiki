@@ -10,7 +10,7 @@ Dest: `opengfx1030/vllm-rdna` `rdna_extras`. Occupancy first. No tok/s. No fabri
 
 | Surface | Lock |
 |---|---|
-| Engine cadence | Base `EngineCore._should_throttle_prefills()` now consults `SchedulerConfig.prefill_schedule_interval` via a per-step `_prefill_step_counter` (shared predicate with DP). Default **1** = off (no behaviour change for existing deploys). |
+| Engine cadence | Base `EngineCore._should_throttle_prefills()` now consults `SchedulerConfig.prefill_schedule_interval` via a per-step `_prefill_step_counter` (shared predicate with DP). Default **1** = off (no behaviour change for existing deploys).[^dest-pr36] |
 | CLI / config | `--prefill-schedule-interval` / `prefill_schedule_interval` (≥1). Admit new prefills only every N engine steps so decoders get pure-decode steps in between. |
 | MTP launcher | `serve_gfx1030_flashnext_mtp.sh` exposes `--prefill-schedule-interval ${PREFILL_INTERVAL:-1}` (opt-in; leave at 1 unless CoS pins a value). |
 | Leave | Commit message includes V620 validation cells — **do not copy tok/s / ITL into serve pins**. Dest tip / UNC stay with VLLM_FORK_Manager. |
@@ -40,25 +40,25 @@ Decode-first packing, leftover-budget prefill and RECOMPUTE preemption are stock
 ## Mechanics
 
 - **Request-level** (FasterTransformer): admit a batch, all prefills, then decode until last finishes. New prefills wait.
-- **Iteration-level** (Orca, OSDI'22): one scheduler decision per model iteration. Selective batching: flatten non-attention; attention per-request because KV lengths differ.
-- Orca/vLLM-era were prefill-prioritizing → generation stalls. **Sarathi-Serve:** token budget τ; pack running decodes first, continue partial prefill, admit new only into leftover, chunk to fit.
+- **Iteration-level** (Orca, OSDI'22): one scheduler decision per model iteration. Selective batching: flatten non-attention; attention per-request because KV lengths differ.[^orca]
+- Orca/vLLM-era were prefill-prioritizing → generation stalls. **Sarathi-Serve:** token budget τ; pack running decodes first, continue partial prefill, admit new only into leftover, chunk to fit.[^sarathi]
 
 ## vLLM V1
 
-- waiting / skipped_waiting / running. No swapped queue. GPU↔CPU swap removed. Default RECOMPUTE.
+- waiting / skipped_waiting / running. No swapped queue. GPU↔CPU swap removed. Default RECOMPUTE.[^vllm-anatomy]
 - Prefix cache on by default. Hash complete `block_size=16` chunks. Incomplete last block not reusable.
 - `schedule()`: running first (decode priority) into token_budget; waiting only if no preemption this step.
 - Chunked prefill always on. `max_num_partial_prefills` default 1.
 - `scheduler_reserve_full_isl` default True: admit only if full sequence fits.
 - Scheduling: FCFS default, or priority.
 
-Tune `max_num_batched_tokens`: smaller (e.g. 2048) → better ITL; `>8192` for throughput on small models / large GPUs. ROCm guide online default 8192, offline 16384. Those are Instinct / HBM numbers.
+Tune `max_num_batched_tokens`: smaller (e.g. 2048) → better ITL; `>8192` for throughput on small models / large GPUs. ROCm guide online default 8192, offline 16384.[^amd-vllm-opt] Those are Instinct / HBM numbers.
 
 ## SGLang
 
 - waiting_queue / chunked_req / running_batch. Retract on KV full (recompute, not swap).
-- Mixed-chunk default **False**. Default does **not** mix P+D. Whole mixed batch still goes through the prefill kernel (inefficient).
-- Chunk size heuristic: 8192 A100/H100, 16384 B200/MI300, 4096 fallback.
+- Mixed-chunk default **False**.[^sglang-mixed-chunk] Default does **not** mix P+D. Whole mixed batch still goes through the prefill kernel (inefficient).
+- Chunk size heuristic: 8192 A100/H100, 16384 B200/MI300, 4096 fallback. *(unsourced)*
 - Mixed-chunk: ITL win on some workloads, not peak throughput.
 - Overlap schedule on by default (CPU preps N+1 while GPU runs N).
 
@@ -66,7 +66,7 @@ Tune `max_num_batched_tokens`: smaller (e.g. 2048) → better ITL; `>8192` for t
 
 Linear ops dominate even at long seq (Sarathi). Decode GEMV-like; prefill GEMM. A100: one decode token ≈ 128 prefill tokens in linear cost. Crossover ~500–600 tokens at higher TP — **A100, not RDNA**.
 
-Tile quantization: chunk 257 vs 256 can add 32% prefill time.
+Tile quantization: chunk 257 vs 256 can add 32% prefill time.[^sarathi]
 
 Mixed batch = many `l_q=1` plus one `l_q=chunk`. vLLM V1 picked FA3 because it mixes P+D. AITER FA/MLA: uniform batches only.
 
@@ -85,11 +85,25 @@ Sweep 512, 2048, 4096, 8192, 16384. Report p50/p99 TTFT, ITL, TPS, KV usage, pre
 
 ## Sources
 
+- Philip Kiely, *Inference Engineering* (Baseten Books, 2026) — <https://www.baseten.co/inference-engineering/> (Kiely addendum)
 - [Orca](https://www.usenix.org/system/files/osdi22-yu.pdf)
 - [Sarathi-Serve](https://arxiv.org/abs/2403.02310)
 - [Anatomy of vLLM](https://vllm.ai/blog/2025-09-05-anatomy-of-vllm)
 - [vLLM V1 guide](https://docs.vllm.ai/en/latest/usage/v1_guide/)
 - [SGLang mixed-chunk](https://github.com/sgl-project/sglang/discussions/1163)
+
+Added in the 2026-10-11 sourcing pass:
+
+- dest `vllm/v1/core/sched/dynamic_prefill.py` — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/vllm/v1/core/sched/dynamic_prefill.py>
+
+[^dest-pr36]: dest PR #36 — adaptive prefill scheduling (chunk cap + step cadence, opt-in) — <https://github.com/opengfx1030/vllm-rdna/pull/36>
+[^vllm-anatomy]: vLLM blog, *Inside vLLM: Anatomy of a High-Throughput LLM Inference System* — <https://vllm.ai/blog/2025-09-05-anatomy-of-vllm>
+[^vllm-v1-guide]: vLLM docs, V1 user guide — <https://docs.vllm.ai/en/latest/usage/v1_guide/>
+[^sarathi]: Agrawal et al., *Taming Throughput-Latency Tradeoff in LLM Inference with Sarathi-Serve* (OSDI 2024) — <https://arxiv.org/abs/2403.02310>
+[^dest-pr38]: dest PR #38 — restore upstream mixed decode+prefill batching — <https://github.com/opengfx1030/vllm-rdna/pull/38>
+[^orca]: Yu et al., *Orca: A Distributed Serving System for Transformer-Based Generative Models* (OSDI 2022) — <https://www.usenix.org/system/files/osdi22-yu.pdf>
+[^amd-vllm-opt]: AMD ROCm docs, vLLM V1 performance optimization (MBT defaults 8192 online / 16384 offline) — <https://rocm.docs.amd.com/projects/ai-ecosystem/en/latest/optimization/vllm-v1-optimization.html>
+[^sglang-mixed-chunk]: SGLang discussion #1163 — mixed chunked prefill — <https://github.com/sgl-project/sglang/discussions/1163>
 
 ## Kiely addendum (Jan 2026)
 

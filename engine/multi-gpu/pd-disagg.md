@@ -8,7 +8,7 @@ Skip as a win.
 
 Every current production PD stack (vLLM Nixl/Mooncake, SGLang Mooncake/NIXL, MoRI-IO) is built around RDMA and/or NVLink/xGMI. Transfer Engine *can* speak TCP; that is not a documented way to win TTFT/ITL on RDNA. No gfx1030/gfx1100 PD recipe found.
 
-vLLM: PD does **not** raise throughput; it decouples TTFT vs ITL. DistServe: wrong design for throughput-only offline and few/single-GPU boxes.
+vLLM: PD does **not** raise throughput; it decouples TTFT vs ITL.[^vllm-disagg] DistServe: wrong design for throughput-only offline and few/single-GPU boxes.[^distserve]
 
 Sourced alternatives on this box: colocate + [chunked prefill](../scheduling/batching.md), OffloadingConnector, ktransformers-style CPU sparse attn (don't move KV on decode).
 
@@ -44,7 +44,7 @@ Proxy flow and connector modes from the vLLM disaggregated-prefill docs[^vllm-di
 
 Payload is prefill KV (plus token ids so decode can skip re-tokenize). Classic path does not move decode-generated KV until bidirectional/multi-turn.
 
-When: DistServe pull after prefill; Mooncake layer-wise stream to D CPU DRAM overlapped with compute; vLLM Nixl D pulls (READ) by default; MoRI WRITE = P pushes after every layer; SGLang P pushes.
+When: DistServe pull after prefill; Mooncake layer-wise stream to D CPU DRAM overlapped with compute;[^mooncake] vLLM Nixl D pulls (READ) by default; MoRI WRITE = P pushes after every layer; SGLang P pushes.
 
 Handshake is always TCP/HTTP/ZMQ control + registered-memory data plane.
 
@@ -56,7 +56,7 @@ SGLang: `--disaggregation-mode prefill|decode`; backend mooncake (default) or ni
 
 Mooncake TE protocols: tcp (any), rdma, efa, nvlink, hip (ROCm intra-node IPC). HIP path: peer access iff `hipDeviceCanAccessPeer`. No consumer-RDNA PD recipe.
 
-NIXL: no first-class PCIe-P2P plugin. UCX cuda_ipc may ride PCIe P2P if the driver allows; not a reliable default. Production data planes are RDMA (GDR), NVLink/xGMI, or host-bounce TCP.
+NIXL: no first-class PCIe-P2P plugin.[^nixl] UCX cuda_ipc may ride PCIe P2P if the driver allows; not a reliable default. Production data planes are RDMA (GDR), NVLink/xGMI, or host-bounce TCP.
 
 ## Layout contract
 
@@ -71,12 +71,21 @@ Both sides must match: architecture, dtype, KV heads, head size, layers, attn ba
 
 ## Sources
 
+- Philip Kiely, *Inference Engineering* (Baseten Books, 2026) — <https://www.baseten.co/inference-engineering/> (Kiely addendum)
 - [DistServe](https://arxiv.org/abs/2401.09670)
 - [Mooncake](https://arxiv.org/abs/2407.00079)
 - [vLLM disagg](https://docs.vllm.ai/en/latest/features/disagg_prefill/)
 - [MoRI](https://docs.vllm.ai/en/latest/features/moriio_connector_usage/)
 - [SGLang PD](https://docs.sglang.ai/advanced_features/pd_disaggregation.html)
 - [NIXL](https://github.com/ai-dynamo/nixl)
+
+[^vllm-disagg]: vLLM docs, Disaggregated Prefilling — <https://docs.vllm.ai/en/latest/features/disagg_prefill.html>
+[^distserve]: Zhong et al., *DistServe* (OSDI 2024) — <https://arxiv.org/abs/2401.09670>
+[^vllm-moriio]: vLLM docs, MoRI-IO connector — <https://docs.vllm.ai/en/latest/features/moriio_connector_usage/>
+[^sglang-pd]: SGLang docs, PD disaggregation — <https://docs.sglang.ai/advanced_features/pd_disaggregation.html>
+[^dest-pr23]: dest PR #23 — PCIe P2P KV bridge for local PD (open, 0.28 line) — <https://github.com/opengfx1030/vllm-rdna/pull/23>
+[^mooncake]: Qin et al., *Mooncake* (FAST 2025) — <https://arxiv.org/abs/2407.00079>
+[^nixl]: NVIDIA NIXL repository — <https://github.com/ai-dynamo/nixl>
 
 ## Kiely addendum (Jan 2026)
 

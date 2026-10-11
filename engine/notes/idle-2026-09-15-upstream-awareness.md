@@ -21,3 +21,30 @@ Window ≈ 2026-09-14 → 2026-09-15. `gh search` / `gh pr view` on prior scan a
 ## Leave
 
 - Mega-mHC DeepGEMM / SM90–SM120 / claimed µs ([vLLM #56962](https://github.com/vllm-project/vllm/pull/56962)); Triton merge_attn_states; ROCm skinny-GEMM / MLA LSE HIP ISA; Ascend/NPU/AITER/FlyDSL/Hopper DeepEP; FlashInfer/Blackwell; Mooncake/NIXL/`nixl_rocm` product; ExL community HIP #365–367; SM120 GDN #369 Dead; AVX/CPU KT backends; claimed tok/s or ~2×.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/sgl-project/sglang/pull/39420>
+- <https://github.com/turboderp-org/exllamav3/pull/341>
+- <https://github.com/turboderp-org/exllamav3/pull/376>
+- <https://github.com/vllm-project/vllm/pull/57000>
+- <https://github.com/vllm-project/vllm/pull/56953>
+- <https://github.com/vllm-project/vllm/pull/56971>
+- <https://github.com/vllm-project/vllm/pull/57010>
+- <https://github.com/sgl-project/sglang/pull/39605>
+- <https://github.com/sgl-project/sglang/pull/39587>
+- <https://github.com/sgl-project/sglang/pull/39575>
+- <https://github.com/sgl-project/sglang/pull/39606>
+- <https://github.com/vllm-project/vllm/pull/56936>
+- <https://github.com/vllm-project/vllm/pull/56957>
+- <https://github.com/ggml-org/llama.cpp/pull/28873>
+- <https://github.com/ggml-org/llama.cpp/pull/28927>
+- <https://github.com/kvcache-ai/ktransformers/pull/2209>
+- <https://github.com/kvcache-ai/ktransformers/pull/2205>
+- <https://github.com/ai-dynamo/nixl/pull/2244>
+- <https://github.com/ai-dynamo/nixl/pull/2252>
+- <https://github.com/ai-dynamo/nixl/pull/2196>
+- <https://github.com/vllm-project/vllm/pull/56962>
+

@@ -1,14 +1,16 @@
 # Inference engine map for 4× V620 (gfx1030)
 
+> **Dest today (2026-10-11):** [`opengfx1030/vllm-rdna` `rdna_extras`](https://github.com/opengfx1030/vllm-rdna/tree/rdna_extras) = vLLM **v0.31.0** port ([PR #47](https://github.com/opengfx1030/vllm-rdna/pull/47)), tip `1dc3bac4` (contains `8abf4c97`). Tips and branch names quoted below (`rdna2_extras` on BlivionIaG/vllm, `perf/rdna2_w4a16`) are **historical snapshots**. Serve locks (ROCm pin, APC, PYNCCL / `VLLM_RDNA_AR=0`) live in [fork/](../../fork/README.md) and [toolchain/matrix.md](../../toolchain/matrix.md); this page only says what the engine does.
+
 Date: 2026-08-17. Sourced only. Hardware facts from [silicon/](../../silicon/README.md).
 
-Target: 4× AMD V620 (Navi 21 / gfx1030, 32 GB), ROCm 7.2, TP=4 considered. GDDR6 512 GB/s, L2 4 MB, IC 128 MB. Wave32 native. No WMMA, no MFMA, no AGPR. Packed DOT only. `supports_fp8()` is false on gfx1030 and gfx1100.
+Target: 4× AMD V620 (Navi 21 / gfx1030, 32 GB), ROCm 7.2, TP=4 considered. GDDR6 512 GB/s, L2 4 MB, IC 128 MB. Wave32 native. No WMMA, no MFMA, no AGPR. Packed DOT only. `supports_fp8()` is false on gfx1030 and gfx1100.[^vllm-rocm-py]
 
 ## One-page verdict
 
 A request is two programs that share a KV cache. Prefill is a fat GEMM (compute-bound). Decode is a skinny GEMV plus a gather of every past K/V (memory-bound). Every serving trick is a way of living with that split.
 
-Official vLLM and SGLang do **not** list gfx1030. Forced build = Triton attention + rocBLAS + Triton AWQ. Custom HIP paged-decode and skinny GEMM **never launch** (`on_gfx1x` = gfx11/12). AITER/CK FA is CDNA-only.
+Official vLLM and SGLang do **not** list gfx1030. Forced build = Triton attention + rocBLAS + Triton AWQ. Custom HIP paged-decode and skinny GEMM **never launch** (`on_gfx1x` = gfx11/12).[^vllm-rocm-py][^vllm-pr34709] AITER/CK FA is CDNA-only.[^vllm-pr32944]
 
 The work is not "port AITER." Write Wave32 paged-decode + skinny GEMM + DOT-based quant GEMMs, keep weights quantized on device, colocate P+D with a measured token budget. Treat PD / TP-for-speed / streaming decode-KV over PCIe as the wrong physics.
 
@@ -46,11 +48,11 @@ Verdicts are this page's technique table; serve locks (APC, PYNCCL, ROCm pin) li
 
 | Technique | Verdict on 4× V620 |
 |---|---|
-| Continuous / in-flight batching | Use. Iteration-level is the product. |
+| Continuous / in-flight batching | Use. Iteration-level is the product.[^orca] |
 | Chunked prefill | Use. Measure token budget. Instinct 8k–16k is HBM. |
 | Prefix / radix cache | Use. |
-| PD disaggregation | Skip as a win. RDMA/xGMI stacks only. PD does not raise throughput. |
-| Speculative decoding | Later. Verify is extend (q=k+1). No sourced gfx1030 specdec. |
+| PD disaggregation | Skip as a win. RDMA/xGMI stacks only. PD does not raise throughput.[^vllm-disagg] |
+| Speculative decoding | Later. Verify is extend (q=k+1).[^leviathan] No sourced gfx1030 specdec. |
 | KV FP8 | Not a vLLM path (`supports_fp8()` false). If you write KV quant, INT8 + fused dequant. |
 | KV offload (host/SSD) | Prefix reuse and preemption only. Not per-token decode H2D. |
 | MoE expert offload | Huge MoE: CPU-resident experts + GPU attention. gfx1030 is outside AITER and the Triton MoE whitelist. |
@@ -85,3 +87,11 @@ HIP default loads stay. No persist / IC bypass / prefetch on gfx1030. Single-GPU
 ## Sources
 
 [Anatomy of vLLM](https://vllm.ai/blog/2025-09-05-anatomy-of-vllm), [ROCm attention backends](https://vllm.ai/blog/2026-02-27-rocm-attention-backend), [PagedAttention](https://arxiv.org/abs/2309.06180), [vLLM rocm.py](https://github.com/vllm-project/vllm/blob/main/vllm/platforms/rocm.py), ISA 70648.
+
+[^vllm-rocm-py]: vLLM `vllm/platforms/rocm.py` (arch gates, `supports_fp8`, custom paged-attn, custom AR) — <https://github.com/vllm-project/vllm/blob/main/vllm/platforms/rocm.py>
+[^vllm-pr34709]: vLLM PR #34709 — wvSplitK skinny GEMM for gfx1x (gfx1030 not included) — <https://github.com/vllm-project/vllm/pull/34709>
+[^vllm-pr32944]: vLLM PR #32944 — CK FlashAttention is CDNA-only — <https://github.com/vllm-project/vllm/pull/32944>
+[^orca]: Yu et al., *Orca: A Distributed Serving System for Transformer-Based Generative Models* (OSDI 2022) — <https://www.usenix.org/system/files/osdi22-yu.pdf>
+[^vllm-disagg]: vLLM docs, Disaggregated Prefilling — <https://docs.vllm.ai/en/latest/features/disagg_prefill.html>
+[^leviathan]: Leviathan et al., *Fast Inference from Transformers via Speculative Decoding* — <https://arxiv.org/abs/2211.17192>
+

@@ -125,3 +125,10 @@ Same order as [../coverage.md](../overview/coverage.md) v2 write list. Do **not*
 ## 7. One line
 
 CUDA’s stack is tensor cores + NVLink + a vendor kernel library. Ours is Wave32 DOT + PCIe + kernels we write. Missing **libraries** are Leave. Missing **work** is occupancy, then `sdot4` / INT8 KV / head-64, then a measured PIX number.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/users/BlivionIaG/projects/4>
+

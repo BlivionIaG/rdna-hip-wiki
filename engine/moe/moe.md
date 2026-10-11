@@ -6,11 +6,11 @@ Date: 2026-08-18. Sourced only. DeepEP / asymmetric A2A: [deepep.md](../multi-gp
 
 ## Verdict on gfx1030
 
-No sourced MoE-on-gfx1030 notes. gfx1030 is outside AITER's matrix and outside vLLM's Triton MoE ROCm whitelist (PR #37826 explicitly excluded gfx10xx). Radeon MoE work that exists is gfx1100 / gfx1201.
+No sourced MoE-on-gfx1030 notes. gfx1030 is outside AITER's matrix and outside vLLM's Triton MoE ROCm whitelist (PR #37826 explicitly excluded gfx10xx).[^vllm-pr37826] Radeon MoE work that exists is gfx1100 / gfx1201.
 
 Honest one-box huge-MoE design: CPU-resident experts + GPU attention/hot set (ktransformers / llama.cpp `--n-cpu-moe`). Layerwise GPU prefill when the batch is large enough that PCIe+GPU math beats CPU experts.
 
-Decode MoE is many tiny GEMMs — terrible even on RDNA3 (7900 XTX: Triton-unfused 8.5 → native HIP 48.8 tok/s).
+Decode MoE is many tiny GEMMs — terrible even on RDNA3 (7900 XTX: Triton-unfused 8.5 → native HIP 48.8 tok/s). *(unsourced — figure not in [vLLM PR #44075](https://github.com/vllm-project/vllm/pull/44075), which reports up to 2.17× vs Triton on RX 7900 XTX)*
 
 **Live in the fork:** W4A16 / W8A16 / W8A16-FP8 (LUT→`fdot2`). **Not shipping:** W8A8/`sdot4`, mxfp4 (format contracts; PR #52391 is enablement, not a launched gfx1030 MoE). **Queued spec:** INT2 + mixed INT2/INT4 experts — [int2.md](../quant-formats/int2.md). Native FP16 / INT8 HIP MoE: [fp16-moe.md](fp16-moe.md), [int8-moe.md](int8-moe.md). Nothing first-class ships. Format contracts: [kernels/w4a16.md](../../kernels/w4a16.md), [kernels/w8a8-mxfp4.md](../../kernels/w8a8-mxfp4.md), [kernels/int2.md](../../kernels/int2.md).
 
@@ -41,15 +41,15 @@ TP+EP = AllReduce and DP+EP = AllToAll from the vLLM EP guide[^vllm-ep]; shared 
 
 ## Basics
 
-DeepSeek-V3: 1 shared + 256 routed, 8 activated/token, 671B/37B. Prefill wants fat expert batches (EP32). Decode: one expert per GPU at EP320, batch/expert usually ≤256, memory-bound.
+DeepSeek-V3: 1 shared + 256 routed, 8 activated/token, 671B/37B.[^deepseek-v3] Prefill wants fat expert batches (EP32). Decode: one expert per GPU at EP320, batch/expert usually ≤256, memory-bound.
 
-AMD playbook: <1% activation density prefer no-EP (AllReduce); >3% prefer EP (AllToAll). MLA still wants DP+EP for KV reasons. DeepEP is a GPU-initiated AllToAll for the high-density case, not a reason to AllToAll a 4×PCIe box by default. V620 analogue: mapped-peer scatter/combine, not IBGDA.
+AMD playbook: <1% activation density prefer no-EP (AllReduce); >3% prefer EP (AllToAll).[^amd-moe-playbook] MLA still wants DP+EP for KV reasons. DeepEP is a GPU-initiated AllToAll for the high-density case, not a reason to AllToAll a 4×PCIe box by default. V620 analogue: mapped-peer scatter/combine, not IBGDA.
 
 ## vLLM
 
-`--enable-expert-parallel`. `EP_SIZE = TP × DP`. TP+EP = AllReduce; DP+EP = AllToAll. ROCm A2A: `VLLM_ALL2ALL_BACKEND=allgather_reducescatter` on RCCL.
+`--enable-expert-parallel`. `EP_SIZE = TP × DP`. TP+EP = AllReduce; DP+EP = AllToAll.[^vllm-ep] ROCm A2A: `VLLM_ALL2ALL_BACKEND=allgather_reducescatter` on RCCL.
 
-Kernels: Triton, DeepGEMM, Marlin WNA16, rocm aiter moe (CDNA). `--cpu-offload-gb` shipped (generic). Static CPU expert offload merged (#34535). LFRU GPU cache of hottest N (#37190) still open as of 2026-08-05.
+Kernels: Triton, DeepGEMM, Marlin WNA16, rocm aiter moe (CDNA). `--cpu-offload-gb` shipped (generic). Static CPU expert offload merged (#34535).[^vllm-pr34535] LFRU GPU cache of hottest N (#37190) still open as of 2026-08-05.[^vllm-pr37190]
 
 ## SGLang
 
@@ -76,3 +76,12 @@ gfx1030 MoE kernel quality. Whether #37190 / #20126 merged later. llama.cpp comp
 - [llama.cpp --cpu-moe](https://github.com/ggml-org/llama.cpp/pull/15077)
 - [Triton MoE excludes gfx10xx](https://github.com/vllm-project/vllm/pull/37826)
 - [deepep.md](../multi-gpu/deepep.md), [multi-tier.md](multi-tier.md)
+
+[^vllm-pr37826]: vLLM PR #37826 — Triton MoE ROCm whitelist excludes gfx10xx — <https://github.com/vllm-project/vllm/pull/37826>
+[^vllm-ep]: vLLM docs, Expert Parallel Deployment — <https://docs.vllm.ai/en/stable/serving/expert_parallel_deployment/>
+[^deepseek-v3]: DeepSeek-AI, *DeepSeek-V3 Technical Report* (MoE layout, MTP) — <https://arxiv.org/abs/2412.19437>
+[^amd-moe-playbook]: AMD ROCm blog, vLLM MoE playbook — <https://rocm.blogs.amd.com/software-tools-optimization/vllm-moe-guide/README.html>
+[^dest-moe-q-gemm]: dest `csrc/rocm/moe_q_gemm_rdna2.cu` — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/csrc/rocm/moe_q_gemm_rdna2.cu>
+[^vllm-pr34535]: vLLM PR #34535 — static CPU expert offload — <https://github.com/vllm-project/vllm/pull/34535>
+[^vllm-pr37190]: vLLM PR #37190 — LFRU GPU expert cache — <https://github.com/vllm-project/vllm/pull/37190>
+

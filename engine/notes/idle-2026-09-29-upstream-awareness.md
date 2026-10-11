@@ -22,3 +22,27 @@ Window ≈ 2026-09-28 10:51 → 2026-09-29 10:58 Europe/Paris. Prior watches + t
 ## Leave
 
 - Custom ROCm AR [#57182](https://github.com/vllm-project/vllm/pull/57182); FlashInfer PCIe-IPC objects [#34528](https://github.com/sgl-project/sglang/pull/34528); NIXL/AITER shuffle PD [#59110](https://github.com/vllm-project/vllm/pull/59110)/[#59111](https://github.com/vllm-project/vllm/pull/59111); gfx950 aiter/mHC; DeepEP V2.5; FlashInfer SM100 Cake; HIP fattn [#29572](https://github.com/ggml-org/llama.cpp/pull/29572); claimed tok/s.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/vllm-project/vllm/pull/57807>
+- <https://github.com/vllm-project/vllm/pull/55507>
+- <https://github.com/vllm-project/vllm/pull/57908>
+- <https://github.com/vllm-project/vllm/pull/58863>
+- <https://github.com/vllm-project/vllm/pull/59175>
+- <https://github.com/vllm-project/vllm/pull/59146>
+- <https://github.com/vllm-project/vllm/pull/57182>
+- <https://github.com/sgl-project/sglang/pull/34528>
+- <https://github.com/vllm-project/vllm/pull/58114>
+- <https://github.com/vllm-project/vllm/pull/58814>
+- <https://github.com/vllm-project/vllm/pull/59117>
+- <https://github.com/vllm-project/vllm/pull/59147>
+- <https://github.com/sgl-project/sglang/pull/41165>
+- <https://github.com/sgl-project/sglang/pull/41570>
+- <https://github.com/ggml-org/llama.cpp/pull/29520>
+- <https://github.com/vllm-project/vllm/pull/59110>
+- <https://github.com/vllm-project/vllm/pull/59111>
+- <https://github.com/ggml-org/llama.cpp/pull/29572>
+

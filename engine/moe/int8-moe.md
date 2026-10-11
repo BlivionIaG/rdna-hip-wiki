@@ -102,3 +102,13 @@ One Todo card: **Native HIP INT8 MoE — W8A16 fdot2 + W8A8 sdot4**. Links this 
 ## Non-goals
 
 AITER/CK/MFMA, bf16, `sudot4`, collectives inside GEMM, one universal threshold, or conflating W8A8-FP8 (`fdot2`) with integer W8A8 (`sdot4`).
+
+## Sources
+
+Added in the 2026-10-11 sourcing pass:
+
+- vLLM PR #37826 — Triton MoE ROCm whitelist excludes gfx10xx — <https://github.com/vllm-project/vllm/pull/37826>
+- dest `csrc/rocm/moe_q_gemm_rdna2.cu` — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/csrc/rocm/moe_q_gemm_rdna2.cu>
+- AMD, *RDNA 2 Shader Instruction Set Architecture* (ISA 70648) — <https://www.amd.com/content/dam/amd/en/documents/radeon-tech-docs/instruction-set-architectures/rdna2-shader-instruction-set-architecture.pdf>
+- LLVM AMDGPU backend usage (processor feature table, dot insts per target) — <https://llvm.org/docs/AMDGPUUsage.html>
+

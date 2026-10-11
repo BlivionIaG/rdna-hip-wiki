@@ -26,3 +26,36 @@ Window ≈ 2026-09-23 16:24 → 2026-09-24 ~16:14 Europe/Paris. Prior watches + 
 ## Leave
 
 - Custom ROCm AR [#57182](https://github.com/vllm-project/vllm/pull/57182); AITER/ROCm MXFP8 sparse / Mooncake+NIXL PD CI / MoRI / XPU GRAPH; HiCache/Mooncake/NIXL/MoRIIO/UCX product ([#58188](https://github.com/vllm-project/vllm/pull/58188), [#53300](https://github.com/vllm-project/vllm/pull/53300), [#2280](https://github.com/ai-dynamo/nixl/pull/2280), [#40238](https://github.com/sgl-project/sglang/pull/40238) as PD product); Ascend/NPU; Cute-DSL AR / gfx950 QSA/MXFP4; llama DFlash/DSpark convert [#29339](https://github.com/ggml-org/llama.cpp/pull/29339); ExL MemAvailable [#398](https://github.com/turboderp-org/exllamav3/pull/398); HIP ISA; claimed tok/s.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/vllm-project/vllm/pull/57807>
+- <https://github.com/vllm-project/vllm/pull/55507>
+- <https://github.com/vllm-project/vllm/pull/57908>
+- <https://github.com/vllm-project/vllm/pull/57182>
+- <https://github.com/vllm-project/vllm/pull/57586>
+- <https://github.com/vllm-project/vllm/pull/58275>
+- <https://github.com/vllm-project/vllm/pull/57453>
+- <https://github.com/vllm-project/vllm/pull/58459>
+- <https://github.com/vllm-project/vllm/pull/57951>
+- <https://github.com/vllm-project/vllm/pull/49845>
+- <https://github.com/vllm-project/vllm/pull/54631>
+- <https://github.com/vllm-project/vllm/pull/57696>
+- <https://github.com/sgl-project/sglang/pull/40851>
+- <https://github.com/sgl-project/sglang/pull/40649>
+- <https://github.com/sgl-project/sglang/pull/40512>
+- <https://github.com/sgl-project/sglang/pull/40118>
+- <https://github.com/sgl-project/sglang/pull/41096>
+- <https://github.com/sgl-project/sglang/pull/40796>
+- <https://github.com/sgl-project/sglang/pull/40798>
+- <https://github.com/sgl-project/sglang/pull/40983>
+- <https://github.com/turboderp-org/exllamav3/pull/401>
+- <https://github.com/vllm-project/vllm/pull/58188>
+- <https://github.com/vllm-project/vllm/pull/53300>
+- <https://github.com/ai-dynamo/nixl/pull/2280>
+- <https://github.com/sgl-project/sglang/pull/40238>
+- <https://github.com/ggml-org/llama.cpp/pull/29339>
+- <https://github.com/turboderp-org/exllamav3/pull/398>
+

@@ -80,3 +80,11 @@ Reuse if a card already covers it. Occupancy still first.
 4. **Qwen3.5 GDN linear-attn** — Later. No HIP. Do not open until W4A16/FA occupancy is clean.
 
 Paged `num_warps=8` = note on the existing Triton paged / occupancy card.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://huggingface.co/ikantkode/Qwen3.5-4B-AWQ-vd>
+- <https://github.com/ikantkode/gfx1030-vllm-0.26>
+

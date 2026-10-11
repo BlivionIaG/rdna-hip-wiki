@@ -16,7 +16,7 @@ Fork today: DSv4 gfx10x routing keeps MTP off (`VLLM_DISABLE_DSPARK_MTP` / mix o
 | Extra weights | MTP heads on the same checkpoint (not an external speculator). |
 | vs DFlash / DSpark | Serial, no parallel backbone, no confidence scheduler. |
 
-Wrong tool when the batch is already compute-bound, accept rate is low, or k is large under high concurrency (DeepSeek kept MTP-1 in prod for that reason).
+Wrong tool when the batch is already compute-bound, accept rate is low, or k is large under high concurrency (DeepSeek kept MTP-1 in prod for that reason).[^dspark]
 
 ## Diagram — MTP vs DFlash vs DSpark drafting
 
@@ -82,3 +82,13 @@ Occupancy flip. Sage QK. INT2. DFlash / DSpark (own cards). INT8 KV. Writing a d
 - DeepSeek-V3 MTP; V4 production baseline MTP-1 ([DSpark paper](https://arxiv.org/html/2607.05147v1))
 - vLLM `--speculative-config` method `mtp`
 - Lock: HIP MLA still q=1; fat tile before mix/spec/MTP
+
+Added in the 2026-10-11 sourcing pass:
+
+- vLLM docs, Speculative Decoding — <https://docs.vllm.ai/en/latest/features/speculative_decoding/>
+- dest PR #29 — FA-RDNA2 decode kernel for spec-decode verify and mixed batches — <https://github.com/opengfx1030/vllm-rdna/pull/29>
+
+[^dspark]: DSpark paper — <https://arxiv.org/html/2607.05147v1>
+[^deepseek-v3]: DeepSeek-AI, *DeepSeek-V3 Technical Report* (MoE layout, MTP) — <https://arxiv.org/abs/2412.19437>
+[^vllm-parallel-drafting]: vLLM blog, Speculators parallel drafting (DFlash) — <https://vllm.ai/blog/2026-07-28-speculators-parallel-drafting>
+

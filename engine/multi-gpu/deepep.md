@@ -45,3 +45,10 @@ No new DOT. No change to `combine_mode` ownership.
 - SGLang `--moe-a2a-backend` `deepep` / `mori`
 - [silicon/deepep-v620.md](../../silicon/deepep-v620.md)
 - [moe.md](../moe/moe.md), [pd-disagg.md](pd-disagg.md)
+
+Added in the 2026-10-11 sourcing pass:
+
+- DeepEP repository — <https://github.com/deepseek-ai/DeepEP>
+- vLLM docs, Expert Parallel Deployment — <https://docs.vllm.ai/en/stable/serving/expert_parallel_deployment/>
+- AMD ROCm blog, vLLM MoE playbook — <https://rocm.blogs.amd.com/software-tools-optimization/vllm-moe-guide/README.html>
+

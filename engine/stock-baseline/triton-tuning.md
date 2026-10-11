@@ -39,3 +39,12 @@ Stock has no Triton skinny on gfx1030. Experiments:
 - HIP `fdot2` skinny from [fp16-moe.md](../moe/fp16-moe.md)
 
 `VLLM_TRITON_FORCE_FIRST_CONFIG=1` kills autotune noise; it does not pick the fastest config.
+
+## Sources
+
+Added in the 2026-10-11 sourcing pass:
+
+- Triton docs, `triton.autotune` — <https://triton-lang.org/main/python-api/generated/triton.autotune.html>
+- vLLM `triton_attn.py` (TRITON_ATTN backend) — <https://github.com/vllm-project/vllm/blob/main/vllm/v1/attention/backends/triton_attn.py>
+- AMD ROCm docs, vLLM V1 performance optimization (MBT defaults 8192 online / 16384 offline) — <https://rocm.docs.amd.com/projects/ai-ecosystem/en/latest/optimization/vllm-v1-optimization.html>
+

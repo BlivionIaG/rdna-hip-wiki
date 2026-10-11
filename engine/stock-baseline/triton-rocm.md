@@ -63,3 +63,12 @@ Detail: [kernels/triton-skinny-gemm.md](../../kernels/triton-skinny-gemm.md).
 
 - vLLM `49fb2ee`: `platforms/rocm.py`, `backends/triton_attn.py`, `backends/rocm_attn.py`, `ops/triton_unified_attention.py`, `ops/chunked_prefill_paged_decode.py`, `ops/prefix_prefill.py`, `layers/utils.py`
 - #38107 (bf16 on RDNA2)
+
+Added in the 2026-10-11 sourcing pass:
+
+- vLLM `rocm_attn.py` (ROCM_ATTN backend) — <https://github.com/vllm-project/vllm/blob/main/vllm/v1/attention/backends/rocm_attn.py>
+- vLLM `triton_attn.py` (TRITON_ATTN backend) — <https://github.com/vllm-project/vllm/blob/main/vllm/v1/attention/backends/triton_attn.py>
+- vLLM `vllm/platforms/rocm.py` (arch gates, `supports_fp8`, custom paged-attn, custom AR) — <https://github.com/vllm-project/vllm/blob/main/vllm/platforms/rocm.py>
+- vLLM PR #34709 — wvSplitK skinny GEMM for gfx1x (gfx1030 not included) — <https://github.com/vllm-project/vllm/pull/34709>
+- vLLM blog, ROCm attention backends (2026-02-27) — <https://vllm.ai/blog/2026-02-27-rocm-attention-backend>
+

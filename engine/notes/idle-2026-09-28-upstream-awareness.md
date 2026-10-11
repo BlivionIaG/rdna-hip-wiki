@@ -21,3 +21,43 @@ Window ≈ 2026-09-25 15:56 → 2026-09-28 ~02:55 Europe/Paris. Prior watches + 
 ## Leave
 
 - Custom ROCm AR [#57182](https://github.com/vllm-project/vllm/pull/57182); NIXL/Mooncake/MoRIIO product ([#58292](https://github.com/vllm-project/vllm/pull/58292)/[#50047](https://github.com/vllm-project/vllm/pull/50047)/[#49300](https://github.com/vllm-project/vllm/pull/49300)); PD deferred/abort product ([#41402](https://github.com/sgl-project/sglang/pull/41402)/[#41261](https://github.com/sgl-project/sglang/pull/41261)); AITER/gfx950/CSA2 ROCm ([#58867](https://github.com/vllm-project/vllm/pull/58867)/[#57407](https://github.com/vllm-project/vllm/pull/57407)/[#58045](https://github.com/vllm-project/vllm/pull/58045)); FlashKDA/TMA objects; ExL Turing sm_75 [#411](https://github.com/turboderp-org/exllamav3/pull/411); Mamba2 B200 tok/s [#41223](https://github.com/sgl-project/sglang/pull/41223); HIP ISA; claimed tok/s.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/vllm-project/vllm/pull/57807>
+- <https://github.com/vllm-project/vllm/pull/55507>
+- <https://github.com/vllm-project/vllm/pull/57908>
+- <https://github.com/vllm-project/vllm/pull/58863>
+- <https://github.com/vllm-project/vllm/pull/57182>
+- <https://github.com/vllm-project/vllm/pull/57105>
+- <https://github.com/vllm-project/vllm/pull/58454>
+- <https://github.com/vllm-project/vllm/pull/58704>
+- <https://github.com/vllm-project/vllm/pull/58846>
+- <https://github.com/vllm-project/vllm/pull/58499>
+- <https://github.com/vllm-project/vllm/pull/58684>
+- <https://github.com/sgl-project/sglang/pull/41311>
+- <https://github.com/sgl-project/sglang/pull/41312>
+- <https://github.com/sgl-project/sglang/pull/41281>
+- <https://github.com/sgl-project/sglang/pull/41166>
+- <https://github.com/sgl-project/sglang/pull/41248>
+- <https://github.com/sgl-project/sglang/pull/41345>
+- <https://github.com/ggml-org/llama.cpp/pull/27530>
+- <https://github.com/vllm-project/vllm/pull/58851>
+- <https://github.com/vllm-project/vllm/pull/58762>
+- <https://github.com/vllm-project/vllm/pull/58821>
+- <https://github.com/sgl-project/sglang/pull/41484>
+- <https://github.com/sgl-project/sglang/pull/41374>
+- <https://github.com/sgl-project/sglang/pull/41450>
+- <https://github.com/vllm-project/vllm/pull/58292>
+- <https://github.com/vllm-project/vllm/pull/50047>
+- <https://github.com/vllm-project/vllm/pull/49300>
+- <https://github.com/sgl-project/sglang/pull/41402>
+- <https://github.com/sgl-project/sglang/pull/41261>
+- <https://github.com/vllm-project/vllm/pull/58867>
+- <https://github.com/vllm-project/vllm/pull/57407>
+- <https://github.com/vllm-project/vllm/pull/58045>
+- <https://github.com/turboderp-org/exllamav3/pull/411>
+- <https://github.com/sgl-project/sglang/pull/41223>
+

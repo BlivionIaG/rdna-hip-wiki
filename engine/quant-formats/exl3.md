@@ -34,3 +34,9 @@ RDNA2-optimal convert: REAP official MXFP4 experts → Viterbi keepers only at *
 ## Sources
 
 - Note 2026-08-22: `K` template, `3inst` produce / `mcg` compile, no `mul1`, pair→`half2`
+
+Added in the 2026-10-11 sourcing pass:
+
+- exllamav3 repository (EXL3) — <https://github.com/turboderp-org/exllamav3>
+- Tseng et al., *QTIP: Quantization with Trellises and Incoherence Processing* — <https://arxiv.org/abs/2406.11235>
+

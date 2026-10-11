@@ -139,3 +139,10 @@ One FlyDSL research card, blocked behind baseline harness and skinny comparisons
 - `kernels/attention/{flash_attn_generic,flash_attn_utils}.py`
 - FlyDSL wheel/CI: `.github/workflows/{build-whl,test-whl}.yaml`
 - LLVM AMDGPU gfx1030 assembler and `llvm.amdgcn.fdot2` tests
+
+Added in the 2026-10-11 sourcing pass:
+
+- ROCm FlyDSL repository — <https://github.com/ROCm/FlyDSL>
+- AMD, *RDNA 2 Shader Instruction Set Architecture* (ISA 70648) — <https://www.amd.com/content/dam/amd/en/documents/radeon-tech-docs/instruction-set-architectures/rdna2-shader-instruction-set-architecture.pdf>
+- AMD GPUOpen, *How to accelerate AI applications on RDNA 3 using WMMA* — <https://gpuopen.com/learn/wmma_on_rdna3/>
+

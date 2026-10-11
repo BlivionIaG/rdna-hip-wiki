@@ -58,3 +58,10 @@ Native HIP gates (for the record, they fail here): CDNA head 64/128; gfx11/12 he
 - `vllm/v1/attention/backends/{triton_attn,rocm_attn}.py`
 - `vllm/v1/attention/ops/{triton_unified_attention,prefix_prefill,chunked_prefill_paged_decode,triton_decode_attention}.py`
 - `vllm/platforms/rocm.py::use_rocm_custom_paged_attention`
+
+Added in the 2026-10-11 sourcing pass:
+
+- vLLM `triton_attn.py` (TRITON_ATTN backend) — <https://github.com/vllm-project/vllm/blob/main/vllm/v1/attention/backends/triton_attn.py>
+- vLLM `rocm_attn.py` (ROCM_ATTN backend) — <https://github.com/vllm-project/vllm/blob/main/vllm/v1/attention/backends/rocm_attn.py>
+- vLLM blog, ROCm attention backends (2026-02-27) — <https://vllm.ai/blog/2026-02-27-rocm-attention-backend>
+
