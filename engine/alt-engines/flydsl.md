@@ -59,7 +59,7 @@ Prefer LLVM intrinsics; inline assembly is fallback. ISA evidence is mandatory.
 
 ## Gate 0 — compiler smoke
 
-1. Install a FlyDSL wheel/source matching the live ROCm **7.14.0** pin ([toolchain/matrix.md](../../toolchain/matrix.md)). The earlier "ROCm 7.2" here was the 2026-08 host-era version, not the pin.
+1. Install a FlyDSL wheel/source matching the live ROCm **7.14.0** pin ([toolchain/pin/README.md](../../toolchain/pin/README.md)). The earlier "ROCm 7.2" here was the 2026-08 host-era version, not the pin.
 2. Set `FLYDSL_GPU_ARCH=gfx1030`.
 3. Compile/run the simplest vector-add kernel.
 4. Dump code object/ISA: correct gfx1030 target, wave32, no gfx11/12 opcodes.

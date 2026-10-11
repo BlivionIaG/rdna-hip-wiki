@@ -1,8 +1,8 @@
 # PLX / PEX switches — engine contract
 
-Date: 2026-08-19. Engine page for **PEX88096** (Gen4) and **PEX8749** (Gen3). Silicon/register dump: [silicon/plx-p2p-mmio.md](../../silicon/plx-p2p-mmio.md). Bench lives in [v620_toolbox/pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/master/pcie_p2p). Do **not** invent GB/s or a “P2P works” claim for an unmeasured hop. Occupancy still first.
+Date: 2026-08-19. Engine page for **PEX88096** (Gen4) and **PEX8749** (Gen3). Silicon/register dump: [silicon/interconnect/plx-p2p-mmio.md](../../silicon/interconnect/plx-p2p-mmio.md). Bench lives in [v620_toolbox/pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/master/pcie_p2p). Do **not** invent GB/s or a “P2P works” claim for an unmeasured hop. Occupancy still first.
 
-Companions: [silicon/plx-p2p-mmio.md](../../silicon/plx-p2p-mmio.md), [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md), [deepep.md](deepep.md), [multi-tier.md](../moe/multi-tier.md).
+Companions: [silicon/interconnect/plx-p2p-mmio.md](../../silicon/interconnect/plx-p2p-mmio.md), [silicon/interconnect/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md), [deepep.md](deepep.md), [multi-tier.md](../moe/multi-tier.md).
 
 ## Reference hardware (2026-08-19)
 
@@ -42,7 +42,7 @@ Sources: [BC-0484EN](https://docs.broadcom.com/doc/BC-0484EN), [BC00-0445EN](htt
 
 ## Engine ceiling (math only)
 
-PCIe payload one way, 128b/130b ([silicon/rccl-p2p.md](../../silicon/rccl-p2p.md)):
+PCIe payload one way, 128b/130b ([silicon/interconnect/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md)):
 
 | Hop | x16 payload | Ring n=4 algbw ceiling (`1.5 S/B`) |
 |---|---|---|
@@ -52,7 +52,7 @@ PCIe payload one way, 128b/130b ([silicon/rccl-p2p.md](../../silicon/rccl-p2p.md
 
 A V620 is Gen4 x16 **to the slot**. If the path is 8749 (or a V340L), the **device or switch** is the gen drop. `lspci` **LnkSta** (not LnkCap) is the number that matters.
 
-**Lane budget:** one 88096 = 96 data lanes = **one 5-slot x16 backplane** (CPU + 5 GPU). Two of those = 10× x16. One chip still cannot do 2+8 x16 alone (176). Two chips can (5+5). One 8749 cannot do 4× x16. [silicon/plx-p2p-mmio.md](../../silicon/plx-p2p-mmio.md).
+**Lane budget:** one 88096 = 96 data lanes = **one 5-slot x16 backplane** (CPU + 5 GPU). Two of those = 10× x16. One chip still cannot do 2+8 x16 alone (176). Two chips can (5+5). One 8749 cannot do 4× x16. [silicon/interconnect/plx-p2p-mmio.md](../../silicon/interconnect/plx-p2p-mmio.md).
 
 ## What we use vs what we ignore
 
@@ -83,7 +83,7 @@ A V620 is Gen4 x16 **to the slot**. If the path is 8749 (or a V340L), the **devi
 | `lspci` AtomicOps | present (ROCm requires PCIe atomics) |
 | BIOS | Above 4G Decoding on, ReBAR on, CSM off, ACS off for bare metal |
 | IOMMU | Remap is AMD’s Radeon-P2P story; `iommu=pt` is the RCCL hang workaround. **Measure both.** |
-| Host kernel | `dmesg \| grep "Initialized amdgpu"` reports DRM **≥ 3.64** before trusting rccl-tests. Older stock kernels (Ubuntu 24.04 6.8) give silent RCCL corruption; `HSA_DISABLE_CACHE=1` is only a stopgap. [toolchain/comms.md](../../toolchain/comms.md) (2026-10-07), [toolchain/hip-runtime.md](../../toolchain/hip-runtime.md)[^drm364] |
+| Host kernel | `dmesg \| grep "Initialized amdgpu"` reports DRM **≥ 3.64** before trusting rccl-tests. Older stock kernels (Ubuntu 24.04 6.8) give silent RCCL corruption; `HSA_DISABLE_CACHE=1` is only a stopgap. [toolchain/comms/README.md](../../toolchain/comms/README.md) (2026-10-07), [toolchain/runtime/README.md](../../toolchain/runtime/README.md)[^drm364] |
 | HIP | `hipDeviceCanAccessPeer` all 1s; `isLargeBar==1` |
 | RCCL | `HSA_FORCE_FINE_GRAIN_PCIE=1`; log shows **P2P** not only SHM; small-S not ~215 ms ([ROCm #6576](https://github.com/ROCm/legacy-rocm-build/issues/6576)) |
 | Toolbox | `amd-smi topology` GPU↔GPU **ENABLED**, hops 2, PCIE — validated 4×V620 state in `pcie_p2p/AGENTS.md` |
@@ -99,7 +99,7 @@ Do not expect `/dev/switchtec0` on a Broadcom 88096 in Base Mode — that node i
 ## Engine rules that do not change
 
 1. Occupancy work on dest first (decode flip landed at `1dc3bac4`; prefill left — [attention-dispatch.md](../attention/attention-dispatch.md)). PLX tune is **Later** platform work.
-2. TP all-reduce: Stock vLLM custom AR is gfx94/95 only; dest ships `rdna_ar`, a push one-shot all-reduce up to a runtime gate of min(`VLLM_RDNA_AR_MAX_KB`, `VLLM_RDNA_AR_ONESHOT_KB`), both default 64 KiB (`RDNA_AR_ONESHOT_MAX` is only the compile-time default), RCCL above[^d-ar]; two-shot was removed; since `00fcc97f` each call returns a fresh output tensor[^dest-rdna-ar]. Mechanics: [silicon/rdna-allreduce.md](../../silicon/rdna-allreduce.md); whether it is on: [fork/serve-locks.md](../../fork/serve-locks.md). Engine consequence for PLX: no claim beyond that one-shot path on gfx1030 until a measured PIX busbw exists.
+2. TP all-reduce: Stock vLLM custom AR is gfx94/95 only; dest ships `rdna_ar`, a push one-shot all-reduce up to a runtime gate of min(`VLLM_RDNA_AR_MAX_KB`, `VLLM_RDNA_AR_ONESHOT_KB`), both default 64 KiB (`RDNA_AR_ONESHOT_MAX` is only the compile-time default), RCCL above[^d-ar]; two-shot was removed; since `00fcc97f` each call returns a fresh output tensor[^dest-rdna-ar]. Mechanics: [silicon/interconnect/rdna-allreduce.md](../../silicon/interconnect/rdna-allreduce.md); whether it is on: [fork/serve-locks.md](../../fork/serve-locks.md). Engine consequence for PLX: no claim beyond that one-shot path on gfx1030 until a measured PIX busbw exists.
 3. DeepEP steal is still **mapped-peer scatter/combine over BAR0**, not IBGDA, not switch DMA. [deepep.md](deepep.md).
 4. Hetero W7800↔V620: **activations only**; live KV stays on gfx1100.
 5. W4A16 does not shrink the AR (residual is still FP16).
@@ -119,10 +119,10 @@ Later. One platform card: “PEX ACS + PIX matrix” after occupancy. do not ret
 - https://docs.broadcom.com/doc/BC-0484EN (PEX88000 brief, 2019-07-17)
 - https://docs.broadcom.com/doc/BC00-0445EN (family table)
 - https://docs.broadcom.com/doc/12351856 (PEX8749 brief, 2011-08-22)
-- [silicon/plx-p2p-mmio.md](../../silicon/plx-p2p-mmio.md)
-- [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md)
+- [silicon/interconnect/plx-p2p-mmio.md](../../silicon/interconnect/plx-p2p-mmio.md)
+- [silicon/interconnect/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md)
 - [v620_toolbox pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/master/pcie_p2p)
 
-[^drm364]: amdgpu DRM ≥ 3.64 host gate — <https://github.com/ROCm/legacy-rocm-build/issues/6565>, <https://github.com/ROCm/rocm-systems/issues/12145>, <https://github.com/ROCm/rocm-systems/issues/9820>; summary in toolchain/hip-runtime.md
+[^drm364]: amdgpu DRM ≥ 3.64 host gate — <https://github.com/ROCm/legacy-rocm-build/issues/6565>, <https://github.com/ROCm/rocm-systems/issues/12145>, <https://github.com/ROCm/rocm-systems/issues/9820>; summary in toolchain/pin/README.md
 [^dest-rdna-ar]: dest `csrc/rocm/rdna_allreduce.cuh` (`RDNA_AR_ONESHOT_MAX` 65536, two-shot removed) — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/rdna_allreduce.cuh#L66-L70>; `vllm/envs.py` `VLLM_RDNA_AR` comment — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/envs.py#L1470-L1476>; fresh output per call — <https://github.com/opengfx1030/vllm-rdna/commit/00fcc97ff5015158da93f52bd32f2c70757f0f8a>
 [^d-ar]: dest `vllm/distributed/device_communicators/rdna_all_reduce.py` `resolve_gate_kb()` — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/distributed/device_communicators/rdna_all_reduce.py#L52-L80>; `csrc/rocm/rdna_allreduce.cuh` `RDNA_AR_ONESHOT_MAX` (compile-time default) — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/rdna_allreduce.cuh#L66-L70>; runtime override in `rdna_allreduce.cu` — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/rdna_allreduce.cu#L88-L91>

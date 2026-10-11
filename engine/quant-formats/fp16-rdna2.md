@@ -2,7 +2,7 @@
 
 Date: 2026-08-18. Engine study. Occupancy on `fa_rdna2` + `skinny_gemms.cu` still first. Do not invent tok/s.
 
-Silicon contract: [silicon/fp16-rdna2.md](../../silicon/fp16-rdna2.md) (peak numbers: [silicon/valu.md](../../silicon/valu.md)). MoE: [fp16-moe.md](../moe/fp16-moe.md) + [kernels/fp16-moe.md](../../kernels/fp16-moe.md). Baselines: [baseline-order.md](../stock-baseline/baseline-order.md), [kernels/triton-skinny-gemm.md](../../kernels/triton-skinny-gemm.md). Attention: [attention-dispatch.md](../attention/attention-dispatch.md).
+Silicon contract: [silicon/arch-and-memory/fp16-rdna2.md](../../silicon/arch-and-memory/fp16-rdna2.md) (peak numbers: [silicon/arch-and-memory/valu.md](../../silicon/arch-and-memory/valu.md)). MoE: [fp16-moe.md](../moe/fp16-moe.md) + [kernels/fp16-moe.md](../../kernels/fp16-moe.md). Baselines: [baseline-order.md](../stock-baseline/baseline-order.md), [kernels/triton-skinny-gemm.md](../../kernels/triton-skinny-gemm.md). Attention: [attention-dispatch.md](../attention/attention-dispatch.md).
 
 ## The only inner op
 
@@ -10,7 +10,7 @@ Silicon contract: [silicon/fp16-rdna2.md](../../silicon/fp16-rdna2.md) (peak num
 acc_f32 = fdot2(a_f16x2, b_f16x2, acc_f32)   // prefer V_DOT2C_F32_F16
 ```
 
-Ceiling is still **256 FP16 FLOP/clk/CU** *(derived: 2 SIMD32 × 32 lanes × DOT2 = 4 FLOP per lane; the ISA guide gives no rates — see [silicon/valu.md](../../silicon/valu.md))*. `V_DOT2C_F32_F16` VOP2 form: ISA guide[^rdna2-isa]. No WMMA, no MFMA, no AGPR, no bf16 dot/ALU (bf16 goes through f32 conversion)[^llvm-amdgpu-td]. Prefer the **C** form (VOP2, dest=accum). `V_PK_FMA_F16` can also hit 256 but accumulates **fp16** — epilogue only, never the GEMM/attention reduction. Scalar FMA after unpack is bring-up, not the roofline.
+Ceiling is still **256 FP16 FLOP/clk/CU** *(derived: 2 SIMD32 × 32 lanes × DOT2 = 4 FLOP per lane; the ISA guide gives no rates — see [silicon/arch-and-memory/valu.md](../../silicon/arch-and-memory/valu.md))*. `V_DOT2C_F32_F16` VOP2 form: ISA guide[^rdna2-isa]. No WMMA, no MFMA, no AGPR, no bf16 dot/ALU (bf16 goes through f32 conversion)[^llvm-amdgpu-td]. Prefer the **C** form (VOP2, dest=accum). `V_PK_FMA_F16` can also hit 256 but accumulates **fp16** — epilogue only, never the GEMM/attention reduction. Scalar FMA after unpack is bring-up, not the roofline.
 
 HIP: `__builtin_amdgcn_fdot2`, K even, `half2`-aligned. hipcc will **not** peephole `__hfma2` into DOT. ISA-dump it.
 
@@ -59,7 +59,7 @@ Reuse occupancy + baseline epic. Not a new first kernel ticket.
 
 ## Sources
 
-- [silicon/fp16-rdna2.md](../../silicon/fp16-rdna2.md)
+- [silicon/arch-and-memory/fp16-rdna2.md](../../silicon/arch-and-memory/fp16-rdna2.md)
 - [baseline-order.md](../stock-baseline/baseline-order.md), [fp16-moe.md](../moe/fp16-moe.md)
 - Note 2026-08-18
 

@@ -1,6 +1,6 @@
 # MoE expert offloading
 
-Date: 2026-08-18. Sourced only. DeepEP / asymmetric A2A: [deepep.md](../multi-gpu/deepep.md). Hetero placement (W7800 + V620): [multi-tier.md](multi-tier.md) + [silicon/hetero-moe-w7800-v620.md](../../silicon/hetero-moe-w7800-v620.md).
+Date: 2026-08-18. Sourced only. DeepEP / asymmetric A2A: [deepep.md](../multi-gpu/deepep.md). Hetero placement (W7800 + V620): [multi-tier.md](multi-tier.md) + [silicon/interconnect/hetero-moe-w7800-v620.md](../../silicon/interconnect/hetero-moe-w7800-v620.md).
 
 **Product path:** vLLM fork first, then SGLang. Llaminar is a placement model, not the base.
 
