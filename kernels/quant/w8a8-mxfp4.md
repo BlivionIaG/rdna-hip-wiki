@@ -1,6 +1,6 @@
 # W8A8 + mxfp4 on gfx1030 — kernel-writer brief
 
-Audience: someone writing custom HIP W8A8 (dense + MoE) and mxfp4 kernels for gfx1030 (4× Radeon PRO V620, ROCm 7.2). This is a study of **vLLM / llama.cpp / AITER / ISA**, not a review of a private tree.
+Audience: someone writing custom HIP W8A8 (dense + MoE) and mxfp4 kernels for gfx1030 (4× Radeon PRO V620; ROCm 7.2 when this brief was written — live pin is now ROCm 7.14.0). This is a study of **vLLM / llama.cpp / AITER / ISA**, not a review of a private tree.
 
 Rule: every concrete number is attributed. If a figure is not in a source that was opened, it is marked **unknown**. Do not contradict the companions.
 

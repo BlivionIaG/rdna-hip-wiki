@@ -14,7 +14,7 @@ Date: 2026-09-28. Priority target: gfx1030 (V620).
   https://docs.modular.com/packages/ · https://mojolang.org/docs/requirements/
 - 2026-06-27 Modular: Deck RDNA2 Mojo examples OK; MAX graphs zeros; **no RDNA2 model kernel paths yet**.  
   https://forum.modular.com/t/programming-the-steam-decks-gpu-with-mojo-and-max/3282
-- Code: RDNA1/2 tensor-core path `constrained[False, … not yet implemented]`.
+- Code: RDNA1/2 tensor-core path is a compile-time failure — `comptime assert False, "RDNA1/RDNA2 tensor core support requires fallback paths (not yet implemented)"` (earlier spelled `constrained[False, …]`).
 - MAX 26.5 (2026-08-11) / 26.6 (2026-09-17): `max.gpu` rehome; AMD work = CDNA4/MI355 + RDNA3+ WMMA.  
   https://max.modular.com/releases/v26.5/ · https://max.modular.com/releases/v26.6/
 

@@ -20,7 +20,7 @@ Env defaults are **`"1"`** (dispatch ON) despite stale “GATED OFF” comments:
 | Env | Default | Path |
 |---|---|---|
 | `VLLM_CAUSAL_CONV1D_RDNA2_FWD` | `"1"` | Prefill: HIP **before** Triton, early `return` — correct |
-| `VLLM_CAUSAL_CONV1D_RDNA2_UPDATE` | `"1"` | Decode: HIP sits **after** `_causal_conv1d_update_kernel[grid](../...)` — Triton already launched; HIP may overwrite `out` / `conv_state` |
+| `VLLM_CAUSAL_CONV1D_RDNA2_UPDATE` | `"1"` | Decode: HIP sits **after** `_causal_conv1d_update_kernel[grid](...)` — Triton already launched; HIP may overwrite `out` / `conv_state` |
 
 **Leave / fix later:** move the UPDATE HIP block above the Triton launch (mirror FWD), or the decode path double-fires. Author notes production faults at GDN `dim=5120` / `block_size=784` page alignment — do not claim soak-clean.
 
