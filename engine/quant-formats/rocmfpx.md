@@ -1,8 +1,8 @@
 # ROCmFPX — leverage, not a vLLM port
 
-Date: 2026-08-18. Contract. Digest: [notes/rocmfpx.md](notes/rocmfpx.md). Source: [charlie12345/ROCmFPX](https://github.com/charlie12345/ROCmFPX). Occupancy still first. Do not edit `perf/rdna2_w4a16` from here.
+Date: 2026-08-18. Contract. Digest: [notes/rocmfpx.md](../notes/rocmfpx.md). Source: [charlie12345/ROCmFPX](https://github.com/charlie12345/ROCmFPX). Occupancy still first. Do not edit `perf/rdna2_w4a16` from here.
 
-**Verdict:** no vLLM port. llama.cpp GGUF + HIP/Vulkan. Tuned on Strix `gfx1151`; AMD also gave them an **R9700 (RDNA4 / gfx1200)**. `scripts/build-rdna2.sh` exists. We **leverage** codebook→`perm`→`sdot4`. Side project: [llamacpp-rocmfpx.md](llamacpp-rocmfpx.md).
+**Verdict:** no vLLM port. llama.cpp GGUF + HIP/Vulkan. Tuned on Strix `gfx1151`; AMD also gave them an **R9700 (RDNA4 / gfx1200)**. `scripts/build-rdna2.sh` exists. We **leverage** codebook→`perm`→`sdot4`. Side project: [llamacpp-rocmfpx.md](../alt-engines/llamacpp-rocmfpx.md).
 
 **Do not copy their tok/s** (Vulkan 90 / HIP 76 / MTP 116 on Strix or R9700). RDNA4 has WMMA/better FA. gfx1030 does not.
 
@@ -69,4 +69,4 @@ Only if someone names a **safetensors** checkpoint with this codebook. Then: new
 
 - ROCmFPX README (2026-08): R9700 disclosure, Strix tables, `llama-server` example
 - llama.cpp `tools/server`: `--cache-prompt`, `-cb`, `-np`
-- [llamacpp-rocmfpx.md](llamacpp-rocmfpx.md), [notes/rocmfpx.md](notes/rocmfpx.md)
+- [llamacpp-rocmfpx.md](../alt-engines/llamacpp-rocmfpx.md), [notes/rocmfpx.md](../notes/rocmfpx.md)

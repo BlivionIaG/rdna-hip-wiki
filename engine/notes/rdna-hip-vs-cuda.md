@@ -2,7 +2,7 @@
 
 Date: 2026-08-28. Scope: **4×/8× V620 gfx1030**, extras HIP, later hippih. Not Instinct. Not a CUDA port. Do not invent tok/s. Occupancy still first. Pin stays closed. No new ticket.
 
-Contract index: [../coverage.md](../coverage.md). Silicon: [../../silicon/valu.md](../../silicon/valu.md), [../../silicon/rccl-p2p.md](../../silicon/rccl-p2p.md). Tickets: see [project 4](https://github.com/users/BlivionIaG/projects/4).
+Contract index: [../coverage.md](../overview/coverage.md). Silicon: [../../silicon/valu.md](../../silicon/valu.md), [../../silicon/rccl-p2p.md](../../silicon/rccl-p2p.md). Tickets: see [project 4](https://github.com/users/BlivionIaG/projects/4).
 
 Three different “missing.” Do not mix them.
 
@@ -57,7 +57,7 @@ CUDA’s stand-in for that exclude list is CUTLASS + cublasLt + FA3 + Nsight roo
 | Marlin / Machete / vendor NVFP4 | unpack → `fdot2` if we ever take the format | **Dead** as a port |
 | TensorRT-LLM | extras / later hippih | Leave |
 | bitsandbytes | — | **Dead** (AMD column ❌) |
-| DeepEP / IBGDA / MORI | mapped-peer PCIe after measured P2P | Later. [../deepep.md](../deepep.md) |
+| DeepEP / IBGDA / MORI | mapped-peer PCIe after measured P2P | Later. [../deepep.md](../multi-gpu/deepep.md) |
 | AITER / CK FA / shuffle MLA | — | **Dead** (CDNA) |
 | Custom AR / QuickReduce | PYNCCL `_all_reduce_out_place` | gfx94/95 only. Already bypassed |
 | CUDA Graphs + PDL | HIP FULL-graph glue | Live glue. Recaptures the `(1,1)` occupancy trap |
@@ -88,7 +88,7 @@ Not fixed: occupancy `(1,1)` on `fa_rdna2` + `skinny_gemms.cu`, MLA prefill `loa
 
 ## 6. Add / improve for our needs
 
-Same order as [../coverage.md](../coverage.md) v2 write list. Do **not** open a parallel CUDA-parity epic.
+Same order as [../coverage.md](../overview/coverage.md) v2 write list. Do **not** open a parallel CUDA-parity epic.
 
 **Now (pin closed — current subjects only)**
 

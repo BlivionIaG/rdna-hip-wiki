@@ -46,7 +46,7 @@ Project 4: **Later: hippihx HIP op zoo (thin rdna_extras)** + migrate FA / EXL3 
 
 - Note 2026-09-08: b12x methodology; hippihx repo + scaffold agent
 - [hippih.md](hippih.md) — historical in-house engine card; V620 zoo superseded by this page
-- [rdna2-extras.md](rdna2-extras.md), [exl3.md](exl3.md), [coverage.md](coverage.md)
+- [rdna2-extras.md](../serving-stack/rdna2-extras.md), [exl3.md](../quant-formats/exl3.md), [coverage.md](../overview/coverage.md)
 
 ## Arch matrix (locked 2026-09-08)
 

@@ -1,6 +1,6 @@
 # NVFP4 on gfx1030 — engine spec
 
-Date: 2026-08-17. Engine contract. Silicon tile / ISA dump lives with RDNA2_Researcher under [kernels/](../kernels/README.md) once they add it. Tickets: one card on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not edit `perf/rdna2_w4a16` from this page. Occupancy is still the current code subject; this is the queued spec.
+Date: 2026-08-17. Engine contract. Silicon tile / ISA dump lives with RDNA2_Researcher under [kernels/](../../kernels/README.md) once they add it. Tickets: one card on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not edit `perf/rdna2_w4a16` from this page. Occupancy is still the current code subject; this is the queued spec.
 
 **Verdict:** there is no NVFP4 unit on gfx1030. We run NVFP4 checkpoints by unpacking E2M1 to fp16 on the fly and issuing `fdot2`. That is the same inner op as live mxfp4 (`mxfp4_dot2_common.cuh`). The delta is the scale path, not a new DOT.
 
@@ -99,5 +99,5 @@ Occupancy flip (`fa_rdna2` / `skinny_gemms`). Sage QK. HIP MLA fp16. W8A8 `sdot4
 
 - NVIDIA NVFP4: E2M1 + E4M3 / 16 + optional FP32 ([blog](https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/), [TE](https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/features/low_precision_training/nvfp4/nvfp4.html))
 - Live mxfp4: `mxfp4_dot2_common.cuh` @ `290715e6` (4× `fdot2` / 8 K)
-- [kernels/w8a8-mxfp4.md](../kernels/w8a8-mxfp4.md) §1 / §6—7 (unpack → `fdot2`; no `sdot8` on E2M1)
-- [coverage.md](coverage.md)
+- [kernels/w8a8-mxfp4.md](../../kernels/w8a8-mxfp4.md) §1 / §6—7 (unpack → `fdot2`; no `sdot8` on E2M1)
+- [coverage.md](../overview/coverage.md)

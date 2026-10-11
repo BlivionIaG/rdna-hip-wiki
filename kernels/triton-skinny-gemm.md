@@ -1,12 +1,12 @@
 # Stock skinny GEMM on gfx1030 (and what does not fire)
 
-Date: 2026-08-18. **Stock only.** vLLM `main` @ `49fb2ee`. Engine map: [engine/triton-rocm.md](../engine/triton-rocm.md). Tuning: [engine/triton-tuning.md](../engine/triton-tuning.md).
+Date: 2026-08-18. **Stock only.** vLLM `main` @ `49fb2ee`. Engine map: [engine/stock-baseline/triton-rocm.md](../engine/stock-baseline/triton-rocm.md). Tuning: [engine/stock-baseline/triton-tuning.md](../engine/stock-baseline/triton-tuning.md).
 
 ## Verdict
 
 Stock unquantized decode GEMM on gfx1030 is **`torch.nn.functional.linear`** (rocBLAS / maybe hipBLASLt). HIP `wvSplitK` and `LLMM1` exist in `csrc/rocm/skinny_gemms.cu` but the Python gate is `on_gfx9() or on_gfx1x()`. **gfx1030 is neither.** `VLLM_ROCM_USE_SKINNY_GEMM=1` does nothing here.
 
-Our fork occupancy ticket on `skinny_gemms.cu` is still real if we open that gate. ikantkode opening `LLMM1` for gfx1030 is overlay, not stock ([engine/qwen35.md](../engine/qwen35.md)).
+Our fork occupancy ticket on `skinny_gemms.cu` is still real if we open that gate. ikantkode opening `LLMM1` for gfx1030 is overlay, not stock ([engine/run-recipes/qwen35.md](../engine/run-recipes/qwen35.md)).
 
 ## Dispatcher (`rocm_unquantized_gemm_impl`)
 

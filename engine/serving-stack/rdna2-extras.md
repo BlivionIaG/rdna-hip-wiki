@@ -48,7 +48,7 @@ Use `on_gfx10x()` for our kernels. Any new upstream `on_rdna()` gate will **skip
 |---|---|
 | [vllm-rdna-docker](https://github.com/BlivionIaG/vllm-rdna-docker) | Image build. Stay on extras, not ikantkode overlay. |
 | [v620_toolbox](https://github.com/BlivionIaG/v620_toolbox) | Power + `pcie_p2p`. Later measured-P2P source for DeepEP/hetero. Not first. |
-| [hippih](https://github.com/BlivionIaG/hippih) | In-house HIP engine (README stub). Path #3 after extras + Llaminar. Contract: [hippih.md](hippih.md). Do not start before occupancy. |
+| [hippih](https://github.com/BlivionIaG/hippih) | In-house HIP engine (README stub). Path #3 after extras + Llaminar. Contract: [hippih.md](../alt-engines/hippih.md). Do not start before occupancy. |
 
 ## Next release rebase
 
@@ -63,4 +63,4 @@ Retip In Progress work to `rdna2_extras` @ `3e05abc9`. Occupancy still first. Sa
 - `9ff87936` merge message, `3e05abc9` all-reduce
 - `vllm/platforms/rocm.py` on extras
 - RDNA2_Researcher HIP review (`kernels/rdna2-extras.md`)
-- [coverage.md](coverage.md), [fork-delta.md](fork-delta.md), [hippih.md](hippih.md)
+- [coverage.md](../overview/coverage.md), [fork-delta.md](fork-delta.md), [hippih.md](../alt-engines/hippih.md)

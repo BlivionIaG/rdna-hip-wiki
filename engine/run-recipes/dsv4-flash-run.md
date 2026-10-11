@@ -1,6 +1,6 @@
 # DeepSeek-V4-Flash on 4	imesV620 (120 GB) — quality destination
 
-Date: 2026-08-22. Engine contract. Human branch **`rdna2_extras`**. Occupancy still first. Pair with [exl3.md](exl3.md), [dspark.md](dspark.md), [silicon/dsv4-flash.md](../silicon/dsv4-flash.md).
+Date: 2026-08-22. Engine contract. Human branch **`rdna2_extras`**. Occupancy still first. Pair with [exl3.md](../quant-formats/exl3.md), [dspark.md](../spec-decoding/dspark.md), [silicon/dsv4-flash.md](../../silicon/dsv4-flash.md).
 
 **Goal (user lock):** maximize quality with **QTIP/EXL3** and a **native HIP** kernel that runs it. Size target is **K216-class ~100 GiB** so 4×30 GB (120 GB) still has KV room. Official 0731 QAT MXFP4/MXFP8 is the *producer input*, not the all-GPU serve. Int4-FP8 is a side checkpoint, not the quality path.
 
@@ -38,7 +38,7 @@ Do **not** MXFP4 → Int4/W4, then EXL3. Do **not** Viterbi all 256 then REAP. D
 
 1. Occupancy flip still first — EXL3 is a fatter unpack on that same launch.
 2. REAP official MXFP4 experts → Viterbi retained only → K216-class EXL3.
-3. One HIP kernel for QTIP dump or EXL3 ([exl3.md](exl3.md)).
+3. One HIP kernel for QTIP dump or EXL3 ([exl3.md](../quant-formats/exl3.md)).
 4. KV: short ctx, existing HIP MLA record.
 5. DSpark/MTP off until fat tile.
 6. Later card is up: “QTIP/EXL3 HIP, K216-class DSv4 Flash.”

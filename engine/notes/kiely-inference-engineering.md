@@ -60,7 +60,7 @@ RDNA / gfx1030 / Wave32. HIP / ROCm 7 / RCCL / PCIe P2P / no XGMI. Packed DOT. I
 
 ## 7. Contract pages touched
 
-Short Kiely addenda landed on [pd-disagg.md](../pd-disagg.md), [specdec.md](../specdec.md), [batching.md](../batching.md), [kv-quant-offload.md](../kv-quant-offload.md). Verdicts unchanged. Full-map not rewritten.
+Short Kiely addenda landed on [pd-disagg.md](../multi-gpu/pd-disagg.md), [specdec.md](../spec-decoding/specdec.md), [batching.md](../scheduling/batching.md), [kv-quant-offload.md](../kv-cache/kv-quant-offload.md). Verdicts unchanged. Full-map not rewritten.
 
 See the long-form keep/adapt/skip writeup on disk at `optional long-form notes (not checked into this wiki)` if you want the per-section notes. This wiki page is the durable index.
 

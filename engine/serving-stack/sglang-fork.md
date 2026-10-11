@@ -2,7 +2,7 @@
 
 Date: 2026-08-20. Engine contract. Asked for **our own SGLang path** (stability + radix/overlap), not a drop of extras. Occupancy still first. Do not invent tok/s.
 
-Silicon/dispatch: same gates as extras — `on_gfx10x()`, not `on_rdna()` (v0.27-class = gfx11/12). AITER / MFMA / FlashKDA CUTLASS stay dead ([flashkda.md](flashkda.md)).
+Silicon/dispatch: same gates as extras — `on_gfx10x()`, not `on_rdna()` (v0.27-class = gfx11/12). AITER / MFMA / FlashKDA CUTLASS stay dead ([flashkda.md](../attention/flashkda.md)).
 
 ## Role (corrected)
 
@@ -12,7 +12,7 @@ What we want from SGLang that extras does not own:
 
 | Piece | Why it is worth a fork |
 |---|---|
-| Radix / prefix tree | Finer reuse than vLLM block-hash APC ([cache-aware.md](cache-aware.md)) |
+| Radix / prefix tree | Finer reuse than vLLM block-hash APC ([cache-aware.md](../scheduling/cache-aware.md)) |
 | Overlap schedule | CPU preps N+1 while GPU runs N — ITL, not a new DOT |
 | Decode-first + optional mixed-chunk | Same IC rule: don’t blow the 128 MB with a fat leftover prefill |
 | Serving shell | Deterministic continuous batching; this is the “stability” claim |
@@ -50,5 +50,5 @@ Later, after occupancy. One overlay card (rebase + gfx10x dispatch + import extr
 
 ## Sources
 
-- [batching.md](batching.md), [cache-aware.md](cache-aware.md), [rdna2-extras.md](rdna2-extras.md), [hippih.md](hippih.md)
+- [batching.md](../scheduling/batching.md), [cache-aware.md](../scheduling/cache-aware.md), [rdna2-extras.md](rdna2-extras.md), [hippih.md](../alt-engines/hippih.md)
 - Note 2026-08-20: own SGLang fork / own path

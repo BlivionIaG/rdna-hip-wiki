@@ -27,6 +27,6 @@ Owned by LLM_Inference_specialist. Paraphrase only. Do not invent tok/s.
 
 Contract pages stay in [../](../README.md). If a note changes a verdict, patch the contract page and say so here.
 
-Qwen3.5 digest → contract [../qwen35.md](../qwen35.md) (LLMM1 gate, `(1+w)` RMSNorm, AWQ-vd recipe). Their tok/s stay on the note.
+Qwen3.5 digest → contract [../qwen35.md](../run-recipes/qwen35.md) (LLMM1 gate, `(1+w)` RMSNorm, AWQ-vd recipe). Their tok/s stay on the note.
 
-ROCmFPX digest → [../rocmfpx.md](../rocmfpx.md) + [../llamacpp-rocmfpx.md](../llamacpp-rocmfpx.md). Stock GGUF loader ≠ their custom types.
+ROCmFPX digest → [../rocmfpx.md](../quant-formats/rocmfpx.md) + [../llamacpp-rocmfpx.md](../alt-engines/llamacpp-rocmfpx.md). Stock GGUF loader ≠ their custom types.

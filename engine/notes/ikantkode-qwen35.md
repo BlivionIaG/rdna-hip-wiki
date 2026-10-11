@@ -8,7 +8,7 @@ Date: 2026-08-17. Paraphrase + attribution only. Not a silicon contract. Their t
 - Patches + ladder: [ikantkode/gfx1030-vllm-0.26](https://github.com/ikantkode/gfx1030-vllm-0.26) (`README.md`, `CHANGELOG.md`, `patches/`, `requant/`)
 - Image they overlay: `blivioniag/vllm-rdna:v0.26.0` (Blivion docker). No vLLM rebuild — bind-mounts into `/src/vllm/...`.
 
-Contract takeaways: [qwen35.md](../qwen35.md).
+Contract takeaways: [qwen35.md](../run-recipes/qwen35.md).
 
 ## What they actually did
 
@@ -45,7 +45,7 @@ Our HIP path is a different stack. Steal facts and gates, not their Triton AWQ a
 | **LN-fold Llama vs `(1+w)`** | AutoAWQ (`quivent/autoawq-qwen35`) stores `w = s·w_base`. Qwen3.5 applies `(1+w)` → garbage at serve, clean per-tensor checks. Fix: `w_new = s·(1+w_base)−1`, s from LS on a consumer. MLP up/down: identity AWQ scales (plain g128). fp16 `in_proj_a/b` divided by s. | **Yes** — checkpoint recipe card, not a DOT kernel. |
 | **Paged-attn `num_warps=8`** | Stock launch passes no warps → JIT 4. Grid `(seqs, kv_heads)` = 4 WGs. They claim 226→112 µs/call. | Fold into occupancy / Triton paged (head-64 hole). Not a new FA. |
 | **TRITON_ATTN LDS crash** | `OutOfResources` shared 139264 > 65536. Live path is `ROCM_ATTN` → Triton `kernel_paged_attention_2d` (custom `paged_attention_rocm` is arch-gated, no HEAD=256, non-pow2 528 block). | Landmine. Matches our “stock HIP paged is dead / Triton hole”. |
-| **MTP slower on this stack** | Model card: MTP verify worse than plain decode with M=1-optimized kernels. | Confirms [mtp.md](../mtp.md). No extra card. |
+| **MTP slower on this stack** | Model card: MTP verify worse than plain decode with M=1-optimized kernels. | Confirms [mtp.md](../spec-decoding/mtp.md). No extra card. |
 | **Breakable CUDA graphs** | `VLLM_USE_BREAKABLE_CUDAGRAPH=1`, never eager-without-it. | Deploy note, not a kernel ticket. |
 
 ## Do not steal as-is

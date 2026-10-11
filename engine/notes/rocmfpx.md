@@ -2,7 +2,7 @@
 
 Date: 2026-08-17. Sourced from [charlie12345/ROCmFPX](https://github.com/charlie12345/ROCmFPX). Their tok/s stay here. Occupancy still first.
 
-**Contracts:** [../rocmfpx.md](../rocmfpx.md) (leverage), [../llamacpp-rocmfpx.md](../llamacpp-rocmfpx.md) (V620 side project), `kernels/rocmfpx.md` (silicon). Stock GGUF in vLLM is a loader for Q4_0/K/IQ*, not these types.
+**Contracts:** [../rocmfpx.md](../quant-formats/rocmfpx.md) (leverage), [../llamacpp-rocmfpx.md](../alt-engines/llamacpp-rocmfpx.md) (V620 side project), `kernels/rocmfpx.md` (silicon). Stock GGUF in vLLM is a loader for Q4_0/K/IQ*, not these types.
 
 **Verdict:** do **not** port this into vLLM. It is a **llama.cpp GGUF family** (CPU + HIP + Vulkan), tuned on Strix Halo `gfx1151`. There is a `scripts/build-rdna2.sh` (gfx1030), not a vLLM backend, not a HIP FA/GEMM we can drop in.
 
@@ -39,7 +39,7 @@ porting llama.cpp MMVQ into vLLM
 
 Closest contract we already have: **W4A8** (unpack → `sdot4`), [sdot4-explore.md](../../kernels/sdot4-explore.md). ROCmFP4 is a **different codebook** + UE4M3, same DOT class.
 
-NVFP4 rematch they document: same UE4M3, **7/8 codebook levels**; top mag is 12 (NV) vs 10 (ROCm). Still not our [nvfp4.md](../nvfp4.md) `fdot2` path unless we invent a second LUT.
+NVFP4 rematch they document: same UE4M3, **7/8 codebook levels**; top mag is 12 (NV) vs 10 (ROCm). Still not our [nvfp4.md](../quant-formats/nvfp4.md) `fdot2` path unless we invent a second LUT.
 
 ## Why a vLLM port loses
 
@@ -59,11 +59,11 @@ A “port” would be: new quant key + loader + codebook→`sdot4` GEMM **after 
 2. **UE4M3 arithmetic scale** — they rejected a scale LUT on HIP. Same instinct as our NVFP4 E4M3 bit-trick.
 3. **Don’t A-quant decode** — their MMVQ is W×Q8; we already said W4A4 decode stays W4A16.
 
-Side project, not a vLLM card: [../llamacpp-rocmfpx.md](../llamacpp-rocmfpx.md). Occupancy still first.
+Side project, not a vLLM card: [../llamacpp-rocmfpx.md](../alt-engines/llamacpp-rocmfpx.md). Occupancy still first.
 
 ## Sources
 
 - https://github.com/charlie12345/ROCmFPX README + `ggml/rocmfp4/`
 - `rocmfp4_hip_codebook.cuh` (`amdgcn_perm` Codebook10)
 - `rocmfp4.h` (`block_rocmfp4` 18 B / `block_rocmfp4_fast` 17 B)
-- [nvfp4.md](../nvfp4.md), [w4a4.md](../w4a4.md), [silicon/valu.md](../../silicon/valu.md)
+- [nvfp4.md](../quant-formats/nvfp4.md), [w4a4.md](../quant-formats/w4a4.md), [silicon/valu.md](../../silicon/valu.md)

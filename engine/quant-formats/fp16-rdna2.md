@@ -2,7 +2,7 @@
 
 Date: 2026-08-18. Engine study. Occupancy on `fa_rdna2` + `skinny_gemms.cu` still first. Do not invent tok/s.
 
-Silicon contract: [silicon/fp16-rdna2.md](../silicon/fp16-rdna2.md) (peak numbers: [silicon/valu.md](../silicon/valu.md)). MoE: [fp16-moe.md](fp16-moe.md) + [kernels/fp16-moe.md](../kernels/fp16-moe.md). Baselines: [baseline-order.md](baseline-order.md), [kernels/triton-skinny-gemm.md](../kernels/triton-skinny-gemm.md). Attention: [attention-dispatch.md](attention-dispatch.md).
+Silicon contract: [silicon/fp16-rdna2.md](../../silicon/fp16-rdna2.md) (peak numbers: [silicon/valu.md](../../silicon/valu.md)). MoE: [fp16-moe.md](../moe/fp16-moe.md) + [kernels/fp16-moe.md](../../kernels/fp16-moe.md). Baselines: [baseline-order.md](../stock-baseline/baseline-order.md), [kernels/triton-skinny-gemm.md](../../kernels/triton-skinny-gemm.md). Attention: [attention-dispatch.md](../attention/attention-dispatch.md).
 
 ## The only inner op
 
@@ -24,7 +24,7 @@ HIP: `__builtin_amdgcn_fdot2`, K even, `half2`-aligned. hipcc will **not** peeph
 | **FA** D=128/256 | mixed | `fa_rdna2` already `fdot2` on QK — **occupancy flip only**, not a new FA | Triton `TRITON_ATTN` is the A/B |
 | **MLA prefill** | both sides already half | **First attention `fdot2` rewrite**, after `load_row` OOB | Current HIP prefill is scalar FMA |
 | **MLA decode** | unpack then math | Stay scalar until E4M3 unpack is gone | `fdot2` later |
-| **FP16 MoE** | many tiny GEMMs | Same two-kernel contract. [fp16-moe.md](fp16-moe.md) | Triton MoE excludes gfx10xx |
+| **FP16 MoE** | many tiny GEMMs | Same two-kernel contract. [fp16-moe.md](../moe/fp16-moe.md) | Triton MoE excludes gfx10xx |
 
 ## Occupancy is part of the path
 
@@ -36,12 +36,12 @@ HIP: `__builtin_amdgcn_fdot2`, K even, `half2`-aligned. hipcc will **not** peeph
 2. **`--dtype half`.** bf16 is emulated on gfx1030.
 3. **No Triton on the hot decode path** once HIP exists (compile tax).
 4. **Collectives stay outside GEMM.** `0c59068e` is transport only.
-5. **W7800 is a different ISA.** [multi-tier.md](multi-tier.md).
+5. **W7800 is a different ISA.** [multi-tier.md](../moe/multi-tier.md).
 6. **V340L/gfx900 is not this path.** `mad_mix`/`pk_fma`, no DOT.
 
 ## Study order (after current occupancy card)
 
-Matches silicon proof order + [baseline-order.md](baseline-order.md).
+Matches silicon proof order + [baseline-order.md](../stock-baseline/baseline-order.md).
 
 1. Occupancy flip — **now**.
 2. Microbench `fdot2` vs `__hfma2` vs scalar (must show `v_dot2c`).
@@ -59,6 +59,6 @@ Reuse occupancy + baseline epic. Not a new first kernel ticket.
 
 ## Sources
 
-- [silicon/fp16-rdna2.md](../silicon/fp16-rdna2.md)
-- [baseline-order.md](baseline-order.md), [fp16-moe.md](fp16-moe.md)
+- [silicon/fp16-rdna2.md](../../silicon/fp16-rdna2.md)
+- [baseline-order.md](../stock-baseline/baseline-order.md), [fp16-moe.md](../moe/fp16-moe.md)
 - Note 2026-08-18

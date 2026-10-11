@@ -1,6 +1,6 @@
 # INT8 KV cache on gfx1030 — engine spec
 
-Date: 2026-08-21. Engine contract. Silicon: [kernels/kv-int8.md](../kernels/kv-int8.md). Policy page (FP8 dead as a *unit*, offload physics): [kv-quant-offload.md](kv-quant-offload.md). One card on [project 4](https://github.com/users/BlivionIaG/projects/4). Human branch is **`rdna2_extras`**. Occupancy still first.
+Date: 2026-08-21. Engine contract. Silicon: [kernels/kv-int8.md](../../kernels/kv-int8.md). Policy page (FP8 dead as a *unit*, offload physics): [kv-quant-offload.md](kv-quant-offload.md). One card on [project 4](https://github.com/users/BlivionIaG/projects/4). Human branch is **`rdna2_extras`**. Occupancy still first.
 
 **Verdict:** cut KV bytes 2× vs fp16 by storing INT8 and **dequantizing inside `fa_rdna2`**. An unfused “dequant to an fp16 cache, then attend” kernel erases the memory win. Native FP8 KV stays **Dead** (`supports_fp8()` false). Sage INT8 QK is prefill *Q*, not this.
 
@@ -113,5 +113,5 @@ Occupancy flip. Sage QK (`sdot4` on prefill Q). HIP MLA fp16. NVFP4. W8A8 `sdot4
 
 - vLLM INT8 KV contract: `KVQuantMode`, PRs [#36893](https://github.com/vllm-project/vllm/pull/36893) (per-token Triton), [#41954](https://github.com/vllm-project/vllm/pull/41954) (gfx1100 closed per-tensor, kept per-token-head)
 - extras `4cc1fe59` (verbatim port of `3baecdb516`)
-- [kv-quant-offload.md](kv-quant-offload.md), [coverage.md](coverage.md), [attention-dispatch.md](attention-dispatch.md)
+- [kv-quant-offload.md](kv-quant-offload.md), [coverage.md](../overview/coverage.md), [attention-dispatch.md](../attention/attention-dispatch.md)
 - Note 2026-08-21: silicon lock on `4cc1fe59`

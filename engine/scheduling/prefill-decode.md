@@ -35,7 +35,7 @@ Engine-only: non-DP engines honor `prefill_schedule_interval` (default 1 = off).
 
 ## Kernel hit-list
 
-1. **Paged decode attention** — gather K/V by block table, Q seqlen≈1. This is the RDNA decode kernel. Live: `fa_rdna2_decode_paged` for D=128/256. Head-64 is still Triton. See [attention-dispatch.md](attention-dispatch.md).
+1. **Paged decode attention** — gather K/V by block table, Q seqlen≈1. This is the RDNA decode kernel. Live: `fa_rdna2_decode_paged` for D=128/256. Head-64 is still Triton. See [attention-dispatch.md](../attention/attention-dispatch.md).
 2. **Prefill / varlen FA** — causal, GEMM-like QK/PV tiles. Live: `fa_rdna2_prefill_*` Br=16/32.
 3. **Extend / chunked-context** — new tokens attend to already-paged prefix. Short Br=32 for small-q. DeepSeek V4 chunked prefill must be a separate prefill step, not V1 leftover-MBT mix, until an MLA fat tile exists.
 4. **reshape_and_cache / block write** — matching writer for that layout. A gather without a matching write is wasted. Do not assume AITER shuffle's 15–20% (CDNA number).
@@ -50,8 +50,8 @@ Kernel vs scheduler: kernels decide occupancy/layout/GEMV. Scheduler decides whe
 |---|---|
 | Chunked prefill | Bound per-step work so decode is not stalled | Sarathi-Serve; vLLM V1 default; SGLang `--chunked-prefill-size` |
 | Continuous / in-flight batching | Admit/retire at iteration granularity | Orca (OSDI'22) |
-| PD disaggregation | Opposite rooflines + interference; pay KV transfer | DistServe; Mooncake; vLLM connectors. [Skip here](pd-disagg.md). |
-| Speculative decoding | Amortize a full weight/KV load over k+1 tokens | Leviathan; EAGLE. [Later](specdec.md). |
+| PD disaggregation | Opposite rooflines + interference; pay KV transfer | DistServe; Mooncake; vLLM connectors. [Skip here](../multi-gpu/pd-disagg.md). |
+| Speculative decoding | Amortize a full weight/KV load over k+1 tokens | Leviathan; EAGLE. [Later](../spec-decoding/specdec.md). |
 
 ## Sources
 

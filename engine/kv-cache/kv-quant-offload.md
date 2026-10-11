@@ -8,11 +8,11 @@ Shipped elsewhere: vLLM FP8 / per-token-head INT8/INT4 / TurboQuant / NVFP4. SGL
 
 If you write KV quant here, start from **INT8 + fused dequant into paged-decode**. Unfused dequant erases the memory win. Native cvt is the honest path; do not plan an FP8 path.
 
-IC leftover after a resident weight shard is hundreds of KV tokens, not the full cache. Paged-decode that walks the whole cache still streams GDDR6; IC only helps the hot pages this step touches. See [silicon/cache-policy.md](../silicon/cache-policy.md).
+IC leftover after a resident weight shard is hundreds of KV tokens, not the full cache. Paged-decode that walks the whole cache still streams GDDR6; IC only helps the hot pages this step touches. See [silicon/cache-policy.md](../../silicon/cache-policy.md).
 
 ## Offload
 
-GPU L1 → host L2 → Mooncake/NIXL/LMCache L3. Helps **prefix reuse and preemption**. Does **not** hide per-token decode H2D. HiCache hides H2D behind **prefill**, not per-token decode. ktransformers refuses the scan-KV-over-PCIe path (sparse CPU attn on DRAM). See [alt-engines.md](alt-engines.md).
+GPU L1 → host L2 → Mooncake/NIXL/LMCache L3. Helps **prefix reuse and preemption**. Does **not** hide per-token decode H2D. HiCache hides H2D behind **prefill**, not per-token decode. ktransformers refuses the scan-KV-over-PCIe path (sparse CPU attn on DRAM). See [alt-engines.md](../alt-engines/alt-engines.md).
 
 OffloadingConnector is GPU→CPU, not PD. Streaming decode KV over PCIe every token is the wrong physics.
 

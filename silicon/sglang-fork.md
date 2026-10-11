@@ -1,6 +1,6 @@
 # SGLang overlay — silicon (import extras, no second DOT tree)
 
-Date: 2026-08-20. Engine: [../engine/sglang-fork.md](../engine/sglang-fork.md). Occupancy still first.
+Date: 2026-08-20. Engine: [../engine/serving-stack/sglang-fork.md](../engine/serving-stack/sglang-fork.md). Occupancy still first.
 
 An SGLang fork does **not** get a new ISA. V620 is still gfx1030: `fdot2` / `sdot4` / `sdot8`, no WMMA, no MFMA, no hardware bf16. Serving (radix, overlap) is CPU/engine. Compute objects come from **`rdna2_extras` after occupancy**.
 
@@ -27,5 +27,5 @@ No tok/s from their A100/H20 posts. No occupancy retip.
 
 ## Sources
 
-- [../engine/sglang-fork.md](../engine/sglang-fork.md), [fa-occupancy.md](fa-occupancy.md), [fp16-rdna2.md](fp16-rdna2.md), [valu.md](valu.md), [codegen-stack.md](codegen-stack.md)
+- [../engine/serving-stack/sglang-fork.md](../engine/serving-stack/sglang-fork.md), [fa-occupancy.md](fa-occupancy.md), [fp16-rdna2.md](fp16-rdna2.md), [valu.md](valu.md), [codegen-stack.md](codegen-stack.md)
 - Note 2026-08-20: own SGLang path

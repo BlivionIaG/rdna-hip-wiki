@@ -1,6 +1,6 @@
 # Cache-aware scheduling
 
-Date: 2026-08-20. Engine contract. Batching mechanics: [batching.md](batching.md). IC fit: [infinity-cache.md](infinity-cache.md). Occupancy still first. Do not invent tok/s.
+Date: 2026-08-20. Engine contract. Batching mechanics: [batching.md](batching.md). IC fit: [infinity-cache.md](../kv-cache/infinity-cache.md). Occupancy still first. Do not invent tok/s.
 
 **Two different caches.** Do not merge them into one “cache-aware” ticket.
 
@@ -22,16 +22,16 @@ Measure `max_num_batched_tokens` on V620. Do not copy Instinct 8k/16k.
 
 ## IC-aware rule (this box)
 
-Keep a **decode-only** step when we care about the 128 MB hit: 7B/27B W4 TP=4 shards fit; a fat prefill chunk does not. Two HIP streams / SDMA on the same V620 evict the shard ([infinity-cache.md](infinity-cache.md)).
+Keep a **decode-only** step when we care about the 128 MB hit: 7B/27B W4 TP=4 shards fit; a fat prefill chunk does not. Two HIP streams / SDMA on the same V620 evict the shard ([infinity-cache.md](../kv-cache/infinity-cache.md)).
 
 Do **not** write a new scheduler to pin lines. Do:
 
 1. Leave APC on.
 2. Occupancy flip so the decode GEMV actually runs.
 3. Sweep MBT; prefer decode-heavy mixed batches over huge leftover prefills.
-4. Later: nontemporal only miss-path weights; INT8-KV shrinks the window ([kv-int8.md](kv-int8.md)).
+4. Later: nontemporal only miss-path weights; INT8-KV shrinks the window ([kv-int8.md](../kv-cache/kv-int8.md)).
 
-Not a win here: PD-disagg ([pd-disagg.md](pd-disagg.md)), per-token KV H2D, SGLang cache-aware LB (needs a replica pool we are not running).
+Not a win here: PD-disagg ([pd-disagg.md](../multi-gpu/pd-disagg.md)), per-token KV H2D, SGLang cache-aware LB (needs a replica pool we are not running).
 
 ## Not a card
 
@@ -39,5 +39,5 @@ Same occupancy card. APC/MBT is tune-and-measure after occupancy, not a new firs
 
 ## Sources
 
-- [batching.md](batching.md), [infinity-cache.md](infinity-cache.md), [silicon/cache-policy.md](../silicon/cache-policy.md)
+- [batching.md](batching.md), [infinity-cache.md](../kv-cache/infinity-cache.md), [silicon/cache-policy.md](../../silicon/cache-policy.md)
 - Note 2026-08-20 (user: cache-aware scheduling)

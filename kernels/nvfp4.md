@@ -1,6 +1,6 @@
 # NVFP4 on gfx1030 — silicon / HIP contract
 
-Engine dispatch and checkpoint layout: [engine/nvfp4.md](../engine/nvfp4.md). This page is the ISA and tile. Check a future kernel against the list at the bottom.
+Engine dispatch and checkpoint layout: [engine/quant-formats/nvfp4.md](../engine/quant-formats/nvfp4.md). This page is the ISA and tile. Check a future kernel against the list at the bottom.
 
 **There is no NVFP4 unit on gfx1030.** Inner op is unpack E2M1 → fp16, apply E4M3 (× optional FP32), then `fdot2`. Same DOT as live mxfp4. The delta is the **scale**, not a new instruction.
 
@@ -88,4 +88,4 @@ Petit (CDNA NVFP4/MXFP4 reference): [../silicon/petit-kernel.md](../silicon/peti
 - Live mxfp4: `csrc/rocm/mxfp4_dot2_common.cuh` @ `add17dd7` (4× `fdot2` / 8 K)
 - Live FP8 dequant: `csrc/rocm/qdq_fp8_rdna2.cuh`
 - RDNA 2 ISA 70648: `V_DOT2_F32_F16`; no FP4 MMA; no `v_dot2_f32_bf16`
-- [engine/nvfp4.md](../engine/nvfp4.md), [kernels/w8a8-mxfp4.md](w8a8-mxfp4.md), [silicon/hip-craft.md](../silicon/hip-craft.md)
+- [engine/quant-formats/nvfp4.md](../engine/quant-formats/nvfp4.md), [kernels/w8a8-mxfp4.md](w8a8-mxfp4.md), [silicon/hip-craft.md](../silicon/hip-craft.md)

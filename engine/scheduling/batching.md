@@ -52,7 +52,7 @@ Tile quantization: chunk 257 vs 256 can add 32% prefill time.
 
 Mixed batch = many `l_q=1` plus one `l_q=chunk`. vLLM V1 picked FA3 because it mixes P+D. AITER FA/MLA: uniform batches only.
 
-DeepSeek V4 / sparse MLA: q=`[B,H,D]` only. Chunked prefill must be a **separate prefill step**, not V1 leftover-MBT mix, until an MLA fat tile exists. See [attention-dispatch.md](attention-dispatch.md).
+DeepSeek V4 / sparse MLA: q=`[B,H,D]` only. Chunked prefill must be a **separate prefill step**, not V1 leftover-MBT mix, until an MLA fat tile exists. See [attention-dispatch.md](../attention/attention-dispatch.md).
 
 ## Measure MBT on V620
 

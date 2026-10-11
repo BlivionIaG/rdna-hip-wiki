@@ -33,7 +33,7 @@ Turning MTP on while HIP MLA is q=1 decode only
 A new DOT / sdot4 path "for MTP"
 ```
 
-Live sparse MLA is q=`[B,H,D]` only. Short Br=32 is the verify-shaped path once occupancy is clean. See [attention-dispatch.md](attention-dispatch.md).
+Live sparse MLA is q=`[B,H,D]` only. Short Br=32 is the verify-shaped path once occupancy is clean. See [attention-dispatch.md](../attention/attention-dispatch.md).
 
 ## Dispatch
 

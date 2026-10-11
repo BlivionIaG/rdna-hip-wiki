@@ -1,6 +1,6 @@
 # MoE expert offloading
 
-Date: 2026-08-18. Sourced only. DeepEP / asymmetric A2A: [deepep.md](deepep.md). Hetero placement (W7800 + V620): [multi-tier.md](multi-tier.md) + [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md).
+Date: 2026-08-18. Sourced only. DeepEP / asymmetric A2A: [deepep.md](../multi-gpu/deepep.md). Hetero placement (W7800 + V620): [multi-tier.md](multi-tier.md) + [silicon/hetero-moe-w7800-v620.md](../../silicon/hetero-moe-w7800-v620.md).
 
 **Product path:** vLLM fork first, then SGLang. Llaminar is a placement model, not the base.
 
@@ -12,9 +12,9 @@ Honest one-box huge-MoE design: CPU-resident experts + GPU attention/hot set (kt
 
 Decode MoE is many tiny GEMMs — terrible even on RDNA3 (7900 XTX: Triton-unfused 8.5 → native HIP 48.8 tok/s).
 
-**Live in the fork:** W4A16 / W8A16 / W8A16-FP8 (LUT→`fdot2`). **Not shipping:** W8A8/`sdot4`, mxfp4 (format contracts; PR #52391 is enablement, not a launched gfx1030 MoE). **Queued spec:** INT2 + mixed INT2/INT4 experts — [int2.md](int2.md). Native FP16 / INT8 HIP MoE: [fp16-moe.md](fp16-moe.md), [int8-moe.md](int8-moe.md). Nothing first-class ships. Format contracts: [kernels/w4a16.md](../kernels/w4a16.md), [kernels/w8a8-mxfp4.md](../kernels/w8a8-mxfp4.md), [kernels/int2.md](../kernels/int2.md).
+**Live in the fork:** W4A16 / W8A16 / W8A16-FP8 (LUT→`fdot2`). **Not shipping:** W8A8/`sdot4`, mxfp4 (format contracts; PR #52391 is enablement, not a launched gfx1030 MoE). **Queued spec:** INT2 + mixed INT2/INT4 experts — [int2.md](../quant-formats/int2.md). Native FP16 / INT8 HIP MoE: [fp16-moe.md](fp16-moe.md), [int8-moe.md](int8-moe.md). Nothing first-class ships. Format contracts: [kernels/w4a16.md](../../kernels/w4a16.md), [kernels/w8a8-mxfp4.md](../../kernels/w8a8-mxfp4.md), [kernels/int2.md](../../kernels/int2.md).
 
-MoE tile: A (activations) in LDS; stream B (weights). Token-major + small BLOCK_M at decode. Under TP>1 write unreduced rows (do not fuse reduce-before-allreduce). Do not copy AITER W8A8 CK (MFMA, AGPR, CDNA). `0c59068e` changes RCCL transport only; GEMM still does not own the collective ([deepep.md](deepep.md)).
+MoE tile: A (activations) in LDS; stream B (weights). Token-major + small BLOCK_M at decode. Under TP>1 write unreduced rows (do not fuse reduce-before-allreduce). Do not copy AITER W8A8 CK (MFMA, AGPR, CDNA). `0c59068e` changes RCCL transport only; GEMM still does not own the collective ([deepep.md](../multi-gpu/deepep.md)).
 
 Mixed INT2/INT4: sort tokens by expert, **then** group by bitwidth. Two unpackers, one `fdot2`. Do not switch unpackers inside K.
 
@@ -56,4 +56,4 @@ gfx1030 MoE kernel quality. Whether #37190 / #20126 merged later. llama.cpp comp
 - [ktransformers layerwise](https://ktransformers.net/en/docs/optimization-techniques/layerwise-prefill)
 - [llama.cpp --cpu-moe](https://github.com/ggml-org/llama.cpp/pull/15077)
 - [Triton MoE excludes gfx10xx](https://github.com/vllm-project/vllm/pull/37826)
-- [deepep.md](deepep.md), [multi-tier.md](multi-tier.md)
+- [deepep.md](../multi-gpu/deepep.md), [multi-tier.md](multi-tier.md)

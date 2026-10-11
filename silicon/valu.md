@@ -1,6 +1,6 @@
 # gfx1030 VALU sheet (HIP)
 
-Engine “we fire” column filled 2026-08-17. Occupancy still first. Companions: [hip-craft.md](hip-craft.md), [architecture.md](architecture.md). Engine index: [coverage.md](../engine/coverage.md).
+Engine “we fire” column filled 2026-08-17. Occupancy still first. Companions: [hip-craft.md](hip-craft.md), [architecture.md](architecture.md). Engine index: [coverage.md](../engine/overview/coverage.md).
 
 **How to read.** Enc = microcode class. Size = instruction dwords in I$ (VOP2 = 1, VOP3/VOP3P = 2). Issue = VALU issues per clock **per SIMD32** — **unknown** in the ISA for DOT; the GPUOpen **ops/clk/CU** column is the sourced peak (2 SIMD32/CU). Dual-issue (VOPD) is **gfx11+**, not gfx1030.
 

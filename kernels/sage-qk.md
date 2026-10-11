@@ -1,6 +1,6 @@
 # Sage QK on gfx1030 (silicon contract)
 
-Engine dispatch and the paper live in [engine/sage-attention.md](../engine/sage-attention.md). This page is what a HIP kernel must do. Check a future implementation against this list.
+Engine dispatch and the paper live in [engine/attention/sage-attention.md](../engine/attention/sage-attention.md). This page is what a HIP kernel must do. Check a future implementation against this list.
 
 **Paper:** SageAttention, Zhang et al., [arXiv 2410.02367](https://arxiv.org/abs/2410.02367) — INT8 QK + FP16 PV.
 

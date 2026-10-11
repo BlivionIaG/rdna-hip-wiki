@@ -1,6 +1,6 @@
 # Inference engine map for 4× V620 (gfx1030)
 
-Date: 2026-08-17. Sourced only. Hardware facts from [silicon/](../silicon/README.md).
+Date: 2026-08-17. Sourced only. Hardware facts from [silicon/](../../silicon/README.md).
 
 Target: 4× AMD V620 (Navi 21 / gfx1030, 32 GB), ROCm 7.2, TP=4 considered. GDDR6 512 GB/s, L2 4 MB, IC 128 MB. Wave32 native. No WMMA, no MFMA, no AGPR. Packed DOT only. `supports_fp8()` is false on gfx1030 and gfx1100.
 
@@ -12,7 +12,7 @@ Official vLLM and SGLang do **not** list gfx1030. Forced build = Triton attentio
 
 The work is not "port AITER." Write Wave32 paged-decode + skinny GEMM + DOT-based quant GEMMs, keep weights quantized on device, colocate P+D with a measured token budget. Treat PD / TP-for-speed / streaming decode-KV over PCIe as the wrong physics.
 
-**Live in the fork** (not paged-decode first): W4A16 / W8A16 / W8A16-FP8 (LUT→`fdot2`) and `fa_rdna2`. **Not shipping:** W8A8/`sdot4`, mxfp4 — those are format contracts, not launched kernels. See [kernels/](../kernels/README.md) and [attention-dispatch.md](attention-dispatch.md).
+**Live in the fork** (not paged-decode first): W4A16 / W8A16 / W8A16-FP8 (LUT→`fdot2`) and `fa_rdna2`. **Not shipping:** W8A8/`sdot4`, mxfp4 — those are format contracts, not launched kernels. See [kernels/](../../kernels/README.md) and [attention-dispatch.md](../attention/attention-dispatch.md).
 
 ## Technique table
 
@@ -41,9 +41,9 @@ The work is not "port AITER." Write Wave32 paged-decode + skinny GEMM + DOT-base
 
 ## Cache / RCCL (one-liners)
 
-HIP default loads stay. No persist / IC bypass / prefetch on gfx1030. Single-GPU: only 7B W4/mxfp4 fit a layer in 128 MB IC. TP=4: 7B all formats; 27B W4/mxfp4 fit; 27B W8A8 ~7 MiB over (format-size note, not a live kernel). Leftover IC is hundreds of KV tokens, not the full cache. Details: [silicon/cache-policy.md](../silicon/cache-policy.md).
+HIP default loads stay. No persist / IC bypass / prefetch on gfx1030. Single-GPU: only 7B W4/mxfp4 fit a layer in 128 MB IC. TP=4: 7B all formats; 27B W4/mxfp4 fit; 27B W8A8 ~7 MiB over (format-size note, not a live kernel). Leftover IC is hundreds of KV tokens, not the full cache. Details: [silicon/cache-policy.md](../../silicon/cache-policy.md).
 
-4× V620 is PCIe 4.0 x16 only. `HSA_FORCE_FINE_GRAIN_PCIE=1` + large BAR. Ring n=4 algbw ≤ ~21 GB/s if the bus is perfect. W4A16 does not shrink all-reduce. P2P is attested on this 4× V620 (attested, 2026-08-17). Still no measured `hipMemcpyPeer` GB/s. Custom AR is a policy/perf question, not a “does P2P exist” question. Details: [silicon/rccl-p2p.md](../silicon/rccl-p2p.md).
+4× V620 is PCIe 4.0 x16 only. `HSA_FORCE_FINE_GRAIN_PCIE=1` + large BAR. Ring n=4 algbw ≤ ~21 GB/s if the bus is perfect. W4A16 does not shrink all-reduce. P2P is attested on this 4× V620 (attested, 2026-08-17). Still no measured `hipMemcpyPeer` GB/s. Custom AR is a policy/perf question, not a “does P2P exist” question. Details: [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md).
 
 ## Unknowns (do not fill)
 

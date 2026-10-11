@@ -85,7 +85,7 @@ First kernels:
 - FP16 GEMV/GEMM `M=1/2/4/8`: `fdot2`, fp32 accum.
 - W8A8 GEMV/GEMM: packed i8 + `sdot4`, i32 accum + scale epilogue.
 
-Use Fly layout algebra for vector loads, LDS and reductions. Do not call `WMMA`/`MFMA` helpers. Start from the same contracts as [kernels/fp16-moe.md](../kernels/fp16-moe.md) and [kernels/int8-moe.md](../kernels/int8-moe.md), but prove a standalone dense skinny op first.
+Use Fly layout algebra for vector loads, LDS and reductions. Do not call `WMMA`/`MFMA` helpers. Start from the same contracts as [kernels/fp16-moe.md](../../kernels/fp16-moe.md) and [kernels/int8-moe.md](../../kernels/int8-moe.md), but prove a standalone dense skinny op first.
 
 ## Gate 3 — fair comparison
 

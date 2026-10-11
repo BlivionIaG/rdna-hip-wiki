@@ -8,7 +8,7 @@ Later. Verify is **extend / short-prefill** (q = k+1 or tree nodes), not q=1 dec
 
 Wrong tool when already compute-bound or high batch (published EAGLE <1× at bs=24–56), tiny target, low accept rate, or no spare FLOPs.
 
-Live `fa_rdna2` sparse MLA is q=`[B,H,D]` only. Mix/spec **off** until a fat tile exists. Short Br=32 is the verify-shaped path once occupancy is clean. See [attention-dispatch.md](attention-dispatch.md).
+Live `fa_rdna2` sparse MLA is q=`[B,H,D]` only. Mix/spec **off** until a fat tile exists. Short Br=32 is the verify-shaped path once occupancy is clean. See [attention-dispatch.md](../attention/attention-dispatch.md).
 
 Per-method engine specs (not sdot4; no new DOT):
 
