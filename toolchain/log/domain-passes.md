@@ -133,7 +133,7 @@ rocjitsu: tip still active on systems develop; gfx1030 **still Experimental with
 
 ## 2026-09-29 ~10:25 — domain pass QUIET (not dest)
 
-Vs Sep 28 ~10:25 community baseline. **No Take/Import/Now lever** for gfx1030/1100/900. Live dest stays **7.14.0** wave32 WGP. Pins already in [matrix.md](../pin/README.md) (HEAD `8b46a27d2476` / systems `0bf70ef` / libraries `efafc1c` / nightly `10.2.0a20260929` L+W).
+Vs Sep 28 ~10:25 community baseline. **No Take/Import/Now lever** for gfx1030/1100/900. Live dest stays **7.14.0** wave32 WGP. Pins already in [matrix.md](pin-scans.md) (HEAD `8b46a27d2476` / systems `0bf70ef` / libraries `efafc1c` / nightly `10.2.0a20260929` L+W).
 
 | Project | Class | Note |
 |---|---|---|

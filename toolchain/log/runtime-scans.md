@@ -95,7 +95,7 @@ What this means for us: not yet reproduced on our **7.14.0** dest, so treat it a
 AMD triage on [TheRock#8729](https://github.com/ROCm/TheRock/issues/8729): on **gfx1030** (V620/RDNA2), MIOpen convolution failures with `miopenStatusInternalError` are not caused by the missing CK grouped-conv library. MIOpen's `GemmFwdRest` solver sends its GEMM to **hipBLASLt**, which ships no gfx1030 kernels. Default find mode falls back to another solver and passes; `MIOPEN_FIND_MODE=FAST` fails every time.
 
 - Workaround: `MIOPEN_GEMM_ENFORCE_BACKEND=1` routes MIOpen's GEMMs to **rocBLAS**.
-- Fits the existing rule: hipBLASLt is excluded on gfx1030 (see [matrix.md](../pin/README.md)). No pin or dest change.
+- Fits the existing rule: hipBLASLt is excluded on gfx1030 (see [matrix.md](pin-scans.md)). No pin or dest change.
 
 ## Watch — ROCm 10.0 HIP graph hang on empty fork/join roots (2026-10-07)
 

@@ -12,7 +12,9 @@ Maintained write-ups, with footnotes for claims re-opened on 2026-10-11, are the
 
 | Log | Was |
 |---|---|
-| [pin-scans.md](pin-scans.md) | `matrix.md` |
+| [pin-scans.md](pin-scans.md) | historic text of flat `matrix.md` |
+
+The live pin is [../pin/README.md](../pin/README.md). Historic `matrix.md` text is [pin-scans.md](pin-scans.md). A `matrix.md` link inside these logs points at `pin-scans.md`. Prose that still says `matrix.md` is the scan's original wording.
 | [compiler-scans.md](compiler-scans.md) | `compiler.md` |
 | [runtime-scans.md](runtime-scans.md) | `hip-runtime.md` |
 | [comms-notes.md](comms-notes.md) | `comms.md` |

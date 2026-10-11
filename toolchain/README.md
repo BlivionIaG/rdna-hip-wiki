@@ -19,9 +19,20 @@ The live dest pin is ROCm **7.14.0**. The GitHub tag `rocm-7.14.0` is commit `83
 | [compiler/](compiler/README.md) | `hipcc` / `--offload-arch`, and compiler-version bugs |
 | [runtime/](runtime/README.md) | HIP allocator (`hipMalloc` / `hipMallocAsync`), graphs, VMM hang |
 | [libraries/](libraries/README.md) | rocBLAS, hipBLASLt, MIOpen, Tensile, CK, rocKE |
-| [comms/](comms/README.md) | RCCL arch gating, env knobs, Ubuntu 6.8 / DRM 3.64 |
+| [comms/](comms/README.md) | RCCL arch gating, NCCL-compat env knobs, HIP/RCCL bugs, Ubuntu 6.8 / DRM 3.64, ROCm 10.0 GIN note |
 | [tools/](tools/README.md) | rocjitsu, `amd-smi`, `tune_rocblas`, the llama.cpp spill gate |
 | [log/](log/README.md) | Dated pin scans and domain-pass tables, kept intact |
+
+## Where `toolchain/matrix.md` went
+
+Flat `toolchain/matrix.md` split across two pages.
+
+| Old path | Now |
+|---|---|
+| Dated scan text from `toolchain/matrix.md` | [log/pin-scans.md](log/pin-scans.md) |
+| Live pin (ROCm 7.14.0, docs status, TheRock rows, DRM gate) | [pin/README.md](pin/README.md) |
+
+A later link-check should re-point an old `toolchain/matrix.md` link to one of those two: the historic scan when the sentence cites a dated pin table, and `pin/README.md` when it cites the current pin. Links under `silicon/` that already point at `toolchain/pin/README.md` were left as they are.
 
 ## Sources
 
