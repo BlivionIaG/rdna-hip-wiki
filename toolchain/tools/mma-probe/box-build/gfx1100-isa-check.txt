@@ -1,0 +1,98 @@
+date: 2026-10-11T16:34:34+02:00
+arch: gfx1100  device_only: 1
+compiler: Debian clang version 19.1.7 (3+b1)
+rocm: none (device-only build with shim/hip_shim.h, -nogpulib -nogpuinc)
+readelf: llvm-readelf-19  objdump: llvm-objdump-19
+
+## compile flags per variant/family
+default  dot2_f16: -O2 -std=c++17 -fno-fast-math -fno-finite-math-only -fno-unsafe-math-optimizations -DMMAPROBE_ARCH_ID=1100 -Wall -Wno-unused-function -ffp-contract=off -fno-gpu-flush-denormals-to-zero
+default  dot2_bf16: -O2 -std=c++17 -fno-fast-math -fno-finite-math-only -fno-unsafe-math-optimizations -DMMAPROBE_ARCH_ID=1100 -Wall -Wno-unused-function -ffp-contract=off -fno-gpu-flush-denormals-to-zero
+default  wmma: -O2 -std=c++17 -fno-fast-math -fno-finite-math-only -fno-unsafe-math-optimizations -DMMAPROBE_ARCH_ID=1100 -Wall -Wno-unused-function -ffp-contract=off -fno-gpu-flush-denormals-to-zero
+default  dot4_i8: -O2 -std=c++17 -fno-fast-math -fno-finite-math-only -fno-unsafe-math-optimizations -DMMAPROBE_ARCH_ID=1100 -Wall -Wno-unused-function -ffp-contract=off -fno-gpu-flush-denormals-to-zero
+default  fma_baseline: -O2 -std=c++17 -fno-fast-math -fno-finite-math-only -fno-unsafe-math-optimizations -DMMAPROBE_ARCH_ID=1100 -Wall -Wno-unused-function -ffp-contract=fast-honor-pragmas -fno-gpu-flush-denormals-to-zero
+ftz      dot2_f16: -O2 -std=c++17 -fno-fast-math -fno-finite-math-only -fno-unsafe-math-optimizations -DMMAPROBE_ARCH_ID=1100 -Wall -Wno-unused-function -ffp-contract=off -fgpu-flush-denormals-to-zero
+ftz      dot2_bf16: -O2 -std=c++17 -fno-fast-math -fno-finite-math-only -fno-unsafe-math-optimizations -DMMAPROBE_ARCH_ID=1100 -Wall -Wno-unused-function -ffp-contract=off -fgpu-flush-denormals-to-zero
+ftz      wmma: -O2 -std=c++17 -fno-fast-math -fno-finite-math-only -fno-unsafe-math-optimizations -DMMAPROBE_ARCH_ID=1100 -Wall -Wno-unused-function -ffp-contract=off -fgpu-flush-denormals-to-zero
+ftz      dot4_i8: -O2 -std=c++17 -fno-fast-math -fno-finite-math-only -fno-unsafe-math-optimizations -DMMAPROBE_ARCH_ID=1100 -Wall -Wno-unused-function -ffp-contract=off -fgpu-flush-denormals-to-zero
+ftz      fma_baseline: -O2 -std=c++17 -fno-fast-math -fno-finite-math-only -fno-unsafe-math-optimizations -DMMAPROBE_ARCH_ID=1100 -Wall -Wno-unused-function -ffp-contract=fast-honor-pragmas -fgpu-flush-denormals-to-zero
+
+## kernel descriptor float fields (.amdhsa_* in the .s; cross-checked against
+## COMPUTE_PGM_RSRC1 decoded from the .kd symbols of the code object)
+default  dot2_bf16     dx10_clamp=1 float_denorm_mode_16_64=3 float_denorm_mode_32=3 float_round_mode_16_64=0 float_round_mode_32=0 ieee_mode=1
+default  dot2_f16      dx10_clamp=1 float_denorm_mode_16_64=3 float_denorm_mode_32=3 float_round_mode_16_64=0 float_round_mode_32=0 ieee_mode=1
+default  dot4_i8       dx10_clamp=1 float_denorm_mode_16_64=3 float_denorm_mode_32=3 float_round_mode_16_64=0 float_round_mode_32=0 ieee_mode=1
+default  fma_baseline  dx10_clamp=1 float_denorm_mode_16_64=3 float_denorm_mode_32=3 float_round_mode_16_64=0 float_round_mode_32=0 ieee_mode=1
+default  wmma          dx10_clamp=1 float_denorm_mode_16_64=3 float_denorm_mode_32=3 float_round_mode_16_64=0 float_round_mode_32=0 ieee_mode=1
+ftz      dot2_bf16     dx10_clamp=1 float_denorm_mode_16_64=3 float_denorm_mode_32=0 float_round_mode_16_64=0 float_round_mode_32=0 ieee_mode=1
+ftz      dot2_f16      dx10_clamp=1 float_denorm_mode_16_64=3 float_denorm_mode_32=0 float_round_mode_16_64=0 float_round_mode_32=0 ieee_mode=1
+ftz      dot4_i8       dx10_clamp=1 float_denorm_mode_16_64=3 float_denorm_mode_32=0 float_round_mode_16_64=0 float_round_mode_32=0 ieee_mode=1
+ftz      fma_baseline  dx10_clamp=1 float_denorm_mode_16_64=3 float_denorm_mode_32=0 float_round_mode_16_64=0 float_round_mode_32=0 ieee_mode=1
+ftz      wmma          dx10_clamp=1 float_denorm_mode_16_64=3 float_denorm_mode_32=0 float_round_mode_16_64=0 float_round_mode_32=0 ieee_mode=1
+
+## instruction under test, per op (all modes collapsed)
+PASS default  dot2_f32_bf16            kernels=23 {"v_dot2_f32_bf16": 1}
+      e.g. v_dot2_f32_bf16 v0, v0, v1, v2
+PASS default  dot2_f32_f16             kernels=23 {"v_dot2_f32_f16": 1}
+      e.g. v_dot2_f32_f16 v0, v0, v1, v2
+PASS default  dot2c_f32_f16            kernels=23 {"v_dot2acc_f32_f16": 1}
+      e.g. v_dot2acc_f32_f16 v2, v0, v1
+PASS default  fdot2_builtin            kernels=23 {"v_dot2acc_f32_f16": 1}
+      e.g. v_dot2acc_f32_f16 v2, v0, v1
+PASS default  fdot2_builtin_clamp      kernels=23 {"v_dot2_f32_f16": 1}
+      e.g. v_dot2_f32_f16 v0, v0, v1, v2 clamp
+PASS default  fdot2_f32_bf16_builtin   kernels=23 {"v_dot2_f32_bf16": 1}
+      e.g. v_dot2_f32_bf16 v0, v0, v1, v2
+PASS default  fma_c                    kernels=23 {"v_fmac_f32": 1}
+      e.g. v_fmac_f32_e32 v2, v0, v1
+PASS default  fma_f32                  kernels=23 {"v_fma_f32": 1}
+      e.g. v_fma_f32 v0, v0, v1, v2
+PASS default  fma_mix_c                kernels=23 {"v_fma_mix_f32": 1}
+      e.g. v_fma_mix_f32 v0, v0, v1, v2 op_sel_hi:[1,1,0]
+PASS default  fma_mix_f32              kernels=23 {"v_fma_mix_f32": 1}
+      e.g. v_fma_mix_f32 v0, v0, v1, v2 op_sel_hi:[1,1,0]
+PASS default  mul_add_c                kernels=23 {"v_add_f32": 1, "v_mul_f32": 1}
+      e.g. v_mul_f32_e32 v0, v0, v1
+PASS default  pk_fma_f16               kernels=23 {"v_pk_fma_f16": 1}
+      e.g. v_pk_fma_f16 v0, v0, v1, v2
+PASS default  sudot4_ss_builtin        kernels=1  {"v_dot4_i32_iu8": 1}
+      e.g. v_dot4_i32_iu8 v0, v0, v1, v2 neg_lo:[1,1,0]
+PASS default  sudot4_ss_builtin_clamp  kernels=1  {"v_dot4_i32_iu8": 1}
+      e.g. v_dot4_i32_iu8 v0, v0, v1, v2 neg_lo:[1,1,0] clamp
+PASS default  wmma_f32_16x16x16_bf16   kernels=23 {"v_wmma_f32_16x16x16_bf16": 1}
+      e.g. v_wmma_f32_16x16x16_bf16 v[17:24], v[1:8], v[9:16], v[17:24]
+PASS default  wmma_f32_16x16x16_f16    kernels=23 {"v_wmma_f32_16x16x16_f16": 1}
+      e.g. v_wmma_f32_16x16x16_f16 v[17:24], v[1:8], v[9:16], v[17:24]
+PASS ftz      dot2_f32_bf16            kernels=23 {"v_dot2_f32_bf16": 1}
+      e.g. v_dot2_f32_bf16 v0, v0, v1, v2
+PASS ftz      dot2_f32_f16             kernels=23 {"v_dot2_f32_f16": 1}
+      e.g. v_dot2_f32_f16 v0, v0, v1, v2
+PASS ftz      dot2c_f32_f16            kernels=23 {"v_dot2acc_f32_f16": 1}
+      e.g. v_dot2acc_f32_f16 v2, v0, v1
+PASS ftz      fdot2_builtin            kernels=23 {"v_dot2acc_f32_f16": 1}
+      e.g. v_dot2acc_f32_f16 v2, v0, v1
+PASS ftz      fdot2_builtin_clamp      kernels=23 {"v_dot2_f32_f16": 1}
+      e.g. v_dot2_f32_f16 v0, v0, v1, v2 clamp
+PASS ftz      fdot2_f32_bf16_builtin   kernels=23 {"v_dot2_f32_bf16": 1}
+      e.g. v_dot2_f32_bf16 v0, v0, v1, v2
+PASS ftz      fma_c                    kernels=23 {"v_fmac_f32": 1}
+      e.g. v_fmac_f32_e32 v2, v0, v1
+PASS ftz      fma_f32                  kernels=23 {"v_fma_f32": 1}
+      e.g. v_fma_f32 v0, v0, v1, v2
+PASS ftz      fma_mix_c                kernels=23 {"v_fma_mix_f32": 1}
+      e.g. v_fma_mix_f32 v0, v0, v1, v2 op_sel_hi:[1,1,0]
+PASS ftz      fma_mix_f32              kernels=23 {"v_fma_mix_f32": 1}
+      e.g. v_fma_mix_f32 v0, v0, v1, v2 op_sel_hi:[1,1,0]
+PASS ftz      mul_add_c                kernels=23 {"v_add_f32": 1, "v_mul_f32": 1}
+      e.g. v_mul_f32_e32 v0, v0, v1
+PASS ftz      pk_fma_f16               kernels=23 {"v_pk_fma_f16": 1}
+      e.g. v_pk_fma_f16 v0, v0, v1, v2
+PASS ftz      sudot4_ss_builtin        kernels=1  {"v_dot4_i32_iu8": 1}
+      e.g. v_dot4_i32_iu8 v0, v0, v1, v2 neg_lo:[1,1,0]
+PASS ftz      sudot4_ss_builtin_clamp  kernels=1  {"v_dot4_i32_iu8": 1}
+      e.g. v_dot4_i32_iu8 v0, v0, v1, v2 neg_lo:[1,1,0] clamp
+PASS ftz      wmma_f32_16x16x16_bf16   kernels=23 {"v_wmma_f32_16x16x16_bf16": 1}
+      e.g. v_wmma_f32_16x16x16_bf16 v[17:24], v[1:8], v[9:16], v[17:24]
+PASS ftz      wmma_f32_16x16x16_f16    kernels=23 {"v_wmma_f32_16x16x16_f16": 1}
+      e.g. v_wmma_f32_16x16x16_f16 v[17:24], v[1:8], v[9:16], v[17:24]
+
+TOTAL kernels=648 fail=0 -> ISA CHECK PASS
