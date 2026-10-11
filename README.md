@@ -26,7 +26,7 @@ Notes for writing HIP kernels and serving LLMs on **gfx1030** (RDNA 2, Radeon PR
 ## Live pins
 
 - **ROCm:** the live dest pin is ROCm **7.14.0**. The tag `rocm-7.14.0` on `ROCm/ROCm` is commit `830cc1b5`.[^pin][^tag7140] Newer ROCm docs (7.14.1, 10.1.0) are tracked on that page and do not move the pin.[^pin]
-- **Fork dest:** branch `rdna_extras` on [`opengfx1030/vllm-rdna`](https://github.com/opengfx1030/vllm-rdna), the repo's default branch, on upstream vLLM **v0.31.0** since PR #47.[^branches][^repo][^pr47][^v031] The fork pages are pinned to tip `1dc3bac4`.[^branches] The live tip read on 2026-10-11 is `fbe84e94`, the merge of PR #52.[^livetip]
+- **Fork dest:** branch `rdna_extras` on [`opengfx1030/vllm-rdna`](https://github.com/opengfx1030/vllm-rdna), the repo's default branch, on upstream vLLM **v0.31.0** since PR #47.[^branches][^repo][^pr47][^v031] The fork pages are pinned to tip [`fbe84e94`](https://github.com/opengfx1030/vllm-rdna/commit/fbe84e9411abcd229bd836deffe23f92176b978e), the merge of PR #52, which is also the live tip read on 2026-10-11.[^branches][^livetip]
 - **Silicon contract:** gfx1030 has packed DOT only (`fdot2` / `sdot4`), with no WMMA, MFMA or FP8. gfx1100 has WMMA, and the two ship as separate fatbins.[^engine]
 - **Tickets:** GitHub Project 4 "GFX1030 inference" (private) and the Linear project **V620 inference** in team UNC.[^prlife]
 
