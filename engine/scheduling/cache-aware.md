@@ -25,7 +25,7 @@ flowchart LR
   LAST -- "no" --> NR["not hashed, not reusable yet"]
 ```
 
-Hashing of complete blocks and the free-block queue are from the vLLM prefix-caching design doc[^vllm-prefix-caching]. **Dest serve lock:** APC is currently **off** on dest (see [fork/](../../fork/README.md)); this page describes the stock lever, not the live pin.
+Hashing of complete blocks and the free-block queue are from the vLLM prefix-caching design doc[^vllm-prefix-caching]. **Dest serve lock:** see [fork/serve-locks.md](../../fork/serve-locks.md). At `1dc3bac4` every recipe except `dsv4-flash` enables prefix caching[^dest-recipes-apc], which disagrees with the earlier room lock "APC off"; that is not settled here. Engine consequence either way: hybrid state rings (Engram / GDN / indexer) stay in heaps separate from KV blocks, so block hashing here covers attention KV only (per fork/serve-locks.md). This page describes the stock lever, not the live pin.
 
 ![vLLM prefix caching: block pool, free block queue, cache blocks and request blocks](../assets/vllm-prefix-caching-overview.png)
 
@@ -68,4 +68,4 @@ Added in the 2026-10-11 sourcing pass:
 
 [^vllm-prefix-caching]: vLLM docs, Automatic Prefix Caching design — <https://docs.vllm.ai/en/latest/design/prefix_caching.html>
 [^vllm-v1-guide]: vLLM docs, V1 user guide — <https://docs.vllm.ai/en/latest/usage/v1_guide/>
-
+[^dest-recipes-apc]: dest recipes at `1dc3bac4` (prefix caching in every recipe except `dsv4-flash.env`) — <https://github.com/opengfx1030/vllm-rdna/tree/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/recipes>

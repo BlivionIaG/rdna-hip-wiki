@@ -1,6 +1,6 @@
 # NVFP4 on gfx1030 — engine spec
 
-Date: 2026-08-17. Engine contract. Silicon tile / ISA dump lives with RDNA2_Researcher under [kernels/](../../kernels/README.md) once they add it. Tickets: one card on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not edit `perf/rdna2_w4a16` from this page. Occupancy is still the current code subject; this is the queued spec.
+Date: 2026-08-17. Engine contract. Silicon tile / ISA dump lives with RDNA2_Researcher under [kernels/](../../kernels/README.md) once they add it. Tickets: one card on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not edit dest `rdna_extras` (historically `perf/rdna2_w4a16`) from this page. Occupancy is still the current code subject; this is the queued spec.
 
 **Verdict:** there is no NVFP4 unit on gfx1030. We run NVFP4 checkpoints by unpacking E2M1 to fp16 on the fly and issuing `fdot2`. That is the same inner op as live mxfp4 (`mxfp4_dot2_common.cuh`). The delta is the scale path, not a new DOT.
 

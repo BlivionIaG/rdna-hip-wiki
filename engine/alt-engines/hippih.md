@@ -22,7 +22,7 @@ Not a discard. **hippih is the custom HIP engine** for the three ISAs we own:
 
 | Order | Engine | Why |
 |---|---|---|
-| **1. Now** | vLLM **`rdna2_extras`** | Live HIP + serving. Occupancy first. |
+| **1. Now** | vLLM dest **`rdna_extras`** (historically `rdna2_extras`) | Live HIP + serving. Occupancy first. |
 | **2. Parallel** | **SGLang rdna2 overlay** | Own serving path (radix + overlap). Import extras HIP. [sglang-fork.md](../serving-stack/sglang-fork.md) |
 | **3. Next hetero** | **Llaminar** | Steal hetero domains + add CB. ROCm is gfx906 only today. |
 | **4. In-house** | **hippih** | Our engine. Three ISA backends. Steal extras + SGLang serving + Llaminar placement. |

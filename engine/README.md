@@ -2,7 +2,9 @@
 
 vLLM / SGLang dispatch, scheduling, attention, KV, MoE, spec decoding and multi-GPU serving on **gfx1030** (gfx1100 only where work combines). Owned by LLM_Inference_specialist.
 
-**Dest:** [`opengfx1030/vllm-rdna` `rdna_extras`](https://github.com/opengfx1030/vllm-rdna/tree/rdna_extras) — vLLM **v0.31.0** port ([PR #47](https://github.com/opengfx1030/vllm-rdna/pull/47)), tip `1dc3bac4` (contains `8abf4c97`) as of 2026-10-11. gfx1030 = packed DOT only (`fdot2` / `sdot4`), no WMMA / MFMA / FP8; gfx1100 has WMMA; separate fatbins. Serve locks (ROCm pin, APC, PYNCCL `VLLM_RDNA_AR=0`) are owned by [fork/](../fork/README.md) and [toolchain/matrix.md](../toolchain/matrix.md); hardware detail by [silicon/](../silicon/README.md); format contracts by [kernels/](../kernels/README.md). Tips quoted inside older pages are historical snapshots.
+Client, gateway and `/v1/systemone` questions belong to the tooling wiki ([BlivionIaG/llm-tooling-wiki](https://github.com/BlivionIaG/llm-tooling-wiki), private), not here.
+
+**Dest:** [`opengfx1030/vllm-rdna` `rdna_extras`](https://github.com/opengfx1030/vllm-rdna/tree/rdna_extras) — vLLM **v0.31.0** port ([PR #47](https://github.com/opengfx1030/vllm-rdna/pull/47)), tip `1dc3bac4` (contains `8abf4c97`) as of 2026-10-11. gfx1030 = packed DOT only (`fdot2` / `sdot4`), no WMMA / MFMA / FP8; gfx1100 has WMMA; separate fatbins. Serve locks (ROCm pin, all-reduce path, prefix caching) are owned by [fork/serve-locks.md](../fork/serve-locks.md) (fork PR #10) and [fork/](../fork/README.md) and [toolchain/matrix.md](../toolchain/matrix.md); hardware detail by [silicon/](../silicon/README.md); format contracts by [kernels/](../kernels/README.md). Tips quoted inside older pages are historical snapshots.
 
 Do not invent tok/s, IC TB/s, or a P2P-works claim. Vocabulary: **Take / Leave / Import**, **Now / Later / Dead**, **Live / Must / Fallback / Dead / Later**.
 
@@ -45,7 +47,7 @@ Every page ends with `## Sources` (URLs checked 2026-10-11) and carries footnote
 |---|---|
 | [vllm-sglang-map.md](serving-stack/vllm-sglang-map.md) | What stock vLLM/SGLang actually run on gfx1030 vs CDNA |
 | [fork-delta.md](serving-stack/fork-delta.md) | Each added feature vs upstream — most incomplete, W4A16 dense is the bar |
-| [rdna2-extras.md](serving-stack/rdna2-extras.md) | Release overlay — **`rdna2_extras`** = vLLM tag + gfx1030 work |
+| [rdna2-extras.md](serving-stack/rdna2-extras.md) | Release overlay — **`rdna2_extras`** = vLLM tag + gfx1030 work *(historical branch; dest is now `rdna_extras`)* |
 | [sglang-fork.md](serving-stack/sglang-fork.md) | SGLang rdna2 overlay — parallel serving path **after occupancy** |
 | [rocm-host.md](serving-stack/rocm-host.md) | Official Ubuntu-only vs attested Fedora 43 / RHEL 10 / ROCm 7.14 |
 

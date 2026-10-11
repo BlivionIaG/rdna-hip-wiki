@@ -1,6 +1,6 @@
 # Inference engine map for 4× V620 (gfx1030)
 
-> **Dest today (2026-10-11):** [`opengfx1030/vllm-rdna` `rdna_extras`](https://github.com/opengfx1030/vllm-rdna/tree/rdna_extras) = vLLM **v0.31.0** port ([PR #47](https://github.com/opengfx1030/vllm-rdna/pull/47)), tip `1dc3bac4` (contains `8abf4c97`). Tips and branch names quoted below (`rdna2_extras` on BlivionIaG/vllm, `perf/rdna2_w4a16`) are **historical snapshots**. Serve locks (ROCm pin, APC, PYNCCL / `VLLM_RDNA_AR=0`) live in [fork/](../../fork/README.md) and [toolchain/matrix.md](../../toolchain/matrix.md); this page only says what the engine does.
+> **Dest today (2026-10-11):** [`opengfx1030/vllm-rdna` `rdna_extras`](https://github.com/opengfx1030/vllm-rdna/tree/rdna_extras) = vLLM **v0.31.0** port ([PR #47](https://github.com/opengfx1030/vllm-rdna/pull/47)), tip `1dc3bac4` (contains `8abf4c97`). Tips and branch names quoted below (`rdna2_extras` on BlivionIaG/vllm, `perf/rdna2_w4a16`) are **historical snapshots**. Serve locks (ROCm pin, all-reduce path, prefix caching) live in [fork/serve-locks.md](../../fork/serve-locks.md) (fork PR #10) and [toolchain/matrix.md](../../toolchain/matrix.md); this page only says what the engine does.
 
 Date: 2026-08-17. Sourced only. Hardware facts from [silicon/](../../silicon/README.md).
 
@@ -22,7 +22,7 @@ The work is not "port AITER." Write Wave32 paged-decode + skinny GEMM + DOT-base
 flowchart LR
   subgraph USE["Use"]
     direction TB
-    cb["continuous batching"] ~~~ cp["chunked prefill<br/>(measure MBT)"] ~~~ pc["prefix cache<br/>(dest lock: APC off for now)"]
+    cb["continuous batching"] ~~~ cp["chunked prefill<br/>(measure MBT)"] ~~~ pc["prefix cache<br/>(serve lock: see fork/serve-locks.md)"]
   end
   subgraph LATER["Later"]
     direction TB
@@ -30,7 +30,7 @@ flowchart LR
   end
   subgraph CAP["Capacity, not speed"]
     direction TB
-    tp["TP=4 over PCIe 4.0, RCCL<br/>(PYNCCL, VLLM_RDNA_AR=0)"] ~~~ moe["huge-MoE expert offload"] ~~~ kvo["KV offload: prefix / preempt only"]
+    tp["TP=4 over PCIe 4.0, RCCL<br/>(all-reduce path: see fork/serve-locks.md)"] ~~~ moe["huge-MoE expert offload"] ~~~ kvo["KV offload: prefix / preempt only"]
   end
   subgraph SKIP["Skip / Dead here"]
     direction TB
@@ -38,7 +38,7 @@ flowchart LR
   end
 ```
 
-Verdicts are this page's technique table; serve locks (APC, PYNCCL, ROCm pin) live in [fork/](../../fork/README.md) and [toolchain/matrix.md](../../toolchain/matrix.md).
+Verdicts are this page's technique table; serve locks (prefix caching, all-reduce path, ROCm pin) live in [fork/serve-locks.md](../../fork/serve-locks.md) and [toolchain/matrix.md](../../toolchain/matrix.md). At `1dc3bac4` the recipes set `VLLM_RDNA_AR=1` (code default 0) and every recipe except `dsv4-flash` enables prefix caching[^dest-recipes]; the room lock has not been settled against that, so this map does not pick one.
 
 ![vLLM V1 process architecture with 4 GPUs, TP=4: API server, engine core, 4 GPU workers](../assets/vllm-v1-process-architecture-tp4.png)
 
@@ -56,7 +56,7 @@ Verdicts are this page's technique table; serve locks (APC, PYNCCL, ROCm pin) li
 | KV FP8 | Not a vLLM path (`supports_fp8()` false). If you write KV quant, INT8 + fused dequant. |
 | KV offload (host/SSD) | Prefix reuse and preemption only. Not per-token decode H2D. |
 | MoE expert offload | Huge MoE: CPU-resident experts + GPU attention. gfx1030 is outside AITER and the Triton MoE whitelist. |
-| Tensor parallel | Capacity, not speed. RCCL Ring/Tree over PCIe. No XGMI. Custom AR is gfx94/95 only. |
+| Tensor parallel | Capacity, not speed. RCCL Ring/Tree over PCIe. No XGMI. Stock vLLM custom AR is gfx94/95 only; dest ships `rdna_ar`, a push one-shot all-reduce up to 64 KiB (`RDNA_AR_ONESHOT_MAX`), RCCL above; two-shot was removed; since `00fcc97f` each call returns a fresh output tensor[^dest-rdna-ar]. Mechanics: [silicon/rdna-allreduce.md](../../silicon/rdna-allreduce.md); whether it is on: [fork/serve-locks.md](../../fork/serve-locks.md). |
 | Pipeline parallel | AMD's hint with no high-speed interconnect. No sourced RDNA2 measurement. |
 
 ## Write order (engine, not silicon)
@@ -73,7 +73,7 @@ Verdicts are this page's technique table; serve locks (APC, PYNCCL, ROCm pin) li
 
 HIP default loads stay. No persist / IC bypass / prefetch on gfx1030. Single-GPU: only 7B W4/mxfp4 fit a layer in 128 MB IC. TP=4: 7B all formats; 27B W4/mxfp4 fit; 27B W8A8 ~7 MiB over (format-size note, not a live kernel). Leftover IC is hundreds of KV tokens, not the full cache. Details: [silicon/cache-policy.md](../../silicon/cache-policy.md).
 
-4× V620 is PCIe 4.0 x16 only. `HSA_FORCE_FINE_GRAIN_PCIE=1` + large BAR. Ring n=4 algbw ≤ ~21 GB/s if the bus is perfect. W4A16 does not shrink all-reduce. P2P is attested on this 4× V620 (attested, 2026-08-17). Still no measured `hipMemcpyPeer` GB/s. Custom AR is a policy/perf question, not a “does P2P exist” question. Details: [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md).
+4× V620 is PCIe 4.0 x16 only. `HSA_FORCE_FINE_GRAIN_PCIE=1` + large BAR. Ring n=4 algbw ≤ ~21 GB/s if the bus is perfect. W4A16 does not shrink all-reduce. P2P is attested on this 4× V620 (attested, 2026-08-17). Still no measured `hipMemcpyPeer` GB/s. Custom AR is a policy/perf question, not a “does P2P exist” question. Details: [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md). Before trusting rccl-tests or a TP=4 run, check the host kernel: `dmesg | grep "Initialized amdgpu"` must report DRM **≥ 3.64**; older stock kernels (Ubuntu 24.04 6.8) give silent `all_gather` / `reduce_scatter` corruption and a VMM hang, and `HSA_DISABLE_CACHE=1` is only a stopgap[^drm364]. See [toolchain/comms.md](../../toolchain/comms.md) (2026-10-07) and [toolchain/hip-runtime.md](../../toolchain/hip-runtime.md).
 
 ## Unknowns (do not fill)
 
@@ -94,4 +94,6 @@ HIP default loads stay. No persist / IC bypass / prefetch on gfx1030. Single-GPU
 [^orca]: Yu et al., *Orca: A Distributed Serving System for Transformer-Based Generative Models* (OSDI 2022) — <https://www.usenix.org/system/files/osdi22-yu.pdf>
 [^vllm-disagg]: vLLM docs, Disaggregated Prefilling — <https://docs.vllm.ai/en/latest/features/disagg_prefill.html>
 [^leviathan]: Leviathan et al., *Fast Inference from Transformers via Speculative Decoding* — <https://arxiv.org/abs/2211.17192>
-
+[^dest-recipes]: dest recipes at `1dc3bac4` (`tools/rdna/recipes/*.env`: all set `VLLM_RDNA_AR=1`; all but `dsv4-flash.env` list prefix caching) — <https://github.com/opengfx1030/vllm-rdna/tree/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/recipes>; code default `VLLM_RDNA_AR="0"` in <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/envs.py>
+[^drm364]: toolchain/hip-runtime.md, "Gotcha — the host kernel's amdgpu DRM version is part of the pin"; upstream threads <https://github.com/ROCm/legacy-rocm-build/issues/6565>, <https://github.com/ROCm/rocm-systems/issues/12145>, <https://github.com/ROCm/rocm-systems/issues/9820>
+[^dest-rdna-ar]: dest `csrc/rocm/rdna_allreduce.cuh` (`RDNA_AR_ONESHOT_MAX` 65536, two-shot removed) — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/rdna_allreduce.cuh#L66-L70>; `vllm/envs.py` `VLLM_RDNA_AR` comment — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/envs.py#L1470-L1476>; fresh output per call — <https://github.com/opengfx1030/vllm-rdna/commit/00fcc97ff5015158da93f52bd32f2c70757f0f8a>

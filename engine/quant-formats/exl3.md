@@ -6,7 +6,7 @@ Date: 2026-08-22 (live extras retip 2026-08-28). Engine contract. Silicon: [sili
 
 ## Live extras (2026-08-28)
 
-`rdna2_extras` @ `e268c7d3`. HIP files landed at `a2c8d5cf` (`exl3_dot2_dense` / `moe` / `hadamard`), not a rewrite of `mxfp4_dot2_moe`. `e268c7d3` is unused-var compile fix only. Python `38bdfec5` captures `*.mul1` / `*.mcg` markers and folds those layers (plus fused suh and bits-6 lm_head) to fp16; unmarked 2/3/4-bit single-shard stays on HIP. `VLLM_EXL3_FOLDED_CACHE` is the no-exllamav3 serve path. Not default AWQ/GPTQ.
+*(historical)* `rdna2_extras` @ `e268c7d3` (BlivionIaG/vllm; current dest is `opengfx1030/vllm-rdna` `rdna_extras`). HIP files landed at `a2c8d5cf` (`exl3_dot2_dense` / `moe` / `hadamard`), not a rewrite of `mxfp4_dot2_moe`. `e268c7d3` is unused-var compile fix only. Python `38bdfec5` captures `*.mul1` / `*.mcg` markers and folds those layers (plus fused suh and bits-6 lm_head) to fp16; unmarked 2/3/4-bit single-shard stays on HIP. `VLLM_EXL3_FOLDED_CACHE` is the no-exllamav3 serve path. Not default AWQ/GPTQ.
 
 ## Frozen vs knobs
 

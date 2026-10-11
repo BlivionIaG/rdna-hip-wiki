@@ -24,11 +24,12 @@ Stock HIP `attention.cu` instantiates 64 and 128 but gfx1030 never launches it (
 
 ```mermaid
 flowchart TD
-  A{"GPU arch"} -->|"gfx1030 (gfx10x)"| R2{"RDNA_ATTN accepts?<br/>VLLM_USE_RDNA2_FA (dest default 1),<br/>head 128/256, fp16, non-quant KV"}
+  A{"GPU arch"} -->|"gfx1030 (gfx10x)"| R2{"RDNA_ATTN accepts?<br/>opt-in VLLM_USE_RDNA2_FA=1 (env default off),<br/>head 128/256, fp16, non-quant KV"}
   R2 -- "no (e.g. head 64)" --> TR["ROCM_ATTN / TRITON_ATTN<br/>Triton prefill + Triton kernel_paged_attention_2d"]
   R2 -- "yes" --> SPLIT["decode-first split<br/>(VLLM_FA_RDNA2_SPLIT_DECODE=1)"]
   SPLIT -->|"decode, MTP-verify, short-extend rows"| DEC["fa_rdna2_decode_paged<br/>split-K, kv_splits=16, cu_query_lens"]
-  SPLIT -->|"prefill rows"| G{"GQA mode = subgroup?"}
+  SPLIT -.->|"opt-in VLLM_FA_RDNA2_GQA_DECODE=1<br/>(kernel default off since 2026-09-09)"| GD["fa_decode_paged_splitk_gqa_kernel_256<br/>D=256, 1 < G ≤ 8"]
+  SPLIT -->|"prefill rows"| G{"prefill only: GQA mode = subgroup?<br/>(default subgroup)"}
   G -- "yes" --> PG["prefill_paged_varlen_gqa"]
   G -- "no" --> SH{"max_seqlen_k below 4096 and D = 128?"}
   SH -- "yes" --> PS["prefill_paged_varlen_short"]
@@ -40,6 +41,8 @@ flowchart TD
   R3 -- "no" --> T3["Triton prefill + Triton decode"]
 ```
 
+Dest gates at `1dc3bac4`: `VLLM_USE_RDNA2_FA` defaults to `"False"` in `envs.py` and `platforms/rocm.py` only selects RDNA_ATTN when it is `"1"`[^dest-fa-optin]. The GQA decode kernel (D=256 only, group 1 < G ≤ `GQA_MAX_G`=8) runs only with `VLLM_FA_RDNA2_GQA_DECODE=1`; the kernel turned it off on 2026-09-09 after garbage output at n_dec ≥ 2[^dest-gqa-decode]. `VLLM_FA_RDNA2_GQA_MODE` defaults to `subgroup` and only steers prefill[^dest-rdna-attn]. Note that the launcher's `rdna_select_attention fa` (the `serve_rdna.sh` default `ATTN=fa`) exports `VLLM_USE_RDNA2_FA=1` and `VLLM_FA_RDNA2_GQA_DECODE=${VLLM_FA_RDNA2_GQA_DECODE:-1}`[^dest-launcher-attn], so a launcher serve opts in to both unless overridden. Whether that is meant is a [fork/serve-locks.md](../../fork/serve-locks.md) question.
+
 gfx1030 branch: dest `rdna_attn.py` on `rdna_extras`[^dest-rdna-attn] (head-size set, env defaults, `_forward_prefill` heuristics) and dest PR #29 (decode-first split for verify/mixed rows)[^dest-pr29]. gfx1100 branch: stock `use_rocm_custom_paged_attention` constraints in `rocm.py`[^vllm-rocm-py], summarised in [vllm-sglang-map.md §2.2](../serving-stack/vllm-sglang-map.md#22-attention). MLA (`VLLM_USE_RDNA2_MLA`) is a separate path, see the table above.
 
 ## Head-64 hole
@@ -48,7 +51,7 @@ fa_rdna2 decode/prefill as reported: D=128/256 only. Treat 64 as the first missi
 
 ## Short vs split-K (72 CU V620)
 
-**Locked:** Split-K = grid-fill when B×H leaves 72 CUs idle. Short Br=32 = small-q. Do **not** use D=256 split-K to "fix occupancy." Occupancy is [silicon/fa-occupancy.md](../../silicon/fa-occupancy.md): drop the second `__launch_bounds__` arg, add `amdgpu_waves_per_eu(4, 8)` on decode 128/256.
+**Locked:** Split-K = grid-fill when B×H leaves 72 CUs idle. Short Br=32 = small-q. Do **not** use D=256 split-K to "fix occupancy." Occupancy is [silicon/fa-occupancy.md](../../silicon/fa-occupancy.md). **Decode flip landed** at `1dc3bac4`: both paged decode kernels (D=128, D=256) carry `amdgpu_waves_per_eu(4, 8)` with no min-blocks arg. Still left: the prefill kernels stay `__launch_bounds__(N, 1)`, and the GQA decode kernel has no `waves_per_eu`[^dest-occupancy].
 
 Split-K (Flash-Decoding): extra parallel axis = KV partitions + LSE reduce.[^flash-decoding]
 
@@ -67,7 +70,7 @@ INT8 QK via `sdot4` (pack 4×i8, `D%4==0`, i32 through K, scale in epilogue). PV
 
 ## Write order
 
-1. Keep MHA 128/256 decode split-K + prefill Br tiles (already live). Occupancy flip is a ticket, not a direct edit of `perf/rdna2_w4a16`.
+1. Keep MHA 128/256 decode split-K + prefill Br tiles (already live). Decode occupancy flip is landed; the prefill flip is a ticket, not a direct edit of dest `rdna_extras` (historically `perf/rdna2_w4a16`).
 2. Head-64 decode tile.
 3. Sage-style INT8 QK via sdot4 on prefill only. See [sage-attention.md](sage-attention.md).
 4. MLA fat tile (q>1) before mix, MTP, DFlash, or DSpark. HIP sparse prefill (`66bb24d7`) does not unlock this. Specs: [mtp.md](../spec-decoding/mtp.md), [dflash.md](../spec-decoding/dflash.md), [dspark.md](../spec-decoding/dspark.md).
@@ -90,3 +93,7 @@ Added in the 2026-10-11 sourcing pass:
 [^vllm-rocm-py]: vLLM `vllm/platforms/rocm.py` (arch gates, `supports_fp8`, custom paged-attn, custom AR) — <https://github.com/vllm-project/vllm/blob/main/vllm/platforms/rocm.py>
 [^flash-decoding]: Dao et al., *Flash-Decoding for long-context inference* (split-K over KV) — <https://crfm.stanford.edu/2023/10/12/flashdecoding.html>
 [^vllm-pr44899]: vLLM PR #44899 — DSv4 split-K (gfx950) — <https://github.com/vllm-project/vllm/pull/44899>
+[^dest-fa-optin]: dest `vllm/envs.py` (`VLLM_USE_RDNA2_FA` default `"False"`) — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/envs.py#L1442-L1444>; `vllm/platforms/rocm.py` (selects only when `== "1"`) — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/platforms/rocm.py#L553>, <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/platforms/rocm.py#L1134-L1147>
+[^dest-gqa-decode]: dest `csrc/rocm/fa_rdna2.cu` `fa_gqa_decode_enabled()` and the off-by-default comment — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L2937-L2944>, <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L3061-L3069>
+[^dest-launcher-attn]: dest `tools/rdna/rdna_launcher_common.sh` `rdna_select_attention` — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/rdna_launcher_common.sh#L106-L118>
+[^dest-occupancy]: dest `csrc/rocm/fa_rdna2.cu` decode kernels — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L283-L284>, <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L535-L536>; prefill `__launch_bounds__(N, 1)` — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L1054>; GQA decode — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L776>

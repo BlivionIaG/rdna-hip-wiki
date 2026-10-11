@@ -73,7 +73,7 @@ Upstream does **not** list gfx1030. Forced build:
 - Stock HIP paged-decode: `on_gfx1x`.
 - Skinny `wvSplitK` / `LLMM1`: `on_gfx9() or on_gfx1x()`. `VLLM_ROCM_USE_SKINNY_GEMM` is a no-op here.
 - `ROCM_ATTN` on gfx1030 is Triton prefill + Triton `kernel_paged_attention_2d`, not HIP decode.
-- Custom collectives off → PYNCCL (locked, correct).
+- Custom collectives off → PYNCCL (locked, correct) *(as of 2026-08-28; current all-reduce lock: [fork/serve-locks.md](../../fork/serve-locks.md))*.
 - Official FA / MoE whitelist is CDNA or gfx11/12.
 
 SGLang overlay is **after occupancy**. hippih is after extras + SGLang + Llaminar. Do not start a CUDA-clone engine.

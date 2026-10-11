@@ -1,6 +1,6 @@
 # llama.cpp side project — ROCmFPX on V620
 
-Date: 2026-08-18. **Not the vLLM fork.** Occupancy on `perf/rdna2_w4a16` still first. Contract: [rocmfpx.md](../quant-formats/rocmfpx.md). Source: [charlie12345/ROCmFPX](https://github.com/charlie12345/ROCmFPX).
+Date: 2026-08-18. **Not the vLLM fork.** Occupancy on the vLLM dest (`rdna_extras`; historically `perf/rdna2_w4a16`) still first. Contract: [rocmfpx.md](../quant-formats/rocmfpx.md). Source: [charlie12345/ROCmFPX](https://github.com/charlie12345/ROCmFPX).
 
 **Why a side project:** `scripts/build-rdna2.sh` already targets gfx1030. Measure codebook→integer-dot on a V620 without touching the vLLM tree. Their published numbers are Strix / **R9700 RDNA4** — do not copy.
 

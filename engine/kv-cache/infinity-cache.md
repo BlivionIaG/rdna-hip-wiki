@@ -40,7 +40,7 @@ Prefill fat `M≥32` GEMM working sets are **larger than 128 MB**. IC does not m
 
 Extra waves on a miss-path GEMV multiply outstanding GDDR6 and **evict** the 128 MB. That is why `fa_rdna2` / `skinny_gemms.cu` occupancy is still first — a perfect fit with `__launch_bounds__(N, 1)` / `waves_per_eu(1,1)` is not the win.
 
-Two HIP streams or SDMA on the same V620 **fight** the same 128 MB. A “layer lives in IC” claim is only true if that GPU is otherwise quiet. Collectives stay outside GEMM ([rdna2-extras.md](../serving-stack/rdna2-extras.md) PYNCCL bypass).
+Two HIP streams or SDMA on the same V620 **fight** the same 128 MB. A “layer lives in IC” claim is only true if that GPU is otherwise quiet. Collectives stay outside GEMM ([rdna2-extras.md](../serving-stack/rdna2-extras.md), historical PYNCCL bypass; current all-reduce path: [fork/serve-locks.md](../../fork/serve-locks.md)).
 
 Do **not** paste gfx940 `sc0`/`sc1` persist, gfx11 MALL NOALLOC (DLC), or `llvm.prefetch` (ignored on gfx1030).
 

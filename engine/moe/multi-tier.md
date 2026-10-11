@@ -44,7 +44,7 @@ Pool split, kernels and default-off flag (`VLLM_HETERO_MOE`) are from dest draft
 
 | Order | Engine | Why |
 |---|---|---|
-| **1. Now** | **vLLM fork** (`rdna2_extras`) | Stack that already compiles gfx1030 HIP. Occupancy, FA, MoE DOT, then placement glue. |
+| **1. Now** | **vLLM fork** (dest `rdna_extras`; historically `rdna2_extras`) | Stack that already compiles gfx1030 HIP. Occupancy, FA, MoE DOT, then placement glue. |
 | **2. Parallel** | **SGLang rdna2 overlay** | Own serving path (radix + overlap). **Import extras HIP** after occupancy. [sglang-fork.md](../serving-stack/sglang-fork.md). |
 | **3. Next hetero** | **Llaminar** | **Leave the repo** (AGPL, still gfx906 / sm86 / GGUF). **Take** mixed-domain placement only. No gfx1030 DOT tree there. |
 | **4. In-house** | **hippih** | Custom HIP engine for gfx1030 / gfx1100 / gfx900. Steal extras + SGLang serving + Llaminar placement. Repo is a stub — contract: [hippih.md](../alt-engines/hippih.md). |

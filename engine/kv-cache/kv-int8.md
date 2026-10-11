@@ -1,12 +1,12 @@
 # INT8 KV cache on gfx1030 — engine spec
 
-Date: 2026-08-21. Engine contract. Silicon: [kernels/kv-int8.md](../../kernels/kv-int8.md). Policy page (FP8 dead as a *unit*, offload physics): [kv-quant-offload.md](kv-quant-offload.md). One card on [project 4](https://github.com/users/BlivionIaG/projects/4). Human branch is **`rdna2_extras`**. Occupancy still first.
+Date: 2026-08-21. Engine contract. Silicon: [kernels/kv-int8.md](../../kernels/kv-int8.md). Policy page (FP8 dead as a *unit*, offload physics): [kv-quant-offload.md](kv-quant-offload.md). One card on [project 4](https://github.com/users/BlivionIaG/projects/4). Dest is `opengfx1030/vllm-rdna` **`rdna_extras`** (historically `rdna2_extras` on BlivionIaG/vllm). Occupancy still first.
 
 **Verdict:** cut KV bytes 2× vs fp16 by storing INT8 and **dequantizing inside `fa_rdna2`**. An unfused “dequant to an fp16 cache, then attend” kernel erases the memory win. Native FP8 KV stays **Dead** (`supports_fp8()` false).[^vllm-rocm-py] Sage INT8 QK is prefill *Q*, not this.
 
 ## Live on extras (`4cc1fe59`) — not the contract
 
-Cherry-port of `3baecdb516` from `perf/rdna2_w4a16`. Files: `fa_rdna2.cu`, `rdna_attn.py`, `fa_rdna2_backend.py`.
+Cherry-port of `3baecdb516` from `perf/rdna2_w4a16` *(historical branch)*. Files: `fa_rdna2.cu`, `rdna_attn.py`, `fa_rdna2_backend.py`.
 
 | Path they landed | Engine verdict |
 |---|---|
@@ -14,7 +14,7 @@ Cherry-port of `3baecdb516` from `perf/rdna2_w4a16`. Files: `fa_rdna2.cu`, `rdna
 | INT8 prefill | **Forbidden unfuse.** Python-dequants the **whole** cache → fp16 prefill kernel. Erases the GDDR6 win. |
 | FP8 decode/prefill | Software e4m3→half on **existing** tiles + `fdot2`. Real fuse. Still `(1,1)`. Not a native FP8 unit — do not treat `supports_fp8()` as true. |
 
-Do **not** land more INT8 gather on `(1,1)`. Occupancy flip still blocks this card. Keep the existing INT8 KV ticket — no new card.
+*(2026-08-21)* Do **not** land more INT8 gather on `(1,1)`. At `1dc3bac4` the decode occupancy flip has landed (`amdgpu_waves_per_eu(4, 8)`), so occupancy no longer blocks this card[^dest-occupancy]. What blocks serving now: the fused `IS_INT8` decode template exists in `fa_rdna2.cu`, and an INT8 cache writer `reshape_and_cache_int8_rdna2` is registered, but `fa_rdna2_decode_paged_int8` is not registered and RDNA_ATTN only accepts KV dtypes `["auto", "float16"]`, so INT8 KV is **not served**[^dest-int8]. Keep the existing INT8 KV ticket — no new card.
 
 ## Why INT8, not FP8-as-unit
 
@@ -93,7 +93,8 @@ Head-64 stays Triton until that FA2 tile exists — Triton INT8 path can cover t
 |---|---|
 | `--kv-cache-dtype int8_per_token_head` | honor on `on_gfx10x()` |
 | `VLLM_USE_RDNA2_FA=1` | required so `fa_rdna2` is the reader |
-| Occupancy flip | **blocks this.** Do not land INT8 gather on a decode kernel that is still `waves_per_eu(1,1)`. |
+| Occupancy flip | Decode flip landed at `1dc3bac4`; no longer the blocker. Do not land INT8 gather on a kernel that is still `waves_per_eu(1,1)`. |
+| Serve wiring | RDNA_ATTN `supported_kv_cache_dtypes` must accept the INT8 mode and `fa_rdna2_decode_paged_int8` must be registered; neither is true at `1dc3bac4`. |
 | Native FP8 KV flags | refuse as a unit. Software FP8 fuse in `fa_rdna2` is occupancy-blocked, not a promote. |
 
 MLA / DSv4 sparse cache is out of scope. Mix/spec still off until a fat tile.
@@ -138,4 +139,5 @@ Added in the 2026-10-11 sourcing pass:
 
 [^vllm-rocm-py]: vLLM `vllm/platforms/rocm.py` (arch gates, `supports_fp8`, custom paged-attn, custom AR) — <https://github.com/vllm-project/vllm/blob/main/vllm/platforms/rocm.py>
 [^vllm-quant-kv]: vLLM docs, Quantized KV cache — <https://docs.vllm.ai/en/latest/features/quantization/quantized_kvcache.html>
-
+[^dest-occupancy]: dest decode kernels at `1dc3bac4` — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L283-L284>, <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L535-L536>
+[^dest-int8]: dest `IS_INT8` decode template — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L266-L284>; `reshape_and_cache_int8_rdna2` binding comment ("Not wired up yet") — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/torch_bindings.cpp#L430-L440>; RDNA_ATTN KV dtypes — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/v1/attention/backends/rdna_attn.py#L582-L583>

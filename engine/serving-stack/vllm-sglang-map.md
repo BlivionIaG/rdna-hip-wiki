@@ -144,7 +144,7 @@ flowchart TD
   X -- "yes" --> GX["gfx1x island<br/>wvSplitK skinny · custom paged-attn (head 128)<br/>Triton-FA opt-in · gfx1100 RDNA3 GPTQ/WMMA if built"]
   X -- "no" --> T{"gfx103x?<br/>on_gfx10x()"}
   T -- "yes, stock vLLM" --> ST["gfx1030 stock: Triton attention<br/>+ rocBLAS / F.linear + Triton AWQ"]
-  T -- "yes, dest rdna_extras" --> DS["on_rdna_family() / on_rdna2()<br/>RDNA_ATTN (fa_rdna2) · q_gemm_rdna2 / moe_q_gemm_rdna2 (fdot2)<br/>PYNCCL all-reduce"]
+  T -- "yes, dest rdna_extras" --> DS["on_rdna_family() / on_rdna2()<br/>RDNA_ATTN (fa_rdna2) · q_gemm_rdna2 / moe_q_gemm_rdna2 (fdot2)<br/>all-reduce: VLLM_RDNA_AR (see fork/serve-locks.md)"]
 ```
 
 Stock gates quoted in §1.4 from `rocm.py`[^vllm-rocm-py]; the dest gate is `vllm/platforms/rdna.py::on_rdna_family()` (gfx10x or RDNA3/4) introduced with the v0.31.0 port[^dest-rdna-py][^dest-pr47].
@@ -269,7 +269,7 @@ AMD ROCm AI SGLang page (opened): https://rocm.docs.amd.com/projects/ai-ecosyste
 
 - Instinct: same MI355/MI350/MI325/MI300 list as vLLM.
 - Radeon: 9070/9060/7900/7800/7700/7600 + PRO W7900/W7800 — **no gfx1030**.
-- Version named: SGLang 0.15.3post1. Image: `rocm/sgl-dev:v0.5.13.post1-ubuntu24.04-py3.14-rocm7.14` (same tag for Instinct and Radeon in the page).
+- Version named: SGLang **0.5.13post1** for ROCm 7.14 (an earlier pass misread it as "0.15.3post1"). Image: `rocm/sgl-dev:v0.5.13.post1-ubuntu24.04-py3.14-rocm7.14` (same tag for Instinct and Radeon in the page). Re-checked 2026-10-11: the page now also has tabs for SGLang 0.5.13post1 on ROCm 7.14.1 and SGLang **0.5.15** (`rocm/sgl-dev:v0.5.15.post1-ubuntu24.04-py3.14-rocm10.0.0`).
 - **Known issue (Radeon):** "ROCm 7.14 introduces **initial** SGLang support for AMD Radeon GPUs. Radeon GPU users should **disable AITER** and unset `SGLANG_ROCM_FUSED_DECODE_MLA`." Some MoE (GPT-OSS-20B, MiniMax-M2.7) and Qwen3-ASR "may not function correctly on Radeon."
 
 SGLang's own hardware docs URL `https://docs.sglang.io/docs/hardware-platforms/amd_gpu.html` **404'd** this pass. Cookbooks that loaded (GLM-5 / GLM-5.1) only name **MI300X/MI325X/MI355X**.
@@ -302,7 +302,7 @@ Issue #30599 (tracking, open):
 | Serve prefill | Reported working (Qwen2.5-7B, `--attention-backend triton`). |
 | Serve decode | **Still failing** in the opened reports (hang / illegal memory access). Not pinned to a named kernel. |
 | AITER | Eager imports in ~36 files; must be optional/disabled on Radeon. |
-| Custom / quick all-reduce | Guarded off on RDNA (wave64 / peer-IPC). Fall back to RCCL. |
+| Custom / quick all-reduce | Quick all-reduce is arch-gated to `gfx94` / `gfx95` (`qr_rocm_arch_available()`)[^sglang-qr]. Custom all-reduce on RDNA: off in the reports opened here *(reason unsourced)*. Fall back to RCCL. |
 
 Issue #27519: gfx1101 (7800 XT) compiles and serves LFM2.5 with a one-line whitelist. That is a community recipe, not `main`.
 
@@ -481,4 +481,4 @@ Added in the 2026-10-11 sourcing pass:
 [^vllm-rocm-py]: vLLM `vllm/platforms/rocm.py` (arch gates, `supports_fp8`, custom paged-attn, custom AR) — <https://github.com/vllm-project/vllm/blob/main/vllm/platforms/rocm.py>
 [^dest-rdna-py]: dest `vllm/platforms/rdna.py` (`on_rdna_family`, `on_rdna2`) — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/vllm/platforms/rdna.py>
 [^dest-pr47]: dest PR #47 — port `rdna_extras` onto vLLM v0.31.0 — <https://github.com/opengfx1030/vllm-rdna/pull/47>
-
+[^sglang-qr]: SGLang `quick_all_reduce.py` @ `04f740580c69` (`supported_archs = ["gfx94", "gfx95"]`) — <https://github.com/sgl-project/sglang/blob/04f740580c69/python/sglang/srt/distributed/device_communicators/quick_all_reduce.py#L28-L35>

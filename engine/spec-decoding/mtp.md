@@ -1,6 +1,6 @@
 # MTP — engine spec (gfx1030)
 
-Date: 2026-08-17. Engine contract. Card: MTP on [project 4](https://github.com/users/BlivionIaG/projects/4). Not sdot4. Sibling cards: [dflash.md](dflash.md), [dspark.md](dspark.md). Family page: [specdec.md](specdec.md). Do not edit `perf/rdna2_w4a16` from this page. Occupancy still first.
+Date: 2026-08-17. Engine contract. Card: MTP on [project 4](https://github.com/users/BlivionIaG/projects/4). Not sdot4. Sibling cards: [dflash.md](dflash.md), [dspark.md](dspark.md). Family page: [specdec.md](specdec.md). Do not edit dest `rdna_extras` (historically `perf/rdna2_w4a16`) from this page. Occupancy still first.
 
 **Verdict:** MTP is **native multi-token prediction** on the target (DeepSeek D=1 heads, serial draft). Verify is **extend / short-prefill** (`q = 1+k`), not q=1 decode. On this box it does **not** fire until a **fat MLA tile (`q>1`)** exists. No new DOT kernel. Same silicon blocker as mix/spec.
 

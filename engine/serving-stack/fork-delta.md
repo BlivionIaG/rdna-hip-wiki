@@ -1,6 +1,6 @@
 # Fork vs upstream — gfx1030 features
 
-> **Dest today (2026-10-11):** [`opengfx1030/vllm-rdna` `rdna_extras`](https://github.com/opengfx1030/vllm-rdna/tree/rdna_extras) = vLLM **v0.31.0** port ([PR #47](https://github.com/opengfx1030/vllm-rdna/pull/47)), tip `1dc3bac4` (contains `8abf4c97`). Tips and branch names quoted below (`rdna2_extras` on BlivionIaG/vllm, `perf/rdna2_w4a16`) are **historical snapshots**. Serve locks (ROCm pin, APC, PYNCCL / `VLLM_RDNA_AR=0`) live in [fork/](../../fork/README.md) and [toolchain/matrix.md](../../toolchain/matrix.md); this page only says what the engine does.
+> **Dest today (2026-10-11):** [`opengfx1030/vllm-rdna` `rdna_extras`](https://github.com/opengfx1030/vllm-rdna/tree/rdna_extras) = vLLM **v0.31.0** port ([PR #47](https://github.com/opengfx1030/vllm-rdna/pull/47)), tip `1dc3bac4` (contains `8abf4c97`). Tips and branch names quoted below (`rdna2_extras` on BlivionIaG/vllm, `perf/rdna2_w4a16`) are **historical snapshots**. Serve locks (ROCm pin, all-reduce path, prefix caching) live in [fork/serve-locks.md](../../fork/serve-locks.md) (fork PR #10) and [toolchain/matrix.md](../../toolchain/matrix.md); this page only says what the engine does.
 
 Date: 2026-08-19. Tip **`rdna2_extras`** @ **`3e05abc9`** (read-only). Overlay of vLLM **v0.27.1** + gfx1030 work (`9ff87936` merge). Historical source: `perf/rdna2_w4a16`. Review: [rdna2-extras.md](rdna2-extras.md). Index of **features this fork added** vs stock vLLM. Completeness bar: **W4A16 dense**. On the branch = **In Progress**. Spec-only = **Todo**. Tickets: one card per row on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not edit that branch from this page.
 
@@ -71,7 +71,7 @@ File-mounts on `blivioniag/vllm-rdna:v0.26.0`. Digest: [notes/ikantkode-qwen35.m
 | `RDNA_ATTN` enum / `--attention-backend` | missing | added | In Progress (backend itself In Progress) |
 | causal_conv1d padding (`total_entries`) | NULL_BLOCK_ID=0 collision | on extras (bounds-check + upstream PDL) | In Progress |
 | W8A16 `weight_scale` alias | Marlin renamed to `_inv` | both names | In Progress (glue for W8A16-FP8) |
-| gfx1030/gfx1100 all-reduce bypass | `vllm::all_reduce` CUDA dispatcher (broken under Torch 2.12) | `3e05abc9` → `_all_reduce_out_place` / PYNCCL (`use_custom_op_collectives` False, ROCm-wide) | In Progress (glue). Transport only. Does not put RCCL inside MoE GEMM. |
+| gfx1030/gfx1100 all-reduce bypass | `vllm::all_reduce` CUDA dispatcher (broken under Torch 2.12) | `3e05abc9` → `_all_reduce_out_place` / PYNCCL (`use_custom_op_collectives` False, ROCm-wide) | In Progress (glue) *(historical @ `3e05abc9`; current all-reduce path: [fork/serve-locks.md](../../fork/serve-locks.md))*. Transport only. Does not put RCCL inside MoE GEMM. |
 
 ## Research / later (not fork features)
 
@@ -84,7 +84,7 @@ File-mounts on `blivioniag/vllm-rdna:v0.26.0`. Digest: [notes/ikantkode-qwen35.m
 
 ## Card list (for VLLM_FORK_Manager)
 
-Reuse a card if it already exists. In-tree → In Progress. Spec-only → Todo. Retip In Progress cards to `rdna2_extras` @ `3e05abc9`.
+Reuse a card if it already exists. In-tree → In Progress. Spec-only → Todo. *(historical)* Retip In Progress cards to `rdna2_extras` @ `3e05abc9`. Tip bumps now belong to [fork/](../../fork/README.md).
 
 1. W4A16 dense — bar; leftover tile/occupancy only
 2. W4A16 MoE
@@ -111,7 +111,7 @@ Reuse a card if it already exists. In-tree → In Progress. Spec-only → Todo. 
 23. W4A4 integer `sdot8` — Explore — [w4a4.md](../quant-formats/w4a4.md) (not MXFP4/NVFP4 A4)
 24. Native HIP FP16 MoE — Todo — [fp16-moe.md](../moe/fp16-moe.md)
 25. Native HIP INT8 MoE (W8A16 + W8A8) — Todo — [int8-moe.md](../moe/int8-moe.md)
-26. `3e05abc9` PYNCCL all-reduce bypass — In Progress (glue)
+26. `3e05abc9` PYNCCL all-reduce bypass — In Progress (glue) *(historical card; current path in [fork/serve-locks.md](../../fork/serve-locks.md))*
 27. Baseline epic 0–5 (harness → stock map → skinny → Triton FA → HIP A/B → FlyDSL) — [baseline-order.md](../stock-baseline/baseline-order.md)
 28. llama.cpp ROCmFPX on V620 — Later / side-project — [llamacpp-rocmfpx.md](../alt-engines/llamacpp-rocmfpx.md)
 29. DeepEP / PCIe A2A — Later, not a first ticket — [deepep.md](../multi-gpu/deepep.md)
