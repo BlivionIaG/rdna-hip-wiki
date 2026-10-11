@@ -16,7 +16,7 @@ Engine: [../engine/dsv4-flash-run.md](../../engine/dsv4-flash-run.md). Occupancy
 | Tensors | Official QAT | Int4-FP8 (side) | Dest HIP |
 |---|---|---|---|
 | Routed experts | MXFP4 E2M1 + E8M0/32 | W4A16 i4 + group-32 (second quant of those nibbles) | EXL3 16×16 + `decode_3inst` → `fdot2` [^m-roscaling-formats-mx-v1-0-spec-final-pdf] |
-| Attn / shared / indexer / `main_proj` | MXFP8 e4m3 + **e8m0 / 128²** | e4m3 + **fp32** 128² blocks | keep official MXFP8 cvt (`e4m3` bit-trick + `mxfp4_apply_e8m0_bits`) |
+| Attn / shared / indexer / `main_proj` | MXFP8 e4m3 + **e8m0 / 128²** | e4m3 + **fp32** 128² blocks | keep official MXFP8 cvt (`e4m3` bit-trick + E8M0 exponent apply). *(`mxfp4_apply_e8m0_bits` is a name from upstream vLLM PR #46676, not a dest symbol at `1dc3bac4`; the exact dest helper for these tensors is unsourced.)*[^dsv4-tip-e8m0] |
 | Gate / embed / head / norms / `hc_*` | bf16/f32 | bf16 | unchanged |
 
 Int4-FP8 leftover is **not** official MXFP8 (fp32 block scale vs e8m0). 164.96 GiB full / 118.25 GiB REAP-216 — no KV on 120 GB. Do **not** Viterbi it.[^huggingface-blivioniag-deepseek-v4-flash-0731-in]
@@ -61,3 +61,4 @@ Footnotes:
 
 
 [^m-roscaling-formats-mx-v1-0-spec-final-pdf]: www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf. https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf (checked 2026-10-11)
+[^dsv4-tip-e8m0]: No `mxfp4_apply_e8m0_bits` in dest at 1dc3bac4. Dest's DSv4 ROCm path normalizes WO_A scales with `_wo_a_block_scale_to_e8m0` in `vllm/models/deepseek_v4/amd/rocm.py` L59. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/models/deepseek_v4/amd/rocm.py#L59

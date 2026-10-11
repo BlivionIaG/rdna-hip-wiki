@@ -90,7 +90,7 @@ Files: `/workspace/dpp-probe/` (`p.hip`, `q.hip`, `m.hip`, `h.hip`, `ao.hip`, `*
 ## 4. Extras read (no edit; `rdna_extras` @ `c6d99ca3`, 2026-10-08)
 
 - `skinny_gemms_int4.cu` `REDUCE_SUM_DPP_WAVE32` under `__HIP__GFX1X__`: `row_shr:8,4,2,1` + `__shfl_xor(val,16)`, store from `threadIdx.x == THRDS-1` with launch `THRDS = 32` → **correct**. Cross-row step is a bpermute (Later craft above).
-- `__shfl_xor` butterflies (5 steps) in `rdna_fused_glue.cu` `wave_reduce<MT>`, skinny int4 MoE/dense tails, `sparse_mla_rdna2.cu`, `layernorm.cu`; short 1–8 xor steps in the GDN kernels. All correct; all on the LDS pipe.
+- `__shfl_xor` butterflies (5 steps) in `rdna_fused_glue.cu` `wave_reduce<MT>`, skinny int4 MoE/dense tails, `sparse_mla_rdna2.cu` (historical name; `rdna/dsv4/sparse_mla_decode.cu` at `1dc3bac4`), `layernorm.cu`;[^dpp-tip-shfl] short 1–8 xor steps in the GDN kernels. All correct; all on the LDS pipe.
 - `attention.cu` `v_nop; v_nop; v_*_dpp row_ror` inline asm sits under `__HIP__GFX9__` (MFMA paged attention) → **Leave**; not a gfx1030 path.
 - No `wave_reduce_*`, `permlane*`, or `row_bcast` in the 52 rdna/rocm sources read.
 
@@ -109,4 +109,4 @@ Footnotes:
 [^commit-c6d99ca3]: opengfx1030/vllm-rdna commit `c6d99ca30580`. https://github.com/opengfx1030/vllm-rdna/commit/c6d99ca30580f0ce6a97a168fa53bf9c6ee6b2af (exists, verified via GitHub API 2026-10-11)
 [^probe-dpp]: Box compiler probe `/workspace/dpp-probe/` (HIP sources and `.s` output; `.ident` "Debian clang version 22.1.8 (1~deb13u4)", upstream clang 22.1.8, not the ROCm 7.14.0 pin). Local box path, not a public URL; re-run to reproduce.
 [^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)
-
+[^dpp-tip-shfl]: `__shfl_xor` reduces in `csrc/rocm/rdna_fused_glue.cu` L137-L141 (`wave_reduce`), `csrc/rocm/rdna/dsv4/sparse_mla_decode.cu` L220 / L690 and `csrc/rocm/layernorm.cu` L43 / L58 (`__shfl_xor_sync`), dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/rdna_fused_glue.cu#L137-L141 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/rdna/dsv4/sparse_mla_decode.cu#L220 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/layernorm.cu#L43-L58

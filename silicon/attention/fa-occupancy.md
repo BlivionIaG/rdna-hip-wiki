@@ -14,10 +14,10 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/rdna_launcher_common.sh
   - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/serve_rdna.sh
   - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/platforms/rocm.py
-  - https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu
-  - https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu
-  - https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu
-  - https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h
+  - https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/fa_rdna2.cu
+  - https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/sparse_mla_rdna2.cu
+  - https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/indexer_paged_mqa_rdna2.cu
+  - https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/ops.h
   - https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/fa_rdna2.cu
   - https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/sparse_mla_rdna2.cu
   - https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/indexer_paged_mqa_rdna2.cu
@@ -136,7 +136,7 @@ GDN `o` (`77d6fdf8`): still `(2, 4)`, BV=64, ~56 KB LDS, `fdot2`. No new ELF VGP
 This dump below is a **historical snapshot** of `perf/rdna2_w4a16` (tree SHA `9ac015d0a936e9e3bdbe5dc7483e1a8b48c65370`). Decode rows in the table are stale vs `d414eac5`.[^commit-d414eac5]
 
 Live tree: [`csrc/rocm/fa_rdna2.cu` on dest `rdna_extras` @ `1dc3bac4`](https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu).[^extras-fa-rdna2-cu] *(The BlivionIaG `rdna2_extras` raw link is the archive overlay, historical.)*[^raw-rocm-fa-rdna2-cu]
-Snapshot sources: [`fa_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu), [`sparse_mla_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu), [`indexer_paged_mqa_rdna2.cu`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu), [`ops.h`](https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h).[^raw-rocm-fa-rdna2-cu-2][^raw-rocm-sparse-mla-rdna2-cu][^raw-rocm-indexer-paged-mqa-rdna2-cu][^raw-rocm-ops-h][^extras-fa-rdna2-cu][^extras-sparse-mla-rdna2-cu][^extras-indexer-paged-mqa-rdna2-cu][^extras-ops-h]
+Snapshot sources: [`fa_rdna2.cu`](https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/fa_rdna2.cu), [`sparse_mla_rdna2.cu`](https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/sparse_mla_rdna2.cu), [`indexer_paged_mqa_rdna2.cu`](https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/indexer_paged_mqa_rdna2.cu), [`ops.h`](https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/ops.h).[^raw-rocm-fa-rdna2-cu-2][^raw-rocm-sparse-mla-rdna2-cu][^raw-rocm-indexer-paged-mqa-rdna2-cu][^raw-rocm-ops-h][^extras-fa-rdna2-cu][^extras-sparse-mla-rdna2-cu][^extras-indexer-paged-mqa-rdna2-cu][^extras-ops-h]
 
 VGPR columns below §8 are source comments or live-state estimates (as originally written). **§8 replaces the estimates with real compiled values from the `.hip_fatbin` of the built `_rocm_C.abi3.so`** (NT_AMDGPU_METADATA via pyelftools + msgpack). LDS bytes are the host `size_t smem` formulas (what HIP actually reserves).[^llvm-amdgpuusage]
 
@@ -447,10 +447,10 @@ Do not keep `(256, 1)` under the belief it means 1 block/CU.
 
 
 
-- https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu
-- https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu
-- https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu
-- https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h
+- https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/fa_rdna2.cu
+- https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/sparse_mla_rdna2.cu
+- https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/indexer_paged_mqa_rdna2.cu
+- https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/ops.h
 - HIP `__launch_bounds__`: https://rocm.docs.amd.com/projects/HIP/en/docs-6.3.1/how-to/hip_cpp_language_extensions.html (second arg = `MIN_WARPS_PER_EXECUTION_UNIT`; CUDA port formula)
 - Macro lowering: https://github.com/ROCm/hip/issues/2521
 - Live branch: `rdna2_extras` @ `0fdb1884cb` (FA pins unchanged: decode `(4, 8)`, prefill `(N, 1)`).
@@ -470,10 +470,10 @@ Footnotes:
 [^commit-d414eac5]: opengfx1030/vllm-rdna commit `d414eac51b3a`. https://github.com/opengfx1030/vllm-rdna/commit/d414eac51b3aec9bffe871457339e00341805185 (exists, verified via GitHub API 2026-10-11)
 [^raw-rocm-fa-rdna2-cu]: raw.githubusercontent.com/BlivionIaG/vllm/rdna2_extras/csrc/rocm/fa_rdna2.cu. https://raw.githubusercontent.com/BlivionIaG/vllm/rdna2_extras/csrc/rocm/fa_rdna2.cu (checked 2026-10-11)
 [^extras-fa-rdna2-cu]: `csrc/rocm/fa_rdna2.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu
-[^raw-rocm-fa-rdna2-cu-2]: raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu. https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/fa_rdna2.cu (checked 2026-10-11)
-[^raw-rocm-sparse-mla-rdna2-cu]: raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu. https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/sparse_mla_rdna2.cu (checked 2026-10-11)
-[^raw-rocm-indexer-paged-mqa-rdna2-cu]: raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu. https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu (checked 2026-10-11)
-[^raw-rocm-ops-h]: raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h. https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h (checked 2026-10-11)
+[^raw-rocm-fa-rdna2-cu-2]: BlivionIaG/vllm `csrc/rocm/fa_rdna2.cu` @ `3baecdb5` (archive; historical, absent on dest at 1dc3bac4). https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/fa_rdna2.cu (checked 2026-10-11)
+[^raw-rocm-sparse-mla-rdna2-cu]: BlivionIaG/vllm `csrc/rocm/sparse_mla_rdna2.cu` @ `3baecdb5` (archive; historical, absent on dest at 1dc3bac4). https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/sparse_mla_rdna2.cu (checked 2026-10-11)
+[^raw-rocm-indexer-paged-mqa-rdna2-cu]: BlivionIaG/vllm `csrc/rocm/indexer_paged_mqa_rdna2.cu` @ `3baecdb5` (archive; historical, absent on dest at 1dc3bac4). https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/indexer_paged_mqa_rdna2.cu (checked 2026-10-11)
+[^raw-rocm-ops-h]: BlivionIaG/vllm `csrc/rocm/ops.h` @ `3baecdb5` (archive; historical). https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/ops.h (checked 2026-10-11)
 [^extras-sparse-mla-rdna2-cu]: `csrc/rocm/sparse_mla_rdna2.cu` on BlivionIaG/vllm `perf/rdna2_w4a16` (archive overlay, historical snapshot), pinned to the branch head `3baecdb5` (last commit 2026-08-21). Not present on dest `rdna_extras` at `1dc3bac4`. https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/sparse_mla_rdna2.cu
 [^extras-indexer-paged-mqa-rdna2-cu]: `csrc/rocm/indexer_paged_mqa_rdna2.cu` on BlivionIaG/vllm `perf/rdna2_w4a16` (archive overlay, historical snapshot), pinned to the branch head `3baecdb5` (last commit 2026-08-21). Not present on dest `rdna_extras` at `1dc3bac4`. https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/indexer_paged_mqa_rdna2.cu
 [^extras-ops-h]: `csrc/rocm/ops.h` on BlivionIaG/vllm `perf/rdna2_w4a16` (archive overlay, historical snapshot), pinned to the branch head `3baecdb5` (last commit 2026-08-21). Dest has its own `csrc/rocm/ops.h` at `1dc3bac4` (https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/ops.h); this footnote is the snapshot file. https://github.com/BlivionIaG/vllm/blob/3baecdb516cb969a9ae5a24eadf345dde7b54724/csrc/rocm/ops.h
