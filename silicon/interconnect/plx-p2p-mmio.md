@@ -1,3 +1,20 @@
+---
+title: "PEX 88096 / 8749 — silicon, ACS, MMIO (Linux P2P)"
+sources:
+  - https://docs.broadcom.com/doc/BC-0484EN
+  - https://docs.broadcom.com/doc/BC00-0445EN
+  - https://docs.broadcom.com/doc/12351856
+  - https://github.com/ROCm/HIP/issues/3103
+  - https://github.com/ROCm/legacy-rocm-build/issues/6576
+  - https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting/gpu_troubleshooting.html
+  - https://rocm.docs.amd.com/en/docs-7.2.0/how-to/Bar-Memory.html
+  - https://docs.kernel.org/gpu/amdgpu/module-parameters.html
+  - https://github.com/BlivionIaG/v620_toolbox/tree/master/pcie_p2p
+  - https://www.reddit.com/r/LocalLLaMA/comments/1qeimyi/7_gpus_at_x16_50_and_40_on_am5_with_gen54/
+  - https://github.com/aikitoria/open-gpu-kernel-modules
+  - https://pastebin.com/g9hFc9WZ
+---
+
 # PEX 88096 / 8749 — silicon, ACS, MMIO (Linux P2P)
 
 Date: 2026-08-19. Register / MMIO dump for the PLX/PEX hop. Engine policy lives in [engine/plx.md](../../engine/plx.md). 4× V620 P2P facts stay in [rccl-p2p.md](rccl-p2p.md). Do **not** invent a measured `hipMemcpyPeer` GB/s. Occupancy still first.
@@ -32,13 +49,13 @@ V620 has **no XGMI**. Every TP all-reduce and every future mapped-peer MoE A2A i
 | Cut-through x16→x16 | **< 100 ns** (brief); family table **105 ns** | **126 ns** max (some family tables 150 ns) |
 | NTB | up to **48** NT2.0 | **2** NT; up to 6 hosts |
 | Switch DMA | up to **48** channels | **4** channels |
-| MPS | 2 KB | 2 KB |
+| MPS | 2 KB | 2 KB (unsourced) |
 | Mgmt | ARM Cortex-R4; **Base Mode** = no FW | no ARM; EEPROM / I²C |
 | Pkg / typ W | 37.5×42.5 mm, **35.78 W** | 27×27 mm, **7.3 W** |
 
-Sources: [BC-0484EN](https://docs.broadcom.com/doc/BC-0484EN), [BC00-0445EN](https://docs.broadcom.com/doc/BC00-0445EN), [PEX8749 brief](https://docs.broadcom.com/doc/12351856).
+Sources: [BC-0484EN](https://docs.broadcom.com/doc/BC-0484EN), [BC00-0445EN](https://docs.broadcom.com/doc/BC00-0445EN), [PEX8749 brief](https://docs.broadcom.com/doc/12351856).[^docs-doc-bc-0484en][^docs-doc-bc00-0445en][^docs-doc-12351856]
 
-**Do not quote ~3 TB/s.** That is 96 × 16 GT/s line-rate marketing, not a GPU hop.
+**Do not quote ~3 TB/s.** That is 96 × 16 GT/s line-rate marketing, not a GPU hop.[^pcisig-pcie4]
 
 ## Lane budget
 
@@ -46,7 +63,7 @@ Payload one way, 128b/130b (same math as [rccl-p2p.md](rccl-p2p.md)):
 
 | Link | Payload |
 |---|---|
-| Gen4 x16 (88096 + V620/W7800, `LnkSta` 16 GT/s) | **31.508 GB/s** |
+| Gen4 x16 (88096 + V620/W7800, `LnkSta` 16 GT/s) | **31.508 GB/s** [^m-w-does-it-compare-prior-pcie-generations] |
 | Gen4 x8 | **15.754 GB/s** |
 | Gen3 x16 (**V340L endpoint**, or 8749, or a gen-dropped 88096 port) | **15.754 GB/s** |
 | Gen3 x8 | **7.877 GB/s** |
@@ -80,7 +97,7 @@ Own host, own ROCm line, own gfx900 `mad_mix` objects. Later.
 **Use — single-root transparent (Base Mode)**
 
 - One CPU root → one upstream port → 5 downstream GPU ports **per board**.
-- 88096 **Base Mode**: embedded ARM **off**, device is a standard PCIe fan-out. No FW required ([BC-0484EN](https://docs.broadcom.com/doc/BC-0484EN)).
+- 88096 **Base Mode**: embedded ARM **off**, device is a standard PCIe fan-out. No FW required ([BC-0484EN](https://docs.broadcom.com/doc/BC-0484EN)).[^docs-doc-bc-0484en]
 - Peer MWr/MRd stay **inside** that board's switch (cut-through, PIX).
 
 **Ignore — not the TP / mapped-peer path**
@@ -145,9 +162,9 @@ ROCm BAR-memory + amdgpu (same as [rccl-p2p.md](rccl-p2p.md)):
 |---|---|---|---|
 | **BAR0-1** | 64-bit **prefetchable** | **VRAM** (large-BAR) | Entire VRAM. V620 **32G**, W7800 **48G**. Start **< 2^44**. This is the mapped-peer / DeepEP-analogue window. |
 | **BAR2-3** | 64-bit prefetchable | **Doorbell** | Same < 2^44. Not the collective payload. |
-| **BAR5** | 32-bit non-prefetchable | **MMIO remap** | < 4 GB. Host/driver. **Pre-gfx1030 cards in this host break this map.** |
+| **BAR5** | 32-bit non-prefetchable | **MMIO remap** | < 4 GB. Host/driver. **Pre-gfx1030 cards in this host break this map.** [^rocm-how-to-bar-memory-html] |
 
-`lspci -s <gpu> -v` first prefetchable region must be **`size=32G`** (V620) or **`size=48G`** (W7800), not **256M**. 256M = no large-BAR = no PCIe P2P ([HIP #3103](https://github.com/ROCm/HIP/issues/3103)).
+`lspci -s <gpu> -v` first prefetchable region must be **`size=32G`** (V620) or **`size=48G`** (W7800), not **256M**. 256M = no large-BAR = no PCIe P2P ([HIP #3103](https://github.com/ROCm/HIP/issues/3103)).[^github-issues-3103]
 
 MMIO hole (prefetchable, Above 4G):
 
@@ -170,7 +187,7 @@ Peer path: GPU A SDMA/shader issues **MWr/MRd** against GPU B **BAR0 bus address
 |---|---|
 | **AtomicOpCompleter** on root + PEX + GPU (`lspci` `AtomicOps`) | ROCm **requires** PCIe atomics. Missing → multi-GPU already dead. |
 | **ARI** | 88000 advertises it. Fine; we are not VF-dense. |
-| **MPS / MRRS** | Switch *can* do 2 KB. GPUs usually negotiate **256 B**. Do not force 2 KB. Check `MaxPayload` / `MaxReadReq` on GPU **and** the DSP above it — they must match. |
+| **MPS / MRRS** | Switch *can* do 2 KB. GPUs usually negotiate **256 B**. Do not force 2 KB. Check `MaxPayload` / `MaxReadReq` on GPU **and** the DSP above it — they must match. (unsourced) |
 | **10-bit tag / relaxed ordering** | 88000 has device-specific relaxed ordering. Leave default until a bench says otherwise. |
 | **DPC/eDPC** (88000) | Surprise-remove containment. Leave on. |
 
@@ -196,7 +213,7 @@ HIP / RCCL (same pass/fail as [rccl-p2p.md](rccl-p2p.md) §5.7):
 - `HSA_FORCE_FINE_GRAIN_PCIE=1`, `amdgpu.pcie_p2p=1`
 - `NCCL_P2P_LEVEL=PIX` for a 4-GPU job on one board; `PHB` if ranks span both USPs; `PXB` only if cascaded
 - `all_reduce_perf` + pairwise `hipMemcpyPeer` **ACS clear vs ACS on**, same-board vs cross-board
-- If RCCL “P2P” is ~215 ms, ship `NCCL_P2P_DISABLE=1` (SHM). P2P-on can be worse ([ROCm #6576](https://github.com/ROCm/legacy-rocm-build/issues/6576))
+- If RCCL “P2P” is ~215 ms, ship `NCCL_P2P_DISABLE=1` (SHM). P2P-on can be worse ([ROCm #6576](https://github.com/ROCm/legacy-rocm-build/issues/6576))[^github-issues-6576]
 
 IOMMU: remap is AMD's Radeon-P2P story; `iommu=pt` is the RCCL hang workaround. **Measure both.** `iommu=off` is last resort.
 
@@ -228,9 +245,24 @@ A gfx1030 kernel does not program the PEX. It issues global stores/loads. Those 
 - [engine/plx.md](../../engine/plx.md), [rccl-p2p.md](rccl-p2p.md), [deepep-v620.md](deepep-v620.md), [v340l.md](../other-hardware/v340l.md)
 - [v620_toolbox pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/master/pcie_p2p)
 
+Footnotes:
+
+[^docs-doc-bc-0484en]: docs.broadcom.com/doc/BC-0484EN. https://docs.broadcom.com/doc/BC-0484EN (checked 2026-10-11)
+[^docs-doc-bc00-0445en]: docs.broadcom.com/doc/BC00-0445EN. https://docs.broadcom.com/doc/BC00-0445EN (checked 2026-10-11)
+[^docs-doc-12351856]: docs.broadcom.com/doc/12351856. https://docs.broadcom.com/doc/12351856 (checked 2026-10-11)
+[^github-issues-3103]: verification of the simpleP2P example in HIP · Issue #3103 · ROCm/hip. https://github.com/ROCm/HIP/issues/3103 (checked 2026-10-11)
+[^github-issues-6576]: (Issue): RCCL P2P/IPC transport ~7000x slower than SHM on dual gfx1100 (separate CPU root ports): fixed ~215 ms per collective, NCCL_P2P_DISABLE=1 restores full speed · Issue #6576 · ROCm/legacy-rocm-build. https://github.com/ROCm/legacy-rocm-build/issues/6576 (checked 2026-10-11)
+[^docs-troubleshooting-gpu-troubleshooting-html]: GPU troubleshooting — NCCL 2.32.3 documentation. https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting/gpu_troubleshooting.html (checked 2026-10-11)
+[^rocm-how-to-bar-memory-html]: Troubleshoot BAR access limitation — ROCm Documentation. https://rocm.docs.amd.com/en/docs-7.2.0/how-to/Bar-Memory.html (checked 2026-10-11)
+[^docs-amdgpu-module-parameters-html]: Module Parameters — The Linux Kernel documentation. https://docs.kernel.org/gpu/amdgpu/module-parameters.html (checked 2026-10-11)
+[^github-master-pcie-p2p]: v620_toolbox/pcie_p2p at master · BlivionIaG/v620_toolbox. https://github.com/BlivionIaG/v620_toolbox/tree/master/pcie_p2p (checked 2026-10-11)
+[^reddit-1qeimyi-7-gpus-at-x16-50-and-40-on-am5-wi]: Reddit. https://www.reddit.com/r/LocalLLaMA/comments/1qeimyi/7_gpus_at_x16_50_and_40_on_am5_with_gen54/ (checked 2026-10-11)
+[^github-aikitoria-open-gpu-kernel-modules]: GitHub - aikitoria/open-gpu-kernel-modules: Unlock P2P comms between consumer NVIDIA GPUs. https://github.com/aikitoria/open-gpu-kernel-modules (checked 2026-10-11)
+[^pastebin-g9hfc9wz]: p2p stuff - Pastebin.com. https://pastebin.com/g9hFc9WZ (checked 2026-10-11)
+
 ## Later note (2026-08-27) — LocalLLaMA 1qeimyi (panchovix)
 
-[7 GPUs at X16 on AM5](https://www.reddit.com/r/LocalLLaMA/comments/1qeimyi/7_gpus_at_x16_50_and_40_on_am5_with_gen54/) is **NVIDIA CUDA** (5090/4090/Ampere) + [aikitoria P2P kernel](https://github.com/aikitoria/open-gpu-kernel-modules). Zero gfx1030 / HIP. Do not copy tok/s.
+[7 GPUs at X16 on AM5](https://www.reddit.com/r/LocalLLaMA/comments/1qeimyi/7_gpus_at_x16_50_and_40_on_am5_with_gen54/) is **NVIDIA CUDA** (5090/4090/Ampere) + [aikitoria P2P kernel](https://github.com/aikitoria/open-gpu-kernel-modules). Zero gfx1030 / HIP. Do not copy tok/s.[^reddit-1qeimyi-7-gpus-at-x16-50-and-40-on-am5-wi][^github-aikitoria-open-gpu-kernel-modules]
 
 **Leave:** the NVIDIA P2P driver (`amdgpu` already peers on this V620 box). Their llama.cpp GGUF tables. `NCCL_TOPO_FILE` fake xml (NCCL, not RCCL). PM50100 / Gen5 / MCIO retimer (V620 is Gen4 on SlimSAS 88096).
 
@@ -240,8 +272,10 @@ Their cascade is PM50100 (Gen5, two 5090s) → 88096 (Gen4, five Ampere/Ada). Ou
 
 ## Later note (2026-08-28) — pastebin g9hFc9WZ (MI50 P2P cook)
 
-[g9hFc9WZ](https://pastebin.com/g9hFc9WZ) is **MI50 / Vega20 gfx906** (`1002:66a1`): three VBIOS IDs, 44-bit/16 TB BAR, `HSA_OVERRIDE_GFX_VERSION=9.0.6`, `pcie_acs_override=downstream,multifunction`, `aiinfos/vllm-gfx906-mobydick`. Zero gfx1030.
+[g9hFc9WZ](https://pastebin.com/g9hFc9WZ) is **MI50 / Vega20 gfx906** (`1002:66a1`): three VBIOS IDs, 44-bit/16 TB BAR, `HSA_OVERRIDE_GFX_VERSION=9.0.6`, `pcie_acs_override=downstream,multifunction`, `aiinfos/vllm-gfx906-mobydick`. Zero gfx1030.[^pastebin-g9hfc9wz]
 
 **Leave:** flash those ROMs onto V620. Vega 16 TB MMIO cook. `HSA_OVERRIDE=9.0.6`. `pcie_acs_override` (ACS stays `setpci ECAP_ACS+0x6`). Their docker and `--disable-custom-all-reduce` (custom AR is already gfx94/95-only here). Do not copy tok/s.
 
 **Take (already our lock):** `HSA_FORCE_FINE_GRAIN_PCIE=1`, `NCCL_P2P_LEVEL=PIX` on one 88096, log `via P2P/IPC` not `SHM/direct`. `VLLM_SKIP_P2P_CHECK=1` is a skip, not a fix. P2P is attested on this V620 box; no measured `hipMemcpyPeer` GB/s yet.
+[^pcisig-pcie4]: PCI-SIG FAQ, PCI Express 4.0 (16 GT/s per lane). https://pcisig.com/faq?field_category_value%5B%5D=pci_express_4.0 (checked 2026-10-11)
+[^m-w-does-it-compare-prior-pcie-generations]: What bit rates does the PCIe 5.0 specification support and how does it compare to prior PCIe generations? | PCI-SIG. https://pcisig.com/what-bit-rates-does-pcie-50-specification-support-and-how-does-it-compare-prior-pcie-generations (checked 2026-10-11)

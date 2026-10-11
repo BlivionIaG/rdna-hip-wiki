@@ -1,6 +1,19 @@
+---
+title: "Scratch / private segment vs occupancy (gfx1030)"
+sources:
+  - https://github.com/ROCm/rocm-systems/commit/bd63e5045c363404c1e9cfd0250705d7d28bce65
+  - https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
+  - https://rocm.docs.amd.com/projects/ROCR-Runtime/en/docs-7.1.1/api-reference/environment_variables.html
+  - https://clang.llvm.org/docs/AttributeReference.html#amdgpu-waves-per-eu
+  - https://llvm.org/docs/AMDGPUUsage.html
+  - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/GCNSubtarget.h
+  - https://gpuopen.com/learn/occupancy-explained/
+  - https://github.com/llvm/llvm-project/pull/123748
+---
+
 # Scratch / private segment vs occupancy (gfx1030)
 
-Lock: **`.private_segment_fixed_size` is not a waves/SIMD limiter in LLVM or GPUOpen theoretical occupancy.** It is a **runtime GDDR scratch pool** (private AS 5). Spills always hurt latency; they cut concurrent waves only when ROCr fails to map the requested pool and lowers `waves_per_cu`. Dump/reject recipe stays on [occupancy-dump.md](occupancy-dump.md) §6; VGPR/LDS math on [hip-craft.md](../hip-craft/hip-craft.md) §6.
+Lock: **`.private_segment_fixed_size` is not a waves/SIMD limiter in LLVM or GPUOpen theoretical occupancy.** It is a **runtime GDDR scratch pool** (private AS 5). Spills always hurt latency; they cut concurrent waves only when ROCr fails to map the requested pool and lowers `waves_per_cu`. Dump/reject recipe stays on [occupancy-dump.md](occupancy-dump.md) §6; VGPR/LDS math on [hip-craft.md](../hip-craft/hip-craft.md) §6.[^github-commit-bd63e5045c363404c1e9cfd0250705d7d2]
 
 Does **not** change extras HIP or tickets. No tok/s.
 
@@ -11,10 +24,10 @@ Fold page: [occupancy-composite.md](occupancy-composite.md).
 | | |
 |---|---|
 | **Take** | Treat `.private_segment_fixed_size > 0` (and COV5+ `.uses_dynamic_stack`) as an **inner-loop reject** for latency — same gate as spill counts. |
-| **Take** | Theoretical waves/EU = `min(slots, VGPR, LDS, WG/barrier)`. **Do not put scratch bytes in that min.** `llvm-calc-occupancy` has no `--scratch`. |
-| **Take** | If a spilled kernel somehow ships, watch ROCr scratch reclaim / `HSA_SCRATCH_SINGLE_LIMIT` — runtime can **reduce dispatch occupancy** when the pool will not map. |
+| **Take** | Theoretical waves/EU = `min(slots, VGPR, LDS, WG/barrier)`. **Do not put scratch bytes in that min.** `llvm-calc-occupancy` has no `--scratch`. [^llvm-calc-occupancy] |
+| **Take** | If a spilled kernel somehow ships, watch ROCr scratch reclaim / `HSA_SCRATCH_SINGLE_LIMIT` — runtime can **reduce dispatch occupancy** when the pool will not map. [^rocm-api-reference-environment-variables-html] |
 | **Leave** | Do not invent a “scratch bytes → waves/SIMD” table like the VGPR granule ladder. LLVM explicitly does not compute it. |
-| **Leave** | Do not confuse Clang `amdgpu_waves_per_eu` “limit private segment” with SPI treating scratch like VGPRs. That attribute is a **codegen budget hint**, not a hardware file size. |
+| **Leave** | Do not confuse Clang `amdgpu_waves_per_eu` “limit private segment” with SPI treating scratch like VGPRs. That attribute is a **codegen budget hint**, not a hardware file size. [^clang-docs-attributereference-html] |
 
 ## 1. What `.private_segment_fixed_size` is
 
@@ -22,9 +35,9 @@ Fold page: [occupancy-composite.md](occupancy-composite.md).
 |---|---|
 | `.private_segment_fixed_size` | Fixed private/scratch bytes per work-item (`ProgramInfo.ScratchSize`). LLVM private **AS 5**. |
 | `.vgpr_spill_count` / `.sgpr_spill_count` | Allocator spill *ops* — usually the reason private size is non-zero. |
-| `.uses_dynamic_stack` (COV5+) | Dynamic call stack; still needs a private-segment budget (`LIBOMPTARGET_STACK_SIZE` path in AMDGPUUsage). |
+| `.uses_dynamic_stack` (COV5+) | Dynamic call stack; still needs a private-segment budget (`LIBOMPTARGET_STACK_SIZE` path in AMDGPUUsage). [^llvm-amdgpuusage] |
 
-Hardware (LLVM AMDGPUUsage, Private): if the dispatch uses scratch, the device allocates from a **runtime backing pool** per wavefront. Lanes use **dword (4 B) interleave**:
+Hardware (LLVM AMDGPUUsage, Private): if the dispatch uses scratch, the device allocates from a **runtime backing pool** per wavefront. Lanes use **dword (4 B) interleave**:[^llvm-amdgpuusage]
 
 ```
 wavefront-scratch-base
@@ -35,7 +48,7 @@ wavefront-scratch-base
 
 Traffic is L0 → L2 → Infinity Cache → GDDR6 — **not** a per-SIMD register file. gfx1030 ABI = **Absolute flat scratch** (`amdgpu10.30` / `gfx10-3-generic`).
 
-Per-wave hardware ceiling (LLVM `GCNSubtarget::getMaxWaveScratchSize`, pre-GFX11 / gfx1030):
+Per-wave hardware ceiling (LLVM `GCNSubtarget::getMaxWaveScratchSize`, pre-GFX11 / gfx1030):[^github-amdgpu-gcnsubtarget-h]
 
 ```
 COMPUTE_TMPRING_SIZE.WAVESIZE = 13-bit field in units of 256 dword
@@ -48,36 +61,36 @@ That is a **tmpring encoding limit**, not an occupancy ladder.
 
 | Tool / API | Inputs | Scratch? |
 |---|---|---|
-| `llvm-calc-occupancy` | `--wg-size`, `--vgprs`, `--sgprs`, `--lds` | **No flag** |
+| `llvm-calc-occupancy` | `--wg-size`, `--vgprs`, `--sgprs`, `--lds` | **No flag** [^llvm-calc-occupancy] |
 | `GCNSubtarget::computeOccupancy(F, LDS, SGPRs, VGPRs)` | LDS + SGPRs + VGPRs (+ WG-size range) | **Explicitly not modeled** |
-| GPUOpen “Occupancy explained” limiters | VGPR, LDS, threadgroup size, barriers | **Scratch absent** |
+| GPUOpen “Occupancy explained” limiters | VGPR, LDS, threadgroup size, barriers | **Scratch absent** [^gpuopen-occupancy] |
 | hip-craft / architecture wiki formula | `min(slots, VGPR, LDS, WG/barrier)` | **Scratch absent** |
 
-LLVM `GCNSubtarget.h` on `computeOccupancy` (opened this pass):
+LLVM `GCNSubtarget.h` on `computeOccupancy` (opened this pass):[^github-amdgpu-gcnsubtarget-h]
 
 > Note that occupancy can be affected by the scratch allocation as well, but we do not have enough information to compute it.
 
 So: compiler **knows** scratch *can* matter at run time, and **refuses** to fold it into waves/EU. Do not fill that gap with guesswork.
 
-Clang `__attribute__((amdgpu_waves_per_eu(min[,max])))` may constrain “size of available group and private memory segments” so the requested wave range still fits — that is the backend **shrinking budgets / refusing spills** to meet the hint, not SPI subtracting scratch from the 16 wave slots.
+Clang `__attribute__((amdgpu_waves_per_eu(min[,max])))` may constrain “size of available group and private memory segments” so the requested wave range still fits — that is the backend **shrinking budgets / refusing spills** to meet the hint, not SPI subtracting scratch from the 16 wave slots.[^clang-docs-attributereference-html]
 
 ## 3. Runtime — when scratch *does* cut waves
 
 ROCr allocates scratch from a **device memory pool** attached to the queue/agent (`AcquireQueueScratch`). If the requested size will not map, the runtime **lowers targeted occupancy** and retries:
 
-ROCm/rocm-systems `bd63e50` (`amd_gpu_agent.cpp`):
+ROCm/rocm-systems `bd63e50` (`amd_gpu_agent.cpp`):[^github-commit-bd63e5045c363404c1e9cfd0250705d7d2]
 
 > If the required scratch allocation is too large, ROCr will attempt to reduce it by lowering the dispatch's targeted occupancy.
 
-Debug string in that path: `Failed to map requested scratch (%ld) - reducing queue occupancy.` The loop steps `waves_per_cu` down by `waves_per_group` (with SE/XCC alignment on newer GC).
+Debug string in that path: `Failed to map requested scratch (%ld) - reducing queue occupancy.` The loop steps `waves_per_cu` down by `waves_per_group` (with SE/XCC alignment on newer GC).[^github-commit-bd63e5045c363404c1e9cfd0250705d7d2]
 
 Knob (ROCR env, docs-7.1.1):
 
 | Env | Default (docs) | Role |
 |---|---|---|
-| `HSA_SCRATCH_SINGLE_LIMIT` | `146800640` (~140 MiB) | Threshold for allocate / reclaim behavior per dispatch |
+| `HSA_SCRATCH_SINGLE_LIMIT` | `146800640` (~140 MiB) | Threshold for allocate / reclaim behavior per dispatch [^rocm-api-reference-environment-variables-html] |
 | `HSA_NO_SCRATCH_RECLAIM` | `0` | `1` = permanently pin scratch to the queue even above the threshold |
-| `HSA_SCRATCH_SINGLE_LIMIT_ASYNC` / `HSA_ENABLE_SCRATCH_ASYNC_RECLAIM` | async GPUs | Async reclaim variants (not the gfx1030 occupancy formula) |
+| `HSA_SCRATCH_SINGLE_LIMIT_ASYNC` / `HSA_ENABLE_SCRATCH_ASYNC_RECLAIM` | async GPUs | Async reclaim variants (not the gfx1030 occupancy formula) [^rocm-api-reference-environment-variables-html] |
 
 HIP also exposes `hipExtLimitScratchCurrent` (ROCm 7.0+ note in the same page) to change the default allocation size programmatically.
 
@@ -85,18 +98,21 @@ HIP also exposes `hipExtLimitScratchCurrent` (ROCm 7.0+ note in the same page) t
 
 1. Compile-time / RGP “theoretical” occupancy = VGPR∩LDS∩WG∩barrier. Scratch ≠ that list.
 2. Non-zero private size ⇒ latency poison in the hot path (occupancy-dump §6 reject).
-3. If you ever launch with large private size, measured waves can still drop because **ROCr starved the scratch pool** and cut `waves_per_cu` — not because SPI ran out of a scratch register file.
+3. If you ever launch with large private size, measured waves can still drop because **ROCr starved the scratch pool** and cut `waves_per_cu` — not because SPI ran out of a scratch register file.[^github-commit-bd63e5045c363404c1e9cfd0250705d7d2]
 
 ## 4. Relation to existing wiki pages
 
 | Page | What it already said | What this lock adds |
 |---|---|---|
-| [occupancy-dump.md](occupancy-dump.md) §6 | Reject private>0; dword interleave; Absolute flat scratch; latency fatal | Clarifies: **not** a waves/SIMD term in `llvm-calc-occupancy` |
+| [occupancy-dump.md](occupancy-dump.md) §6 | Reject private>0; dword interleave; Absolute flat scratch; latency fatal | Clarifies: **not** a waves/SIMD term in `llvm-calc-occupancy` [^llvm-calc-occupancy] |
 | [hip-craft.md](../hip-craft/hip-craft.md) §6.1 | Occupancy = min(slots, VGPR, LDS, WG/barrier) | Confirms scratch stays **out** of that min; runtime path is separate |
 | [architecture.md](../arch-and-memory/architecture.md) | SPI reserves wave slots + VGPR + SGPR + LDS | Scratch backing is the **runtime pool**, not that SPI file set |
 | [fa-occupancy.md](../attention/fa-occupancy.md) | FA resource pins | Unchanged |
 
-## Sources (opened this pass)
+## Sources
+
+_Sources (opened this pass)_
+
 
 1. LLVM AMDGPUUsage — Private AS 5, dword interleave, runtime backing pool, Absolute flat scratch on `gfx1030` — https://llvm.org/docs/AMDGPUUsage.html
 2. LLVM `GCNSubtarget.h` — `computeOccupancy` comment (“scratch … do not have enough information”); `getMaxWaveScratchSize` pre-GFX11 = `(256*4)*((1<<13)-1)` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/GCNSubtarget.h
@@ -106,3 +122,15 @@ HIP also exposes `hipExtLimitScratchCurrent` (ROCm 7.0+ note in the same page) t
 6. GPUOpen Occupancy explained — limiters VGPR / LDS / threadgroup / barriers; no scratch — https://gpuopen.com/learn/occupancy-explained/
 7. ROCm/rocm-systems `bd63e50` — ROCr reduces `waves_per_cu` when scratch map fails — https://github.com/ROCm/rocm-systems/commit/bd63e5045c363404c1e9cfd0250705d7d28bce65
 8. ROCR env vars — `HSA_SCRATCH_SINGLE_LIMIT` default `146800640` — https://rocm.docs.amd.com/projects/ROCR-Runtime/en/docs-7.1.1/api-reference/environment_variables.html
+
+Footnotes:
+
+[^github-commit-bd63e5045c363404c1e9cfd0250705d7d2]: Fix scratch allocation occupancy reduction loop · ROCm/rocm-systems@bd63e50. https://github.com/ROCm/rocm-systems/commit/bd63e5045c363404c1e9cfd0250705d7d28bce65 (checked 2026-10-11)
+[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
+[^rocm-api-reference-environment-variables-html]: Environment variables — ROCR 1.18.0 Documentation. https://rocm.docs.amd.com/projects/ROCR-Runtime/en/docs-7.1.1/api-reference/environment_variables.html (checked 2026-10-11)
+[^clang-docs-attributereference-html]: Attributes in Clang - Clang. https://clang.llvm.org/docs/AttributeReference.html#amdgpu-waves-per-eu (checked 2026-10-11)
+[^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)
+[^github-amdgpu-gcnsubtarget-h]: llvm-project/llvm/lib/Target/AMDGPU/GCNSubtarget.h at eb61ef62df4fd5151c4c379302f636ac430bc32d · llvm/llvm-project. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/GCNSubtarget.h (checked 2026-10-11)
+[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
+[^github-pull-123748]: (AMDGPU) Occupancy w.r.t. workgroup size range is also a range by lucas-rami · Pull Request #123748 · llvm/llvm-project. https://github.com/llvm/llvm-project/pull/123748 (checked 2026-10-11)
+

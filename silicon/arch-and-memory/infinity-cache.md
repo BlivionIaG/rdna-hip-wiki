@@ -1,23 +1,34 @@
+---
+title: "Infinity Cache — SKU table (RDNA2 intro)"
+sources:
+  - https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/amd/amdkfd/kfd_crat.c#L556
+  - https://www.amd.com/en/newsroom/press-releases/2020-10-28-amd-unveils-next-generation-pc-gaming-with-amd-rad.html
+  - https://www.amd.com/content/dam/amd/en/documents/products/graphics/workstation/rdna2-explained-radeon-pro-W6000.pdf
+  - https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html
+  - https://www.amd.com/en/products/graphics/workstations/radeon-pro/w7800-48gb.html
+  - https://en.namu.wiki/w/RDNA#s-2.2
+---
+
 # Infinity Cache — SKU table (RDNA2 intro)
 
 Date: 2026-08-20. Policy / persist bits stay in [cache-policy.md](cache-policy.md). Engine batching: [../engine/cache-aware.md](../../engine/cache-aware.md). Occupancy still first. L2 mid-level thrash vs occupancy: [l2-occupancy.md](../occupancy/l2-occupancy.md). IC last-level thrash vs occupancy: [infinity-cache-occupancy.md](../occupancy/infinity-cache-occupancy.md).
 
 **Yes: Infinity Cache was introduced with RDNA 2** (Navi 21 / GFX10.3, 2020). RDNA 1, GCN, Vega 10 (V340L) do **not** have it. It is an **on-die last-level cache (L3 / MALL)**, after L2, before GDDR6. It is **not** Infinity Fabric / XGMI and is **not** a GPU-to-GPU path.
 
-Do **not** invent TB/s. AMD’s “2.4× / 2.5×” is relative, not a V620 number. Line size is **64 B** (`kfd_crat` L3); L0/L1/L2 are 128 B.
+Do **not** invent TB/s. AMD’s “2.4× / 2.5×” is relative, not a V620 number. Line size is **64 B** (`kfd_crat` L3); L0/L1/L2 are 128 B.[^kfd-crat]
 
 ## Can inference use it?
 
-**Yes, as reuse — not as a switch.** HIP on gfx1030 has **no persist bit, no IC prefetch, no IC bypass.** Default global loads already go through MALL. Speedup happens when the **hot set ≤ 128 MB** and you reread it before something else evicts it. Miss = GDDR6 512 GB/s.
+**Yes, as reuse — not as a switch.** HIP on gfx1030 has **no persist bit, no IC prefetch, no IC bypass.** Default global loads already go through MALL. Speedup happens when the **hot set ≤ 128 MB** and you reread it before something else evicts it. Miss = GDDR6 512 GB/s.[^rocm-gpu-arch-specs]
 
 | Do | Don’t |
 |---|---|
 | Quantize / TP-shard until the **layer shard** fits (W4A16 TP=4 on 7B/27B does) | Nontemporal a shard you are trying to keep |
 | Default loads on that shard + live KV pages this step touches | Over-occupy (`waves_per_eu(1,1)` is the other bug; too *many* waves also thrash IC) |
-| One quiet GPU; two HIP streams fight the same 128 MB | Pretend 27B FP16 or unsharded 7B W8A8 “lives in IC” |
-| Align persistent buffers to **128 B** (covers IC 64 B + L2 128 B) | Invent an IC TB/s roofline or a `persist` intrinsic |
+| One quiet GPU; two HIP streams fight the same 128 MB | Pretend 27B FP16 or unsharded 7B W8A8 “lives in IC” [^rocm-gpu-arch-specs] |
+| Align persistent buffers to **128 B** (covers IC 64 B + L2 128 B) | Invent an IC TB/s roofline or a `persist` intrinsic [^kfd-crat] |
 
-Worked fit (V620 128 MiB, from [cache-policy.md](cache-policy.md) §4 — capacity, not a measured hit rate):
+Worked fit (V620 128 MiB, from [cache-policy.md](cache-policy.md) §4 — capacity, not a measured hit rate):[^rocm-gpu-arch-specs]
 
 | Workload | Layer bytes vs IC | Inference note |
 |---|---|---|
@@ -28,7 +39,7 @@ Worked fit (V620 128 MiB, from [cache-policy.md](cache-policy.md) §4 — capaci
 | 27B W4 / mxfp4, TP=4 | ~70–76 MiB | **Keep.** Leftover ~50–58 MiB ≠ long 27B KV. |
 | 27B W8A8 / FP16, TP=4 | over / 2× | **Stream** weights (`nontemporal`); IC for `x` + working KV pages. |
 
-Prefill of a fat activation GEMM that already misses 128 MB does **not** get an IC win. Decode GEMV / FA gathers / a resident W4 shard **can**. Occupancy first: a `(1,1)` trap wastes the CU before IC matters; max waves on a miss stream just multiplies GDDR6 traffic.
+Prefill of a fat activation GEMM that already misses 128 MB does **not** get an IC win. Decode GEMV / FA gathers / a resident W4 shard **can**. Occupancy first: a `(1,1)` trap wastes the CU before IC matters; max waves on a miss stream just multiplies GDDR6 traffic.[^rocm-gpu-arch-specs]
 
 ## No hardware cache-aware scheduler
 
@@ -42,8 +53,8 @@ Leave SGLang radix/router as an IC feature. Do not write a kernel to pin lines.
 
 | SKU | ISA | IC | Notes |
 |---|---|---|---|
-| **Radeon PRO V620** | gfx1030 Navi 21 | **128 MB** | 72 CU harvest, 4 MB L2, GDDR6 512 GB/s. HIP cannot pin or bypass IC. |
-| **Radeon PRO W6800** | gfx1030 Navi 21 | **128 MB** | Same die family; official gfx1030 PRO alongside V620. |
+| **Radeon PRO V620** | gfx1030 Navi 21 | **128 MB** | 72 CU harvest, 4 MB L2, GDDR6 512 GB/s. HIP cannot pin or bypass IC. [^rocm-gpu-arch-specs][^kfd-crat][^v620-product] |
+| **Radeon PRO W6800** | gfx1030 Navi 21 | **128 MB** | Same die family; official gfx1030 PRO alongside V620. [^rocm-gpu-arch-specs] |
 | **Radeon PRO W7800 48 GB** | gfx1100 RDNA3 | **96 MB** | On **MCDs** (chiplet), higher latency than Navi 21 on-die. WMMA is legal here; IC is still not a fabric. |
 | V340L | gfx900 Vega 10 | **none** | Own host. |
 
@@ -51,14 +62,14 @@ Leave SGLang radix/router as an IC feature. Do not write a kernel to pin lines.
 
 | Die | Example | IC |
 |---|---|---|
-| Navi 21 (gfx1030) | 6900 XT / 6800 XT / 6800 / V620 / W6800 | **128 MB** on-die |
+| Navi 21 (gfx1030) | 6900 XT / 6800 XT / 6800 / V620 / W6800 | **128 MB** on-die [^v620-product][^m-n-6000-series-amd-radeon-rx-6900-xt-html] |
 | Navi 22 (gfx1031) | 6700 XT | **96 MB** |
 | Navi 23 (gfx1032) | 6600 XT | **32 MB** |
 | Navi 24 | 6500-class | **16 MB** |
 | Navi 31 (gfx1100) | 7900 XTX / W7800 | **96 MB** on MCDs |
 | RDNA 1 / Vega / GCN | — | **no IC** |
 
-A kernel tuned to “the layer fits in 128 MB” falls out on 96/32/16 MB parts. Query L3; do not hard-code V620’s 128.
+A kernel tuned to “the layer fits in 128 MB” falls out on 96/32/16 MB parts. Query L3; do not hard-code V620’s 128.[^kfd-crat]
 
 ## Sources
 
@@ -70,13 +81,25 @@ A kernel tuned to “the layer fits in 128 MB” falls out on 96/32/16 MB parts.
 - [cache-policy.md](cache-policy.md), [architecture.md](architecture.md) §4.5, [l2-occupancy.md](../occupancy/l2-occupancy.md) (L2 mid ≠ IC), [infinity-cache-occupancy.md](../occupancy/infinity-cache-occupancy.md) (IC thrash ≠ PIX MaxWaves), [rccl-p2p.md](../interconnect/rccl-p2p.md) (IC ≠ XGMI)
 - [../engine/cache-aware.md](../../engine/cache-aware.md)
 
+Footnotes:
+
+[^kfd-crat]: Linux v6.12 amdkfd kfd_crat.c, sienna_cichlid_cache_info (Navi 21: TCP 16 KB/CU, I$ 32 KB/2 CU, K$ 16 KB/2 CU, GL1 128 KB/10 CU, L2 4096 KB, L3 128 MB). https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/amd/amdkfd/kfd_crat.c#L556 (checked 2026-10-11)
+[^amd-press-releases-2020-10-28-amd-unveils-next-g]: AMD Newsroom. https://www.amd.com/en/newsroom/press-releases/2020-10-28-amd-unveils-next-generation-pc-gaming-with-amd-rad.html (checked 2026-10-11)
+[^amd-workstation-rdna2-explained-radeon-pro-w6000]: www.amd.com/content/dam/amd/en/documents/products/graphics/workstation/rdna2-explained-radeon-pro-W6000.pdf. https://www.amd.com/content/dam/amd/en/documents/products/graphics/workstation/rdna2-explained-radeon-pro-W6000.pdf (checked 2026-10-11)
+[^v620-product]: AMD Radeon PRO V620 product page. https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html (checked 2026-10-11)
+[^amd-radeon-pro-w7800-48gb-html]: AMD Radeon™ PRO W7800 48GB Professional Graphics. https://www.amd.com/en/products/graphics/workstations/radeon-pro/w7800-48gb.html (checked 2026-10-11)
+[^en-w-rdna]: en.namu.wiki/w/RDNA#s-2.2. https://en.namu.wiki/w/RDNA#s-2.2 (secondary pointer only; site returns 403 to scripted fetch on 2026-10-11)
+
 ## Cite: namu RDNA §2.2 (2026-08-24)
 
-[en.namu.wiki/w/RDNA §2.2](https://en.namu.wiki/w/RDNA#s-2.2) is a **Navi 21 recap**, not an inference ISA page. Matches our lock:
+[en.namu.wiki/w/RDNA §2.2](https://en.namu.wiki/w/RDNA#s-2.2) is a **Navi 21 recap**, not an inference ISA page. Matches our lock:[^en-w-rdna]
 
-- IC = on-die L3-like SRAM, 16 × 8 MB slices, **128 MB** on Navi 21, ~**20% die**. **Fit + reread.** No persist / no HIP switch.
+- IC = on-die L3-like SRAM, 16 × 8 MB slices, **128 MB** on Navi 21, ~**20% die**. **Fit + reread.** No persist / no HIP switch.[^rocm-gpu-arch-specs]
 - AMD **2.17× BW / 0.9× power** vs 256-bit GDDR6 alone is qualitative — not a V620 TB/s, not coverage.
-- L2 stayed **2–4 MB** (V620 4 MB) while SE/WGP doubled — a layer does **not** live in L2. L2↔IC **16 × 64 B/clk = 1024 B/clk**.
-- WGP = two CUs share LDS / cache. wy 58 KB is tight vs 64 KB/**WG**, not auto one-WG/WGP.
+- L2 stayed **2–4 MB** (V620 4 MB) while SE/WGP doubled — a layer does **not** live in L2. L2↔IC **16 × 64 B/clk = 1024 B/clk**.[^rocm-gpu-arch-specs][^kfd-crat]
+- WGP = two CUs share LDS / cache. wy 58 KB is tight vs 64 KB/**WG**, not auto one-WG/WGP.[^rocm-gpu-arch-specs][^llvm-baseinfo]
 
 **Leave:** FHD/QHD/4K “effective GB/s” (game hit-rate × 8192-bit IC marketing bus). Not V620 decode, not extras coverage. No packed DOT / wave32 / WMMA in that section. Occupancy leftover unchanged.
+[^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
+[^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)
+[^m-n-6000-series-amd-radeon-rx-6900-xt-html]: Radeon™ RX 6900 XT Graphics. https://www.amd.com/en/products/graphics/desktops/radeon/6000-series/amd-radeon-rx-6900-xt.html (checked 2026-10-11)

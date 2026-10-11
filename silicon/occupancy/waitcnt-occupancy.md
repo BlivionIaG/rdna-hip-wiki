@@ -1,6 +1,16 @@
+---
+title: "Waitcnt / memory-dependence scoreboard vs effective occupancy (gfx1030)"
+sources:
+  - https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
+  - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
+  - https://gpuopen.com/learn/occupancy-explained/
+  - https://gpuopen.com/download/RDNA_Architecture_public.pdf
+  - https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.0.0/LLVM/llvm/html/AMDGPU/gfx1030_waitcnt.html
+---
+
 # Waitcnt / memory-dependence scoreboard vs effective occupancy (gfx1030)
 
-Lock: **`s_waitcnt` / `s_waitcnt_vscnt` / memory-dependence scoreboards are not a PIX / `llvm-calc-occupancy` MaxWaves limiter.** They are the **wave-local** mechanism that parks a wave until outstanding VMEM / LDS / SMEM / store counts drop — the same stalls occupancy exists to **hide**. Early or universal drains (`vmcnt(0)` “to be safe”) lengthen that park while VGPR∩LDS still looks full. Completes the occupancy-adjacent set next to [hard-clause-occupancy.md](hard-clause-occupancy.md) (arbiter burst) and the cache-thrash pages (what fills the counters).
+Lock: **`s_waitcnt` / `s_waitcnt_vscnt` / memory-dependence scoreboards are not a PIX / `llvm-calc-occupancy` MaxWaves limiter.** They are the **wave-local** mechanism that parks a wave until outstanding VMEM / LDS / SMEM / store counts drop — the same stalls occupancy exists to **hide**. Early or universal drains (`vmcnt(0)` “to be safe”) lengthen that park while VGPR∩LDS still looks full. Completes the occupancy-adjacent set next to [hard-clause-occupancy.md](hard-clause-occupancy.md) (arbiter burst) and the cache-thrash pages (what fills the counters).[^llvm-calc-occupancy]
 
 Does **not** change extras HIP or UNC tickets. No tok/s. Do not restate the FA pin.
 
@@ -8,7 +18,7 @@ Does **not** change extras HIP or UNC tickets. No tok/s. Do not restate the FA p
 
 | Term | Meaning on gfx1030 |
 |---|---|
-| **Scoreboard / waitcnt** | Per-wave counters + `S_WAITCNT*` that resolve **memory** (and some export) dependences the HW does not auto-wait (ISA §4.4). |
+| **Scoreboard / waitcnt** | Per-wave counters + `S_WAITCNT*` that resolve **memory** (and some export) dependences the HW does not auto-wait (ISA §4.4). [^isa70648] |
 | **VMCNT** | Outstanding **vector memory loads** / atomics-with-return (ISA: 6-bit counter). |
 | **VSCNT** | Outstanding **vector memory stores** / atomics-without-return (ISA: 6-bit; separate from VMCNT on RDNA). |
 | **LGKMCNT** | Outstanding **LDS, GDS, constant (SMEM), message** (ISA abbrev: **4-bit** counter). |
@@ -25,11 +35,11 @@ Companions: [occupancy-composite.md](occupancy-composite.md), [hip-craft.md](../
 
 | | |
 |---|---|
-| **Take** | Treat waitcnt as **effective latency hiding**, not MaxWaves: PIX / `llvm-calc-occupancy` book VGPR∩LDS slots; the wave still parks on `s_waitcnt` until the named counter drops. Sibling waves hide that park **only if** they have useful work and are not themselves waiting on the same pipe. |
-| **Take** | Software-pipeline with **non-zero** thresholds (`vmcnt(N)` / `lgkmcnt(N)`) so older results become usable while younger ops stay in flight (ISA §4.4: schedule long-latency, do unrelated work, wait when results are needed). Match the wait class to the pipe ([hip-craft.md](../hip-craft/hip-craft.md) §2.2). |
+| **Take** | Treat waitcnt as **effective latency hiding**, not MaxWaves: PIX / `llvm-calc-occupancy` book VGPR∩LDS slots; the wave still parks on `s_waitcnt` until the named counter drops. Sibling waves hide that park **only if** they have useful work and are not themselves waiting on the same pipe. [^llvm-calc-occupancy] |
+| **Take** | Software-pipeline with **non-zero** thresholds (`vmcnt(N)` / `lgkmcnt(N)`) so older results become usable while younger ops stay in flight (ISA §4.4: schedule long-latency, do unrelated work, wait when results are needed). Match the wait class to the pipe ([hip-craft.md](../hip-craft/hip-craft.md) §2.2). [^isa70648] |
 | **Take** | On RDNA / gfx1030 keep the **VMCNT / VSCNT split**: loads → `vmcnt`; stores → `s_waitcnt_vscnt`. A GCN-style universal `s_waitcnt vmcnt(0)` does **not** drain stores and can pin the wave longer than needed for a load use. |
-| **Take** | When decode looks “full” on VGPR∩LDS but RGP / thread-trace shows long **memory-wait** bars with little green (unhidden) latency, fix **wait placement / pipeline depth / cache thrash** before chasing another MaxWaves rung (GPUOpen Occupancy explained: wait ISA latency column + color = how much was hidden by other waves’ ALU). |
-| **Leave** | Do **not** put waitcnt depth, VMCNT/VSCNT/LGKMCNT sizes, or “scoreboard occupancy %” into `llvm-calc-occupancy` or PIX `WaveOccupancyLimiters`. |
+| **Take** | When decode looks “full” on VGPR∩LDS but RGP / thread-trace shows long **memory-wait** bars with little green (unhidden) latency, fix **wait placement / pipeline depth / cache thrash** before chasing another MaxWaves rung (GPUOpen Occupancy explained: wait ISA latency column + color = how much was hidden by other waves’ ALU). [^gpuopen-occupancy] |
+| **Leave** | Do **not** put waitcnt depth, VMCNT/VSCNT/LGKMCNT sizes, or “scoreboard occupancy %” into `llvm-calc-occupancy` or PIX `WaveOccupancyLimiters`. [^llvm-calc-occupancy] |
 | **Leave** | Do **not** invent outstanding-request capacity for TCP/L0, miss-cycle tables, or a gfx1030 “max in-flight VMEM” number from this page — ISA states **counter widths and wait semantics**, not a published TCP queue depth for occupancy math. |
 | **Leave** | Do **not** hand-author mid-burst `s_waitcnt` inside a hot same-type load streak you wanted hard-claused ([hard-clause-occupancy.md](hard-clause-occupancy.md) — waitcnt breaks `S_CLAUSE`). |
 | **Leave** | Do not open UNC / retip extras for this page. |
@@ -53,7 +63,7 @@ Same-type returns are ordered for VMEM loads (wait `VM_CNT < N` ⇒ prior loads 
 | **LGKMCNT** | **4** | LDS, GDS, constant-fetch (SMEM), message |
 | **EXPCNT** | **3** | Export / GDS / some VMEM write-data (graphics) |
 
-VS_CNT decrements when store data has been written to **L2** (ISA §4.4) — fire-and-forget vs load completion.
+VS_CNT decrements when store data has been written to **L2** (ISA §4.4) — fire-and-forget vs load completion.[^isa70648]
 
 ### 1.3 Wait instructions (SOPP / SOPK)
 
@@ -63,7 +73,7 @@ VS_CNT decrements when store data has been written to **L2** (ISA §4.4) — fir
 | `S_WAITCNT_VSCNT` | Wait until `vscnt ≤` threshold (separate; not a field of `S_WAITCNT` on gfx10) |
 | `S_WAITCNT_VMCNT` / `_LGKMCNT` / `_EXPCNT` | SOPK forms with null/literal thresholds |
 | `S_WAITCNT_DEPCTR` | Bitmask wait on **VALU/SALU** dependency counters (`va_vdst`, `vm_vsrc`, …) — ISA: “intended for debug and bug-workarounds” |
-| `S_ENDPGM` | Implicitly waits all counters (RDNA deck / hip-craft) |
+| `S_ENDPGM` | Implicitly waits all counters (RDNA deck / hip-craft) [^rdna-arch] |
 
 `N` means “continue when **at most N** of that class remain outstanding.” `vmcnt(0)` = drain that class.
 
@@ -71,7 +81,7 @@ VS_CNT decrements when store data has been written to **L2** (ISA §4.4) — fir
 
 | Piece | Role |
 |---|---|
-| LLVM gfx1030 `waitcnt` operand | Documents packed fields: `vmcnt` 0..63, `lgkmcnt` 0..63, `expcnt` 0..7 — encoding ranges for the immediate ([ROCm llvm-project gfx1030_waitcnt](https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.0.0/LLVM/llvm/html/AMDGPU/gfx1030_waitcnt.html)). Cite next to ISA **hardware** widths above; do not invent saturation policy. |
+| LLVM gfx1030 `waitcnt` operand | Documents packed fields: `vmcnt` 0..63, `lgkmcnt` 0..63, `expcnt` 0..7 — encoding ranges for the immediate ([ROCm llvm-project gfx1030_waitcnt](https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.0.0/LLVM/llvm/html/AMDGPU/gfx1030_waitcnt.html)). Cite next to ISA **hardware** widths above; do not invent saturation policy. [^rocm-amdgpu-gfx1030-waitcnt-html] |
 | `SIInsertWaitcnts` | Backend inserts waits for data + memory legalizer needs. Names: `LOAD_CNT`→VMcnt (pre-gfx12), `DS_CNT`→LGKMcnt, `STORE_CNT`→VScnt on gfx10/11. |
 | `vscnt` use | Memory dependencies (SIMemoryLegalizer), not ordinary data deps; no `vscnt(0)` on function entry/return (`f2c164c` — hip-craft). |
 | Barriers | Without auto-wait-before-barrier: insert all-zero waits **including vscnt** before `s_barrier` (hip-craft §2.2). |
@@ -87,14 +97,14 @@ Theoretical waves/EU ([occupancy-composite.md](occupancy-composite.md)):
 waves/EU = min(VGPR, SGPR→always 16, LDS+WG+barrier)
 ```
 
-| Resource | In PIX MaxWaves / `llvm-calc-occupancy`? | Effect when stressed |
+| Resource | In PIX MaxWaves / `llvm-calc-occupancy`? | Effect when stressed [^llvm-calc-occupancy] |
 |---|---|---|
 | VGPR / LDS / WG / Barriers | **Yes** | Caps reserved wave slots |
 | Scratch / I$ / K$ / L0–IC | **No** | Latency / thrash (sibling pages) |
 | Hard clause / SPI-ACE | **No** | Interleave / refill |
 | **Waitcnt / scoreboard park** | **No** | Wave idle until counter ≤ N; slots stay reserved. Early drains / shallow pipeline → more park time → weaker latency hiding while theory still “full” |
 
-GPUOpen Occupancy explained: occupancy = assigned waves / 16 slots per SIMD (RDNA2); purpose is **hiding memory latency** by switching waves. The RGP instruction-timing view colors a **memory wait** bar green when other waves’ VALU (yellow hatch = SALU) ran instead — that is effective hiding. A full reservation with every wave parked on `s_waitcnt` is high **theoretical** occupancy and poor **effective** hiding.
+GPUOpen Occupancy explained: occupancy = assigned waves / 16 slots per SIMD (RDNA2); purpose is **hiding memory latency** by switching waves. The RGP instruction-timing view colors a **memory wait** bar green when other waves’ VALU (yellow hatch = SALU) ran instead — that is effective hiding. A full reservation with every wave parked on `s_waitcnt` is high **theoretical** occupancy and poor **effective** hiding.[^gpuopen-occupancy]
 
 Mental model (no invented cycles):
 
@@ -113,8 +123,8 @@ That is **not** “raise MaxWaves.” Fix wait placement, overlap independent wo
 1. Inner K / KV / weight loop: issue loads, do independent VALU / LDS address math, then `s_waitcnt vmcnt(N)` / `lgkmcnt(N)` with **N = still-useful in-flight**, not always 0 ([hip-craft.md](../hip-craft/hip-craft.md) §2.3).
 2. LDS reuse: wait **`lgkmcnt`**, not `vmcnt`. Global load use: **`vmcnt`**. Publish stores before barrier/atomic: **`vscnt`** (compiler usually emits this beside `__syncthreads` / atomics).
 3. Do **not** insert waits mid same-type burst you want `S_CLAUSE`’d — wait **after** the clause.
-4. SMEM / kernarg: LGKM; out-of-order scalar returns ⇒ full `lgkmcnt(0)` when you need all prior SMEM (ISA §7.3).
-5. Confirm with disassembly + RGP wait bars. Occupancy still sized with `llvm-calc-occupancy` + `hipOccupancyMaxActiveBlocksPerMultiprocessor` — waitcnt does not appear in either.
+4. SMEM / kernarg: LGKM; out-of-order scalar returns ⇒ full `lgkmcnt(0)` when you need all prior SMEM (ISA §7.3).[^isa70648]
+5. Confirm with disassembly + RGP wait bars. Occupancy still sized with `llvm-calc-occupancy` + `hipOccupancyMaxActiveBlocksPerMultiprocessor` — waitcnt does not appear in either.[^llvm-calc-occupancy]
 
 ## 5. What this page adds vs existing wiki
 
@@ -128,10 +138,10 @@ That is **not** “raise MaxWaves.” Fix wait placement, overlap independent wo
 
 ## 6. Sources
 
-1. RDNA 2 ISA Reference Guide, Document ID **70648** — §4.4 Data Dependency Resolution (counters, schedule/wait contract); abbrev table VMCNT/VSCNT 6-bit, LGKMCNT 4-bit, EXPCNT 3-bit; SOPP `S_WAITCNT` / `S_WAITCNT_DEPCTR`; SOPK `S_WAITCNT_VSCNT` / `_VMCNT` / `_LGKMCNT`; §7.3 SMEM LGKM out-of-order → wait 0. Local text: `/workspace/rdna2-src/rdna2-isa.txt`.
-2. LLVM gfx1030 waitcnt operand — https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.0.0/LLVM/llvm/html/AMDGPU/gfx1030_waitcnt.html
-3. GPUOpen Occupancy explained — reservation limiters only; latency hiding via wave switch; RGP wait-instruction color = hidden vs parked — https://gpuopen.com/learn/occupancy-explained/ (2023-12-20 / 2024-06-26)
-4. GPUOpen RDNA architecture deck — VMCNT/VSCNT split, fire-and-forget stores — https://gpuopen.com/download/RDNA_Architecture_public.pdf
+1. RDNA 2 ISA Reference Guide, Document ID **70648** — §4.4 Data Dependency Resolution (counters, schedule/wait contract); abbrev table VMCNT/VSCNT 6-bit, LGKMCNT 4-bit, EXPCNT 3-bit; SOPP `S_WAITCNT` / `S_WAITCNT_DEPCTR`; SOPK `S_WAITCNT_VSCNT` / `_VMCNT` / `_LGKMCNT`; §7.3 SMEM LGKM out-of-order → wait 0. Local text: `/workspace/rdna2-src/rdna2-isa.txt`.[^isa70648]
+2. LLVM gfx1030 waitcnt operand — https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.0.0/LLVM/llvm/html/AMDGPU/gfx1030_waitcnt.html[^rocm-amdgpu-gfx1030-waitcnt-html]
+3. GPUOpen Occupancy explained — reservation limiters only; latency hiding via wave switch; RGP wait-instruction color = hidden vs parked — https://gpuopen.com/learn/occupancy-explained/ (2023-12-20 / 2024-06-26)[^gpuopen-occupancy]
+4. GPUOpen RDNA architecture deck — VMCNT/VSCNT split, fire-and-forget stores — https://gpuopen.com/download/RDNA_Architecture_public.pdf[^rdna-arch]
 5. LLVM `SIInsertWaitcnts` / hip-craft citations (`LOAD_CNT`/`DS_CNT`/`STORE_CNT`, `f2c164c`, barrier allZero incl. vscnt)
 6. Wiki companions: [hip-craft.md](../hip-craft/hip-craft.md), [hard-clause-occupancy.md](hard-clause-occupancy.md), [occupancy-composite.md](occupancy-composite.md)
 
@@ -148,3 +158,14 @@ That is **not** “raise MaxWaves.” Fix wait placement, overlap independent wo
 | [spi-ace-occupancy.md](spi-ace-occupancy.md) | Slot fill / launch-rate — not the scoreboard park |
 | [exec-divergence-occupancy.md](exec-divergence-occupancy.md) | Lane-idle under EXEC vs time-idle on waitcnt — dual effective-occupancy sibling |
 | [vgpr-occupancy.md](vgpr-occupancy.md) | Deeper software pipelines can raise live VGPR — measure the cliff; don’t invent a waitcnt MaxWaves row |
+
+## Sources
+
+Primary sources for this page, cited inline as footnotes:
+
+[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
+[^rdna-arch]: AMD, "RDNA Architecture" (GPUOpen, 2019). https://gpuopen.com/download/RDNA_Architecture_public.pdf (checked 2026-10-11)
+[^rocm-amdgpu-gfx1030-waitcnt-html]: waitcnt — LLVM 19.0.0git documentation. https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.0.0/LLVM/llvm/html/AMDGPU/gfx1030_waitcnt.html (checked 2026-10-11)
+

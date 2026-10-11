@@ -1,22 +1,39 @@
+---
+title: "FlyDSL DOT atoms for gfx1030 — silicon feasibility contract"
+sources:
+  - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
+  - https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/python/flydsl/compiler/backends/rocm.py
+  - https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/python/flydsl/runtime/device.py
+  - https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/include/flydsl/Dialect/FlyROCDL/IR/MmaAtom.td
+  - https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/lib/Dialect/FlyROCDL/GFX11/MmaAtom.cpp
+  - https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/.claude/skills/add-target-atom-op/SKILL.md
+  - https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/thirdparty/llvm-build-info.json
+  - https://github.com/llvm/llvm-project/blob/e2a39f504fee836e4def9581bed817ecc327b9dc/mlir/include/mlir/Dialect/LLVMIR/ROCDLOps.td
+  - https://github.com/llvm/llvm-project/blob/e2a39f504fee836e4def9581bed817ecc327b9dc/llvm/lib/Target/AMDGPU/AMDGPU.td
+  - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td
+  - https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/python/flydsl/utils/smem_allocator.py
+  - https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/README.md
+---
+
 # FlyDSL DOT atoms for gfx1030 — silicon feasibility contract
 
-Snapshot: ROCm/FlyDSL `96af91bcab7703df1b8d5536ffbb4ff72b6dfacd` (2026-08-17), release v0.3.0. Engine order: [engine/flydsl.md](../../engine/flydsl.md). **Not implemented or supported today.**
+Snapshot: ROCm/FlyDSL `96af91bcab7703df1b8d5536ffbb4ff72b6dfacd` (2026-08-17), release v0.3.0. Engine order: [engine/flydsl.md](../../engine/flydsl.md). **Not implemented or supported today.**[^github-96af91bcab7703df1b8d5536ffbb4ff72b6dfacd]
 
 ## Verdict
 
-FlyDSL is AMD-first: Python tracing → Fly/GPU/arith/vector MLIR → Fly layout lowering → atom-to-SSA → `convert-fly-to-rocdl` → GPU-to-ROCDL → LLVM → AMDGPU HSACO. The in-tree native backend is ROCDL, and `gfx10*` is classified as RDNA/wave32.
+FlyDSL is AMD-first: Python tracing → Fly/GPU/arith/vector MLIR → Fly layout lowering → atom-to-SSA → `convert-fly-to-rocdl` → GPU-to-ROCDL → LLVM → AMDGPU HSACO. The in-tree native backend is ROCDL, and `gfx10*` is classified as RDNA/wave32.[^github-backends-rocm-py]
 
-This makes gfx1030 generic code generation plausible. It does **not** provide a gfx1030 GEMM/MoE/attention kernel: official verified platforms omit gfx1030, optimized kernels use CDNA MFMA or newer-RDNA WMMA, and no DOT atom/device test exists.
+This makes gfx1030 generic code generation plausible. It does **not** provide a gfx1030 GEMM/MoE/attention kernel: official verified platforms omit gfx1030, optimized kernels use CDNA MFMA or newer-RDNA WMMA, and no DOT atom/device test exists.[^github-96af91bcab7703df1b8d5536ffbb4ff72b6dfacd]
 
 ## What the pinned toolchain already has
 
-FlyDSL pins LLVM `e2a39f504fee836e4def9581bed817ecc327b9dc`.
+FlyDSL pins LLVM `e2a39f504fee836e4def9581bed817ecc327b9dc`.[^github-thirdparty-llvm-build-info-json]
 
-- MLIR ROCDL defines `ROCDL_fdot2` → `llvm.amdgcn.fdot2`.
-- MLIR ROCDL defines `ROCDL_sdot4` → `llvm.amdgcn.sdot4`.
-- AMDGPU defines `V_DOT2_F32_F16` behind `HasDot10Insts`.
-- AMDGPU defines `V_DOT4_I32_I8` behind signed-DOT features.
-- gfx1030 feature set includes `FeatureDot1Insts` and `FeatureDot10Insts`.
+- MLIR ROCDL defines `ROCDL_fdot2` → `llvm.amdgcn.fdot2`.[^github-llvmir-rocdlops-td]
+- MLIR ROCDL defines `ROCDL_sdot4` → `llvm.amdgcn.sdot4`.[^github-llvmir-rocdlops-td]
+- AMDGPU defines `V_DOT2_F32_F16` behind `HasDot10Insts`.[^github-amdgpu-amdgpu-td]
+- AMDGPU defines `V_DOT4_I32_I8` behind signed-DOT features.[^github-amdgpu-amdgpu-td]
+- gfx1030 feature set includes `FeatureDot1Insts` and `FeatureDot10Insts`.[^github-amdgpu-amdgpu-td]
 
 The missing layer is a Fly atom/front-end integration plus proof, not LLVM ISA support.
 
@@ -33,7 +50,7 @@ Model one packed intra-lane operation, not a matrix core:
 | Lowering | `ROCDL::fdot2`, clamp=false |
 | Final ISA | `v_dot2_f32_f16` or carry form |
 
-Semantics: `d = a0*b0 + a1*b1 + c`, fp32 accumulator.
+Semantics: `d = a0*b0 + a1*b1 + c`, fp32 accumulator.[^isa70648]
 
 ## Required atom B: signed INT8 DOT4
 
@@ -59,7 +76,7 @@ Implement a stateless `MmaOp` payload for each atom:
 5. Python binding/wrapper and architecture dispatch.
 6. MLIR lowering, ISA and device tests.
 
-The official atom-authoring recipe permits single-thread atoms and arbitrary backend intrinsics. Once implemented, these atoms can compose through `make_mma_atom`, `make_tiled_mma` and potentially `fx.gemm` without pretending to be MFMA/WMMA.
+The official atom-authoring recipe permits single-thread atoms and arbitrary backend intrinsics. Once implemented, these atoms can compose through `make_mma_atom`, `make_tiled_mma` and potentially `fx.gemm` without pretending to be MFMA/WMMA.[^github-add-target-atom-op-skill-md]
 
 A direct Python ODS call to re-exported `rocdl.fdot2/sdot4` may be a faster smoke test, but no in-tree use/device test proves its builder ergonomics. Use it only for Gate 1; formal tiled work should use an atom.
 
@@ -82,7 +99,7 @@ A direct Python ODS call to re-exported `rocdl.fdot2/sdot4` may be a faster smok
 2. Disassemble exact `v_dot2_f32_f16` / `v_dot4_i32_i8`; reject scalarized mul/add.
 3. Device correctness: FP16 NaN/Inf/subnormal/denormal behavior; signed i8 edges, packing, accumulation and clamp=false.
 4. Repeated K reduction and tiled composition through Fly layouts.
-5. Add gfx1030 LDS capacity: current `SMEM_CAPACITY_MAP` omits it. Use 64 KiB/WG as the hard allocation cap and retain the 128 KiB/WGP occupancy model externally.
+5. Add gfx1030 LDS capacity: current `SMEM_CAPACITY_MAP` omits it. Use 64 KiB/WG as the hard allocation cap and retain the 128 KiB/WGP occupancy model externally.[^rocm-gpu-arch-specs][^llvm-baseinfo]
 6. ISA/VGPR/LDS/spill/occupancy comparison against direct HIP intrinsics.
 7. Warm/cold JIT and graph-safety proof before vLLM integration.
 8. Explicitly reject chips without the relevant DOT feature instead of late AMDGPU failure.
@@ -104,7 +121,10 @@ Only after the atoms pass:
 - Final ISA from Fly-produced IR is unproven until Gate 2.
 - No gfx10/gfx11 MoE implementation was found.
 
-## Primary sources
+## Sources
+
+_Primary sources_
+
 
 - Backend pipeline: https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/python/flydsl/compiler/backends/rocm.py
 - Architecture classification: https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/python/flydsl/runtime/device.py
@@ -116,3 +136,21 @@ Only after the atoms pass:
 - gfx1030 features: https://github.com/llvm/llvm-project/blob/e2a39f504fee836e4def9581bed817ecc327b9dc/llvm/lib/Target/AMDGPU/AMDGPU.td
 - LDS map: https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/python/flydsl/utils/smem_allocator.py
 - Verified platforms: https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/README.md
+
+Footnotes:
+
+[^github-backends-rocm-py]: FlyDSL/python/flydsl/compiler/backends/rocm.py at 96af91bcab7703df1b8d5536ffbb4ff72b6dfacd · ROCm/FlyDSL. https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/python/flydsl/compiler/backends/rocm.py (checked 2026-10-11)
+[^github-runtime-device-py]: FlyDSL/python/flydsl/runtime/device.py at 96af91bcab7703df1b8d5536ffbb4ff72b6dfacd · ROCm/FlyDSL. https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/python/flydsl/runtime/device.py (checked 2026-10-11)
+[^github-ir-mmaatom-td]: FlyDSL/include/flydsl/Dialect/FlyROCDL/IR/MmaAtom.td at 96af91bcab7703df1b8d5536ffbb4ff72b6dfacd · ROCm/FlyDSL. https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/include/flydsl/Dialect/FlyROCDL/IR/MmaAtom.td (checked 2026-10-11)
+[^github-gfx11-mmaatom-cpp]: FlyDSL/lib/Dialect/FlyROCDL/GFX11/MmaAtom.cpp at 96af91bcab7703df1b8d5536ffbb4ff72b6dfacd · ROCm/FlyDSL. https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/lib/Dialect/FlyROCDL/GFX11/MmaAtom.cpp (checked 2026-10-11)
+[^github-add-target-atom-op-skill-md]: FlyDSL/.claude/skills/add-target-atom-op/SKILL.md at 96af91bcab7703df1b8d5536ffbb4ff72b6dfacd · ROCm/FlyDSL. https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/.claude/skills/add-target-atom-op/SKILL.md (checked 2026-10-11)
+[^github-thirdparty-llvm-build-info-json]: FlyDSL/thirdparty/llvm-build-info.json at 96af91bcab7703df1b8d5536ffbb4ff72b6dfacd · ROCm/FlyDSL. https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/thirdparty/llvm-build-info.json (checked 2026-10-11)
+[^github-llvmir-rocdlops-td]: llvm-project/mlir/include/mlir/Dialect/LLVMIR/ROCDLOps.td at e2a39f504fee836e4def9581bed817ecc327b9dc · llvm/llvm-project. https://github.com/llvm/llvm-project/blob/e2a39f504fee836e4def9581bed817ecc327b9dc/mlir/include/mlir/Dialect/LLVMIR/ROCDLOps.td (checked 2026-10-11)
+[^github-amdgpu-amdgpu-td]: llvm-project/llvm/lib/Target/AMDGPU/AMDGPU.td at e2a39f504fee836e4def9581bed817ecc327b9dc · llvm/llvm-project. https://github.com/llvm/llvm-project/blob/e2a39f504fee836e4def9581bed817ecc327b9dc/llvm/lib/Target/AMDGPU/AMDGPU.td (checked 2026-10-11)
+[^llvm-amdgpu-td]: LLVM AMDGPU.td, main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td (checked 2026-10-11)
+[^github-utils-smem-allocator-py]: FlyDSL/python/flydsl/utils/smem_allocator.py at 96af91bcab7703df1b8d5536ffbb4ff72b6dfacd · ROCm/FlyDSL. https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/python/flydsl/utils/smem_allocator.py (checked 2026-10-11)
+[^github-96af91bcab7703df1b8d5536ffbb4ff72b6dfacd]: FlyDSL/README.md at 96af91bcab7703df1b8d5536ffbb4ff72b6dfacd · ROCm/FlyDSL. https://github.com/ROCm/FlyDSL/blob/96af91bcab7703df1b8d5536ffbb4ff72b6dfacd/README.md (checked 2026-10-11)
+[^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
+[^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)
+
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)

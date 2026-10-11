@@ -1,6 +1,19 @@
+---
+title: "Wave size vs occupancy (gfx1030)"
+sources:
+  - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
+  - https://llvm.org/docs/AMDGPUUsage.html
+  - https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
+  - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
+  - https://gpuopen.com/learn/occupancy-explained/
+  - https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html
+  - https://gpuopen.com/download/RDNA_Architecture_public.pdf
+  - https://gpuopen.com/download/GPC24_Occupancy_explained.pdf
+---
+
 # Wave size vs occupancy (gfx1030)
 
-Lock: **wavefront size is not a PIX limiter row — it rescales every term that *is* one.** On gfx1030 HIP default (**wave32**), LLVM budgets a **1024**-VGPR file per SIMD32 with alloc granule **16**. Flip to **wave64** (`-mwavefrontsize64` / `+wavefrontsize64`) and the *same* SRAM is counted as **512** VGPRs with granule **8**; every VALU/VMEM beat is two passes on the SIMD32 (ISA §2.1); `N = ceil(FlatWG / WaveSize)` halves for the same threadgroup. Max waves/SIMD stays **16** either way. Completes the occupancy set as the **wave-size axis** — siblings still own VGPR / LDS / WG / barrier bytes and slots.
+Lock: **wavefront size is not a PIX limiter row — it rescales every term that *is* one.** On gfx1030 HIP default (**wave32**), LLVM budgets a **1024**-VGPR file per SIMD32 with alloc granule **16**. Flip to **wave64** (`-mwavefrontsize64` / `+wavefrontsize64`) and the *same* SRAM is counted as **512** VGPRs with granule **8**; every VALU/VMEM beat is two passes on the SIMD32 (ISA §2.1); `N = ceil(FlatWG / WaveSize)` halves for the same threadgroup. Max waves/SIMD stays **16** either way. Completes the occupancy set as the **wave-size axis** — siblings still own VGPR / LDS / WG / barrier bytes and slots.[^isa70648][^llvm-amdgpuusage]
 
 Does **not** change extras HIP or tickets. No tok/s. Do not restate the FA pin.
 
@@ -10,20 +23,20 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [wg-size-occupancy.md](wg-si
 
 | | |
 |---|---|
-| **Take** | Ship and size HIP kernels as **wave32**. Always pass `-mattr=+wavefrontsize32` to `llvm-calc-occupancy` on gfx1030 so the tool does not silently assume wave64 ([hip-craft.md](../hip-craft/hip-craft.md) §1.3; CommandGuide example is often `gfx90a`). |
-| **Take** | Compare modes with the same *logical* per-lane VGPR count: wave64 burns **2×** physical VGPR per wave → roughly **half** the waves/EU at equal pressure. Ladder: 256 VGPR → **4** waves wave32 vs **2** wave64; 64 VGPR wave32 / 32 VGPR wave64 → **16** either way ([architecture.md](../arch-and-memory/architecture.md) §2.4; LLVM `getTotalNumVGPRs`). |
+| **Take** | Ship and size HIP kernels as **wave32**. Always pass `-mattr=+wavefrontsize32` to `llvm-calc-occupancy` on gfx1030 so the tool does not silently assume wave64 ([hip-craft.md](../hip-craft/hip-craft.md) §1.3; CommandGuide example is often `gfx90a`). [^llvm-calc-occupancy] |
+| **Take** | Compare modes with the same *logical* per-lane VGPR count: wave64 burns **2×** physical VGPR per wave → roughly **half** the waves/EU at equal pressure. Ladder: 256 VGPR → **4** waves wave32 vs **2** wave64; 64 VGPR wave32 / 32 VGPR wave64 → **16** either way ([architecture.md](../arch-and-memory/architecture.md) §2.4; LLVM `getTotalNumVGPRs`). [^llvm-baseinfo] |
 | **Take** | Recalculate WG packing when you change wave size: `N = ceil(FlatWG / WaveSize)` feeds barriers and Thread Group Size ([barrier-occupancy.md](barrier-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md)). A 256-thr WG is **8** waves wave32 vs **4** wave64. |
-| **Take (craft)** | GPUOpen: a bigger wave size implies **coarser** resource allocation granularity; do not casually pin wave size for occupancy alone — effects are complex and not performance-portable ([GPUOpen Occupancy explained](https://gpuopen.com/learn/occupancy-explained/)). |
-| **Leave** | Do not ship `-mwavefrontsize64` as a HIP default on gfx10+. LLVM will compile it; HIP docs / runtime treat wave64 as unsupported on gfx10+ (`warpSize` 64; “`mwavefrontsize64` … not supported by HIP runtime”) ([hip-craft.md](../hip-craft/hip-craft.md) §1). Treat wave64 as an LLVM experiment only. |
+| **Take (craft)** | GPUOpen: a bigger wave size implies **coarser** resource allocation granularity; do not casually pin wave size for occupancy alone — effects are complex and not performance-portable ([GPUOpen Occupancy explained](https://gpuopen.com/learn/occupancy-explained/)). [^gpuopen-occupancy] |
+| **Leave** | Do not ship `-mwavefrontsize64` as a HIP default on gfx10+. LLVM will compile it; HIP docs / runtime treat wave64 as unsupported on gfx10+ (`warpSize` 64; “`mwavefrontsize64` … not supported by HIP runtime”) ([hip-craft.md](../hip-craft/hip-craft.md) §1). Treat wave64 as an LLVM experiment only. [^hip-hw-impl][^llvm-amdgpuusage] |
 | **Leave** | Do not paste GPUOpen RDNA3 deck numbers (1536 VGPR → 96 / 48 at full slots) onto V620 — gfx1030 file is **1024** → **64** VGPR/wave (wave32) or **32** (wave64) at 16 slots ([occupancy-composite.md](occupancy-composite.md)). |
-| **Leave** | Do not flip wave size to “get more barriers” or “fix LDS banks.” Barriers follow `N`; bank conflict-free indexed is ≈ **1 cycle wave32 / 2 cycles wave64**, worst still **64** (ISA §10.4.3). |
+| **Leave** | Do not flip wave size to “get more barriers” or “fix LDS banks.” Barriers follow `N`; bank conflict-free indexed is ≈ **1 cycle wave32 / 2 cycles wave64**, worst still **64** (ISA §10.4.3). [^isa70648] |
 | **Leave** | Do not open a ticket / retip extras for wave-size occupancy. extras stays wave32. |
 
 ## 1. What wave size changes (and what it does not)
 
-| Axis | wave32 (HIP default) | wave64 (`+wavefrontsize64`) | PIX row? |
+| Axis | wave32 (HIP default) | wave64 (`+wavefrontsize64`) | PIX row? [^llvm-amdgpuusage] |
 |---|---|---|---|
-| Physical VGPR file (`getTotalNumVGPRs`) | **1024** | **512** (same SRAM; counts double) | scales **VGPR** |
+| Physical VGPR file (`getTotalNumVGPRs`) | **1024** | **512** (same SRAM; counts double) | scales **VGPR** [^llvm-baseinfo] |
 | Alloc granule | **16** | **8** | scales **VGPR** |
 | Encoding granule | **8** | **4** | metadata only |
 | Max waves / SIMD | **16** | **16** | unchanged slots |
@@ -33,19 +46,19 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [wg-size-occupancy.md](wg-si
 | Bank conflict-free indexed | ≈ **1** cycle | ≈ **2** cycles | latency ([lds-bank-occupancy.md](../lds-and-tiles/lds-bank-occupancy.md)) |
 | SGPR | fixed 128 / non-limiter | same | absent |
 
-Wave size is therefore an **input** to the composite fold, not a fifth limiter. Flip it and re-run `llvm-calc-occupancy` with the matching `-mattr=`.
+Wave size is therefore an **input** to the composite fold, not a fifth limiter. Flip it and re-run `llvm-calc-occupancy` with the matching `-mattr=`.[^llvm-calc-occupancy]
 
 ## 2. gfx1030 constants (not RDNA3 deck)
 
 | Knob | wave32 | wave64 | Source |
 |---|---|---|---|
-| Clang / LLVM feature | `-mno-wavefrontsize64` (default) | `-mwavefrontsize64` | [AMDGPUUsage Target Features](https://llvm.org/docs/AMDGPUUsage.html) |
+| Clang / LLVM feature | `-mno-wavefrontsize64` (default) | `-mwavefrontsize64` | [AMDGPUUsage Target Features](https://llvm.org/docs/AMDGPUUsage.html) [^llvm-amdgpuusage] |
 | HIP runtime default | **32** (`rocminfo` Wavefront Size) | not advertised on gfx10+ | HIP C++ language extensions; [hip-craft.md](../hip-craft/hip-craft.md) |
-| VGPR file / granule | 1024 / 16 | 512 / 8 | LLVM `getTotalNumVGPRs` / `getVGPRAllocGranule`; ISA §3.6.4 |
-| Max waves/EU | 16 | 16 | LLVM `hasGFX10_3Insts` → 16; GPUOpen Occupancy explained |
-| Addressable arch VGPRs | 256 | 256 | LLVM `getAddressableNumArchVGPRs` |
+| VGPR file / granule | 1024 / 16 | 512 / 8 | LLVM `getTotalNumVGPRs` / `getVGPRAllocGranule`; ISA §3.6.4 [^isa70648][^llvm-baseinfo] |
+| Max waves/EU | 16 | 16 | LLVM `hasGFX10_3Insts` → 16; GPUOpen Occupancy explained [^gpuopen-occupancy] |
+| Addressable arch VGPRs | 256 | 256 | LLVM `getAddressableNumArchVGPRs` [^llvm-baseinfo] |
 
-RDNA deck (1024-file) examples still apply; RDNA2 only cuts the *slot* cap vs RDNA1 (20 → 16):
+RDNA deck (1024-file) examples still apply; RDNA2 only cuts the *slot* cap vs RDNA1 (20 → 16):[^rdna-arch]
 
 - 4× wave32 × 256 VGPR
 - 2× wave64 × 256 VGPR
@@ -76,12 +89,12 @@ llvm-calc-occupancy -mcpu=gfx1030 -mattr=+wavefrontsize64 --wg-size=256 --vgprs=
 
 ## 4. Metadata / dump check
 
-From [occupancy-dump.md](occupancy-dump.md): `.wavefront_size` must be **32** for HIP gfx1030 as shipped. **64** doubles VGPR cost per wave in the compiler accounting and is not the HIP default. If a dump shows 64, the object was built with `+wavefrontsize64` — treat as experimental, do not promote to extras.
+From [occupancy-dump.md](occupancy-dump.md): `.wavefront_size` must be **32** for HIP gfx1030 as shipped. **64** doubles VGPR cost per wave in the compiler accounting and is not the HIP default. If a dump shows 64, the object was built with `+wavefrontsize64` — treat as experimental, do not promote to extras.[^llvm-amdgpuusage]
 
 ## 5. Practice on V620 / extras
 
-1. Keep `-offload-arch=gfx1030` without `-mwavefrontsize64`. Default wave32 + WGP.
-2. Size with `llvm-calc-occupancy … -mattr=+wavefrontsize32` and gate with `hipOccupancyMaxActiveBlocksPerMultiprocessor`.
+1. Keep `-offload-arch=gfx1030` without `-mwavefrontsize64`. Default wave32 + WGP.[^llvm-amdgpuusage]
+2. Size with `llvm-calc-occupancy … -mattr=+wavefrontsize32` and gate with `hipOccupancyMaxActiveBlocksPerMultiprocessor`.[^llvm-calc-occupancy]
 3. Prefer lowering VGPR / LDS / WG size over changing wave size when measured occupancy is short ([occupancy-composite.md](occupancy-composite.md)).
 4. Measure wave64 only as an LLVM side experiment (wide reduction / tool curiosity). Do not retip extras or open UNC for it.
 
@@ -95,3 +108,15 @@ From [occupancy-dump.md](occupancy-dump.md): `.wavefront_size` must be **32** fo
 6. `llvm-calc-occupancy` — prints Wavefront size from STI; pass `-mattr=+wavefrontsize32|+wavefrontsize64`
 7. HIP C++ language extensions / hardware implementation — wave32 primary on RDNA; wave64 option unsupported on gfx10+ runtime
 8. Sibling wiki: [vgpr-occupancy.md](vgpr-occupancy.md), [architecture.md](../arch-and-memory/architecture.md) §2.3–2.4, [hip-craft.md](../hip-craft/hip-craft.md) §1
+
+Footnotes:
+
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)
+[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
+[^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
+[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
+[^hip-hw-impl]: ROCm HIP docs, "Hardware implementation". https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html (checked 2026-10-11)
+[^rdna-arch]: AMD, "RDNA Architecture" (GPUOpen, 2019). https://gpuopen.com/download/RDNA_Architecture_public.pdf (checked 2026-10-11)
+[^gpuopen-download-gpc24-occupancy-explained-pdf]: gpuopen.com/download/GPC24_Occupancy_explained.pdf. https://gpuopen.com/download/GPC24_Occupancy_explained.pdf (checked 2026-10-11)
+

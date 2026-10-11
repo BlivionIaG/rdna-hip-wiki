@@ -1,12 +1,22 @@
+---
+title: "hipfire — silicon review"
+sources:
+  - https://github.com/warpfront/hipfire
+  - https://github.com/warpfront/hipfire/blob/master/crates/rdna-compute/src/arch_caps.rs
+  - https://github.com/warpfront/hipfire/blob/master/docs/plans/mq3_gfx10.md
+  - https://github.com/warpfront/hipfire/blob/master/tests/speed-baselines/gfx1030.txt
+  - https://github.com/warpfront/hipfire/blob/master/README.md
+---
+
 # hipfire — silicon review
 
-Date: 2026-08-21. Engine: [../engine/hipfire.md](../../engine/hipfire.md). Repo: [warpfront/hipfire](https://github.com/warpfront/hipfire). Occupancy still first. Do **not** copy their tok/s.
+Date: 2026-08-21. Engine: [../engine/hipfire.md](../../engine/hipfire.md). Repo: [warpfront/hipfire](https://github.com/warpfront/hipfire). Occupancy still first. Do **not** copy their tok/s.[^github-warpfront-hipfire]
 
-Standalone Rust + HIP. Tuned family is **WMMA on gfx11/12**. gfx1030 is a **capability-gated portable** path.
+Standalone Rust + HIP. Tuned family is **WMMA on gfx11/12**. gfx1030 is a **capability-gated portable** path.[^github-master-readme-md]
 
 ## Capability lock (`arch_caps.rs`, sourced)
 
-Atoms → molecules → `has_*`. This is the take: **feature predicates, not `on_rdna()`**.
+Atoms → molecules → `has_*`. This is the take: **feature predicates, not `on_rdna()`**.[^github-src-arch-caps-rs]
 
 | Cap | gfx1030 | Notes |
 |---|---|---|
@@ -29,19 +39,19 @@ Same ISA we already fire ([valu.md](../arch-and-memory/valu.md), [fp16-rdna2.md]
 - Decode skinny: `fdot2` / `V_DOT2C` (their HFQ3 GEMV is arch-agnostic HIP, not a gfx1030-special TU).
 - Prefill fat: `sdot4` MMQ **if** both sides are i8 and the batch clears 256. Else per-token GEMV fallback.
 - No WMMA. No rocBLAS-required for their portable path (they `dlopen` HIP; rocBLAS is MI300-lazy).
-- Lloyd codebook-in-LDS is **out of scope on gfx10** in their own MQ3 plan (RDNA2 vs RDNA3 cvt). Leave Lloyd-on-gfx10.
+- Lloyd codebook-in-LDS is **out of scope on gfx10** in their own MQ3 plan (RDNA2 vs RDNA3 cvt). Leave Lloyd-on-gfx10.[^github-plans-mq3-gfx10-md]
 
 HIP does not need their Triton byte-slice dodge (that was leapdragon `fd_rdna2`). Packed load → VGPR cvt → `fdot2` stays ours ([../kernels/kv-int8.md](../../kernels/kv-int8.md)).
 
 ## Occupancy
 
-Their plan mentioned `__launch_bounds__(32, 16)` on `gemv_hfq3g256` as a *spill risk on gfx10*, not a recipe. extras still sits on `__launch_bounds__(N, 1)` / `waves_per_eu(1,1)`. **Our occupancy card is not closed by their portable path.**
+Their plan mentioned `__launch_bounds__(32, 16)` on `gemv_hfq3g256` as a *spill risk on gfx10*, not a recipe. extras still sits on `__launch_bounds__(N, 1)` / `waves_per_eu(1,1)`. **Our occupancy card is not closed by their portable path.**[^github-plans-mq3-gfx10-md]
 
 Redline (ROCr retained-replay / PM4) is dispatch overhead, not a CU-occupancy fix. hippih Later. Fail-closed to HIP is the only part to keep.
 
 ## Numbers (sourced, not ours)
 
-`tests/speed-baselines/gfx1030.txt` is a **speed-gate floor** for *their* MQ4 stack, captured 2026-04-28. 0.8B/4B/9B = RX 6900 XT 16 GB; 27B = V620 Pro 32 GB and **not enforced** on gfx1030 CI. `docs/BENCHMARKS.md` historical row is a different fixture (“truth state: historical”). Neither is extras W4 / TP=4 / ROCm 7.14 / 88096 PIX. Do not write them into [coverage.md](../../engine/coverage.md).
+`tests/speed-baselines/gfx1030.txt` is a **speed-gate floor** for *their* MQ4 stack, captured 2026-04-28. 0.8B/4B/9B = RX 6900 XT 16 GB; 27B = V620 Pro 32 GB and **not enforced** on gfx1030 CI. `docs/BENCHMARKS.md` historical row is a different fixture (“truth state: historical”). Neither is extras W4 / TP=4 / ROCm 7.14 / 88096 PIX. Do not write them into [coverage.md](../../engine/coverage.md).[^github-speed-baselines-gfx1030-txt]
 
 ## Strategy — do not pivot
 
@@ -71,3 +81,12 @@ Portable ≠ tuned. Their gfx1030 path being “correct, slower prefill” does 
 - https://github.com/warpfront/hipfire/blob/master/tests/speed-baselines/gfx1030.txt
 - https://github.com/warpfront/hipfire/blob/master/README.md (GPU support table: RDNA2 = portable)
 - [../engine/hipfire.md](../../engine/hipfire.md), [valu.md](../arch-and-memory/valu.md), [hippih.md](hippih.md), [sglang-fork.md](sglang-fork.md), [v340l.md](../other-hardware/v340l.md)
+
+Footnotes:
+
+[^github-warpfront-hipfire]: GitHub - warpfront/hipfire: RDNA-native LLM inference engine in Rust.. https://github.com/warpfront/hipfire (checked 2026-10-11)
+[^github-src-arch-caps-rs]: hipfire/crates/rdna-compute/src/arch_caps.rs at master · warpfront/hipfire. https://github.com/warpfront/hipfire/blob/master/crates/rdna-compute/src/arch_caps.rs (checked 2026-10-11)
+[^github-plans-mq3-gfx10-md]: hipfire/docs/plans/mq3_gfx10.md at master · warpfront/hipfire. https://github.com/warpfront/hipfire/blob/master/docs/plans/mq3_gfx10.md (checked 2026-10-11)
+[^github-speed-baselines-gfx1030-txt]: hipfire/tests/speed-baselines/gfx1030.txt at master · warpfront/hipfire. https://github.com/warpfront/hipfire/blob/master/tests/speed-baselines/gfx1030.txt (checked 2026-10-11)
+[^github-master-readme-md]: hipfire/README.md at master · warpfront/hipfire. https://github.com/warpfront/hipfire/blob/master/README.md (checked 2026-10-11)
+

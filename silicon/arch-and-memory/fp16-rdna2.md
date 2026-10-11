@@ -1,3 +1,13 @@
+---
+title: "Fastest gfx1030 FP16 path — silicon contract"
+sources:
+  - https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
+  - https://github.com/opengfx1030/vllm-rdna/commit/66bb24d7bf7ea27a2a71dbd7816308b38d039db8
+  - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
+  - https://github.com/opengfx1030/vllm-rdna/commit/3b59ee16e553168b1e3809c9a141088662171448
+  - https://github.com/opengfx1030/vllm-rdna/commit/5c4ab9891910c4b7f3bde8621d1a58c8ad47c28b
+---
+
 # Fastest gfx1030 FP16 path — silicon contract
 
 Date: 2026-08-18. **Study / after occupancy.** Peak math from [valu.md](valu.md). Engine: [engine/fp16-rdna2.md](../../engine/fp16-rdna2.md). Native MoE tiles: [../kernels/fp16-moe.md](../../kernels/fp16-moe.md). Stock hole: [../kernels/triton-skinny-gemm.md](../../kernels/triton-skinny-gemm.md).
@@ -39,7 +49,7 @@ Do not launch a 64×64 tile at `M=1`. Do not copy gfx1100 WMMA 16×16 fragments.
 
 - Current trap: `__launch_bounds__(*, 1)` / `amdgpu_waves_per_eu(1,1)` on `fa_rdna2` and `wvSplitKrc_`. HIP's second bound is **min waves/EU**, not CUDA min-blocks.
 - Target after the flip: `amdgpu_waves_per_eu(4, 8)` only if VGPR ≤64 (decode) and no scratch.
-- `llvm-calc-occupancy -mcpu=gfx1030` **and** `hipOccupancyMaxActiveBlocksPerMultiprocessor` must be ≥1.
+- `llvm-calc-occupancy -mcpu=gfx1030` **and** `hipOccupancyMaxActiveBlocksPerMultiprocessor` must be ≥1.[^llvm-calc-occupancy]
 - This occupancy fix is still **first**, before any new FP16 kernel.
 
 ## Attention
@@ -48,7 +58,7 @@ Do not launch a 64×64 tile at `M=1`. Do not copy gfx1100 WMMA 16×16 fragments.
 |---|---|---|
 | `fa_rdna2` | occupancy-trapped; QK already `fdot2` | flip waves/EU, keep `fdot2`, leave Sage/INT8 for later |
 | HIP sparse MLA decode | scalar fp32 FMA (FP8 K_nope unpack) | later: stop promoting Q pairs |
-| HIP sparse MLA prefill @ `66bb24d7` | scalar FMA, both sides already `half` | **first** `fdot2` rewrite after `load_row` OOB fix |
+| HIP sparse MLA prefill @ `66bb24d7` | scalar FMA, both sides already `half` | **first** `fdot2` rewrite after `load_row` OOB fix [^commit-66bb24d7] |
 | Stock `TRITON_ATTN` / `ROCM_ATTN` | gfx1030 decode is Triton fallback | baseline only; ISA often scalar. Tune on a separate page |
 
 `fa_rdna2` vs Triton A/B only after occupancy + identical cache/mask/graph contract.
@@ -58,7 +68,7 @@ Do not launch a 64×64 tile at `M=1`. Do not copy gfx1100 WMMA 16×16 fragments.
 - LDS as `half2`/dword, 64-bank WGP, pad A rows (`+8` seed) and measure conflicts.
 - 16-byte global loads when aligned.
 - Software-pipeline weight/A loads over the 5-cycle VALU dest latency.
-- Infinity Cache is 128 MB: a 7B fp16 layer does **not** fit unsharded. TP=4 may fit; nontemporal the miss.
+- Infinity Cache is 128 MB: a 7B fp16 layer does **not** fit unsharded. TP=4 may fit; nontemporal the miss.[^rocm-gpu-arch-specs]
 - No persist/bypass bit. Fit + reuse is the whole policy.
 
 ## What is not the fast path
@@ -87,3 +97,12 @@ Record cold compile, warm, median/p10/p90, VGPR/LDS/spills/waves, DRAM bytes, IC
 - RDNA 2 ISA 70648: `V_DOT2_F32_F16` / `V_DOT2C_F32_F16`
 - hip-craft: hipcc does not peephole `hfma2` → DOT2
 - vLLM `rocm_unquantized_gemm_impl`: skinny/`wvSplitK` gated off gfx1030 (2026-09-18 tip `3b59ee16` / `5c4ab989`: decode uses `gemv_f16_rdna2` for FP16 M≤8; PR #5 wvSplitK port reverted after device assert in `wvSplitK_hf_big_`)
+
+Footnotes:
+
+[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
+[^commit-66bb24d7]: opengfx1030/vllm-rdna commit `66bb24d7bf7e`. https://github.com/opengfx1030/vllm-rdna/commit/66bb24d7bf7ea27a2a71dbd7816308b38d039db8 (exists, verified via GitHub API 2026-10-11)
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^commit-3b59ee16]: opengfx1030/vllm-rdna commit `3b59ee16e553`. https://github.com/opengfx1030/vllm-rdna/commit/3b59ee16e553168b1e3809c9a141088662171448 (exists, verified via GitHub API 2026-10-11)
+[^commit-5c4ab989]: opengfx1030/vllm-rdna commit `5c4ab9891910`. https://github.com/opengfx1030/vllm-rdna/commit/5c4ab9891910c4b7f3bde8621d1a58c8ad47c28b (exists, verified via GitHub API 2026-10-11)
+[^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)

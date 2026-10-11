@@ -1,3 +1,12 @@
+---
+title: "gfx1030 VALU sheet (HIP)"
+sources:
+  - https://github.com/opengfx1030/vllm-rdna/commit/a2c8d5cf7a5857df77a64305b63e1d106e9ccb1c
+  - https://github.com/opengfx1030/vllm-rdna/commit/83de31cf8c55ac2e63f538c2d08dd8f1668a52bb
+  - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
+  - https://gpuopen.com/learn/wmma_on_rdna3/
+---
+
 # gfx1030 VALU sheet (HIP)
 
 Engine “we fire” column filled 2026-08-17. Occupancy still first. Companions: [hip-craft.md](../hip-craft/hip-craft.md), [architecture.md](architecture.md). Engine index: [coverage.md](../../engine/coverage.md).
@@ -10,9 +19,9 @@ Rate math that matches GPUOpen RX 6950 XT: 1 DOT/clk/SIMD × 2 SIMD/CU × 32 lan
 
 | HIP / builtin | ISA | Enc | Size | Issue | Peak ops/clk/CU | Acc | We fire |
 |---|---|---|---|---|---|---|---|
-| `__builtin_amdgcn_fdot2` | `V_DOT2C_F32_F16` (prefer) / `V_DOT2_F32_F16` | VOP2 / VOP3 | 1 / 2 | 1/SIMD (inferred) | **256** FP16 | f32 | **Live:** W4A16, W8A16, W8A16-FP8, W8A8-FP8, mxfp4, `fa_rdna2` QK. **Live also:** EXL3 `3inst`→`fdot2` (`a2c8d5cf`; GEMMs still no `waves_per_eu`). **Queued:** NVFP4, INT2/W2A16, mixed INT2/INT4 MoE, INT8 KV (after cvt). |
+| `__builtin_amdgcn_fdot2` | `V_DOT2C_F32_F16` (prefer) / `V_DOT2_F32_F16` | VOP2 / VOP3 | 1 / 2 | 1/SIMD (inferred) | **256** FP16 | f32 | **Live:** W4A16, W8A16, W8A16-FP8, W8A8-FP8, mxfp4, `fa_rdna2` QK. **Live also:** EXL3 `3inst`→`fdot2` (`a2c8d5cf`; GEMMs still no `waves_per_eu`). **Queued:** NVFP4, INT2/W2A16, mixed INT2/INT4 MoE, INT8 KV (after cvt). [^commit-a2c8d5cf] |
 | `__hfma2` / `v_fma_f32` | `V_FMA_F32` / `V_PK_FMA_F16` | VOP3 / VOP3P | 2 | 1/SIMD (typical VALU) | 128 FMA = 256 FLOP if packed | f32 / f16 | **HIP MLA decode, Lightning indexer** (later `fdot2`). ikantkode GEMV is Triton `tl.sum` — do not port. |
-| `__builtin_amdgcn_sdot4` | `V_DOT4C_I32_I8` / `V_DOT4_I32_I8` | VOP2 / VOP3 | 1 / 2 | 1/SIMD (inferred) | **512** IU8 | i32 | **Spec / not extras @ `83de31cf`:** W8A8 INT8, Sage QK, W4A8 (after W→i8 unpack). Live “W8A8” is FP8→`fdot2`. [kernels/w8a8.md](../../kernels/w8a8.md) |
+| `__builtin_amdgcn_sdot4` | `V_DOT4C_I32_I8` / `V_DOT4_I32_I8` | VOP2 / VOP3 | 1 / 2 | 1/SIMD (inferred) | **512** IU8 | i32 | **Spec / not extras @ `83de31cf`:** W8A8 INT8, Sage QK, W4A8 (after W→i8 unpack). Live “W8A8” is FP8→`fdot2`. [kernels/w8a8.md](../../kernels/w8a8.md) [^commit-83de31cf] |
 | `__builtin_amdgcn_udot4` | `V_DOT4_U32_U8` | VOP3 | 2 | same class | 512 IU8 | u32 | unused (signed weights) |
 | `__builtin_amdgcn_sdot8` | `V_DOT8_I32_I4` | VOP3P | 2 | 1/SIMD (inferred) | **1024** IU4 | i32 | **Explore:** W4A4 integer only. Not W4A8. Not E2M1. Order: ConfigA LDS=0 → LDS 64³. |
 | `__builtin_amdgcn_udot8` | `V_DOT8_U32_U4` | VOP3 | 2 | same class | 1024 IU4 | u32 | unused |
@@ -38,7 +47,7 @@ Prefer the **C** form (`DOT2C` / `DOT4C`): VOP2, 1 dword, `vdst = src2`. hipcc w
 | Extra | Enc | Peak vs gfx1030 | HIP | Our stance |
 |---|---|---|---|---|
 | WMMA 16×16×16 f16/bf16/iu8/iu4 | wave matrix, ~32 clk schedule | FP16 **256→512**, IU8/IU4 **unchanged** (512 / 1024) | `__builtin_amdgcn_wmma_*_w32` | Ignore on gfx1030. gfx1100 prefill only if we ever ship a 1100 tile. |
-| `V_DOT2_F32_BF16` | VOP3P (8 B) unless VOPD-paired | 512 BF16 | `__builtin_amdgcn_fdot2_f32_bf16` | Dead on gfx1030. User forces fp16. |
+| `V_DOT2_F32_BF16` | VOP3P (8 B) unless VOPD-paired | 512 BF16 | `__builtin_amdgcn_fdot2_f32_bf16` | Dead on gfx1030. User forces fp16. [^isa70648] |
 | VOPD `v_dual_dot2acc_f32_f16` | dual VOP2 | two DOT2/clk when paired | automatic if builtin is VOP2 | gfx11 win; not here. |
 | `sudot4` | VOP3 | mixed-sign i8 | `__builtin_amdgcn_sudot4` | Not on gfx1030. |
 
@@ -62,3 +71,10 @@ WMMA does **not** beat DOT4/DOT8 on INT8/INT4 (same 512/1024). It only doubles *
 - LLVM `VOP2Instructions.td`: `V_DOT2C_F32_F16_e32`, `V_DOT4C_I32_I8_e32` when no src mods
 - Clang AMDGPU builtins; llama.cpp `ggml_cuda_dp4a`
 - LLVM #186179: gfx11 VOPD / bf16 DOT
+
+Footnotes:
+
+[^commit-a2c8d5cf]: opengfx1030/vllm-rdna commit `a2c8d5cf7a58`. https://github.com/opengfx1030/vllm-rdna/commit/a2c8d5cf7a5857df77a64305b63e1d106e9ccb1c (exists, verified via GitHub API 2026-10-11)
+[^commit-83de31cf]: opengfx1030/vllm-rdna commit `83de31cf8c55`. https://github.com/opengfx1030/vllm-rdna/commit/83de31cf8c55ac2e63f538c2d08dd8f1668a52bb (exists, verified via GitHub API 2026-10-11)
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^gpuopen-learn-wmma-on-rdna3]: How to accelerate AI applications on RDNA 3 using WMMA - AMD GPUOpen. https://gpuopen.com/learn/wmma_on_rdna3/ (checked 2026-10-11)

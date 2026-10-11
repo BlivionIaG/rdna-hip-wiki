@@ -1,3 +1,14 @@
+---
+title: "Occupancy composite (gfx1030)"
+sources:
+  - https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
+  - https://gpuopen.com/learn/occupancy-explained/
+  - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
+  - https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html
+  - https://llvm.org/docs/AMDGPUUsage.html
+  - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
+---
+
 # Occupancy composite (gfx1030)
 
 Lock: **theoretical waves/EU is the min of the PIX limiter set**, folded the same way LLVM does. For HIP default (**wave32 + WGP**) that is:
@@ -10,7 +21,7 @@ waves/EU = min(
 )
 ```
 
-`llvm-calc-occupancy` is the thin CLI over that `GCNSubtarget` math. Scratch is **out** of the min (latency / rare ROCr cut only). Completes the occupancy set as the **fold** page — siblings own each term.
+`llvm-calc-occupancy` is the thin CLI over that `GCNSubtarget` math. Scratch is **out** of the min (latency / rare ROCr cut only). Completes the occupancy set as the **fold** page — siblings own each term.[^llvm-calc-occupancy]
 
 Does **not** change extras HIP or tickets. No tok/s. Do not restate the FA pin.
 
@@ -20,14 +31,14 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](../lds-an
 
 | | |
 |---|---|
-| **Take** | Size with `llvm-calc-occupancy -mcpu=gfx1030 -mattr=+wavefrontsize32 --wg-size=N --vgprs=V --lds=L`. Read **Limited by:** then open the matching sibling page. Omit `--sgprs` on gfx1030 (non-limiter). |
+| **Take** | Size with `llvm-calc-occupancy -mcpu=gfx1030 -mattr=+wavefrontsize32 --wg-size=N --vgprs=V --lds=L`. Read **Limited by:** then open the matching sibling page. Omit `--sgprs` on gfx1030 (non-limiter). [^llvm-calc-occupancy] |
 | **Take** | Wave size is an **input** to the fold, not a PIX row — keep `+wavefrontsize32` unless measuring an LLVM-only wave64 experiment ([wave-size-occupancy.md](wave-size-occupancy.md)). |
 | **Take** | Launch mode (WGP/`-mno-cumode` vs CU/`-mcumode`) is also an **input** — keep WGP unless measuring LDS-bandwidth CU ([wgp-cu-mode-occupancy.md](wgp-cu-mode-occupancy.md)). |
 | **Take** | Gate launches with `hipOccupancyMaxActiveBlocksPerMultiprocessor` after the theory pass — runtime 0 means do not launch, even when the calc says otherwise ([vgpr-occupancy.md](vgpr-occupancy.md) §4). |
 | **Take** | PIX / GPUOpen limiter names map 1:1 to wiki pages: **VGPR** → vgpr; **LDS** → lds; **Thread Group Size** → wg-size; **Barriers** → barrier. SGPR is absent on RDNA (fixed 128). |
 | **Take** | Measured occupancy can sit under theory for **lack of work** (grid << **36** WGP × 4 SIMD × 16 = **2304** on V620) or **launch-rate** drain — those are SPI/ACE issues, not a fifth PIX resource ([spi-ace-occupancy.md](spi-ace-occupancy.md)). |
 | **Leave** | Do not use GPUOpen RDNA3 examples (1536 VGPR / RX 7900) as gfx1030 constants — V620 SIMD file is **1024** VGPR, MaxWaves **16**. |
-| **Leave** | Do not put `.private_segment_fixed_size` / scratch into `llvm-calc-occupancy` or the theoretical min ([scratch-occupancy.md](scratch-occupancy.md)). |
+| **Leave** | Do not put `.private_segment_fixed_size` / scratch into `llvm-calc-occupancy` or the theoretical min ([scratch-occupancy.md](scratch-occupancy.md)). [^llvm-calc-occupancy] |
 | **Leave** | Do not put I$ / code size into the theoretical min — fetch stalls are effective occupancy only ([icache-occupancy.md](icache-occupancy.md)). |
 | **Leave** | Do not put K$ / `__constant__` size into the theoretical min — scalar-load stalls are effective occupancy only ([kcache-occupancy.md](kcache-occupancy.md)). |
 | **Leave** | Do not put L0/GL1 capacity into the theoretical min — vector-cache thrash is effective occupancy only ([l0-gl1-occupancy.md](l0-gl1-occupancy.md)). |
@@ -43,7 +54,7 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](../lds-an
 | **Leave** | Do not put cross-lane ops into the theoretical min or `--lds=` — DPP/permlane are VALU; `ds_bpermute`/`__shfl*` use the LDS pipe with **0** LDS bytes (`lgkmcnt` parks only); `wave_reduce_*` is a serial readlane loop ([dpp-crosslane-occupancy.md](dpp-crosslane-occupancy.md)). |
 | **Leave** | Do not put hazard padding (`s_nop` / `s_waitcnt_depctr` / `vscnt null`) into the min. gfx1030 compiler output has none; it only appears in gfx101x/gfx1013 builds or copied inline asm ([hazard-occupancy.md](hazard-occupancy.md)). |
 | **Leave** | Do not put SPI/ACE / launch-rate into the theoretical min — lack of work and refill drain are measured-only ([spi-ace-occupancy.md](spi-ace-occupancy.md)). |
-| **Leave** | Do not maximize occupancy as a goal. ALU-bound kernels want utilization, not more waves; memory-bound kernels can thrash IC/L2 if you over-fill ([GPUOpen Occupancy explained](https://gpuopen.com/learn/occupancy-explained/)). |
+| **Leave** | Do not maximize occupancy as a goal. ALU-bound kernels want utilization, not more waves; memory-bound kernels can thrash IC/L2 if you over-fill ([GPUOpen Occupancy explained](https://gpuopen.com/learn/occupancy-explained/)). [^gpuopen-occupancy] |
 | **Leave** | Do not open a ticket / retip extras for this fold. |
 
 ## 1. PIX four → LLVM fold
@@ -53,8 +64,8 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](../lds-an
 | VGPR | [vgpr-occupancy.md](vgpr-occupancy.md) | `getOccupancyWithNumVGPRs` / alloc granule 16 / file 1024 |
 | LDS | [lds-occupancy.md](../lds-and-tiles/lds-occupancy.md) | `MaxWGsLDS = floor(LocalMemorySize / alignTo(LDS))` inside `getOccupancyWithWorkGroupSizes` |
 | Thread Group Size | [wg-size-occupancy.md](wg-size-occupancy.md) | `WavesPerWG = ceil(WG / 32)`; atomic WG lifetime on SPI |
-| Barriers | [barrier-occupancy.md](barrier-occupancy.md) | `getMaxWorkGroupsPerCU` → `min(MaxWaves/N, 32)` WGP / `16` CU; `N==1` free |
-| *(absent)* SGPR | [sgpr-occupancy.md](sgpr-occupancy.md) | `isSGPROccupancyLimited` false → always 16 |
+| Barriers | [barrier-occupancy.md](barrier-occupancy.md) | `getMaxWorkGroupsPerCU` → `min(MaxWaves/N, 32)` WGP / `16` CU; `N==1` free [^llvm-baseinfo] |
+| *(absent)* SGPR | [sgpr-occupancy.md](sgpr-occupancy.md) | `isSGPROccupancyLimited` false → always 16 [^llvm-baseinfo] |
 | *(out of min)* Scratch | [scratch-occupancy.md](scratch-occupancy.md) | not in `computeOccupancy` / no `--scratch` |
 | *(out of min)* I$ / code size | [icache-occupancy.md](icache-occupancy.md) | not a PIX MaxWaves row; SQC miss → wave idle |
 | *(out of min)* K$ / `__constant__` | [kcache-occupancy.md](kcache-occupancy.md) | not a PIX MaxWaves row; SQC DCache miss → `lgkmcnt` / SALU wait |
@@ -72,7 +83,7 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](../lds-an
 | *(out of min)* Software hazard waitstates | [hazard-occupancy.md](hazard-occupancy.md) | empty on gfx1030 (HW interlocks, no gfx101x hazard features; probe 0 `s_nop`/`depctr`); gfx1013/gfx101x builds pay `depctr_vm_vsrc(0)` / `vscnt null` parks |
 | *(out of min)* SPI / ACE / grid fill | [spi-ace-occupancy.md](spi-ace-occupancy.md) | not a PIX MaxWaves row; lack of work / launch-rate → measured < theory |
 
-`getMaxWorkGroupsPerCU` (AMDGPUBaseInfo.cpp) already packs **wave slots + barriers**:
+`getMaxWorkGroupsPerCU` (AMDGPUBaseInfo.cpp) already packs **wave slots + barriers**:[^llvm-baseinfo]
 
 ```text
 MaxWaves = 16 * getNumWorkGroupSIMDs(WGP→4)   // 64 slots/WGP
@@ -84,7 +95,7 @@ return min(MaxWaves / N, MaxBarriers)
 
 `getOccupancyWithWorkGroupSizes` then `min`s that with `MaxWGsLDS`, converts WGs×waves → waves/EU by spreading across `getNumWorkGroupSIMDs()`, and returns a **(min, max)** range when `amdgpu_flat_work_group_size` is a range (LLVM PR #123748).
 
-Final CLI combine (`llvm-calc-occupancy.cpp`, same as `GCNSubtarget::computeOccupancy`):
+Final CLI combine (`llvm-calc-occupancy.cpp`, same as `GCNSubtarget::computeOccupancy`):[^llvm-calc-occupancy]
 
 ```text
 Occ = min(WG+LDS term, VGPR term, SGPR term)
@@ -101,8 +112,8 @@ Limited by: list every term that equals Occ
 | SIMDs / workgroup unit | **4** (WGP) | 4 |
 | Wave slots / WGP | **64** | 64 |
 | Barriers / WGP | **32** | 16 per SIMD *pair* (= CU half) |
-| LDS pool | **128 KB** WGP / **64 KB** WG cap | same RDNA shape |
-| V620 WGP count | **36** (72 CU / 2) | ASIC-specific |
+| LDS pool | **128 KB** WGP / **64 KB** WG cap | same RDNA shape [^rocm-gpu-arch-specs][^llvm-baseinfo] |
+| V620 WGP count | **36** (72 CU / 2) | ASIC-specific [^v620-product] |
 
 Max theoretical wave slots on one V620 ≈ `36 × 4 × 16 = 2304`. A dispatch with fewer wavefronts **cannot** hit 100% measured occupancy even at full theory ([spi-ace-occupancy.md](spi-ace-occupancy.md)).
 
@@ -133,7 +144,7 @@ llvm-calc-occupancy -mcpu=gfx1030 -mattr=+wavefrontsize32 \
 
 ## 4. Theoretical vs measured (GPUOpen)
 
-GPUOpen Occupancy explained (updated 2024-06-26):
+GPUOpen Occupancy explained (updated 2024-06-26):[^gpuopen-occupancy]
 
 - **Theoretical** = resources reserved at compile / launch (the min above).
 - **Measured** ≤ theory when (a) the grid cannot fill the ASIC, (b) end-of-dispatch drain, or (c) **launch-rate** (waves finish faster than SPI can refill; dependency barriers force empty-GPU ramp).
@@ -146,16 +157,16 @@ Craft implication for extras kernels: if RGP / PIX shows theory high but measure
 | Name in API / docs | Means on gfx1030 |
 |---|---|
 | EU / Execution Unit in `amdgpu_waves_per_eu`, `__launch_bounds__` 2nd arg | **one SIMD32** |
-| HIP “Compute Unit consists of 4 Execution Units” | **WGP** picture (4 SIMD), not ISA CU (2 SIMD) |
+| HIP “Compute Unit consists of 4 Execution Units” | **WGP** picture (4 SIMD), not ISA CU (2 SIMD) [^hip-hw-impl] |
 | `rocminfo` “SIMDs per CU: 4” | same WGP confusion |
-| `hipOccupancyMaxActiveBlocksPerMultiprocessor` “multiprocessor” | treat as **WGP** under HIP default; verify against `llvm-calc-occupancy` × WGP count |
+| `hipOccupancyMaxActiveBlocksPerMultiprocessor` “multiprocessor” | treat as **WGP** under HIP default; verify against `llvm-calc-occupancy` × WGP count [^llvm-calc-occupancy] |
 
 Pin `__launch_bounds__(REAL_BLOCK, MIN_WAVES)` or `amdgpu_waves_per_eu` + `amdgpu_flat_work_group_size` to the **actual** launch — never `__launch_bounds__(1024)` on a 128/256-thr kernel ([hip-craft.md](../hip-craft/hip-craft.md) §1.3).
 
 ## 6. Operational checklist
 
-1. Dump NT_AMDGPU_METADATA ([occupancy-dump.md](occupancy-dump.md)): reject `.vgpr_spill_count` / `.sgpr_spill_count` / unexpected private.
-2. Run `llvm-calc-occupancy` with real WG / VGPR / LDS.
+1. Dump NT_AMDGPU_METADATA ([occupancy-dump.md](occupancy-dump.md)): reject `.vgpr_spill_count` / `.sgpr_spill_count` / unexpected private.[^llvm-amdgpuusage]
+2. Run `llvm-calc-occupancy` with real WG / VGPR / LDS.[^llvm-calc-occupancy]
 3. Read **Limited by:** → open sibling; change **one** lever (tile LDS, WG size, or VGPR ceiling via `waves_per_eu`).
 4. Confirm `hipOccupancyMaxActiveBlocksPerMultiprocessor` > 0 for the launch config.
 5. Profile measured vs theory only after theory matches the intended limiter.
@@ -168,3 +179,14 @@ Pin `__launch_bounds__(REAL_BLOCK, MIN_WAVES)` or `amdgpu_waves_per_eu` + `amdgp
 4. LLVM `llvm-calc-occupancy.cpp` combine loop (`Limited by:` list)
 5. RDNA 2 ISA 70648 §2.3.1 / §10.3 — WGP vs CU, LDS cap
 6. Sibling locks in this folder (VGPR / LDS / barrier / WG-size / SGPR / scratch / I$ / L0-GL1 / L2 / dump)
+
+Footnotes:
+
+[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
+[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
+[^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
+[^hip-hw-impl]: ROCm HIP docs, "Hardware implementation". https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html (checked 2026-10-11)
+[^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)
+[^v620-product]: AMD Radeon PRO V620 product page (72 CU, 4608 stream processors, 32 GB GDDR6, 256-bit, 512 GB/s, 300 W TBP, 2.2 GHz peak engine clock, 20.28 TFLOPs FP32 / 40.55 TFLOPs FP16 vector). https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html (checked 2026-10-11)

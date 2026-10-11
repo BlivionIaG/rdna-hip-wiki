@@ -1,20 +1,30 @@
+---
+title: "leapdragon recipe — silicon review"
+sources:
+  - https://github.com/leapdragon/vllm-rdna2-recipe
+  - https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/00-HARDWARE.md
+  - https://github.com/opengfx1030/vllm-rdna/commit/e9ec6f631666f2e0c7826c3121d46163d84569e7
+  - https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/01-PATCHES.md
+  - https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/builds/shared/plugins/fd_rdna2/fd_rdna2/fd_kernel2.py
+---
+
 # leapdragon recipe — silicon review
 
-Date: 2026-08-21. Engine: [../engine/leapdragon.md](../../engine/leapdragon.md). Repo: [leapdragon/vllm-rdna2-recipe](https://github.com/leapdragon/vllm-rdna2-recipe) (GPL-3.0-or-later **recipe**, not a fork). Occupancy still first. Do **not** copy their tok/s.
+Date: 2026-08-21. Engine: [../engine/leapdragon.md](../../engine/leapdragon.md). Repo: [leapdragon/vllm-rdna2-recipe](https://github.com/leapdragon/vllm-rdna2-recipe) (GPL-3.0-or-later **recipe**, not a fork). Occupancy still first. Do **not** copy their tok/s.[^github-leapdragon-vllm-rdna2-recipe]
 
 Their box ≠ ours: 2× V620 in **×16** slots (TP=2), ROCm 7.2.3 in-container, `Qwen3.8-27B-GPTQ-4bit` (`head_dim=256`, **24Q/4KV = GQA-6**, hybrid GDN). We are 8× V620 / two 88096s / attested **7.14** / extras HIP. Take **intent**, Leave plugins and numbers.
 
 ## Their measured silicon (sourced, not our bench)
 
-From [00-HARDWARE.md](https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/00-HARDWARE.md):
+From [00-HARDWARE.md](https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/00-HARDWARE.md):[^github-main-00-hardware-md]
 
 | Claim | Their measure | Our lock |
 |---|---|---|
 | DRAM | **506 GB/s** (232 W cap) | Spec 512 GB/s. Use as “near-peak is real,” not a 4×/88096 number. |
 | DOT family | `v_dot2_f32_f16` / `v_dot4_i32_i8` / `v_dot8_i32_i4`; Triton `tl.dot` reaches them | Same ISA. We still want **HIP** `__builtin_amdgcn_fdot2`, not Triton as the path ([fp16-rdna2.md](../arch-and-memory/fp16-rdna2.md)). |
 | WMMA/MFMA | none | Already locked. |
-| LDS | **64 KiB / WG** | ISA hard cap. `head_dim=256` overflows stock Triton tiles. |
-| IC | 128 MB; one layer’s 43k KV ~45 MB **fits and lies** | Same as [infinity-cache.md](../arch-and-memory/infinity-cache.md): rotate ≥16 buffers; IC is this-step, not 16 layers. |
+| LDS | **64 KiB / WG** | ISA hard cap. `head_dim=256` overflows stock Triton tiles. [^rocm-gpu-arch-specs][^llvm-baseinfo] |
+| IC | 128 MB; one layer’s 43k KV ~45 MB **fits and lies** | Same as [infinity-cache.md](../arch-and-memory/infinity-cache.md): rotate ≥16 buffers; IC is this-step, not 16 layers. [^rocm-gpu-arch-specs] |
 | P2P | **push 14.30 GB/s / pull 5.70 GB/s**; ×16 vs ×8 is 14 vs 7 | First **sourced** V620 GB/s. **Not** our 4×/88096 PIX number. Collectives must be **push** (peer store). |
 | Finegrain | `hipDeviceMallocFinegrained` = **silent no-op**; need `hipDeviceMallocUncached` + `hipHostMallocCoherent` handshake | DeepEP analogue / custom AR ([deepep-v620.md](../interconnect/deepep-v620.md)). |
 
@@ -62,8 +72,8 @@ Stock 0.27.1, not extras. `RDNAHybridW4A16` + `skinny_gemms_int4.cu` `__GFX10__`
 
 | Piece | Take / Leave |
 |---|---|
-| gfx10 guard on skinny int4 (wave32, 64 KiB, `fdot2`, DPP `row_shr`) | **Take the check** — occupancy / skinny family. DPP encodings still **unverified** on gfx1030; do not flip `wvSplitK` on. |
-| Asymmetric `uint4` ZP so Exllama can run | **Already Live** on extras: `e9ec6f63` `use_v2_format` / `zero_offset=0`. Do not import hybrid. |
+| gfx10 guard on skinny int4 (wave32, 64 KiB, `fdot2`, DPP `row_shr`) | **Take the check** — occupancy / skinny family. DPP encodings still **unverified** on gfx1030; do not flip `wvSplitK` on. [^github-main-01-patches-md] |
+| Asymmetric `uint4` ZP so Exllama can run | **Already Live** on extras: `e9ec6f63` `use_v2_format` / `zero_offset=0`. Do not import hybrid. [^commit-e9ec6f63] |
 | dequant→rocBLAS fat-M | **Leave.** Their fused Triton GEMM is the 3× loser; our leftover is HIP `gptq_gemm_rdna2_prefill` + ConfigA, not unpack+BLAS. |
 | `num_stages=1` on leftover Triton (0002 + 0006) | **Take.** stages>1 doubles K/V LDS at head 256 and halves occupancy. HIP FA is explicit — do not copy Triton tiles. |
 | `PYTORCH_TUNABLEOP_TUNING=0` | Engine. Prefill M is prompt-length; tuning stalls + flips greedy. |
@@ -83,3 +93,13 @@ Other dead ends they paid for (do not reopen): `dwordx4` KV (loads ~83% peak), 5
 - https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/01-PATCHES.md
 - https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/builds/shared/plugins/fd_rdna2/fd_rdna2/fd_kernel2.py (intent only; GPL — do not vendor)
 - [../engine/leapdragon.md](../../engine/leapdragon.md), [../kernels/kv-int8.md](../../kernels/kv-int8.md), [fa-occupancy.md](../attention/fa-occupancy.md), [infinity-cache.md](../arch-and-memory/infinity-cache.md), [fp16-rdna2.md](../arch-and-memory/fp16-rdna2.md)
+
+Footnotes:
+
+[^github-leapdragon-vllm-rdna2-recipe]: GitHub - leapdragon/vllm-rdna2-recipe: Recipe for running vLLM productively on Radeon PRO V620 (Navi 21 / gfx1030) on Linux. Multiple Qwen models supported.. https://github.com/leapdragon/vllm-rdna2-recipe (checked 2026-10-11)
+[^github-main-00-hardware-md]: vllm-rdna2-recipe/00-HARDWARE.md at main · leapdragon/vllm-rdna2-recipe. https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/00-HARDWARE.md (checked 2026-10-11)
+[^commit-e9ec6f63]: opengfx1030/vllm-rdna commit `e9ec6f631666`. https://github.com/opengfx1030/vllm-rdna/commit/e9ec6f631666f2e0c7826c3121d46163d84569e7 (exists, verified via GitHub API 2026-10-11)
+[^github-main-01-patches-md]: vllm-rdna2-recipe/01-PATCHES.md at main · leapdragon/vllm-rdna2-recipe. https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/01-PATCHES.md (checked 2026-10-11)
+[^github-fd-rdna2-fd-kernel2-py]: vllm-rdna2-recipe/builds/shared/plugins/fd_rdna2/fd_rdna2/fd_kernel2.py at main · leapdragon/vllm-rdna2-recipe. https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/builds/shared/plugins/fd_rdna2/fd_rdna2/fd_kernel2.py (checked 2026-10-11)
+[^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
+[^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)

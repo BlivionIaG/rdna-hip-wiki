@@ -1,8 +1,16 @@
+---
+title: "FlashKDA — silicon (no SM90, no CUTLASS, 128×128 = fdot2 later)"
+sources:
+  - https://github.com/MoonshotAI/FlashKDA
+  - https://github.com/MoonshotAI/FlashKDA/blob/master/docs/20260420-flashkda-v1-deep-dive.md
+  - https://github.com/MoonshotAI/FlashKDA/blob/master/README.md
+---
+
 # FlashKDA — silicon (no SM90, no CUTLASS, 128×128 = fdot2 later)
 
 Date: 2026-08-19. **Later / wiki only** until extras serves a KDA or GDN model. Engine: [../engine/flashkda.md](../../engine/flashkda.md). Occupancy still first.
 
-Repo: [MoonshotAI/FlashKDA](https://github.com/MoonshotAI/FlashKDA) (MIT, 2026-04). Deep-dive: [docs/20260420-flashkda-v1-deep-dive.md](https://github.com/MoonshotAI/FlashKDA/blob/master/docs/20260420-flashkda-v1-deep-dive.md).
+Repo: [MoonshotAI/FlashKDA](https://github.com/MoonshotAI/FlashKDA) (MIT, 2026-04). Deep-dive: [docs/20260420-flashkda-v1-deep-dive.md](https://github.com/MoonshotAI/FlashKDA/blob/master/docs/20260420-flashkda-v1-deep-dive.md).[^github-moonshotai-flashkda][^github-docs-20260420-flashkda-v1-deep-dive-md]
 
 ## Dead as a port
 
@@ -56,7 +64,7 @@ On gfx1030: **fp16 everywhere, fp32 accum.** If a checkpoint is bf16, convert at
 | 16×16 invert / gate / L2 | tiny | scalar / packed FMA — **not** DOT |
 | INT8/FP8 | — | **No.** This is not `sdot4` / `sdot8`. |
 
-LDS: 128×128 fp16 = **32 KiB** per state. Double-buffer + K1 scratch must stay ≤ **64 KiB/WG**. Bank-stride like [lds-tiles.md](../lds-and-tiles/lds-tiles.md). Occupancy: pin `amdgpu_waves_per_eu(4, 8)`, **not** `(1, 1)` and **not** their CUDA `(256, 8)`.
+LDS: 128×128 fp16 = **32 KiB** per state. Double-buffer + K1 scratch must stay ≤ **64 KiB/WG**. Bank-stride like [lds-tiles.md](../lds-and-tiles/lds-tiles.md). Occupancy: pin `amdgpu_waves_per_eu(4, 8)`, **not** `(1, 1)` and **not** their CUDA `(256, 8)`.[^rocm-gpu-arch-specs][^llvm-baseinfo]
 
 **Do not import:** CUTLASS, wgmma, `MOVM_T`, SM80 MMA fragments, AITER, `on_rdna()` as a gfx1030 gate. Reference is FLA Triton `chunk_kda`, then a HIP rewrite.
 
@@ -77,3 +85,11 @@ No tok/s from this page. No occupancy retip.
 - https://github.com/MoonshotAI/FlashKDA/blob/master/docs/20260420-flashkda-v1-deep-dive.md (CHUNK=16, K1/K2, bf16 state, fp16 invert, `launch_bounds(256,8)`)
 - https://github.com/MoonshotAI/FlashKDA/blob/master/README.md (`K=V=128`, SM90+, `cu_seqlens`)
 - [../engine/flashkda.md](../../engine/flashkda.md), [fp16-rdna2.md](../arch-and-memory/fp16-rdna2.md), [valu.md](../arch-and-memory/valu.md)
+
+Footnotes:
+
+[^github-moonshotai-flashkda]: GitHub - MoonshotAI/FlashKDA: FlashKDA: high-performance Kimi Delta Attention kernels. https://github.com/MoonshotAI/FlashKDA (checked 2026-10-11)
+[^github-docs-20260420-flashkda-v1-deep-dive-md]: FlashKDA/docs/20260420-flashkda-v1-deep-dive.md at master · MoonshotAI/FlashKDA. https://github.com/MoonshotAI/FlashKDA/blob/master/docs/20260420-flashkda-v1-deep-dive.md (checked 2026-10-11)
+[^github-master-readme-md]: FlashKDA/README.md at master · MoonshotAI/FlashKDA. https://github.com/MoonshotAI/FlashKDA/blob/master/README.md (checked 2026-10-11)
+[^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
+[^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)

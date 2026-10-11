@@ -1,8 +1,17 @@
+---
+title: "Atomics (global FP CAS loops / LDS atomics) vs effective occupancy (gfx1030)"
+sources:
+  - https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
+  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/moe_accum_rdna2.cu
+  - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td
+  - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
+---
+
 # Atomics (global FP CAS loops / LDS atomics) vs effective occupancy (gfx1030)
 
-Lock: **Atomics are not a PIX / `llvm-calc-occupancy` MaxWaves row.** A wave running an atomic still holds its VGPR∩LDS slot. What changes is how long it holds it: on gfx1030 a global/flat **fp32 `atomicAdd` is always a `global_atomic_cmpswap` retry loop** (returning, `glc`, `s_waitcnt vmcnt(0)` per trip), because the ISA has **no** global/flat FP add atomic. LDS fp32 add is native (`ds_add_f32`). Sibling of [waitcnt-occupancy.md](waitcnt-occupancy.md) (the loop is a chain of full L2 round-trip parks) and [exec-divergence-occupancy.md](exec-divergence-occupancy.md) (losing lanes retry under a shrinking EXEC).
+Lock: **Atomics are not a PIX / `llvm-calc-occupancy` MaxWaves row.** A wave running an atomic still holds its VGPR∩LDS slot. What changes is how long it holds it: on gfx1030 a global/flat **fp32 `atomicAdd` is always a `global_atomic_cmpswap` retry loop** (returning, `glc`, `s_waitcnt vmcnt(0)` per trip), because the ISA has **no** global/flat FP add atomic. LDS fp32 add is native (`ds_add_f32`). Sibling of [waitcnt-occupancy.md](waitcnt-occupancy.md) (the loop is a chain of full L2 round-trip parks) and [exec-divergence-occupancy.md](exec-divergence-occupancy.md) (losing lanes retry under a shrinking EXEC).[^llvm-calc-occupancy]
 
-**Correction this page lands:** extras `csrc/rocm/moe_accum_rdna2.cuh` (`rdna_extras`, read 2026-10-07) says the fp32 mode is "native `v_global_atomic_add_f32` … no CAS". On gfx1030 that instruction does not exist; `atomicAdd(float*, float)` there compiles to **four** independent CAS-32 loops per `moe_accum_row` (one per column), vs **one** CAS-64 loop for the packed-fp16 `atomic_add_pk4_f16` mode. The result is still a correct atomic add (fp32 accumulation and the one-cast epilogue are unchanged); only the "no CAS" rationale is wrong. Wiki pages that repeated "native" / "HW op" are fixed in the same push ([kernels/w4a8.md](../../kernels/w4a8.md), [hip-craft.md](../hip-craft/hip-craft.md) §3.3). Whether the comment or the mode choice changes is a fork call (VLLM_FORK_Manager), not this page.
+**Correction this page lands:** extras `csrc/rocm/moe_accum_rdna2.cuh` (`rdna_extras`, read 2026-10-07) says the fp32 mode is "native `v_global_atomic_add_f32` … no CAS". On gfx1030 that instruction does not exist; `atomicAdd(float*, float)` there compiles to **four** independent CAS-32 loops per `moe_accum_row` (one per column), vs **one** CAS-64 loop for the packed-fp16 `atomic_add_pk4_f16` mode. The result is still a correct atomic add (fp32 accumulation and the one-cast epilogue are unchanged); only the "no CAS" rationale is wrong. Wiki pages that repeated "native" / "HW op" are fixed in the same push ([kernels/w4a8.md](../../kernels/w4a8.md), [hip-craft.md](../hip-craft/hip-craft.md) §3.3). Whether the comment or the mode choice changes is a fork call (VLLM_FORK_Manager), not this page.[^extras-moe-accum-rdna2-cu]
 
 No tok/s. No ms. Do not restate the FA pin.
 
@@ -20,8 +29,8 @@ Companions: [occupancy-composite.md](occupancy-composite.md), [waitcnt-occupancy
 | **Take** | fp32 **fmin / fmax** global atomics are native on gfx1030 (`GLOBAL_ATOMIC_FMIN/FMAX`, also `_X2` f64) — **only** when LLVM sees `!amdgpu.no.fine.grained.memory` (HIP `-munsafe-fp-atomics` / `unsafeAtomicMax`, or the clang atomic attribute). Without it: CAS loop too (probe below). |
 | **Take** | Integer atomics (`GLOBAL_ATOMIC_ADD/SUB/…/INC/DEC/CSUB`) are native single instructions; a uniform-value add may also get the LLVM atomic optimizer (`v_mbcnt` + one lane issues). Non-returning ones count on **vscnt**, returning ones on **vmcnt** ([waitcnt-occupancy.md](waitcnt-occupancy.md)). |
 | **Take** | Keep `-munsafe-fp-atomics` out of the "makes it native" story for gfx1030: it changes nothing for fp add here (probe: identical CAS loops with and without). It does matter on gfx11 (`global_atomic_add_f32` appears only with it) — contrast only. |
-| **Leave** | Do **not** write "native `v_global_atomic_add_f32`" / "no CAS" for gfx1030. That is gfx11 / gfx90a / gfx94x / gfx12 ISA (`FeatureAtomicFaddRtnInsts` / `NoRtnInsts` are absent from `FeatureISAVersion10_3_0` in LLVM `AMDGPU.td`). |
-| **Leave** | Do **not** put atomic count, CAS retries, or contention into `llvm-calc-occupancy` / PIX `WaveOccupancyLimiters`. Effective occupancy only. |
+| **Leave** | Do **not** write "native `v_global_atomic_add_f32`" / "no CAS" for gfx1030. That is gfx11 / gfx90a / gfx94x / gfx12 ISA (`FeatureAtomicFaddRtnInsts` / `NoRtnInsts` are absent from `FeatureISAVersion10_3_0` in LLVM `AMDGPU.td`). [^llvm-amdgpu-td] |
+| **Leave** | Do **not** put atomic count, CAS retries, or contention into `llvm-calc-occupancy` / PIX `WaveOccupancyLimiters`. Effective occupancy only. [^llvm-calc-occupancy] |
 | **Leave** | Do **not** use `ds_pk_add_f16` / `global_atomic_pk_add_{f16,bf16}` on gfx1030 — absent (no `FeatureAtomicDsPkAdd16Insts` / `…PkAdd…`); LDS `<2 x half>` add is a `ds_cmpst_rtn_b32` loop (probe). |
 | **Leave** | Do **not** invent L2 atomic throughput, per-channel atomic rate, or retry latency numbers. The ISA and LLVM give none. |
 | **Leave** | Do **not** open UNC / retip extras / edit `rdna_extras` from this page. Comment fix or mode choice → VLLM_FORK_Manager. |
@@ -36,14 +45,14 @@ Companions: [occupancy-composite.md](occupancy-composite.md), [waitcnt-occupancy
 
 | Piece | gfx1030 |
 |---|---|
-| `FeatureISAVersion10_3_0` (`AMDGPU.td`) | `FeatureGFX10` + `FeatureAtomicFMinFMaxF32/F64Global/FlatInsts`. **No** `FeatureAtomicFaddRtnInsts`, `FeatureAtomicFaddNoRtnInsts`, `FeatureFlatAtomicFaddF32Inst`, `FeatureAtomicDsPkAdd16Insts`, `FeatureAtomicBufferGlobalPkAddF16Insts`. (`FeatureScalarAtomics` is gfx101x only.) |
+| `FeatureISAVersion10_3_0` (`AMDGPU.td`) | `FeatureGFX10` + `FeatureAtomicFMinFMaxF32/F64Global/FlatInsts`. **No** `FeatureAtomicFaddRtnInsts`, `FeatureAtomicFaddNoRtnInsts`, `FeatureFlatAtomicFaddF32Inst`, `FeatureAtomicDsPkAdd16Insts`, `FeatureAtomicBufferGlobalPkAddF16Insts`. (`FeatureScalarAtomics` is gfx101x only.) [^llvm-amdgpu-td] |
 | `SITargetLowering::shouldExpandAtomicRMWInIR`, `FAdd` | LOCAL f32 → `None` (native, `hasLDSFPAtomicAddF32()` = GFX8+). Global/flat f32: native only with `hasAtomicFadd{No,}RtnInsts` / `hasFlatAtomicFaddF32Inst` → else **`CmpXChg`**. |
 | `FMin` / `FMax` | LOCAL f32/f64 native. Global/flat native only if `getGlobalMemoryFPAtomicLegality` ≠ Illegal, i.e. `!amdgpu.no.fine.grained.memory` present (gfx1030 has no agent-scope fine-grained remote FP atomics). |
 | HIP `unsafeAtomicAdd(float*)` (`amd_hip_unsafe_atomics.h`, ROCm/clr develop) | HW builtin path is `#if defined(__gfx90a__)`; every other target falls to `__hip_atomic_fetch_add(…, AGENT)` → on gfx1030 the same CAS loop. |
 
 ## 3. Probe (box, upstream LLVM/clang 22.1.8 — not the ROCm 7.14 pin; the instruction absence is ISA-level, so the pin cannot do better)
 
-Files: `/workspace/atomic-probe/` (`a.ll`, `b.ll`, `row.hip`, `*.s`). `llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx1030 -O3`; `clang -x hip --offload-arch=gfx1030 -nogpuinc -nogpulib --cuda-device-only -O3 [-munsafe-fp-atomics]`.
+Files: `/workspace/atomic-probe/` (`a.ll`, `b.ll`, `row.hip`, `*.s`). `llc -mtriple=amdgcn-amd-amdhsa -mcpu=gfx1030 -O3`; `clang -x hip --offload-arch=gfx1030 -nogpuinc -nogpulib --cuda-device-only -O3 [-munsafe-fp-atomics]`.[^probe-atomic]
 
 | Case | gfx1030 | gfx1100 (contrast) |
 |---|---|---|
@@ -77,7 +86,7 @@ Divergent-address fp32 add on gfx1030 (`b.ll`, 32 lanes → 8 addresses):
 waves/EU = min(VGPR, SGPR→always 16, LDS+WG+barrier)    // unchanged by atomics
 ```
 
-| Resource | In PIX MaxWaves / `llvm-calc-occupancy`? | Effect |
+| Resource | In PIX MaxWaves / `llvm-calc-occupancy`? | Effect [^llvm-calc-occupancy] |
 |---|---|---|
 | VGPR / LDS / WG / Barriers | **Yes** | Caps reserved wave slots |
 | **Global FP atomic (CAS loop)** | **No** | Wave parks on `vmcnt(0)` once per trip; trips ≥ same-address lanes; EXEC shrinks as lanes win; slot held throughout |
@@ -109,3 +118,12 @@ LDS pre-reduce + 1 CAS/elt = fewer global loops per WG; LDS fp32 add is native
 5. ROCm/clr `hipamd/include/hip/amd_detail/amd_hip_unsafe_atomics.h` (develop): `unsafeAtomicAdd(float*)` HW path gated on `__gfx90a__`.
 6. Box probe `/workspace/atomic-probe/` (Debian LLVM/clang 22.1.8), 2026-10-07.
 7. `opengfx1030/vllm-rdna` `rdna_extras` `csrc/rocm/moe_accum_rdna2.cuh` (read-only, 2026-10-07).
+
+Footnotes:
+
+[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
+[^extras-moe-accum-rdna2-cu]: `csrc/rocm/moe_accum_rdna2.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/moe_accum_rdna2.cu
+[^llvm-amdgpu-td]: LLVM AMDGPU.td, main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td (checked 2026-10-11)
+[^probe-atomic]: Box compiler probe `/workspace/atomic-probe/` (HIP sources and `.s` output; `.ident` "Debian clang version 22.1.8 (1~deb13u4)", upstream clang 22.1.8, not the ROCm 7.14.0 pin). Local box path, not a public URL; re-run to reproduce.
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+

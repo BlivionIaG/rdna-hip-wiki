@@ -1,3 +1,12 @@
+---
+title: "Barrier slots vs occupancy (gfx1030)"
+sources:
+  - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
+  - https://gpuopen.com/learn/occupancy-explained/
+  - https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
+  - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
+---
+
 # Barrier slots vs occupancy (gfx1030)
 
 Lock: **hardware barriers are a real WG packing limit, but they are not the extras leftover.** On gfx1030 HIP default (**wave32 + WGP**), LLVM budgets **32** barriers per WGP; CU mode budgets **16**. A **single-wave** workgroup does **not** consume a barrier. FA / GDN / EXL3 tiles stay LDS- or VGPR-bound long before barriers bind. Do **not** retip `__launch_bounds__` or open a ticket for barriers.
@@ -8,7 +17,7 @@ Companions: [wg-size-occupancy.md](wg-size-occupancy.md), [hip-craft.md](../hip-
 
 ## 1. LLVM formula (source of truth)
 
-From `llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp` `IsaInfo::getMaxWorkGroupsPerCU` (main tip, 2026-09-03):
+From `llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp` `IsaInfo::getMaxWorkGroupsPerCU` (main tip, 2026-09-03):[^llvm-baseinfo]
 
 ```text
 MaxWaves = getMaxWavesPerEU(Kind) * getNumWorkGroupSIMDs(isFullSIMDMode)
@@ -30,18 +39,18 @@ else:
 | WGP (HIP default, `-mno-cumode`) | 4 | 64 | **32** | `min(64/N, 32)` |
 | CU (`-mcumode`) | 2 | 32 | **16** | `min(32/N, 16)` |
 
-GPUOpen Occupancy explained matches the CU half: “up to **16** barriers in flight **per pair of SIMDs**.” Pair of SIMDs = one ISA CU; WGP = two pairs → 32. Same numbers as LLVM.
+GPUOpen Occupancy explained matches the CU half: “up to **16** barriers in flight **per pair of SIMDs**.” Pair of SIMDs = one ISA CU; WGP = two pairs → 32. Same numbers as LLVM.[^gpuopen-occupancy]
 
-`isSGPROccupancyLimited` stays **false** on GFX10+ — SGPRs are never in this min().
+`isSGPROccupancyLimited` stays **false** on GFX10+ — SGPRs are never in this min().[^llvm-baseinfo]
 
 ## 2. PIX / GPUOpen limiter names (do not confuse)
 
-AMD PIX `WaveOccupancyLimiters` (GPUOpen Occupancy explained) splits four static/dynamic counters:
+AMD PIX `WaveOccupancyLimiters` (GPUOpen Occupancy explained) splits four static/dynamic counters:[^gpuopen-occupancy]
 
 | Limiter | Means | gfx1030 HIP note |
 |---|---|---|
 | VGPR | not enough VGPRs for another wave / WG | real for fat decode/GEMM |
-| LDS | not enough LDS for another WG | **FA prefill leftover** (1 WG / 64 KB) |
+| LDS | not enough LDS for another WG | **FA prefill leftover** (1 WG / 64 KB) [^rocm-gpu-arch-specs][^llvm-baseinfo] |
 | Thread Group Size | a multi-wave WG holds slots/resources until **all** its waves retire; a freed slot cannot start a new WG mid-barrier | common with 2–8 wave WGs |
 | Barriers | slots + VGPR/LDS free, but **no barrier left** to launch another multi-wave WG | GPUOpen: “very specific … super rare” |
 
@@ -56,7 +65,7 @@ Wave32. One barrier per multi-wave WG.
 | Shape | Threads | Waves `N` | Barrier WGs allowed (WGP) | What actually binds |
 |---|---|---|---|---|
 | FA decode 128 | 128 | 4 | `min(64/4, 32) = 16` | VGPR mild; LDS decode tiles smaller |
-| FA decode / prefill 256 | 256 | 8 | `min(64/8, 32) = 8` | **LDS 45–60 KB → 1 WG / 64 KB** |
+| FA decode / prefill 256 | 256 | 8 | `min(64/8, 32) = 8` | **LDS 45–60 KB → 1 WG / 64 KB** [^rocm-gpu-arch-specs][^llvm-baseinfo] |
 | GDN o / wy ~56–58 KB | 128–256 | 4–8 | 8–16 | **LDS** |
 | RMSNorm AOT | 128–1024 | 4–32 | `min(64/N, 32)` | tiny LDS; grid / VALU |
 | Hypothetical 64-thr, 0 LDS | 64 | 2 | **32** (= barrier ceiling) | **barriers** (the rare case) |
@@ -70,15 +79,25 @@ So: shrinking BR/BC to free LDS is still the occupancy move for FA. Cutting thre
 2. When dumping occupancy ([occupancy-dump.md](occupancy-dump.md)), if LDS ≥ 32 KB on a 128–256 thr WG, **do not** attribute low `hipOccupancy*` to barriers.
 3. Do **not** flip `-mcumode` to “get more barriers” — CU mode **halves** barrier count (32→16) and SIMDs; only measure for LDS-bandwidth-bound kernels ([hip-craft.md](../hip-craft/hip-craft.md) §1.2).
 4. Named barriers / `amdgpu.max_num_named_barrier` (newer LLVM `MCResourceInfo`) are **not** a gfx1030 extras dest. Stick to `__syncthreads()` / `s_barrier`.
-5. `llvm-calc-occupancy -mcpu=gfx1030 --wg-size=… --vgprs=… --lds=…` already folds the WG/barrier packing via the same `GCNSubtarget` math; it has no separate `--barriers` flag — pass the real WG size.
+5. `llvm-calc-occupancy -mcpu=gfx1030 --wg-size=… --vgprs=… --lds=…` already folds the WG/barrier packing via the same `GCNSubtarget` math; it has no separate `--barriers` flag — pass the real WG size.[^llvm-calc-occupancy]
 
 ## 5. Sources
 
-1. LLVM `IsaInfo::getMaxWorkGroupsPerCU` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
-2. LLVM `isSGPROccupancyLimited` (Major < 10) — same file
-3. GPUOpen Occupancy explained (updated 2024-06-26) — https://gpuopen.com/learn/occupancy-explained/ — 16 barriers / SIMD pair; PIX limiters; Thread Group Size vs Barriers
-4. `llvm-calc-occupancy` — https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
-5. RDNA 2 ISA 70648 §2.3.1 / §10.3 — WGP vs CU, `s_barrier` scope
+1. LLVM `IsaInfo::getMaxWorkGroupsPerCU` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp[^llvm-baseinfo]
+2. LLVM `isSGPROccupancyLimited` (Major < 10) — same file[^llvm-baseinfo]
+3. GPUOpen Occupancy explained (updated 2024-06-26) — https://gpuopen.com/learn/occupancy-explained/ — 16 barriers / SIMD pair; PIX limiters; Thread Group Size vs Barriers[^gpuopen-occupancy]
+4. `llvm-calc-occupancy` — https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html[^llvm-calc-occupancy]
+5. RDNA 2 ISA 70648 §2.3.1 / §10.3 — WGP vs CU, `s_barrier` scope[^isa70648]
 6. Wiki priors: [architecture.md](../arch-and-memory/architecture.md), [hip-craft.md](../hip-craft/hip-craft.md), [lds-tiles.md](../lds-and-tiles/lds-tiles.md)
 
 Idle pass 2026-09-03.
+
+## Sources
+
+Primary sources for this page, cited inline as footnotes:
+
+[^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
+[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
+[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)

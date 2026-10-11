@@ -1,10 +1,33 @@
+---
+title: "RDNA 2 (gfx1030) cache policy for HIP kernel writers"
+sources:
+  - https://gpuopen.com/learn/occupancy-explained/
+  - https://llvm.org/docs/AMDGPUUsage.html
+  - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
+  - https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html
+  - https://gpuopen.com/download/RDNA_Architecture_public.pdf
+  - https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/amd/amdkfd/kfd_crat.c#L556
+  - https://rocm.docs.amd.com/en/docs-6.2.1/reference/gpu-arch-specs.html
+  - https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/hip_cpp_language_extensions.html
+  - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td
+  - https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html
+  - https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf
+  - https://raw.githubusercontent.com/ROCm/clr/develop/hipamd/include/hip/amd_detail/amd_device_functions.h
+  - https://github.com/ROCm/hip/issues/3506
+  - https://gpuopen.com/learn/amd-lab-notes/amd-lab-notes-finite-difference-docs-laplacian_part3/
+  - https://www.amd.com/en/newsroom/press-releases/2021-11-4-amd-radeon-pro-v620-gpu-delivers-powerful-multi-.html
+  - https://ir.amd.com/news-events/press-releases/detail/1030/amd-radeon-pro-v620-gpu-delivers-powerful-multi-purpose-data-center-visual-performance-for-todays-demanding-cloud-workloads
+  - https://huggingface.co/Qwen/Qwen2.5-7B/blob/main/config.json
+  - https://arxiv.org/html/2408.00118
+---
+
 # RDNA 2 (gfx1030) cache policy for HIP kernel writers
 
 Audience: someone writing custom HIP for weight-only decode (W4A16 / W8A8 / mxfp4) on **4× AMD Radeon PRO V620**. Not a consumer GPU review.
 
 Companion briefs (sizes are taken from these; this note does **not** re-derive them unless a source contradicts):
 
-- `silicon/arch-and-memory/architecture.md` — L0 16 KB/CU, L1 128 KB/SA, L2 4 MB, IC 128 MB 64 B lines, GDDR6 512 GB/s
+- `silicon/arch-and-memory/architecture.md` — L0 16 KB/CU, L1 128 KB/SA, L2 4 MB, IC 128 MB 64 B lines, GDDR6 512 GB/s[^rocm-gpu-arch-specs][^kfd-crat]
 - `kernels/w4a16.md` — decode geometry (A in LDS, B streamed, DOT2, no WMMA)
 - `silicon/lds-and-tiles/lds-tiles.md` — LDS banks and GEMM/attention tiles
 
@@ -24,8 +47,8 @@ This is the whole note in one table. Everything below is evidence for these rows
 | `__builtin_nontemporal_load` / `_store` | yes (Clang builtin; AMD-staff HIP issue #3506) | Compiler sets SLC (and, for stores, GLC). ISA: L2 **Stream** (hit leaves the line, does not reset age) or **Hit No Allocate** if DLC is also set. HIP has **no** `-Xptxas -dlcm=cg` equivalent. | **Streaming** weights that will not be reused this kernel (cold 27B shard, decode of a layer that already missed IC). Do **not** mark a layer you are trying to keep in L2/IC. |
 | `__threadfence_block` / `__threadfence` / `__threadfence_system` | yes | LLVM scopes `workgroup` / `agent` / `system`. Software coherence. Does **not** pin data in IC. | Cross-CU visibility of writes (decode metadata, page tables). Not a cache-residency API. |
 | HIP atomics (`atomicAdd`, …) / `_system` | yes | Execute at **L2** (HIP Hardware implementation). GLC on atomics means “return pre-op value”, not “bypass”. | Rare in a weight-only GEMV. W4A16 K-split C uses a 64-bit CAS loop (no packed atomic add on gfx10). |
-| `__launch_bounds__` / `amdgpu_waves_per_eu` | yes | Occupancy cap. Extra waves on a memory-bound decode kernel thrash L0/L1/IC (GPUOpen Occupancy explained). | Cap occupancy on the weight stream. |
-| `__constant__` | yes | Scalar (K$) path; invalidated of volatile data at kernel boundary (LLVM AMDGPUUsage). | Kernel args, scales that are wave-uniform. Not a 100 MB weight array. |
+| `__launch_bounds__` / `amdgpu_waves_per_eu` | yes | Occupancy cap. Extra waves on a memory-bound decode kernel thrash L0/L1/IC (GPUOpen Occupancy explained). | Cap occupancy on the weight stream. [^gpuopen-occupancy] |
+| `__constant__` | yes | Scalar (K$) path; invalidated of volatile data at kernel boundary (LLVM AMDGPUUsage). | Kernel args, scales that are wave-uniform. Not a 100 MB weight array. [^llvm-amdgpuusage] |
 | `llvm.amdgcn.raw.ptr.buffer.load` `cpol` (GLC/SLC/DLC bits) | LLVM intrinsic, not a HIP language feature | gfx10/11: bit0=GLC, bit1=SLC, bit2=DLC. **Not** gfx940 `sc0`/`nt`/`sc1`. | Only if you drop to buffer intrinsics. Same bits HIP already emits for nontemporal / atomics / fences. |
 | Persist / MALL NOALLOC / IC bypass | **no** on gfx1030 | Persist/`sc0`/`sc1`/`nt` is **gfx940** (CDNA 3) encoding. GFX11 re-purposes DLC as MALL NOALLOC; GFX10 DLC is **L1 bypass**. LLVM: MALL is coherent and “has no impact on system coherence”; all GPU-memory traffic goes through it. | You cannot pin or skip Infinity Cache from a HIP kernel on V620. |
 | `llvm.prefetch` / `global_prefetch` | **ignored** on gfx1030 (LLVM: “Implemented on gfx1250, ignored on earlier targets”) | — | Do not write a prefetch loop expecting IC fill. |
@@ -54,11 +77,11 @@ VGPR
  → GDDR6 512 GB/s
 ```
 
-ISA §2.4 (70648, AMD RDNA2 ISA 70648 PDF):
+ISA §2.4 (70648, AMD RDNA2 ISA 70648 PDF):[^isa70648]
 
 > “On the primary read path, the device consists of multiple channels of L2 cache that provides data to Read-only L1 caches, and finally to L0 caches per WGP.”
 
-HIP Hardware implementation (https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html) on the **vector** cache:
+HIP Hardware implementation (https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html) on the **vector** cache:[^hip-hw-impl]
 
 > “Write-through design (writes go directly to L2)”
 > “Coherent with other CUs through software management”
@@ -66,32 +89,32 @@ HIP Hardware implementation (https://rocm.docs.amd.com/projects/HIP/en/latest/un
 > “The L2 cache serves as the coherence point for all GPU memory accesses”
 > “Atomic operation support: Atomics execute directly in the L2 cache for coherence.”
 
-HIP’s RDNA “three-level” sentence places L1 “shared between CUs in a WGP”. The kernel table and the RDNA deck put **GL1 on the shader array**. Use the kernel + ISA for placement (companion architecture brief §4.3). HIP’s “32 channels, 256-byte interleave” sentence is in a **CDNA** paragraph — do not reuse it for Navi 21. L2 channel count on gfx1030 remains **unknown**.
+HIP’s RDNA “three-level” sentence places L1 “shared between CUs in a WGP”. The kernel table and the RDNA deck put **GL1 on the shader array**. Use the kernel + ISA for placement (companion architecture brief §4.3). HIP’s “32 channels, 256-byte interleave” sentence is in a **CDNA** paragraph — do not reuse it for Navi 21. L2 channel count on gfx1030 remains **unknown**.[^rdna-arch]
 
-I$ is 32 KB/WGP, K$ (sL1D) 16 KB/WGP, both 64 B lines, **not** hit-on-miss (HIP + kfd_crat). L2 **is** hit-on-miss (HIP).
+I$ is 32 KB/WGP, K$ (sL1D) 16 KB/WGP, both 64 B lines, **not** hit-on-miss (HIP + kfd_crat). L2 **is** hit-on-miss (HIP).[^kfd-crat]
 
 ROCm `gpu-arch-specs` (docs-6.2.1, opened) V620 row, used as a second official size table (not a product-page substitute for CU/VRAM/IC, but it prints the on-die caches the product page omits):
 
 | Field | V620 |
 |---|---|
 | LLVM target | gfx1030 |
-| VRAM | 32 GiB |
+| VRAM | 32 GiB [^rocm-gpu-arch-specs] |
 | CU | 72 |
-| LDS | 128 KiB |
-| Infinity Cache | 128 MiB |
-| L2 | 4 MiB |
-| Graphics L1 | 128 KiB |
-| L0 vector | 16 KiB |
-| L0 scalar | 16 KiB |
-| L0 instruction | 32 KiB |
+| LDS | 128 KiB [^rocm-gpu-arch-specs][^llvm-baseinfo] |
+| Infinity Cache | 128 MiB [^rocm-gpu-arch-specs] |
+| L2 | 4 MiB [^rocm-gpu-arch-specs][^kfd-crat] |
+| Graphics L1 | 128 KiB [^rocm-gpu-arch-specs][^kfd-crat] |
+| L0 vector | 16 KiB [^rocm-gpu-arch-specs][^kfd-crat] |
+| L0 scalar | 16 KiB [^rocm-gpu-arch-specs][^kfd-crat] |
+| L0 instruction | 32 KiB [^rocm-gpu-arch-specs][^kfd-crat] |
 
-Source: https://rocm.docs.amd.com/en/docs-6.2.1/reference/gpu-arch-specs.html
+Source: https://rocm.docs.amd.com/en/docs-6.2.1/reference/gpu-arch-specs.html[^rocm-reference-gpu-arch-specs-html]
 
-**Associativity:** **unknown** in the ISA, the RDNA deck, HIP, `kfd_crat.c`, the V620 product page, and this ROCm table. Do not invent 16-way.
+**Associativity:** **unknown** in the ISA, the RDNA deck, HIP, `kfd_crat.c`, the V620 product page, and this ROCm table. Do not invent 16-way.[^kfd-crat][^rdna-arch]
 
 ### 1.2 Write-through L0/L1, L2 as coherence point
 
-RDNA 2 ISA §8.1, GLC field on MUBUF (same wording in §8.1.10):
+RDNA 2 ISA §8.1, GLC field on MUBUF (same wording in §8.1.10):[^isa70648]
 
 ```
 READ
@@ -108,7 +131,7 @@ ATOMIC
 
 “Persist” in that table is **L0 line retention across waves**, not Infinity Cache persist.
 
-ISA §8.1.10, stores:
+ISA §8.1.10, stores:[^isa70648]
 
 > “For both GLC==0 and GLC==1, write data are combined across work-items of the wavefront store clause … dirtied lines are written to the L2 cache automatically and invalidated.”
 > “For stores and atomics, the L1 cache is bypassed (but is coherent).”
@@ -122,7 +145,7 @@ HIP “Memory coherence”:
 
 So: **L2 is the first GPU-wide copy of truth.** L0/L1 are write-through filters. Two CUs do not snoop each other’s L0. If CU A stores and CU B loads the same address in the same kernel without a fence/atomic/kernel boundary, B may see its own stale L0 line.
 
-ISA §2.4 also mentions “Specific cache-less load instructions can force data to be retrieved from device memory” — that is the GLC=1 / DLC=1 path, still via L2 unless the store-side SLC/DLC table says Bypass (below). It is **not** a documented IC bypass.
+ISA §2.4 also mentions “Specific cache-less load instructions can force data to be retrieved from device memory” — that is the GLC=1 / DLC=1 path, still via L2 unless the store-side SLC/DLC table says Bypass (below). It is **not** a documented IC bypass.[^isa70648]
 
 ### 1.3 Atomics at L2
 
@@ -132,7 +155,7 @@ W4A16 decode on gfx1030 has **no** `v_global_atomic_pk_add_f16` (landed gfx940 /
 
 ### 1.4 Software fences and HIP / LLVM / ISA scopes
 
-HIP C++ language extensions (https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/hip_cpp_language_extensions.html):
+HIP C++ language extensions (https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/hip_cpp_language_extensions.html):[^rocm-how-to-hip-cpp-language-extensions-html]
 
 > “`__threadfence_block()` orders memory accesses for all threads within a thread block.”
 > “`__threadfence()` orders memory accesses for all threads on a device.”
@@ -147,7 +170,7 @@ __threadfence_block()   → __builtin_amdgcn_fence(__ATOMIC_SEQ_CST, "workgroup"
 __threadfence_system()  → __builtin_amdgcn_fence(__ATOMIC_SEQ_CST, "")   // LLVM default = system
 ```
 
-LLVM AMDGPUUsage “AMDHSA LLVM Sync Scopes” (inclusive scopes, HSA / HRF-indirect):
+LLVM AMDGPUUsage “AMDHSA LLVM Sync Scopes” (inclusive scopes, HSA / HRF-indirect):[^llvm-amdgpuusage]
 
 | LLVM syncscope | HIP name | Who it includes |
 |---|---|---|
@@ -187,13 +210,13 @@ There is **no** `s_dcache_wb` in the RDNA 2 ISA opcode list that was opened. Tha
 
 | Name | Who uses it | Opened source |
 |---|---|---|
-| Infinity Cache | AMD product / press | V620 product page: “AMD Infinity Cache Technology 128 MB”; 2021-11-04 V620 press; RDNA 2 Explained (W6000) “global cache … seen by the entire graphics core” |
-| L3 | `amdkfd` `kfd_crat.c` | “L3 Data Cache per GPU (Infinity Cache)”, 128×1024 KB, line **64 B** |
-| MALL (memory-attached last level) | LLVM AMDGPUUsage memory model; Linux/LLVM engineers | LLVM D114076 / AMDGPUUsage: “On GFX10.3 a memory attached last level (MALL) cache exists for GPU memory.” |
+| Infinity Cache | AMD product / press | V620 product page: “AMD Infinity Cache Technology 128 MB”; 2021-11-04 V620 press; RDNA 2 Explained (W6000) “global cache … seen by the entire graphics core” [^v620-product][^m-ion-rdna2-explained-radeon-pro-w6000-pdf] |
+| L3 | `amdkfd` `kfd_crat.c` | “L3 Data Cache per GPU (Infinity Cache)”, 128×1024 KB, line **64 B** [^kfd-crat] |
+| MALL (memory-attached last level) | LLVM AMDGPUUsage memory model; Linux/LLVM engineers | LLVM D114076 / AMDGPUUsage: “On GFX10.3 a memory attached last level (MALL) cache exists for GPU memory.” [^llvm-amdgpuusage] |
 
 The RDNA 2 ISA **does not** use the words MALL or Infinity Cache. The ISA’s “third level” shows up only as the SLC/DLC table’s L2 policies and as image-descriptor `LLC No-alloc`.
 
-LLVM AMDGPUUsage (D114076, later “GFX10.3 and GFX11”), quote:
+LLVM AMDGPUUsage (D114076, later “GFX10.3 and GFX11”), quote:[^llvm-amdgpuusage]
 
 > “On GFX10.3 a memory attached last level (MALL) cache exists for GPU memory. The MALL cache is fully coherent with GPU memory and has no impact on system coherence. All agents (GPU and CPU) access GPU memory through the MALL cache.”
 
@@ -207,7 +230,7 @@ Implications that are in that paragraph, and not more:
 
 ### 2.2 ISA cache-policy bits on gfx1030 (GLC / DLC / SLC)
 
-RDNA 2 ISA §8.1.10 Tables 38–39 (opened):
+RDNA 2 ISA §8.1.10 Tables 38–39 (opened):[^isa70648]
 
 **Vector loads**
 
@@ -230,13 +253,13 @@ RDNA 2 ISA §8.1.10 Tables 38–39 (opened):
 DLC definition (ISA): “Device Level Coherent. When set, accesses are forced to miss in level 1.”
 SLC definition (ISA): “System Level Coherent. Used in conjunction with DLC to determine L2 cache policies.”
 
-ISA §8.1.10 also: “The Device Level Coherent bit (DLC) and System Level Coherent (SLC) bits control the behavior of the **second and third level caches**.” That is the closest the ISA comes to talking about a level past L2. It does **not** name MALL, and it does **not** give a fourth bit for “persist in IC”.
+ISA §8.1.10 also: “The Device Level Coherent bit (DLC) and System Level Coherent (SLC) bits control the behavior of the **second and third level caches**.” That is the closest the ISA comes to talking about a level past L2. It does **not** name MALL, and it does **not** give a fourth bit for “persist in IC”.[^isa70648]
 
 That is the **entire** programmable policy surface for vector memory on gfx1030.
 
 ### 2.3 What LLVM does with those bits (gfx10 vs gfx11 vs gfx940)
 
-LLVM intrinsic `cpol` / cachepolicy immediate (IntrinsicsAMDGPU.td, opened via llvm-commits #87364 / #78768):
+LLVM intrinsic `cpol` / cachepolicy immediate (IntrinsicsAMDGPU.td, opened via llvm-commits #87364 / #78768):[^llvm-amdgpu-td]
 
 ```
 gfx10/gfx11:  bit 0 = glc, bit 1 = slc, bit 2 = dlc
@@ -255,7 +278,7 @@ And `SIMemoryLegalizer.cpp` `SIGfx10CacheControl` (opened):
 
 > “Note: there is no L2 cache coherent bypass control at the ISA level.”
 > GFX11 only: “Set MALL NOALLOC for both load and store instructions” via DLC.
-> Nontemporal on GFX10 (shipping legalizer this pass): SLC for loads; GLC+SLC for stores. DLC is **omitted** on GFX10 for the nontemporal sequence (“If GFX10, omit dlc=1” in the AMDGPUUsage table / D127405).
+> Nontemporal on GFX10 (shipping legalizer this pass): SLC for loads; GLC+SLC for stores. DLC is **omitted** on GFX10 for the nontemporal sequence (“If GFX10, omit dlc=1” in the AMDGPUUsage table / D127405).[^llvm-amdgpuusage]
 
 So on **V620 / gfx1030**:
 
@@ -289,14 +312,14 @@ What you can bypass from HIP/LLVM on gfx1030:
 
 | Mechanism | gfx1030? | Target |
 |---|---|---|
-| `llvm.prefetch` | ignored (LLVM AMDGPUUsage / PR #157949: “Implemented on gfx1250, ignored on earlier targets”) | gfx1250 `global_prefetch_b8` → GL2 |
-| `S_ATC_PROBE` / `S_ATC_PROBE_BUFFER` | ISA yes | **SQC** (scalar K$), 16 KB/WGP |
-| `S_INST_PREFETCH` | ISA yes | I$, 1–3 × 64 B lines |
+| `llvm.prefetch` | ignored (LLVM AMDGPUUsage / PR #157949: “Implemented on gfx1250, ignored on earlier targets”) | gfx1250 `global_prefetch_b8` → GL2 [^llvm-amdgpuusage] |
+| `S_ATC_PROBE` / `S_ATC_PROBE_BUFFER` | ISA yes | **SQC** (scalar K$), 16 KB/WGP [^rocm-gpu-arch-specs][^kfd-crat] |
+| `S_INST_PREFETCH` | ISA yes | I$, 1–3 × 64 B lines [^kfd-crat] |
 | Software prefetch = ordinary load into a VGPR you do not use yet | yes | whatever the load’s GLC/SLC/DLC say; still no IC-specific destination |
 
 A decode kernel that “prefetches the next layer into IC” is **an ordinary LRU load of a working set that fits**, issued early, not a prefetch opcode.
 
-I$ vs occupancy (32 KB/WGP, out of PIX min): [icache-occupancy.md](../occupancy/icache-occupancy.md).
+I$ vs occupancy (32 KB/WGP, out of PIX min): [icache-occupancy.md](../occupancy/icache-occupancy.md).[^rocm-gpu-arch-specs][^kfd-crat]
 
 ### 2.7 Non-temporal
 
@@ -328,29 +351,29 @@ llvm.amdgcn.raw.ptr.buffer.load  (ptr addrspace(8), voffset, soffset, imm offset
 
 ### 2.9 `"amdgpu-memory-bound"`
 
-LLVM AMDGPUUsage attributes table: **“Set internally by backend.”** Not a persist/bypass hint you pass from HIP.
+LLVM AMDGPUUsage attributes table: **“Set internally by backend.”** Not a persist/bypass hint you pass from HIP.[^llvm-amdgpuusage]
 
 ---
 
 ## 3. What a weight-only decode kernel can actually do
 
-Goal: keep **one layer** (or the live KV window) in the 128 MB IC, and **stream** everything that will not be reused.
+Goal: keep **one layer** (or the live KV window) in the 128 MB IC, and **stream** everything that will not be reused.[^rocm-gpu-arch-specs]
 
 Decode geometry (from `kernels/w4a16.md`, not re-argued here): A staged in LDS (`M_COUNT × (256+8) × 2 B`), packed B streamed from global, dequant in VGPR, inner product `__builtin_amdgcn_fdot2`. There is no WMMA and no bf16 DOT on gfx1030. That already decides most of the cache traffic: **A never hits IC after the first LDS fill; B is the IC question.**
 
 ### 3.1 The only persist mechanism: fit + reuse + don’t thrash
 
-MALL is on every GPU-memory path (LLVM). If the bytes you reread still reside in the 128 MB, the second read does not go to GDDR6. If they don’t, you pay 512 GB/s.
+MALL is on every GPU-memory path (LLVM). If the bytes you reread still reside in the 128 MB, the second read does not go to GDDR6. If they don’t, you pay 512 GB/s.[^v620-product]
 
 You cannot lock a line. You can:
 
-1. **Make the hot set ≤ 128 MB** (quantize, TP-shard, layer-at-a-time, don’t pin the whole model).
+1. **Make the hot set ≤ 128 MB** (quantize, TP-shard, layer-at-a-time, don’t pin the whole model).[^rocm-gpu-arch-specs]
 2. **Reread it** before something else evicts it (same kernel, or the next kernel before a copy/another stream blows 128 MB).
 3. **Not mark it nontemporal.**
-4. **Not oversubscribe occupancy** so 36 WGPs × 4 SIMD × 16 waves all pull different cold lines through the same 128 MB (GPUOpen Occupancy explained: memory-bound kernels can lose from extra waves via cache thrash).
+4. **Not oversubscribe occupancy** so 36 WGPs × 4 SIMD × 16 waves all pull different cold lines through the same 128 MB (GPUOpen Occupancy explained: memory-bound kernels can lose from extra waves via cache thrash).[^gpuopen-occupancy]
 5. **Not run a concurrent kernel or SDMA** that walks tens of MB of some other buffer. IC is GPU-wide (AMD “seen by the entire graphics core”).
 
-Two concurrent HIP streams on one V620 **fight for the same 128 MB**. A “layer lives in IC” claim is only true if that GPU is otherwise quiet.
+Two concurrent HIP streams on one V620 **fight for the same 128 MB**. A “layer lives in IC” claim is only true if that GPU is otherwise quiet.[^rocm-gpu-arch-specs]
 
 ### 3.2 Stream vs keep — concrete policy for W4A16 / W8A8 / mxfp4
 
@@ -372,14 +395,14 @@ W8A8 is the same policy with 1 B/param instead of ~0.52. mxfp4 is the same polic
 
 | Level | Line | Source |
 |---|---|---|
-| L0 / L1 / L2 | **128 B** | kfd_crat; RDNA deck; HIP “128-byte cache lines … Wave32 × 4 B = 128 B” |
-| Infinity Cache | **64 B** | kfd_crat L3 `.cache_line_size = 64` |
+| L0 / L1 / L2 | **128 B** | kfd_crat; RDNA deck; HIP “128-byte cache lines … Wave32 × 4 B = 128 B” [^kfd-crat][^rdna-arch] |
+| Infinity Cache | **64 B** | kfd_crat L3 `.cache_line_size = 64` [^kfd-crat] |
 
 Programming consequences that are in those numbers:
 
 - Happy HIP load: wave32, consecutive `threadIdx.x`, 4 B/lane → **one L0/L1/L2 line**. That is the native path. Wave64 × 4 B = two L2 lines.
-- An IC miss/fill is a **64 B** transaction. A 128 B L2 line that misses IC is **two** IC lines. Align persistent buffers to **128 B** (satisfies both). 64 B alignment is enough for IC but splits an L2 line if you start at +64.
-- Packed W4: 32 × 4-bit = 16 B per 32 weights. A 128 B line holds 256 W4 weights (plus you still want the scale nearby). An IC 64 B line holds 128 W4 weights. **Group-128 W4A16** is one IC line of payload + a scale that should sit in the same 64/128 B neighborhood or in K$.
+- An IC miss/fill is a **64 B** transaction. A 128 B L2 line that misses IC is **two** IC lines. Align persistent buffers to **128 B** (satisfies both). 64 B alignment is enough for IC but splits an L2 line if you start at +64.[^kfd-crat]
+- Packed W4: 32 × 4-bit = 16 B per 32 weights. A 128 B line holds 256 W4 weights (plus you still want the scale nearby). An IC 64 B line holds 128 W4 weights. **Group-128 W4A16** is one IC line of payload + a scale that should sit in the same 64/128 B neighborhood or in K$.[^kfd-crat]
 - W8A8: 128 B = 128 int8 weights. Same coalescing rule (wave32 × 4 B).
 - mxfp4 block is 17 B (32×4-bit + 1 B E8M0; OCP MX v1.0). That is **not** a line size. Pad/pack so 4 blocks (68 B) or 8 blocks (136 B) meet 64/128 B — exact on-disk layout is a kernel choice; the hardware only sees the addresses you emit.
 
@@ -404,7 +427,7 @@ Image T# bits 201:200 `LLC No-alloc` (ISA) talk to last-level allocation, includ
 
 ### 3.5 Occupancy vs IC
 
-V620 is **72 CU = 36 WGP** (AMD V620: 72 CU; ISA CU = half a WGP). Full slots = 36 × 4 SIMD × 16 waves = **2304 wave32**. A 256-thread workgroup is 8 waves → 288 workgroups to fill the chip.
+V620 is **72 CU = 36 WGP** (AMD V620: 72 CU; ISA CU = half a WGP). Full slots = 36 × 4 SIMD × 16 waves = **2304 wave32**. A 256-thread workgroup is 8 waves → 288 workgroups to fill the chip.[^v620-product][^llvm-baseinfo]
 
 For a weight-streaming GEMV, that many waves all missing IC will just multiply outstanding GDDR6. Prefer `__launch_bounds__(256, 4)` / `amdgpu_waves_per_eu(4, 8)` and **measure** (companion LDS brief). The architecture brief already warned this; it is the cache-policy version of the same fact.
 
@@ -416,7 +439,7 @@ W4A16 decode seed (w4a16 brief): `THREADS=256`, `BLOCK_KN=256`, 4 N-cols/thread.
 - Do not copy gfx940 `sc0`/`sc1` persist samples.
 - Do not expect `llvm.prefetch` to fill IC.
 - Do not assume HIP `__constant__` can hold a layer (logical constant space is small; it is the K$ path).
-- Do not assume L1 (128 KB / SA, 10 CU on full Navi 21) holds a layer. It holds a **K-panel**. V620 is a 72-CU harvest; per-SA CU count is **not** independently published — treat L1 as “small, shared, not your layer cache”.
+- Do not assume L1 (128 KB / SA, 10 CU on full Navi 21) holds a layer. It holds a **K-panel**. V620 is a 72-CU harvest; per-SA CU count is **not** independently published — treat L1 as “small, shared, not your layer cache”.[^kfd-crat]
 - Do not assume two kernels in flight “share” IC cooperatively. They compete.
 - Do not put a dequant LUT in K$ / `__constant__` and index it per-lane.
 
@@ -431,20 +454,20 @@ Opened AMD sources, this pass:
 | Item | Value | Source |
 |---|---|---|
 | Architecture | RDNA 2, Navi 21 / gfx1030 | LLVM Processors table lists “Radeon PRO V620” under `gfx1030`; AMD 2021-11-04 press “AMD RDNA 2 architecture”; ROCm gpu-arch-specs |
-| Compute units | **72** | AMD product page https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html “Compute Units 72”; AMD 2021-11-04 press table |
+| Compute units | **72** | AMD product page https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html “Compute Units 72”; AMD 2021-11-04 press table [^v620-product] |
 | Stream processors | **4608** | same press (72 × 64) |
 | Ray accelerators | **72** | product page |
 | Peak engine clock | 2.2 GHz | partner V620 datasheet (ActivePort V4.5, opened via search); product page in prior fetch |
 | Peak FP32 (arithmetic) | 72 × 64 × 2 × 2.2 GHz = **20.28 TFLOPs** | product of official CU × 64 SP/CU × FMA × clock. Vector, not a matrix peak — there is no WMMA. |
 | Infinity Cache | **128 MB** | product page “AMD Infinity Cache Technology 128 MB”; 2021-11-04 press body; ROCm gpu-arch-specs 128 MiB |
-| Memory | **32 GB GDDR6**, 16 Gbps, **256-bit**, **512 GB/s**, ECC | product page (32 GB, 512 GB/s, 128 MB IC); 2021-11-04 press table (32 GB @ 16 Gbps, 512 GB/s, 256-bit) |
-| L2 | **4 MB** | ROCm gpu-arch-specs V620 row; `kfd_crat.c` Sienna Cichlid 4096 KB. Product page does **not** print L2. |
-| L0 vector / L1 / I$ / K$ | 16 / 128 / 32 / 16 KB | ROCm gpu-arch-specs; kfd_crat. Product page does **not** print these. |
+| Memory | **32 GB GDDR6**, 16 Gbps, **256-bit**, **512 GB/s**, ECC | product page (32 GB, 512 GB/s, 128 MB IC); 2021-11-04 press table (32 GB @ 16 Gbps, 512 GB/s, 256-bit) [^rocm-gpu-arch-specs] |
+| L2 | **4 MB** | ROCm gpu-arch-specs V620 row; `kfd_crat.c` Sienna Cichlid 4096 KB. Product page does **not** print L2. [^kfd-crat] |
+| L0 vector / L1 / I$ / K$ | 16 / 128 / 32 / 16 KB | ROCm gpu-arch-specs; kfd_crat. Product page does **not** print these. [^kfd-crat] |
 | Bus | PCIe 4.0 x16 | product page / datasheet |
 
-L2 **4 MB** and IC line **64 B** are the Sienna Cichlid (Navi 21) `kfd_crat.c` numbers from the architecture brief. V620 is a 72-CU / 32 GB harvest of that die; no opened AMD page prints a different L2 or IC. Use 4 MB / 128 MB / 512 GB/s.
+L2 **4 MB** and IC line **64 B** are the Sienna Cichlid (Navi 21) `kfd_crat.c` numbers from the architecture brief. V620 is a 72-CU / 32 GB harvest of that die; no opened AMD page prints a different L2 or IC. Use 4 MB / 128 MB / 512 GB/s.[^kfd-crat]
 
-CU count 72 ⇒ **36 WGP**. Full Navi 21 is 80 CU / 8 SA × 10 CU (kfd_crat `num_cu_shared = 10`). V620’s exact SA population is **unknown** (harvest). Do not invent “7.2 SA”.
+CU count 72 ⇒ **36 WGP**. Full Navi 21 is 80 CU / 8 SA × 10 CU (kfd_crat `num_cu_shared = 10`). V620’s exact SA population is **unknown** (harvest). Do not invent “7.2 SA”.[^kfd-crat]
 
 IC absolute TB/s: **unknown**. Do not quote 1.8–2.0 TB/s.
 Associativity: **unknown**. Do not quote 16-way.
@@ -459,7 +482,7 @@ There is **no** official Qwen2.5-27B. Qwen2.5-32B is a different shape (`hidden=
 
 Bytes below are **one layer’s weights only** (no embed, no lm_head, no KV).
 
-| | Qwen2.5-7B | Gemma 2 27B |
+| | Qwen2.5-7B | Gemma 2 27B [^huggingface-main-config-json] |
 |---|---|---|
 | Q | 3584² = 12,845,056 | 4608×4096 = 18,874,368 |
 | K | 3584×512 = 1,835,008 | 4608×2048 = 9,437,184 |
@@ -491,15 +514,15 @@ Storage assumptions (stated, not invented as “the” format):
 | W8A8 | 1 | int8 weights; per-channel FP16 scales are ~80–200 KB and ignored in the table (they do not change IC fit) |
 | W4A16 g128 | 0.5 + 2/128 | int4 payload + **one FP16 scale per group of 128**; no zero-point. AWQ-with-zeros adds another 2/128. |
 | W4A16 g32 | 0.5 + 2/32 | same, group 32 (vLLM RDNA3 / GPTQ common). `gs ∈ {32,64,128}` in the W4A16 brief. |
-| mxfp4 | 4.25/8 = 17/32 | OCP MX v1.0 concrete MXFP4: block **k=32**, element FP4 E2M1 (4 b), scale E8M0 (8 b) → 136 b / 32 = 4.25 b. Spec: https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf |
+| mxfp4 | 4.25/8 = 17/32 | OCP MX v1.0 concrete MXFP4: block **k=32**, element FP4 E2M1 (4 b), scale E8M0 (8 b) → 136 b / 32 = 4.25 b. Spec: https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf [^opencompute-documents-ocp-microscaling-formats-m] |
 
-QKV bias on Qwen2.5-7B is 9 KB in FP16. It is in the param count; it does not move any “fits / misses” line.
+QKV bias on Qwen2.5-7B is 9 KB in FP16. It is in the param count; it does not move any “fits / misses” line.[^huggingface-main-config-json]
 
 ### 4.3 Bytes / layer and what fits in 128 MiB IC
 
-IC capacity used here: **128 × 1024² = 134,217,728 B** (kfd_crat 128×1024 KB). Product marketing says “128 MB”; if someone uses 128e6 the conclusions do not change.
+IC capacity used here: **128 × 1024² = 134,217,728 B** (kfd_crat 128×1024 KB). Product marketing says “128 MB”; if someone uses 128e6 the conclusions do not change.[^kfd-crat]
 
-| Model | Format | Bytes / layer | vs 128 MiB IC | vs 4 MB L2 |
+| Model | Format | Bytes / layer | vs 128 MiB IC | vs 4 MB L2 [^rocm-gpu-arch-specs][^kfd-crat] |
 |---|---|---|---|---|
 | Qwen2.5-7B | FP16 | 466,115,584 (444.52 MiB) | **3.47× — miss** | miss |
 | Qwen2.5-7B | W8A8 | 233,057,792 (222.26 MiB) | **1.74× — miss** | miss |
@@ -516,13 +539,13 @@ IC capacity used here: **128 × 1024² = 134,217,728 B** (kfd_crat 128×1024 KB)
 
 **Single-GPU, no TP:** only **7B W4A16 (g128, or g32 without zeros) and 7B mxfp4** put a whole layer in IC. 7B W4A16 g32 is **tight** — leftover ~3 MiB is not a KV window; one extra buffer or a second stream will evict. 7B W8A8 and everything 27B stream (or you keep a **slice** — one matrix, not the layer).
 
-L2 (4 MB) holds none of these layers. L2 is for the active GEMV panel / `x` / scales, not the layer.
+L2 (4 MB) holds none of these layers. L2 is for the active GEMV panel / `x` / scales, not the layer.[^rocm-gpu-arch-specs][^kfd-crat]
 
 ### 4.4 TP=4 (this box) — per-GPU shard
 
 Tensor-parallel split of the seven matrices (HF `base_model_tp_plan`: Q/K/V/gate/up colwise, O/down rowwise). Norms and Qwen QKV bias replicate (~KB). Ignore them. Shard ≈ **1/4** of the layer bytes.
 
-| Model | Format | Bytes / GPU | vs 128 MiB IC | Leftover IC |
+| Model | Format | Bytes / GPU | vs 128 MiB IC | Leftover IC [^rocm-gpu-arch-specs] |
 |---|---|---|---|---|
 | Qwen2.5-7B | FP16 | 116,528,896 (111.13 MiB) | **fits (0.87×)** | 16.9 MiB |
 | Qwen2.5-7B | W8A8 | 58,264,448 (55.56 MiB) | **fits (0.43×)** | 72.4 MiB |
@@ -558,9 +581,9 @@ Qwen2.5-7B:  28 layers × 2 × 4 KV heads × 128 × 2 B = 57,344 B/token   (56 K
 Gemma 2 27B: 46 layers × 2 × 16 KV heads × 128 × 2 B = 376,832 B/token (368 KiB)
 ```
 
-Qwen’s GQA (4 KV heads) is why 7B KV/token is **much** smaller than Llama-2-7B MHA (512 KiB/token). Do not reuse a Llama-2 KV table on this model.
+Qwen’s GQA (4 KV heads) is why 7B KV/token is **much** smaller than Llama-2-7B MHA (512 KiB/token). Do not reuse a Llama-2 KV table on this model.[^huggingface-main-config-json][^m-arxiv-org-abs-2307-09288]
 
-| | Tokens of KV in 128 MiB IC (weights not resident) | After a TP=4 KV-head split |
+| | Tokens of KV in 128 MiB IC (weights not resident) | After a TP=4 KV-head split [^rocm-gpu-arch-specs] |
 |---|---|---|
 | Qwen2.5-7B | **2340** (÷ 57,344 B) | **9362** (1 KV head / GPU = 14,336 B/token) |
 | Gemma 2 27B | **356** | **1424** (4 KV heads / GPU) |
@@ -584,7 +607,7 @@ On 7B GQA + TP=4, leftover IC after a W4 shard is large enough for **thousands**
 
 ### 4.6 Bandwidth floor when IC misses
 
-GDDR6 **512 GB/s** (AMD V620 product page + press). A 27B FP16 TP=4 shard is 283 MB → ≥ 0.55 ms/layer at peak if it misses everything, before decode math. A 7B W4 TP=4 shard is 30 MB → ≥ 59 µs/layer at peak. Those are **roofline floors**, not measurements. IC TB/s is unknown, so the hit-path roofline is unknown.
+GDDR6 **512 GB/s** (AMD V620 product page + press). A 27B FP16 TP=4 shard is 283 MB → ≥ 0.55 ms/layer at peak if it misses everything, before decode math. A 7B W4 TP=4 shard is 30 MB → ≥ 59 µs/layer at peak. Those are **roofline floors**, not measurements. IC TB/s is unknown, so the hit-path roofline is unknown.[^v620-product]
 
 ---
 
@@ -610,24 +633,51 @@ GDDR6 **512 GB/s** (AMD V620 product page + press). A 27B FP16 TP=4 shard is 283
 ## 6. Sources actually opened
 
 1. Companion `silicon/arch-and-memory/architecture.md`, `kernels/w4a16.md`, `silicon/lds-and-tiles/lds-tiles.md`
-2. AMD “RDNA 2” ISA 70648 AMD RDNA2 ISA 70648 PDF — §2.4, §7.2.2 `S_DCACHE_INV`, §8.1 GLC/DLC/SLC, §8.1.10 Tables 38–39, Table 37 V# bits 62–63, image `LLC No-alloc` bits 201:200, `BUFFER_GL0_INV` / `BUFFER_GL1_INV`, `S_GL1_INV`, `S_ATC_PROBE`, `S_INST_PREFETCH`
-3. HIP Hardware implementation — https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html (write-through L0/L1, L2 coherence point, atomics at L2, software fences)
-4. HIP C++ language extensions — https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/hip_cpp_language_extensions.html (`__threadfence*`)
-5. HIP `amd_device_functions.h` — https://raw.githubusercontent.com/ROCm/clr/develop/hipamd/include/hip/amd_detail/amd_device_functions.h (`__builtin_amdgcn_fence` scopes)
-6. LLVM AMDGPUUsage — https://llvm.org/docs/AMDGPUUsage.html (scopes, gfx1030 = V620, `llvm.prefetch` gfx1250-only, `amdgpu-memory-bound` internal, buffer addrspace 8)
+2. AMD “RDNA 2” ISA 70648 AMD RDNA2 ISA 70648 PDF — §2.4, §7.2.2 `S_DCACHE_INV`, §8.1 GLC/DLC/SLC, §8.1.10 Tables 38–39, Table 37 V# bits 62–63, image `LLC No-alloc` bits 201:200, `BUFFER_GL0_INV` / `BUFFER_GL1_INV`, `S_GL1_INV`, `S_ATC_PROBE`, `S_INST_PREFETCH`[^isa70648]
+3. HIP Hardware implementation — https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html (write-through L0/L1, L2 coherence point, atomics at L2, software fences)[^hip-hw-impl]
+4. HIP C++ language extensions — https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/hip_cpp_language_extensions.html (`__threadfence*`)[^rocm-how-to-hip-cpp-language-extensions-html]
+5. HIP `amd_device_functions.h` — https://raw.githubusercontent.com/ROCm/clr/develop/hipamd/include/hip/amd_detail/amd_device_functions.h (`__builtin_amdgcn_fence` scopes)[^raw-amd-detail-amd-device-functions-h]
+6. LLVM AMDGPUUsage — https://llvm.org/docs/AMDGPUUsage.html (scopes, gfx1030 = V620, `llvm.prefetch` gfx1250-only, `amdgpu-memory-bound` internal, buffer addrspace 8)[^llvm-amdgpuusage]
 7. LLVM D114076 / commit 6d28dff — MALL paragraph for GFX10.3
 8. LLVM commit b0a3849 / D127405 — “In GFX10 dlc controlled L1 cache bypass. In GFX11 it has been repurposed to control MALL NOALLOC”
-9. LLVM IntrinsicsAMDGPU.td cachepolicy comments (PRs #78768, #87364) — gfx10 glc/slc/dlc vs gfx940 sc0/nt/sc1
+9. LLVM IntrinsicsAMDGPU.td cachepolicy comments (PRs #78768, #87364) — gfx10 glc/slc/dlc vs gfx940 sc0/nt/sc1[^llvm-amdgpu-td]
 10. `SIMemoryLegalizer.cpp` (main, opened) — `SIGfx10CacheControl`: WGP GLC, no L2 coherent bypass, gfx10 nontemporal = SLC (loads) / GLC+SLC (stores), gfx11 DLC = MALL NOALLOC, gfx10 `insertWriteback` is a no-op
-11. HIP issue #3506 — https://github.com/ROCm/hip/issues/3506 (no L1-bypass flag; use `__builtin_nontemporal_*`)
-12. GPUOpen Laplacian part 3 — https://gpuopen.com/learn/amd-lab-notes/amd-lab-notes-finite-difference-docs-laplacian_part3/ (nontemporal builtins)
-13. AMD Radeon PRO V620 product page — https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html (72 CU, 128 MB IC, 32 GB, 512 GB/s)
-14. AMD 2021-11-04 V620 press — https://www.amd.com/en/newsroom/press-releases/2021-11-4-amd-radeon-pro-v620-gpu-delivers-powerful-multi-.html and IR copy https://ir.amd.com/news-events/press-releases/detail/1030/amd-radeon-pro-v620-gpu-delivers-powerful-multi-purpose-data-center-visual-performance-for-todays-demanding-cloud-workloads (4608 SP, 72 CU, 32 GB @ 16 Gbps, 512 GB/s, 256-bit)
-15. ROCm gpu-arch-specs 6.2.1 — https://rocm.docs.amd.com/en/docs-6.2.1/reference/gpu-arch-specs.html (V620: gfx1030, 72 CU, 32 GiB, IC 128, L2 4, L1 128, L0 16)
-16. `kfd_crat.c` Sienna Cichlid — architecture brief (L2 4 MB, L3 128 MB / 64 B)
-17. Qwen2.5-7B dims — https://huggingface.co/Qwen/Qwen2.5-7B/blob/main/config.json (`hidden=3584`, `intermediate=18944`, 28 layers, GQA 28/4); README 6.53B non-embedding
-18. Gemma 2 27B dims — DeepMind `gemma/gm/nn/_gemma.py` `Gemma2_27B`; paper Table 1 https://arxiv.org/html/2408.00118 ; Keras export `gemma2_27b_config` (intermediate_size=36864)
-19. OCP MX v1.0 — https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf
-20. GPUOpen Occupancy explained — https://gpuopen.com/learn/occupancy-explained/ (cache thrash from extra waves)
+11. HIP issue #3506 — https://github.com/ROCm/hip/issues/3506 (no L1-bypass flag; use `__builtin_nontemporal_*`)[^github-issues-3506]
+12. GPUOpen Laplacian part 3 — https://gpuopen.com/learn/amd-lab-notes/amd-lab-notes-finite-difference-docs-laplacian_part3/ (nontemporal builtins)[^gpuopen-amd-lab-notes-amd-lab-notes-finite-diffe]
+13. AMD Radeon PRO V620 product page — https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html (72 CU, 128 MB IC, 32 GB, 512 GB/s)[^v620-product]
+14. AMD 2021-11-04 V620 press — https://www.amd.com/en/newsroom/press-releases/2021-11-4-amd-radeon-pro-v620-gpu-delivers-powerful-multi-.html and IR copy https://ir.amd.com/news-events/press-releases/detail/1030/amd-radeon-pro-v620-gpu-delivers-powerful-multi-purpose-data-center-visual-performance-for-todays-demanding-cloud-workloads (4608 SP, 72 CU, 32 GB @ 16 Gbps, 512 GB/s, 256-bit)[^amd-press-releases-2021-11-4-amd-radeon-pro-v620][^ir-1030-amd-radeon-pro-v620-gpu-delivers-powerfu]
+15. ROCm gpu-arch-specs 6.2.1 — https://rocm.docs.amd.com/en/docs-6.2.1/reference/gpu-arch-specs.html (V620: gfx1030, 72 CU, 32 GiB, IC 128, L2 4, L1 128, L0 16)[^rocm-reference-gpu-arch-specs-html]
+16. `kfd_crat.c` Sienna Cichlid — architecture brief (L2 4 MB, L3 128 MB / 64 B)[^kfd-crat]
+17. Qwen2.5-7B dims — https://huggingface.co/Qwen/Qwen2.5-7B/blob/main/config.json (`hidden=3584`, `intermediate=18944`, 28 layers, GQA 28/4); README 6.53B non-embedding[^huggingface-main-config-json]
+18. Gemma 2 27B dims — DeepMind `gemma/gm/nn/_gemma.py` `Gemma2_27B`; paper Table 1 https://arxiv.org/html/2408.00118 ; Keras export `gemma2_27b_config` (intermediate_size=36864)[^arxiv-html-2408-00118]
+19. OCP MX v1.0 — https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf[^opencompute-documents-ocp-microscaling-formats-m]
+20. GPUOpen Occupancy explained — https://gpuopen.com/learn/occupancy-explained/ (cache thrash from extra waves)[^gpuopen-occupancy]
 21. LLVM Processors table — `gfx1030` example products include Radeon PRO V620
 22. LLVM PR #157949 — `llvm.prefetch` “Implemented on gfx1250, ignored on earlier targets”
+
+## Sources
+
+Primary sources for this page, cited inline as footnotes:
+
+[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
+[^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^hip-hw-impl]: ROCm HIP docs, "Hardware implementation". https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html (checked 2026-10-11)
+[^rdna-arch]: AMD, "RDNA Architecture" (GPUOpen, 2019). https://gpuopen.com/download/RDNA_Architecture_public.pdf (checked 2026-10-11)
+[^kfd-crat]: Linux v6.12 amdkfd kfd_crat.c, sienna_cichlid_cache_info (Navi 21: TCP 16 KB/CU, I$ 32 KB/2 CU, K$ 16 KB/2 CU, GL1 128 KB/10 CU, L2 4096 KB, L3 128 MB). https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/amd/amdkfd/kfd_crat.c#L556 (checked 2026-10-11)
+[^rocm-reference-gpu-arch-specs-html]: Accelerator and GPU hardware specifications — ROCm Documentation. https://rocm.docs.amd.com/en/docs-6.2.1/reference/gpu-arch-specs.html (checked 2026-10-11)
+[^rocm-how-to-hip-cpp-language-extensions-html]: HIP C++ language extensions — HIP 7.16.0 Documentation. https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/hip_cpp_language_extensions.html (checked 2026-10-11)
+[^llvm-amdgpu-td]: LLVM AMDGPU.td, main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td (checked 2026-10-11)
+[^v620-product]: AMD Radeon PRO V620 product page. https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html (checked 2026-10-11)
+[^opencompute-documents-ocp-microscaling-formats-m]: www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf. https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf (checked 2026-10-11)
+[^raw-amd-detail-amd-device-functions-h]: raw.githubusercontent.com/ROCm/clr/develop/hipamd/include/hip/amd_detail/amd_device_functions.h. https://raw.githubusercontent.com/ROCm/clr/develop/hipamd/include/hip/amd_detail/amd_device_functions.h (checked 2026-10-11)
+[^github-issues-3506]: (Issue): how to close or bypass L1 cache · Issue #3506 · ROCm/hip. https://github.com/ROCm/hip/issues/3506 (checked 2026-10-11)
+[^gpuopen-amd-lab-notes-amd-lab-notes-finite-diffe]: Finite Difference Method – Laplacian part 3 - AMD GPUOpen. https://gpuopen.com/learn/amd-lab-notes/amd-lab-notes-finite-difference-docs-laplacian_part3/ (checked 2026-10-11)
+[^amd-press-releases-2021-11-4-amd-radeon-pro-v620]: AMD Radeon™ PRO V620 GPU Delivers Powerful, Multi-Purpose Data Center Visual Performance for Today’s Demanding Cloud Workloads. https://www.amd.com/en/newsroom/press-releases/2021-11-4-amd-radeon-pro-v620-gpu-delivers-powerful-multi-.html (checked 2026-10-11)
+[^ir-1030-amd-radeon-pro-v620-gpu-delivers-powerfu]: AMD Radeon™ PRO V620 GPU Delivers Powerful, Multi-Purpose Data Center Visual Performance for Today’s Demanding Cloud Workloads :: Advanced Micro Devices, Inc. (AMD). https://ir.amd.com/news-events/press-releases/detail/1030/amd-radeon-pro-v620-gpu-delivers-powerful-multi-purpose-data-center-visual-performance-for-todays-demanding-cloud-workloads (checked 2026-10-11)
+[^huggingface-main-config-json]: config.json · Qwen/Qwen2.5-7B at main. https://huggingface.co/Qwen/Qwen2.5-7B/blob/main/config.json (checked 2026-10-11)
+[^arxiv-html-2408-00118]: Gemma 2: Improving Open Language Models at a Practical Size. https://arxiv.org/html/2408.00118 (checked 2026-10-11)
+[^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
+[^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)
+[^m-ion-rdna2-explained-radeon-pro-w6000-pdf]: www.amd.com/content/dam/amd/en/documents/products/graphics/workstation/rdna2-explained-radeon-pro-W6000.pdf. https://www.amd.com/content/dam/amd/en/documents/products/graphics/workstation/rdna2-explained-radeon-pro-W6000.pdf (checked 2026-10-11)
+[^m-arxiv-org-abs-2307-09288]: (2307.09288) Llama 2: Open Foundation and Fine-Tuned Chat Models. https://arxiv.org/abs/2307.09288 (checked 2026-10-11)

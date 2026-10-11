@@ -1,17 +1,24 @@
+---
+title: "causalflow-ai/petit-kernel — silicon Take / Leave (gfx1030)"
+sources:
+  - https://github.com/causalflow-ai/petit-kernel
+  - https://www.causalflow.ai/blogs/2025-08-optimizing-fp4-mixed-precision-inference-on-amd-gpus
+---
+
 # causalflow-ai/petit-kernel — silicon Take / Leave (gfx1030)
 
-Date: 2026-09-05. [causalflow-ai/petit-kernel](https://github.com/causalflow-ai/petit-kernel) (BSD), tip skimmed via README + `RELEASE_NOTES` 0.0.5 + blog [Optimizing FP4 Mixed-Precision Inference on AMD GPUs](https://www.causalflow.ai/blogs/2025-08-optimizing-fp4-mixed-precision-inference-on-amd-gpus) (Aug 2025) + `lib/gemm/rocm/quantization/{dequant.cuh,types.h,fp4/*}`. Do not invent tok/s. Engine dispatch stays on [../kernels/mxfp4.md](../../kernels/mxfp4.md) / [../kernels/nvfp4.md](../../kernels/nvfp4.md).
+Date: 2026-09-05. [causalflow-ai/petit-kernel](https://github.com/causalflow-ai/petit-kernel) (BSD), tip skimmed via README + `RELEASE_NOTES` 0.0.5 + blog [Optimizing FP4 Mixed-Precision Inference on AMD GPUs](https://www.causalflow.ai/blogs/2025-08-optimizing-fp4-mixed-precision-inference-on-amd-gpus) (Aug 2025) + `lib/gemm/rocm/quantization/{dequant.cuh,types.h,fp4/*}`. Do not invent tok/s. Engine dispatch stays on [../kernels/mxfp4.md](../../kernels/mxfp4.md) / [../kernels/nvfp4.md](../../kernels/nvfp4.md).[^github-causalflow-ai-petit-kernel][^causalflow-blogs-2025-08-optimizing-fp4-mixed-pr]
 
 Petit = **CDNA2/3/4** (MI200 / MI300 / MI350) FP16/BF16 × FP4 dense + fused MoE. Requirements say CDNA only; MegaMoE needs `gfx950`. Inner path is Marlin-style offline shuffle → dequant to fp16/bf16 → **MFMA MatrixCore**, not `fdot2`.
 
-Dest lock: gfx1030 V620, ROCm 7.14, wave32, 64 KiB LDS/WG, 64 banks × 4 B. **No WMMA/MFMA/FP8 unit.** Dest mxfp4 = unpack E2M1+UE8M0 → `fdot2`. Produce stays EXL3 grain v2 `bits=3` `M≤8`.
+Dest lock: gfx1030 V620, ROCm 7.14, wave32, 64 KiB LDS/WG, 64 banks × 4 B. **No WMMA/MFMA/FP8 unit.** Dest mxfp4 = unpack E2M1+UE8M0 → `fdot2`. Produce stays EXL3 grain v2 `bits=3` `M≤8`.[^rocm-gpu-arch-specs][^llvm-baseinfo][^isa70648]
 
 ## Take
 
 | Idea | Why it transfers (or partially) |
 |---|---|
 | **Offline shuffle / pack for dequant** | Marlin-class: rearrange FP4 nibbles so GPU-side unpack is fewer VALU ops. Their CDNA pack uses `v_bfrev_b32` + `v_cvt_pk_f32_bf8` / SDWA (15 inst vs 31). On gfx1030 keep the *idea* (pack for cheap unpack) but rewrite against our E2M1 bit-trick / EXL3 3-inst codebook — **not** their bf8 convert path. |
-| **LDS bank-conflict awareness + tile hyperparams** | Blog: CDNA LDS is **32 banks**, wave64 → conflicts bite hard; permute layouts; shared-memory tile shapes are sensitive — run benches. Transfer: same discipline on gfx1030 with **64 banks / wave32** ([lds-tiles.md](../lds-and-tiles/lds-tiles.md)). Do not copy their 32-bank XOR. |
+| **LDS bank-conflict awareness + tile hyperparams** | Blog: CDNA LDS is **32 banks**, wave64 → conflicts bite hard; permute layouts; shared-memory tile shapes are sensitive — run benches. Transfer: same discipline on gfx1030 with **64 banks / wave32** ([lds-tiles.md](../lds-and-tiles/lds-tiles.md)). Do not copy their 32-bank XOR. [^isa70648] |
 | **CDNA2 (MI200) denormal flush caveat** | README: MFMA on MI200 flushes denorm in/out → accuracy hit; their corrective path ~+10% overhead. Transfer as a **numerics warning**: gfx1030 `fdot2` is a different pipe, but any fold that relies on e4m3/fp16 subnormals (cf. radiance `kMag` into subnormals) must be **measured on V620**, not assumed from CDNA2 or gfx12 WMMA. |
 | **Bounded / clamp loads over predicated staging** | Blog: buffer loads with range discard OOB instead of branches. Aligns with radiance “clamp, never predicate” staging — useful for skinny M. |
 | **Scale-type split already in our contract** | Their `DataType` enum has `Fp4e2m1`, `MxFp4e2m1`, `Fp8e4m3`, `Fp8e8m0`, `Fp8e5m2Fnuz`. Confirms NVFP4 (E4M3 mul) ≠ MXFP4 (E8M0 exp) — same split as [../kernels/nvfp4.md](../../kernels/nvfp4.md) / [../kernels/mxfp4.md](../../kernels/mxfp4.md). |
@@ -42,3 +49,11 @@ Dest lock: gfx1030 V620, ROCm 7.14, wave32, 64 KiB LDS/WG, 64 banks × 4 B. **No
 - https://www.causalflow.ai/blogs/2025-08-optimizing-fp4-mixed-precision-inference-on-amd-gpus
 - `lib/gemm/rocm/quantization/dequant.cuh`, `types.h`, `fp4/gemm_fp4.h`
 - [../kernels/mxfp4.md](../../kernels/mxfp4.md), [../kernels/nvfp4.md](../../kernels/nvfp4.md), [lds-tiles.md](../lds-and-tiles/lds-tiles.md), [exl3.md](../formats/exl3.md)
+
+Footnotes:
+
+[^github-causalflow-ai-petit-kernel]: GitHub - causalflow-ai/petit-kernel: Optimized FP16/BF16 x FP4 GPU kernels for AMD GPUs. https://github.com/causalflow-ai/petit-kernel (checked 2026-10-11)
+[^causalflow-blogs-2025-08-optimizing-fp4-mixed-pr]: Optimizing FP4 Mixed-Precision Inference on AMD GPUs. https://www.causalflow.ai/blogs/2025-08-optimizing-fp4-mixed-precision-inference-on-amd-gpus (checked 2026-10-11)
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
+[^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)

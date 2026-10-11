@@ -1,13 +1,29 @@
+---
+title: "Infinity Cache vs effective occupancy (gfx1030)"
+sources:
+  - https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
+  - https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/amd/amdkfd/kfd_crat.c#L556
+  - https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html
+  - https://gpuopen.com/learn/occupancy-explained/
+  - https://github.com/llvm/llvm-project
+  - https://lists.freedesktop.org/archives/amd-gfx/2021-March/061392.html
+  - https://www.amd.com/en/newsroom/press-releases/2020-10-28-amd-unveils-next-generation-pc-gaming-with-amd-rad.html
+  - https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html
+  - https://gpuopen.com/news/rdna2-isa-available/
+  - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
+  - https://rocm.docs.amd.com/projects/rocprofiler-compute/en/docs-7.14.1/conceptual/rdna/gl2-cache.html
+---
+
 # Infinity Cache vs effective occupancy (gfx1030)
 
-Lock: **Infinity Cache (IC / MALL / L3) is not a PIX / `llvm-calc-occupancy` MaxWaves limiter.** It is the **GPU-wide last-level** on-die data cache (**128 MiB** on Navi 21 / V620), **after L2** and **before GDDR6**. Thrash raises *memory-wait* / GDDR6 miss latency → weaker effective latency hiding even when VGPR∩LDS occupancy looks full. Same occupancy-adjacent class as [l2-occupancy.md](l2-occupancy.md) and [l0-gl1-occupancy.md](l0-gl1-occupancy.md). Not a fifth PIX row.
+Lock: **Infinity Cache (IC / MALL / L3) is not a PIX / `llvm-calc-occupancy` MaxWaves limiter.** It is the **GPU-wide last-level** on-die data cache (**128 MiB** on Navi 21 / V620), **after L2** and **before GDDR6**. Thrash raises *memory-wait* / GDDR6 miss latency → weaker effective latency hiding even when VGPR∩LDS occupancy looks full. Same occupancy-adjacent class as [l2-occupancy.md](l2-occupancy.md) and [l0-gl1-occupancy.md](l0-gl1-occupancy.md). Not a fifth PIX row.[^llvm-calc-occupancy]
 
 Does **not** change extras HIP or UNC tickets. No tok/s. Do not restate the FA pin.
 
-**Naming:** this page is **Infinity Cache / IC / MALL / L3** (GPU-wide, **128 MiB** on V620, **64 B** lines). Do **not** confuse with:
+**Naming:** this page is **Infinity Cache / IC / MALL / L3** (GPU-wide, **128 MiB** on V620, **64 B** lines). Do **not** confuse with:[^rocm-gpu-arch-specs][^kfd-crat]
 
-- **SQC I$** ([icache-occupancy.md](icache-occupancy.md)) — instruction cache, 32 KiB/WGP
-- **L2 / GL2** ([l2-occupancy.md](l2-occupancy.md)) — mid-level, **4 MiB**, **128 B** lines
+- **SQC I$** ([icache-occupancy.md](icache-occupancy.md)) — instruction cache, 32 KiB/WGP[^rocm-gpu-arch-specs][^kfd-crat]
+- **L2 / GL2** ([l2-occupancy.md](l2-occupancy.md)) — mid-level, **4 MiB**, **128 B** lines[^rocm-gpu-arch-specs][^kfd-crat]
 - **L0 / GL1** ([l0-gl1-occupancy.md](l0-gl1-occupancy.md)) — CU/SA vector filters
 
 SKU fit tables and “no HIP persist bit” stay in [infinity-cache.md](../arch-and-memory/infinity-cache.md). This page is the **occupancy framing** sibling.
@@ -20,11 +36,11 @@ Companions: [infinity-cache.md](../arch-and-memory/infinity-cache.md), [architec
 
 | | |
 |---|---|
-| **Take** | Treat IC as the **last GPU-wide reuse cliff** on the data path: L0 → GL1 → L2 (4 MiB) → **IC (128 MiB)** → GDDR6. Extra waves help only while they hide real miss latency **without** multiplying distinct cold lines through the same 128 MiB. |
+| **Take** | Treat IC as the **last GPU-wide reuse cliff** on the data path: L0 → GL1 → L2 (4 MiB) → **IC (128 MiB)** → GDDR6. Extra waves help only while they hide real miss latency **without** multiplying distinct cold lines through the same 128 MiB. [^rocm-gpu-arch-specs][^kfd-crat] |
 | **Take** | Quantize / TP-shard until the **hot layer shard + working KV pages this step touches** fit IC; keep **default** loads on that set ([infinity-cache.md](../arch-and-memory/infinity-cache.md)). Cap occupancy with `__launch_bounds__` / `amdgpu_waves_per_eu` when the stream is already memory-bound ([cache-policy.md](../arch-and-memory/cache-policy.md) §0). |
-| **Take** | When measured occupancy is high but memory-wait dominates **and** the working set already misses L2, check **hot bytes vs 128 MiB** and concurrent streams **before** chasing another VGPR wave — IC thrash is the last-level cliff, not a PIX limiter. |
-| **Take** | Distinguish **L2 thrash** (4 MiB mid filter) from **IC thrash** (128 MiB last-level). A shard that misses L2 but fits IC is still an IC win ([l2-occupancy.md](l2-occupancy.md)); over-filling waves can thrash **both**. |
-| **Leave** | Do **not** put IC capacity into `llvm-calc-occupancy` or PIX `WaveOccupancyLimiters` (VGPR / LDS / Thread Group Size / Barriers only). LLVM `computeOccupancy` mins WG+LDS, VGPR, SGPR — no cache size term. |
+| **Take** | When measured occupancy is high but memory-wait dominates **and** the working set already misses L2, check **hot bytes vs 128 MiB** and concurrent streams **before** chasing another VGPR wave — IC thrash is the last-level cliff, not a PIX limiter. [^rocm-gpu-arch-specs] |
+| **Take** | Distinguish **L2 thrash** (4 MiB mid filter) from **IC thrash** (128 MiB last-level). A shard that misses L2 but fits IC is still an IC win ([l2-occupancy.md](l2-occupancy.md)); over-filling waves can thrash **both**. [^rocm-gpu-arch-specs][^kfd-crat] |
+| **Leave** | Do **not** put IC capacity into `llvm-calc-occupancy` or PIX `WaveOccupancyLimiters` (VGPR / LDS / Thread Group Size / Barriers only). LLVM `computeOccupancy` mins WG+LDS, VGPR, SGPR — no cache size term. [^llvm-calc-occupancy] |
 | **Leave** | Do **not** invent IC miss-cycle tables, TB/s rooflines, associativity, or V620-specific hit rates. AMD’s “2.4× / 2.5×” marketing is relative, not a lab number ([infinity-cache.md](../arch-and-memory/infinity-cache.md)). Profile. |
 | **Leave** | Do **not** invent a HIP persist / IC bypass / IC prefetch intrinsic — gfx1030 has none. Do not copy rocprofiler gfx115x “GL2 = final on-chip cache before DRAM” wording onto V620 — on RDNA2, **IC sits after L2**. |
 | **Leave** | Do not invent a gfx1030-locked MALL/IC counter list; leave undocumented IC hit/miss names. Do not open UNC / retip extras for this page. |
@@ -33,8 +49,8 @@ Companions: [infinity-cache.md](../arch-and-memory/infinity-cache.md), [architec
 
 | Property | Value | Source |
 |---|---|---|
-| Size (Navi 21 / V620) | **128 MiB** GPU-wide | ROCm gpu-arch-specs V620 “Infinity Cache (MiB) = 128”; `kfd_crat` Sienna Cichlid L3 128×1024 KB |
-| Line size | **64 B** | `kfd_crat` L3; architecture / infinity-cache (L0/L1/L2 are **128 B**) |
+| Size (Navi 21 / V620) | **128 MiB** GPU-wide | ROCm gpu-arch-specs V620 “Infinity Cache (MiB) = 128”; `kfd_crat` Sienna Cichlid L3 128×1024 KB [^kfd-crat] |
+| Line size | **64 B** | `kfd_crat` L3; architecture / infinity-cache (L0/L1/L2 are **128 B**) [^kfd-crat] |
 | Sharing | **Whole GPU** (one MALL per V620; TP=4 does **not** share IC across cards) | infinity-cache; architecture §4.5 |
 | Role on read path | Last-level after L2; miss → GDDR6 | ISA hierarchy + RDNA2 IC intro |
 | HIP control | **None** — no persist, no bypass, no IC prefetch | infinity-cache; cache-policy |
@@ -53,14 +69,14 @@ ROCm gpu-arch-specs (docs-7.2.4) **Radeon PRO V620** row (IC / L2 excerpt):
 |---|---|
 | LLVM target | gfx1030 |
 | CU | 72 |
-| Infinity Cache | 128 MiB |
-| L2 | 4 MiB |
-| Graphics L1 | 128 KiB |
-| L0 Vector | 16 KiB |
+| Infinity Cache | 128 MiB [^rocm-gpu-arch-specs] |
+| L2 | 4 MiB [^rocm-gpu-arch-specs][^kfd-crat] |
+| Graphics L1 | 128 KiB [^rocm-gpu-arch-specs][^kfd-crat] |
+| L0 Vector | 16 KiB [^rocm-gpu-arch-specs][^kfd-crat] |
 
-Source: https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html
+Source: https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html[^rocm-reference-gpu-arch-specs-html]
 
-**vs L2:** L2 stayed **2–4 MiB** while SE/WGP grew — a layer does **not** live in L2. IC is the capacity that makes TP-sharded W4/mxfp4 decode reuse plausible on V620 ([infinity-cache.md](../arch-and-memory/infinity-cache.md) fit table).
+**vs L2:** L2 stayed **2–4 MiB** while SE/WGP grew — a layer does **not** live in L2. IC is the capacity that makes TP-sharded W4/mxfp4 decode reuse plausible on V620 ([infinity-cache.md](../arch-and-memory/infinity-cache.md) fit table).[^rocm-gpu-arch-specs][^kfd-crat]
 
 ## 2. Relation to occupancy — out of the PIX min
 
@@ -70,7 +86,7 @@ Theoretical waves/EU ([occupancy-composite.md](occupancy-composite.md)):
 waves/EU = min(VGPR, SGPR→always 16, LDS+WG+barrier)
 ```
 
-| Resource | In PIX MaxWaves / `llvm-calc-occupancy`? | Effect when stressed |
+| Resource | In PIX MaxWaves / `llvm-calc-occupancy`? | Effect when stressed [^llvm-calc-occupancy] |
 |---|---|---|
 | VGPR / LDS / WG / Barriers | **Yes** | Caps reserved wave slots |
 | Scratch / private | **No** | Latency; rare ROCr `waves_per_cu` cut |
@@ -81,19 +97,19 @@ waves/EU = min(VGPR, SGPR→always 16, LDS+WG+barrier)
 | **Infinity Cache** | **No** | GPU-wide last-level thrash; measured occupancy can look “full” while miss latency collapses to GDDR6 |
 | SPI / ACE / grid fill | **No** | Lack of work / launch-rate ([spi-ace-occupancy.md](spi-ace-occupancy.md)) |
 
-GPUOpen Occupancy explained: compile-time reservation set is **VGPR, SGPR (fixed on RDNA), LDS, threadgroup size, barriers**. Cache hierarchy is the **other** side — “Peak occupancy does not always mean peak performance”: more waves can thrash scarce shared caches **outside** the WGP booking model. Occupancy is capacity to hide memory latency by switching waves; IC thrash **increases** that latency (GDDR6) and can make extra waves harmful. [occupancy-composite.md](occupancy-composite.md) already Leaves over-filling memory-bound kernels that thrash **IC/L2**.
+GPUOpen Occupancy explained: compile-time reservation set is **VGPR, SGPR (fixed on RDNA), LDS, threadgroup size, barriers**. Cache hierarchy is the **other** side — “Peak occupancy does not always mean peak performance”: more waves can thrash scarce shared caches **outside** the WGP booking model. Occupancy is capacity to hide memory latency by switching waves; IC thrash **increases** that latency (GDDR6) and can make extra waves harmful. [occupancy-composite.md](occupancy-composite.md) already Leaves over-filling memory-bound kernels that thrash **IC/L2**.[^gpuopen-occupancy]
 
-LLVM confirm (read-only): `GCNSubtarget::computeOccupancy` / `llvm-calc-occupancy` combine **WG+LDS, VGPR, SGPR** only — no IC (or any cache) argument.
+LLVM confirm (read-only): `GCNSubtarget::computeOccupancy` / `llvm-calc-occupancy` combine **WG+LDS, VGPR, SGPR** only — no IC (or any cache) argument.[^llvm-calc-occupancy][^github-llvm-llvm-project]
 
 ## 3. How misses hurt effective occupancy (no invented cycles)
 
 Mental model only — **no published gfx1030 IC miss-penalty table**:
 
 1. Wave issues a vector load → L0 → GL1 → L2 → IC tag check.
-2. IC miss → GDDR6 (V620 peak **512 GB/s** product page — not a measured kernel BW).
+2. IC miss → GDDR6 (V620 peak **512 GB/s** product page — not a measured kernel BW).[^v620-product]
 3. Wave waits on `s_waitcnt` / VMEM dependency → scheduler switches to another resident wave (**this** is why occupancy exists).
-4. If every resident wave is also missing distinct lines through the same **128 MiB** IC (or stacking a second HIP stream / fat prefill on the same V620), switching finds **no** useful work → SIMD idle / memory-bound collapse.
-5. PIX / `llvm-calc-occupancy` still report the VGPR∩LDS reservation — they never saw the thrash.
+4. If every resident wave is also missing distinct lines through the same **128 MiB** IC (or stacking a second HIP stream / fat prefill on the same V620), switching finds **no** useful work → SIMD idle / memory-bound collapse.[^rocm-gpu-arch-specs]
+5. PIX / `llvm-calc-occupancy` still report the VGPR∩LDS reservation — they never saw the thrash.[^llvm-calc-occupancy]
 
 Two occupancy bugs on IC-bound decode ([infinity-cache.md](../arch-and-memory/infinity-cache.md)):
 
@@ -106,7 +122,7 @@ SLC / nontemporal ([cache-policy.md](../arch-and-memory/cache-policy.md)): corre
 
 | Signal | How | Use |
 |---|---|---|
-| Hot-set estimate | Hot bytes this step vs **128 MiB** (IC) and **4 MiB** (L2) | Rough craft check — capacity, not a hardware counter ([infinity-cache.md](../arch-and-memory/infinity-cache.md) fit table) |
+| Hot-set estimate | Hot bytes this step vs **128 MiB** (IC) and **4 MiB** (L2) | Rough craft check — capacity, not a hardware counter ([infinity-cache.md](../arch-and-memory/infinity-cache.md) fit table) [^rocm-gpu-arch-specs][^kfd-crat] |
 | Wave memory wait / Idle | RGP instruction timing; rocprofiler-SDK thread trace | Correlate GDDR6-bound waits with over-occupy; green “hidden” latency only counts if other waves ran ALU |
 | L2 / GL2C panels | rocprofiler-compute Memory Chart when exposed | Mid filter only; **documented panels are gfx115x-oriented** and often call GL2 “final on-chip before DRAM” — **false on RDNA2** (IC after L2). Verify gfx1030; do not treat GL2C as IC |
 | MALL / IC counters | — | **Leave inventing names.** No gfx1030-locked IC hit/miss list in this wiki pass |
@@ -117,27 +133,30 @@ Do **not** treat a non-100% L2 hit rate alone as “IC failed.” Streaming W4 t
 
 | Shape | Care about IC? | Why |
 |---|---|---|
-| Skinny decode GEMV / FA gathers, W4 shard ≤ IC, modest waves/EU | **Yes — fit + cap waves** | Classic GPUOpen memory-bound thrash: max waves multiply cold lines through 128 MiB IC |
+| Skinny decode GEMV / FA gathers, W4 shard ≤ IC, modest waves/EU | **Yes — fit + cap waves** | Classic GPUOpen memory-bound thrash: max waves multiply cold lines through 128 MiB IC [^rocm-gpu-arch-specs] |
 | 7B/27B W4A16 or mxfp4 **TP=4** layer shard | **Yes — keep default loads** | Fit tables in [infinity-cache.md](../arch-and-memory/infinity-cache.md); leftover IC for short GQA KV |
-| Fat unsharded / FP16 layer that already blows 128 MiB | **Stream nontemporal** | IC cannot hold it; use IC for `x` + working KV pages only |
+| Fat unsharded / FP16 layer that already blows 128 MiB | **Stream nontemporal** | IC cannot hold it; use IC for `x` + working KV pages only [^rocm-gpu-arch-specs] |
 | Concurrent HIP streams / SDMA on one V620 | **Yes** | One GPU-wide MALL — occupancy on *each* stream stacks thrash |
-| Prefill GEMM whose activation working set already misses 128 MiB | **IC secondary** | No IC win expected; do not over-occupy hoping for one |
+| Prefill GEMM whose activation working set already misses 128 MiB | **IC secondary** | No IC win expected; do not over-occupy hoping for one [^rocm-gpu-arch-specs] |
 | `(1,1)` waves_per_eu on decode | **First fix occupancy floor** | CU waste before IC matters |
 
-Rule of thumb (capacity, not a measured hit rate): keep the **reread set** inside **128 MiB** on a quiet GPU; prefer LDS for A-reuse tiles; do not chase more waves when IC miss + memory-wait already dominate.
+Rule of thumb (capacity, not a measured hit rate): keep the **reread set** inside **128 MiB** on a quiet GPU; prefer LDS for A-reuse tiles; do not chase more waves when IC miss + memory-wait already dominate.[^rocm-gpu-arch-specs]
 
 ## 6. What this page adds vs existing wiki
 
 | Page | Already said | This lock adds |
 |---|---|---|
 | [infinity-cache.md](../arch-and-memory/infinity-cache.md) | SKU table, fit, no HIP persist, over-occupy thrash | Explicit **not a PIX MaxWaves row** + effective-occupancy mental model |
-| [l2-occupancy.md](l2-occupancy.md) | Mid 4 MiB thrash; points IC to infinity-cache | Named **IC occupancy sibling** after L2 |
+| [l2-occupancy.md](l2-occupancy.md) | Mid 4 MiB thrash; points IC to infinity-cache | Named **IC occupancy sibling** after L2 [^rocm-gpu-arch-specs][^kfd-crat] |
 | [cache-policy.md](../arch-and-memory/cache-policy.md) | Topology, SLC, thrash via over-occupy | Ties IC miss → effective latency hiding; Take/Leave for decode wave caps |
-| [architecture.md](../arch-and-memory/architecture.md) §4.5 | IC 128 MB, 64 B, not XGMI | Occupancy framing |
+| [architecture.md](../arch-and-memory/architecture.md) §4.5 | IC 128 MB, 64 B, not XGMI | Occupancy framing [^rocm-gpu-arch-specs] |
 | [occupancy-composite.md](occupancy-composite.md) | Leave thrash IC/L2 when over-filling | IC as named out-of-min effective-occupancy sibling |
 | [icache-occupancy.md](icache-occupancy.md) | SQC I$ fetch stalls | Different resource — instruction vs last-level data |
 
-## Sources (opened this pass)
+## Sources
+
+_Sources (opened this pass)_
+
 
 1. GPUOpen Occupancy explained — reservation limiters VGPR/LDS/threadgroup/barriers; “Peak occupancy does not always mean peak performance” (cache thrash from extra waves); latency-hiding definition — https://gpuopen.com/learn/occupancy-explained/ (2023-12-20 / 2024-06-26)
 2. ROCm GPU hardware specifications docs-7.2.4 — V620 gfx1030: Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 Vector 16, 72 CU — https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html
@@ -148,3 +167,18 @@ Rule of thumb (capacity, not a measured hit rate): keep the **reread set** insid
 7. LLVM `GCNSubtarget::computeOccupancy` / `llvm-calc-occupancy.cpp` — occupancy min of WG+LDS, VGPR, SGPR only (no IC) — https://github.com/llvm/llvm-project
 8. rocprofiler-compute RDNA GL2 cache — `GL2C_*` formula shapes; **documented panels are RDNA3.5/gfx115x-oriented and call GL2 “final on-chip before DRAM” — does not map 1:1 to RDNA2 (IC after L2); no gfx1030 IC counter invent** — https://rocm.docs.amd.com/projects/rocprofiler-compute/en/docs-7.14.1/conceptual/rdna/gl2-cache.html
 9. Wiki companions: [infinity-cache.md](../arch-and-memory/infinity-cache.md), [l2-occupancy.md](l2-occupancy.md), [cache-policy.md](../arch-and-memory/cache-policy.md), [architecture.md](../arch-and-memory/architecture.md), [occupancy-composite.md](occupancy-composite.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md)
+
+Footnotes:
+
+[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
+[^kfd-crat]: Linux v6.12 amdkfd kfd_crat.c, sienna_cichlid_cache_info (Navi 21: TCP 16 KB/CU, I$ 32 KB/2 CU, K$ 16 KB/2 CU, GL1 128 KB/10 CU, L2 4096 KB, L3 128 MB). https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/amd/amdkfd/kfd_crat.c#L556 (checked 2026-10-11)
+[^rocm-reference-gpu-arch-specs-html]: GPU hardware specifications — ROCm Documentation. https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)
+[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
+[^github-llvm-llvm-project]: GitHub - llvm/llvm-project: The LLVM Project is a collection of modular and reusable compiler and toolchain technologies.. https://github.com/llvm/llvm-project (checked 2026-10-11)
+[^lists-2021-march-061392-html]: (PATCH) drm/amdkfd: Update L1 and add L2/3 cache information. https://lists.freedesktop.org/archives/amd-gfx/2021-March/061392.html (checked 2026-10-11)
+[^amd-press-releases-2020-10-28-amd-unveils-next-g]: AMD Newsroom. https://www.amd.com/en/newsroom/press-releases/2020-10-28-amd-unveils-next-generation-pc-gaming-with-amd-rad.html (checked 2026-10-11)
+[^v620-product]: AMD Radeon PRO V620 product page. https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html (checked 2026-10-11)
+[^gpuopen-news-rdna2-isa-available]: AMD RDNA™ 2 Instruction Set Architecture reference guide is now available - AMD GPUOpen. https://gpuopen.com/news/rdna2-isa-available/ (checked 2026-10-11)
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^rocm-rdna-gl2-cache-html]: GL2 cache — ROCm Compute Profiler 3.7.0 documentation. https://rocm.docs.amd.com/projects/rocprofiler-compute/en/docs-7.14.1/conceptual/rdna/gl2-cache.html (checked 2026-10-11)
+[^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)

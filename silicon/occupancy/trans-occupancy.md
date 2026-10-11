@@ -1,6 +1,18 @@
+---
+title: "Transcendental / SFU issue vs effective occupancy (gfx1030)"
+sources:
+  - https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
+  - https://gpuopen.com/download/RDNA_Architecture_public.pdf
+  - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
+  - https://gpuopen.com/learn/occupancy-explained/
+  - https://gpuopen.com/download/GPC24_Occupancy_explained.pdf
+  - https://gpuopen.com/learn/rdna-performance-guide/
+  - https://reviews.llvm.org/D81011
+---
+
 # Transcendental / SFU issue vs effective occupancy (gfx1030)
 
-Lock: **Transcendental (SFU) issue — ¼ rate, 8-wide unit, co-issue with non-transcendental VALU — is not a PIX / `llvm-calc-occupancy` MaxWaves limiter.** Dense `v_exp` / `v_rcp` / `v_rsq` / `v_sqrt` / `v_log` / `v_sin` / `v_cos` sequences starve the special-function path while the wave still holds its VGPR∩LDS slot; sibling waves help only if they have **non-trans** work. Completes the “out of min” set next to [waitcnt-occupancy.md](waitcnt-occupancy.md) (time-idle park) and [exec-divergence-occupancy.md](exec-divergence-occupancy.md) (lane-idle NOP): here the slot is filled but **TRANS-throughput-starved**.
+Lock: **Transcendental (SFU) issue — ¼ rate, 8-wide unit, co-issue with non-transcendental VALU — is not a PIX / `llvm-calc-occupancy` MaxWaves limiter.** Dense `v_exp` / `v_rcp` / `v_rsq` / `v_sqrt` / `v_log` / `v_sin` / `v_cos` sequences starve the special-function path while the wave still holds its VGPR∩LDS slot; sibling waves help only if they have **non-trans** work. Completes the “out of min” set next to [waitcnt-occupancy.md](waitcnt-occupancy.md) (time-idle park) and [exec-divergence-occupancy.md](exec-divergence-occupancy.md) (lane-idle NOP): here the slot is filled but **TRANS-throughput-starved**.[^llvm-calc-occupancy]
 
 Does **not** change extras HIP or UNC tickets. No tok/s. Do not restate the FA pin.
 
@@ -8,7 +20,7 @@ Does **not** change extras HIP or UNC tickets. No tok/s. Do not restate the FA p
 
 | Term | Meaning on gfx1030 |
 |---|---|
-| **Transcendental / TRANS / SFU** | Special-function vector ops on a dedicated **8-wide** unit per SIMD32: `rcp` / `rsq` / `sqrt` / `log` / `exp` / `sin` / `cos` (RDNA deck + GPC24 CU diagram). |
+| **Transcendental / TRANS / SFU** | Special-function vector ops on a dedicated **8-wide** unit per SIMD32: `rcp` / `rsq` / `sqrt` / `log` / `exp` / `sin` / `cos` (RDNA deck + GPC24 CU diagram). [^rdna-arch] |
 | **¼ rate** | Deck framing: transcendental instructions run at **quarter** the issue rate of ordinary VALU (like GCN). Wave32 completion on an 8-wide unit is the same story (~4 clocks / wave for a full-mask TRANS op) — do not invent finer cycle tables. |
 | **Co-issue** | Non-transcendental VALU (`v_fma`, packed DOT, integer/address math) can run **in parallel** with a transcendental on the same SIMD (deck: “Non-transcendental instructions can execute in parallel”). |
 | **VOPD** | RDNA3 dual-issue of *selected* VALU pairs (`v_dual_*`) — **absent** on gfx1030 ([valu.md](../arch-and-memory/valu.md)). Not a substitute for TRANS co-issue. |
@@ -23,13 +35,13 @@ Companions: [occupancy-composite.md](occupancy-composite.md), [valu.md](../arch-
 
 | | |
 |---|---|
-| **Take** | Treat TRANS as **effective VALU throughput**, not MaxWaves: PIX / `llvm-calc-occupancy` book VGPR∩LDS slots; a wave issuing dense `v_exp` / `v_rcp` / `v_rsq` / … still holds those slots while the **8-wide / ¼-rate** path is the bottleneck (RDNA deck + GPC24). |
+| **Take** | Treat TRANS as **effective VALU throughput**, not MaxWaves: PIX / `llvm-calc-occupancy` book VGPR∩LDS slots; a wave issuing dense `v_exp` / `v_rcp` / `v_rsq` / … still holds those slots while the **8-wide / ¼-rate** path is the bottleneck (RDNA deck + GPC24). [^llvm-calc-occupancy][^rdna-arch] |
 | **Take** | Prefer **co-issue packing**: interleave non-trans VALU (`v_fma` / `fdot2` / address math) with transcendentals so the parallel non-trans pipe stays fed (deck schedule pairs `v_rcp_f32` with `v_fma_f32`). |
 | **Take** | Keep hot DOT / K loops **TRANS-light**: hoist softmax `exp` / `rcp` (and norms / `rsqrt`) **outside** the K inner loop ([lds-tiles.md](../lds-and-tiles/lds-tiles.md)). Prefer `v_cndmask` / scale math over `sin` / `cos` / `tan` in decode paths. |
 | **Take** | When VGPR∩LDS look full but rocprof / RGP shows high **transcendental / `SQ_INSTS_VALU_TRANS`** with low non-trans VALU busy, fix **math shape / schedule**, not another MaxWaves rung. |
 | **Take** | HIP: `__builtin_amdgcn_sched_barrier` / `sched_group_barrier` **TRANS** bit is real on gfx1030; the MFMA/WMMA sched bit is **Dead** here ([hip-craft.md](../hip-craft/hip-craft.md)). |
-| **Leave** | Do **not** put TRANS rate, SFU width, or “transcendental occupancy %” into `llvm-calc-occupancy` or PIX `WaveOccupancyLimiters`. |
-| **Leave** | Do **not** invent gfx1030 cycles-per-`v_exp`, SFU queue depth, or tok/s from this page. Deck gives ¼ rate + co-issue; stop there. ISA ch. 12 lists opcodes and accuracy (1ULP, …), not an occupancy formula. |
+| **Leave** | Do **not** put TRANS rate, SFU width, or “transcendental occupancy %” into `llvm-calc-occupancy` or PIX `WaveOccupancyLimiters`. [^llvm-calc-occupancy] |
+| **Leave** | Do **not** invent gfx1030 cycles-per-`v_exp`, SFU queue depth, or tok/s from this page. Deck gives ¼ rate + co-issue; stop there. ISA ch. 12 lists opcodes and accuracy (1ULP, …), not an occupancy formula. [^isa70648] |
 | **Leave** | Do **not** open UNC / retip extras / restate the FA pin. Softmax register path is FA craft; this page only names TRANS as out-of-min. |
 | **Leave** | Do **not** treat CDNA “5-issue” or RDNA3 VOPD as gfx1030 TRANS craft ([hip-craft.md](../hip-craft/hip-craft.md) §7.5). |
 
@@ -37,7 +49,7 @@ Companions: [occupancy-composite.md](occupancy-composite.md), [valu.md](../arch-
 
 ### 1.1 RDNA Architecture deck (primary rate + co-issue)
 
-GPUOpen RDNA Architecture presentation:
+GPUOpen RDNA Architecture presentation:[^rdna-arch]
 
 - Transcendental math co-execution: `rcp` / `rsq` / `sqrt` / `log` / `exp` / `sin` / `cos`
 - “Transcendental instructions are **¼ rate** (like GCN).”
@@ -45,13 +57,13 @@ GPUOpen RDNA Architecture presentation:
 
 Same deck: 1 VALU instruction / cycle / SIMD32 for ordinary wave32 VALU; dependency stalls filled by other waves. TRANS does **not** appear as a reservation resource next to VGPR / LDS.
 
-Source: https://gpuopen.com/download/RDNA_Architecture_public.pdf (local `/workspace/rdna2-src/rdna-arch.pdf`).
+Source: https://gpuopen.com/download/RDNA_Architecture_public.pdf (local `/workspace/rdna2-src/rdna-arch.pdf`).[^rdna-arch]
 
 ### 1.2 8-wide unit (GPC24)
 
-GPUOpen GPC24 “Occupancy explained through the AMD RDNA architecture” CU diagrams label **Transcendental (8-wide)** beside the main VALU / SALU. That width matches the ¼-rate framing for wave32 (32 lanes / 8 = 4 beats). PIX `WaveOccupancyLimiters` in the sibling Occupancy explained article stay **VGPR / LDS / Thread Group Size / Barriers** only — TRANS is drawn in the CU, never as a MaxWaves row.
+GPUOpen GPC24 “Occupancy explained through the AMD RDNA architecture” CU diagrams label **Transcendental (8-wide)** beside the main VALU / SALU. That width matches the ¼-rate framing for wave32 (32 lanes / 8 = 4 beats). PIX `WaveOccupancyLimiters` in the sibling Occupancy explained article stay **VGPR / LDS / Thread Group Size / Barriers** only — TRANS is drawn in the CU, never as a MaxWaves row.[^gpuopen-occupancy]
 
-Sources: https://gpuopen.com/download/GPC24_Occupancy_explained.pdf ; https://gpuopen.com/learn/occupancy-explained/
+Sources: https://gpuopen.com/download/GPC24_Occupancy_explained.pdf ; https://gpuopen.com/learn/occupancy-explained/[^gpuopen-download-gpc24-occupancy-explained-pdf][^gpuopen-occupancy]
 
 ### 1.3 ISA opcodes (Document 70648, ch. 12 / VOP1)
 
@@ -70,7 +82,7 @@ Local text: `/workspace/rdna2-src/rdna2-isa.txt`. HIP maps many of these through
 
 ### 1.4 Performance guide (secondary craft)
 
-GPUOpen RDNA Performance Guide: minimize `sin` / `cos` / `sqrt` / `log` / `rcp` (quarter rate); RDNA can co-execute transcendentals; `tan` expands to **three** transcendentals (`sin`/`cos`); avoid arc (`atan` / `acos`) expansions that can cost 100+ cycles of codegen.
+GPUOpen RDNA Performance Guide: minimize `sin` / `cos` / `sqrt` / `log` / `rcp` (quarter rate); RDNA can co-execute transcendentals; `tan` expands to **three** transcendentals (`sin`/`cos`); avoid arc (`atan` / `acos`) expansions that can cost 100+ cycles of codegen.[^gpuopen-learn-rdna-performance-guide]
 
 https://gpuopen.com/learn/rdna-performance-guide/
 
@@ -78,7 +90,7 @@ https://gpuopen.com/learn/rdna-performance-guide/
 
 | Piece | Role |
 |---|---|
-| `GCNSubtarget::computeOccupancy` / `llvm-calc-occupancy` | `min(WG+LDS, SGPR, VGPR)` only — **no** TRANS / SFU term ([occupancy-composite.md](occupancy-composite.md)) |
+| `GCNSubtarget::computeOccupancy` / `llvm-calc-occupancy` | `min(WG+LDS, SGPR, VGPR)` only — **no** TRANS / SFU term ([occupancy-composite.md](occupancy-composite.md)) [^llvm-calc-occupancy] |
 | Sched classes | LLVM D81011 / `SISchedule.td`: separate transcendental sched classes (GFX10SpeedModel; “F16 or F32 transcendental instructions (these are quarter rate)”) — scheduling, not MaxWaves |
 | `AMDGPUInsertDelayAlu` | Distinguishes VALU / SALU / TRANS delay kinds on newer gens; gfx1030 craft still “¼ rate + co-issue,” not invent delay tables |
 | `__builtin_amdgcn_sched_barrier` / `sched_group_barrier` | Mask bits include **TRANS**; MFMA/WMMA bit Dead on gfx1030 ([hip-craft.md](../hip-craft/hip-craft.md)) |
@@ -94,7 +106,7 @@ Theoretical waves/EU ([occupancy-composite.md](occupancy-composite.md)):
 waves/EU = min(VGPR, SGPR→always 16, LDS+WG+barrier)
 ```
 
-| Resource | In PIX MaxWaves / `llvm-calc-occupancy`? | Effect when stressed |
+| Resource | In PIX MaxWaves / `llvm-calc-occupancy`? | Effect when stressed [^llvm-calc-occupancy] |
 |---|---|---|
 | VGPR / LDS / WG / Barriers | **Yes** | Caps reserved wave slots |
 | Waitcnt / caches / clauses / SPI / EXEC | **No** | Park / thrash / interleave / refill / lane-idle (siblings) |
@@ -119,7 +131,7 @@ That is **not** “raise MaxWaves.” Fix math placement (hoist, approximate wit
 3. Decode: avoid `sin`/`cos`/`tan` for gating or rotary if a rotate/`v_cndmask`/precomputed table path exists; `tan` → three TRANS.
 4. When a TRANS burst is unavoidable, leave **independent non-trans** work (address, DOT, integer) adjacent so co-issue can fire; do not serialize pure TRANS chains if FMA can sit beside them.
 5. Profile with `SQ_INSTS_VALU_TRANS` vs ordinary VALU (and `VALUBusy`) before blaming VGPR pressure.
-6. Occupancy still sized with `llvm-calc-occupancy` + `hipOccupancyMaxActiveBlocksPerMultiprocessor` — TRANS density does not appear in either.
+6. Occupancy still sized with `llvm-calc-occupancy` + `hipOccupancyMaxActiveBlocksPerMultiprocessor` — TRANS density does not appear in either.[^llvm-calc-occupancy]
 
 ## 5. What this page adds vs existing wiki
 
@@ -136,13 +148,13 @@ That is **not** “raise MaxWaves.” Fix math placement (hoist, approximate wit
 
 ## 6. Sources
 
-1. GPUOpen RDNA Architecture presentation — transcendental ¼ rate + co-issue — https://gpuopen.com/download/RDNA_Architecture_public.pdf
-2. GPUOpen GPC24 Occupancy explained (PDF) — Transcendental (8-wide) on CU diagram; not a reservation limiter — https://gpuopen.com/download/GPC24_Occupancy_explained.pdf
-3. GPUOpen Occupancy explained — PIX limiters VGPR / LDS / threadgroup / barriers — https://gpuopen.com/learn/occupancy-explained/
-4. GPUOpen RDNA Performance Guide — minimize TRANS; `tan`→3; avoid arc expansions — https://gpuopen.com/learn/rdna-performance-guide/
-5. RDNA 2 ISA Reference Guide, Document ID **70648** — ch. 12 VOP1 opcodes (`V_EXP_F32`, `V_RCP_*`, …). Local: `/workspace/rdna2-src/rdna2-isa.txt`
-6. LLVM `GCNSubtarget::computeOccupancy` / `llvm-calc-occupancy` — no TRANS term — https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
-7. LLVM D81011 — transcendental sched classes (quarter rate) — https://reviews.llvm.org/D81011
+1. GPUOpen RDNA Architecture presentation — transcendental ¼ rate + co-issue — https://gpuopen.com/download/RDNA_Architecture_public.pdf[^rdna-arch]
+2. GPUOpen GPC24 Occupancy explained (PDF) — Transcendental (8-wide) on CU diagram; not a reservation limiter — https://gpuopen.com/download/GPC24_Occupancy_explained.pdf[^gpuopen-download-gpc24-occupancy-explained-pdf][^gpuopen-occupancy]
+3. GPUOpen Occupancy explained — PIX limiters VGPR / LDS / threadgroup / barriers — https://gpuopen.com/learn/occupancy-explained/[^gpuopen-occupancy]
+4. GPUOpen RDNA Performance Guide — minimize TRANS; `tan`→3; avoid arc expansions — https://gpuopen.com/learn/rdna-performance-guide/[^gpuopen-learn-rdna-performance-guide]
+5. RDNA 2 ISA Reference Guide, Document ID **70648** — ch. 12 VOP1 opcodes (`V_EXP_F32`, `V_RCP_*`, …). Local: `/workspace/rdna2-src/rdna2-isa.txt`[^isa70648]
+6. LLVM `GCNSubtarget::computeOccupancy` / `llvm-calc-occupancy` — no TRANS term — https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html[^llvm-calc-occupancy]
+7. LLVM D81011 — transcendental sched classes (quarter rate) — https://reviews.llvm.org/D81011[^reviews-d81011]
 8. Wiki companions: [occupancy-composite.md](occupancy-composite.md), [architecture.md](../arch-and-memory/architecture.md), [hip-craft.md](../hip-craft/hip-craft.md), [lds-tiles.md](../lds-and-tiles/lds-tiles.md)
 
 ## 7. Cross-links
@@ -159,3 +171,16 @@ That is **not** “raise MaxWaves.” Fix math placement (hoist, approximate wit
 | [hard-clause-occupancy.md](hard-clause-occupancy.md) | Clause is same-type burst; TRANS mix is a different pipe story |
 | [spi-ace-occupancy.md](spi-ace-occupancy.md) | Slot fill — not SFU mix inside a slot |
 | [fa-occupancy.md](../attention/fa-occupancy.md) | Softmax TRANS class — craft only, no FA pin |
+
+## Sources
+
+Primary sources for this page, cited inline as footnotes:
+
+[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
+[^rdna-arch]: AMD, "RDNA Architecture" (GPUOpen, 2019). https://gpuopen.com/download/RDNA_Architecture_public.pdf (checked 2026-10-11)
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
+[^gpuopen-download-gpc24-occupancy-explained-pdf]: gpuopen.com/download/GPC24_Occupancy_explained.pdf. https://gpuopen.com/download/GPC24_Occupancy_explained.pdf (checked 2026-10-11)
+[^gpuopen-learn-rdna-performance-guide]: RDNA Performance Guide - AMD GPUOpen. https://gpuopen.com/learn/rdna-performance-guide/ (checked 2026-10-11)
+[^reviews-d81011]: ⚙ D81011 (AMDGPU) Introduce new sched classes for transcendental instructions. https://reviews.llvm.org/D81011 (checked 2026-10-11)
+

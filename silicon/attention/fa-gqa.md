@@ -1,10 +1,29 @@
+---
+title: "FA GQA (gfx1030)"
+sources:
+  - https://github.com/opengfx1030/vllm-rdna/commit/bc5fbee5d0a1f0661e2a5dbbab9857b3d4de1a50
+  - https://github.com/opengfx1030/vllm-rdna/commit/bb40498cc00255281be56973ce61b743885f37a9
+  - https://github.com/opengfx1030/vllm-rdna/commit/284fbad0a146db28a8fb19a7c16b1fac6a374693
+  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/commit/6ed390937941971770e5babe8442f48401159409
+  - https://github.com/opengfx1030/vllm-rdna/commit/e0112c55e48d85030450edab706a77645166d93b
+  - https://github.com/opengfx1030/vllm-rdna/commit/83e6af80d4bf7a4f99b64a97af077f4d299726a2
+  - https://github.com/opengfx1030/vllm-rdna/commit/bfd5286d846b78097ef2500a77fb25b5652c3652
+  - https://github.com/opengfx1030/vllm-rdna/commit/97fbae588d0e0aea69dadc2da32af4659c9d0b3b
+  - https://github.com/opengfx1030/vllm-rdna/commit/f22fee0268056d7d521ffa390ca20b87b4ff6d66
+  - https://github.com/opengfx1030/vllm-rdna/commit/50120e13b46895fc5d074e88fc493f1eef69da9f
+  - https://github.com/opengfx1030/vllm-rdna/commit/5c3c0c6f53a3bffc20319de5621f1e560ffa4ab4
+  - https://github.com/opengfx1030/vllm-rdna/commit/d1b200b1c1ceb204c2a6cbc85b80f9b6526d052f
+  - https://github.com/opengfx1030/vllm-rdna/commit/13a3daf458f46986d379fae8fd29b7b258892c73
+---
+
 # FA GQA (gfx1030)
 
 ## extras lock 2026-10-02 — tip `bb40498c` (PR #34 GQA prefill HEAD_DIM 128/256)
 
-Dest: `opengfx1030/vllm-rdna` `rdna_extras` (`bc5fbee5`→`bb40498c`, +3; silicon in `284fbad0`, then bench/docs). Occupancy first. No tok/s. No fabricated occupancy %.
+Dest: `opengfx1030/vllm-rdna` `rdna_extras` (`bc5fbee5`→`bb40498c`, +3; silicon in `284fbad0`, then bench/docs). Occupancy first. No tok/s. No fabricated occupancy %.[^commit-bc5fbee5][^commit-bb40498c][^commit-284fbad0]
 
-`csrc/rocm/fa_rdna2.cu` + `rdna_attn.py` / `fa_rdna2_backend.py` dispatch:
+`csrc/rocm/fa_rdna2.cu` + `rdna_attn.py` / `fa_rdna2_backend.py` dispatch:[^extras-fa-rdna2-cu]
 
 | Surface | Lock |
 |---|---|
@@ -21,16 +40,16 @@ Do not invent numbers. Do not copy tok/s. Occupancy card stays open — GQA pref
 
 ## extras lock 2026-09-28 — tip `e0112c55` (PR #29 split decode + row gate)
 
-Dest: `opengfx1030/vllm-rdna` `rdna_extras` (`6ed39093`→`e0112c55`, +4 incl. merge of PR #29). Occupancy first. No tok/s. No fabricated occupancy %.
+Dest: `opengfx1030/vllm-rdna` `rdna_extras` (`6ed39093`→`e0112c55`, +4 incl. merge of PR #29). Occupancy first. No tok/s. No fabricated occupancy %.[^commit-6ed39093][^commit-e0112c55]
 
-`csrc/rocm/fa_rdna2.cu` + ops/bindings + `rdna_attn.py` dispatch:
+`csrc/rocm/fa_rdna2.cu` + ops/bindings + `rdna_attn.py` dispatch:[^extras-fa-rdna2-cu]
 
 | Surface | Lock |
 |---|---|
 | Decode multi-token | Device helper `fa_decode_token_seq`: with optional `cu_query_lens`, map query token → sequence and per-token causal `kv_len = seq_len - (end - 1 - tok)` (graph padding past `cu[-1]` → 0). Without it, one query token per sequence (prior contract). |
 | Kernel signature | Decode kernels (D=128 `__launch_bounds__(128)`, D=256 / GQA `__launch_bounds__(256)`) take `cu_query_lens` + `num_seqs`; `block_table` / `seq_lens` indexed by **sequence**, not token. |
 | Host ops | `fa_rdna2_decode_paged(..., out, cu_query_lens=None)`; fp8/int8 decode paths pass `nullptr, 0` (no multi-token yet). |
-| Dispatch | Replaces the per-position verify-through-decode Python loop (`83e6af80`) with one `fa_rdna2_decode_paged` launch over decode-first tokens + `decode_query_start_loc`. Mixed batches: decode slice then `_forward_prefill` on the rest. |
+| Dispatch | Replaces the per-position verify-through-decode Python loop (`83e6af80`) with one `fa_rdna2_decode_paged` launch over decode-first tokens + `decode_query_start_loc`. Mixed batches: decode slice then `_forward_prefill` on the rest. [^commit-83e6af80] |
 | Row gate | Split decode only when `num_decode_tokens * num_heads <= 256` (`_SPLIT_DECODE_MAX_ROWS`); above that route the batch through prefill. Env `VLLM_FA_RDNA2_SPLIT_DECODE` defaults **1**. |
 | Capture | With split decode + `VLLM_FA_RDNA2_VERIFY_FULL_GRAPH=1` (default **on**): `UNIFORM_BATCH`. Capture zeros `seq_lens` and `query_start_loc`. hippihx V1 single-token hook + `supports_draft_decode_metadata_update` retained. |
 | Unchanged ISA | Still `__launch_bounds__(128|256)` (prefill often `(N, 1)`); `__builtin_amdgcn_fdot2`; XOR LDS swizzle; `fa_clip_kv_walk` / `fa_masked` / GQA register softmax. CMake gfx1030 list unchanged. |
@@ -48,9 +67,9 @@ Dest: `opengfx1030/vllm-rdna` `rdna_extras`. Occupancy first. No tok/s. No fabri
 
 | Surface | Lock |
 |---|---|
-| Production launcher FA | `serve_gfx1030_flashnext.sh`: `VLLM_USE_RDNA2_FA` defaults **1**; `VLLM_FA_RDNA2_GQA_DECODE` defaults **1** (overridable; `VLLM_USE_RDNA2_FA=0` falls back to Triton). Mirrors MTP launcher defaults at `83e6af80`. |
+| Production launcher FA | `serve_gfx1030_flashnext.sh`: `VLLM_USE_RDNA2_FA` defaults **1**; `VLLM_FA_RDNA2_GQA_DECODE` defaults **1** (overridable; `VLLM_USE_RDNA2_FA=0` falls back to Triton). Mirrors MTP launcher defaults at `83e6af80`. [^commit-83e6af80] |
 | Tree pin | Same script exports `PYTHONPATH=<script's tree>` first so the served code matches the launcher (avoids a copied venv's other-tree editable finder winning). |
-| Unchanged ISA | Still `__launch_bounds__(128|256)` (prefill often `(N, 1)`); `__builtin_amdgcn_fdot2`; XOR LDS swizzle; `fa_clip_kv_walk` / `fa_masked` / GQA register softmax; MTP verify-through-decode as at `83e6af80`. |
+| Unchanged ISA | Still `__launch_bounds__(128|256)` (prefill often `(N, 1)`); `__builtin_amdgcn_fdot2`; XOR LDS swizzle; `fa_clip_kv_walk` / `fa_masked` / GQA register softmax; MTP verify-through-decode as at `83e6af80`. [^commit-83e6af80] |
 
 Production as-shipped confirmation run on this launcher was still pending free GPUs at commit time — do not invent numbers. Do not copy tok/s.
 
@@ -67,7 +86,7 @@ Dest: `opengfx1030/vllm-rdna` `rdna_extras`. Occupancy first. No tok/s. No fabri
 | MTP verify path | Uniform short causal batches (`1 < max_seqlen_q <= 8` and `sum(q_lens) == nseq * max`) run one `fa_rdna2_decode_paged` per position with `seq_len_i = S - (L-1-i)` — exact per-token causal prefix; reuses validated decode kernel (no prefill walk). |
 | Capture metadata | `RdnaAttentionMetadataBuilder` `_cudagraph_support` = `UNIFORM_BATCH` (was `UNIFORM_SINGLE_TOKEN_DECODE`); `supports_draft_decode_metadata_update = True`. Capture zeros `seq_lens` only; keeps capture-shaped `query_start_loc`. |
 | MTP launcher defaults | `serve_gfx1030_flashnext_mtp.sh`: `ATTN` default **fa** (was triton; `ATTN=triton` remains fallback). When fa: `VLLM_USE_RDNA2_FA=1` and `VLLM_FA_RDNA2_GQA_DECODE` defaults **1** (was opt-in off). |
-| Unchanged ISA | Still `__launch_bounds__(128|256)` (prefill often `(N, 1)`); `__builtin_amdgcn_fdot2`; XOR LDS swizzle; `fa_clip_kv_walk` / `fa_masked` / GQA register softmax as at `bfd5286d`. |
+| Unchanged ISA | Still `__launch_bounds__(128|256)` (prefill often `(N, 1)`); `__builtin_amdgcn_fdot2`; XOR LDS swizzle; `fa_clip_kv_walk` / `fa_masked` / GQA register softmax as at `bfd5286d`. [^commit-bfd5286d] |
 
 QSA still blocks the fused draft path (`supports_draft_decode_metadata_update` is inert there). Do not invent numbers. Do not copy tok/s.
 
@@ -77,7 +96,7 @@ QSA still blocks the fused draft path (`supports_draft_decode_metadata_update` i
 
 Dest: `opengfx1030/vllm-rdna` `rdna_extras`. Occupancy first. No tok/s. No fabricated occupancy %.
 
-`fa_prefill_paged_varlen_gqa_kernel_256` + shared helpers in `csrc/rocm/fa_rdna2.cu`:
+`fa_prefill_paged_varlen_gqa_kernel_256` + shared helpers in `csrc/rocm/fa_rdna2.cu`:[^extras-fa-rdna2-cu]
 
 | Surface | Lock |
 |---|---|
@@ -89,21 +108,21 @@ Dest: `opengfx1030/vllm-rdna` `rdna_extras`. Occupancy first. No tok/s. No fabri
 | Host / persist | Ops take model softmax `scale` + caller-provided `out` (RDNA_ATTN in-place); drop staging memset/`copy_`; `rdna2_persist_empty` for fully-overwritten decode/split-K scratch (GEMM/AR `rdna2_persist_zeros` unchanged). |
 | Unchanged ISA | Still `__launch_bounds__(128|256)` (prefill often `(N, 1)`); `__builtin_amdgcn_fdot2`; XOR LDS swizzle where previously present. Default ATTN remains triton; FA path opt-in `VLLM_USE_RDNA2_FA`. |
 
-CMake gfx1030 append list: **unchanged** this tip window. `97fbae58` (hippihx V1) and `f22fee02` (HIP MoE MTP) are Python-only — no `csrc/rocm` object contract.
+CMake gfx1030 append list: **unchanged** this tip window. `97fbae58` (hippihx V1) and `f22fee02` (HIP MoE MTP) are Python-only — no `csrc/rocm` object contract.[^commit-97fbae58][^commit-f22fee02]
 
 ---
 
-Dest: `opengfx1030/vllm-rdna` `rdna_extras` tip **`50120e13`** (was through `5c3c0c6f`; silicon delta `d1b200b1`). No tok/s.
+Dest: `opengfx1030/vllm-rdna` `rdna_extras` tip **`50120e13`** (was through `5c3c0c6f`; silicon delta `d1b200b1`). No tok/s.[^commit-50120e13][^commit-5c3c0c6f][^commit-d1b200b1]
 
 ## Prefill
 
 - Templated multi-q-head CTA sharing K/V smem.
 - **Production default = subgroup** (`HEADS_PER_CTA=2`, BR=8).
-- `true` GQA variant dropped from dest (`13a3daf4`); env `VLLM_FA_RDNA2_GQA_MODE` = `subgroup|off` (subgroup default). Do not resurrect true-GQA without new soak.
+- `true` GQA variant dropped from dest (`13a3daf4`); env `VLLM_FA_RDNA2_GQA_MODE` = `subgroup|off` (subgroup default). Do not resurrect true-GQA without new soak.[^commit-13a3daf4]
 
 ### extras lock 2026-09-17 (tip `50120e13`, HIP `d1b200b1`)
 
-`fa_prefill_paged_varlen_gqa_kernel_256` in `csrc/rocm/fa_rdna2.cu`:
+`fa_prefill_paged_varlen_gqa_kernel_256` in `csrc/rocm/fa_rdna2.cu`:[^extras-fa-rdna2-cu]
 
 | Surface | Delta |
 |---|---|
@@ -121,3 +140,23 @@ Still fdot2 / half2. No `__launch_bounds__` change on this kernel. LDS pressure 
 ## Occupancy
 
 Prefill kernels still carry `__launch_bounds__(128|256, 1)` — **occupancy still first**. Register-O is an LDS shrink on this GQA kernel only, not the occupancy-card close. Same leftover as [fa-occupancy.md](fa-occupancy.md).
+
+## Sources
+
+Primary sources for this page, cited inline as footnotes:
+
+[^commit-bc5fbee5]: opengfx1030/vllm-rdna commit `bc5fbee5d0a1`. https://github.com/opengfx1030/vllm-rdna/commit/bc5fbee5d0a1f0661e2a5dbbab9857b3d4de1a50 (exists, verified via GitHub API 2026-10-11)
+[^commit-bb40498c]: opengfx1030/vllm-rdna commit `bb40498cc002`. https://github.com/opengfx1030/vllm-rdna/commit/bb40498cc00255281be56973ce61b743885f37a9 (exists, verified via GitHub API 2026-10-11)
+[^commit-284fbad0]: opengfx1030/vllm-rdna commit `284fbad0a146`. https://github.com/opengfx1030/vllm-rdna/commit/284fbad0a146db28a8fb19a7c16b1fac6a374693 (exists, verified via GitHub API 2026-10-11)
+[^extras-fa-rdna2-cu]: `csrc/rocm/fa_rdna2.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu
+[^commit-6ed39093]: opengfx1030/vllm-rdna commit `6ed390937941`. https://github.com/opengfx1030/vllm-rdna/commit/6ed390937941971770e5babe8442f48401159409 (exists, verified via GitHub API 2026-10-11)
+[^commit-e0112c55]: opengfx1030/vllm-rdna commit `e0112c55e48d`. https://github.com/opengfx1030/vllm-rdna/commit/e0112c55e48d85030450edab706a77645166d93b (exists, verified via GitHub API 2026-10-11)
+[^commit-83e6af80]: opengfx1030/vllm-rdna commit `83e6af80d4bf`. https://github.com/opengfx1030/vllm-rdna/commit/83e6af80d4bf7a4f99b64a97af077f4d299726a2 (exists, verified via GitHub API 2026-10-11)
+[^commit-bfd5286d]: opengfx1030/vllm-rdna commit `bfd5286d846b`. https://github.com/opengfx1030/vllm-rdna/commit/bfd5286d846b78097ef2500a77fb25b5652c3652 (exists, verified via GitHub API 2026-10-11)
+[^commit-97fbae58]: opengfx1030/vllm-rdna commit `97fbae588d0e`. https://github.com/opengfx1030/vllm-rdna/commit/97fbae588d0e0aea69dadc2da32af4659c9d0b3b (exists, verified via GitHub API 2026-10-11)
+[^commit-f22fee02]: opengfx1030/vllm-rdna commit `f22fee026805`. https://github.com/opengfx1030/vllm-rdna/commit/f22fee0268056d7d521ffa390ca20b87b4ff6d66 (exists, verified via GitHub API 2026-10-11)
+[^commit-50120e13]: opengfx1030/vllm-rdna commit `50120e13b468`. https://github.com/opengfx1030/vllm-rdna/commit/50120e13b46895fc5d074e88fc493f1eef69da9f (exists, verified via GitHub API 2026-10-11)
+[^commit-5c3c0c6f]: opengfx1030/vllm-rdna commit `5c3c0c6f53a3`. https://github.com/opengfx1030/vllm-rdna/commit/5c3c0c6f53a3bffc20319de5621f1e560ffa4ab4 (exists, verified via GitHub API 2026-10-11)
+[^commit-d1b200b1]: opengfx1030/vllm-rdna commit `d1b200b1c1ce`. https://github.com/opengfx1030/vllm-rdna/commit/d1b200b1c1ceb204c2a6cbc85b80f9b6526d052f (exists, verified via GitHub API 2026-10-11)
+[^commit-13a3daf4]: opengfx1030/vllm-rdna commit `13a3daf458f4`. https://github.com/opengfx1030/vllm-rdna/commit/13a3daf458f46986d379fae8fd29b7b258892c73 (exists, verified via GitHub API 2026-10-11)
+

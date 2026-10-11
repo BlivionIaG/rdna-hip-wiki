@@ -1,6 +1,15 @@
+---
+title: "EXEC / lane divergence vs effective occupancy (gfx1030)"
+sources:
+  - https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
+  - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
+  - https://gpuopen.com/learn/occupancy-explained/
+  - https://llvm.org/docs/AMDGPUUsage.html
+---
+
 # EXEC / lane divergence vs effective occupancy (gfx1030)
 
-Lock: **`EXEC` mask / lane divergence is not a PIX / `llvm-calc-occupancy` MaxWaves limiter.** Control flow on RDNA is **scalar** (whole-wave); lane-varying predicates update **`EXEC`**, and inactive lanes treat vector ops as **NOP**. The wave still **occupies** its VGPR∩LDS slot while doing little or no useful SIMD work. Completes the occupancy-adjacent set next to [waitcnt-occupancy.md](waitcnt-occupancy.md) (parked while waiting) and [spi-ace-occupancy.md](spi-ace-occupancy.md) (empty slots): here the slot is **filled** but **lane-idle**.
+Lock: **`EXEC` mask / lane divergence is not a PIX / `llvm-calc-occupancy` MaxWaves limiter.** Control flow on RDNA is **scalar** (whole-wave); lane-varying predicates update **`EXEC`**, and inactive lanes treat vector ops as **NOP**. The wave still **occupies** its VGPR∩LDS slot while doing little or no useful SIMD work. Completes the occupancy-adjacent set next to [waitcnt-occupancy.md](waitcnt-occupancy.md) (parked while waiting) and [spi-ace-occupancy.md](spi-ace-occupancy.md) (empty slots): here the slot is **filled** but **lane-idle**.[^llvm-calc-occupancy]
 
 Does **not** change extras HIP or UNC tickets. No tok/s. Do not restate the FA pin.
 
@@ -8,7 +17,7 @@ Does **not** change extras HIP or UNC tickets. No tok/s. Do not restate the FA p
 
 | Term | Meaning on gfx1030 |
 |---|---|
-| **`EXEC`** | Per-wave bit mask (ISA §3.3): 1 = lane executes vector op, 0 = dormant / NOP. Wave32 uses the **low 32** bits; upper half ignored. |
+| **`EXEC`** | Per-wave bit mask (ISA §3.3): 1 = lane executes vector op, 0 = dormant / NOP. Wave32 uses the **low 32** bits; upper half ignored. [^isa70648] |
 | **`EXECZ` / `EXECNZ`** | Status helpers: all-active-bits zero / not. Used by `S_CBRANCH_EXECZ` / `_EXECNZ`. |
 | **Lane divergence** | Lanes disagree on a predicate → compiler saves/restores `EXEC` (`s_and_saveexec` / `s_or_b64 exec, …`) and may emit `s_cbranch_execz` to skip a block when no lane is active. |
 | **Uniform control flow** | Whole-wave branch (`S_CBRANCH_*` on SCC / VCCZ / EXECZ) — PC change, not a per-lane branch unit. |
@@ -21,11 +30,11 @@ Companions: [occupancy-composite.md](occupancy-composite.md), [wave-size-occupan
 
 | | |
 |---|---|
-| **Take** | Treat divergence as **effective SIMD utilization**, not MaxWaves: PIX / `llvm-calc-occupancy` book wave slots; a wave with sparse `EXEC` still holds those slots while inactive lanes burn issue width as NOPs (ISA §2 / §3.3). |
+| **Take** | Treat divergence as **effective SIMD utilization**, not MaxWaves: PIX / `llvm-calc-occupancy` book wave slots; a wave with sparse `EXEC` still holds those slots while inactive lanes burn issue width as NOPs (ISA §2 / §3.3). [^isa70648][^llvm-calc-occupancy] |
 | **Take** | Prefer **uniform** predicates (same outcome for all lanes in the wave) or **predicated** selects (`v_cndmask` / compare→mask) over divergent `if` trees in hot DOT / K / KV loops. When a mask is lane-varying by construction (causal window, expert routing), keep the hot path as **mask arithmetic** so both sides are not serialized under alternating `EXEC`. |
-| **Take** | On HIP default **wave32**, remember ISA’s EXEC=0 skip rules: **VALU** may be skipped (unless it writes SGPR/VCC); **wave32 memory instructions are not skipped** when `EXEC` is zero — use `S_CBRANCH_EXECZ` / compiler `s_cbranch_execz` to jump over dead VMEM blocks (ISA §3.3). Wave64 can skip a half when that half’s `EXEC` is 0 ([wave-size-occupancy.md](wave-size-occupancy.md)). |
+| **Take** | On HIP default **wave32**, remember ISA’s EXEC=0 skip rules: **VALU** may be skipped (unless it writes SGPR/VCC); **wave32 memory instructions are not skipped** when `EXEC` is zero — use `S_CBRANCH_EXECZ` / compiler `s_cbranch_execz` to jump over dead VMEM blocks (ISA §3.3). Wave64 can skip a half when that half’s `EXEC` is 0 ([wave-size-occupancy.md](wave-size-occupancy.md)). [^isa70648] |
 | **Take** | When dumping ISA, expect `s_and_saveexec_*` / `s_or_b* exec` around divergent regions and optional `s_cbranch_execz`. Spurious execz on **always-partially-active** predicates (e.g. even/odd tid) is a compiler peephole smell (LLVM `SIAnnotateControlFlow` + `SIPreEmitPeephole`; varying-weight work after PR #117567 → #123749) — not a PIX occupancy miss. |
-| **Leave** | Do **not** put active-lane count, `EXEC` density, or “divergence occupancy %” into `llvm-calc-occupancy` or PIX `WaveOccupancyLimiters`. |
+| **Leave** | Do **not** put active-lane count, `EXEC` density, or “divergence occupancy %” into `llvm-calc-occupancy` or PIX `WaveOccupancyLimiters`. [^llvm-calc-occupancy] |
 | **Leave** | Do **not** invent cycles-per-divergent-branch, lane-utilization tables, or a gfx1030 “branch unit occupancy” number. Do not open UNC / retip extras for this page. |
 | **Leave** | Do **not** copy CDNA/MFMA “matrix wave” divergence lore onto packed DOT — gfx1030 DOT is per-lane (`fdot2` / `sdot4`), still under `EXEC`. |
 
@@ -72,13 +81,13 @@ Theoretical waves/EU ([occupancy-composite.md](occupancy-composite.md)):
 waves/EU = min(VGPR, SGPR→always 16, LDS+WG+barrier)
 ```
 
-| Resource | In PIX MaxWaves / `llvm-calc-occupancy`? | Effect when stressed |
+| Resource | In PIX MaxWaves / `llvm-calc-occupancy`? | Effect when stressed [^llvm-calc-occupancy] |
 |---|---|---|
 | VGPR / LDS / WG / Barriers | **Yes** | Caps reserved wave slots |
 | Waitcnt / caches / clauses / SPI | **No** | Park / thrash / interleave / refill (siblings) |
 | **`EXEC` / lane divergence** | **No** | Slots stay reserved; inactive lanes NOP; wave32 still **issues** VMEM under empty `EXEC` unless branched over — weak **effective** SIMD work while theory looks full |
 
-GPUOpen Occupancy explained: occupancy = assigned waves / 16 slots per SIMD (RDNA2); purpose is **hiding memory latency** by switching waves. It lists VGPR / LDS / threadgroup / barriers as reservation limiters — **not** active-lane density. Divergence is a **utilization** problem on an already-assigned wave, orthogonal to whether SPI filled the slot.
+GPUOpen Occupancy explained: occupancy = assigned waves / 16 slots per SIMD (RDNA2); purpose is **hiding memory latency** by switching waves. It lists VGPR / LDS / threadgroup / barriers as reservation limiters — **not** active-lane density. Divergence is a **utilization** problem on an already-assigned wave, orthogonal to whether SPI filled the slot.[^gpuopen-occupancy]
 
 Mental model (no invented cycles):
 
@@ -98,7 +107,7 @@ That is **not** “raise MaxWaves.” Fix predicate shape (uniformize, predicati
 2. When a divergent region is unavoidable and often **all-inactive**, keep the compiler’s `s_cbranch_execz` (or an equivalent early-out); when it is **always partially active**, expect execz to be useless — don’t hand-add more.
 3. Wave32 produce: do not assume empty-`EXEC` VMEM is free — ISA does not skip it; branch over or don’t emit.
 4. Intra-wave reductions: DPP / `permlane` / `__shfl_xor` under full `EXEC` ([hip-craft.md](../hip-craft/hip-craft.md) §5.2) — divergence mid-reduce needs an explicit mask story.
-5. Occupancy still sized with `llvm-calc-occupancy` + `hipOccupancyMaxActiveBlocksPerMultiprocessor` — `EXEC` density does not appear in either.
+5. Occupancy still sized with `llvm-calc-occupancy` + `hipOccupancyMaxActiveBlocksPerMultiprocessor` — `EXEC` density does not appear in either.[^llvm-calc-occupancy]
 
 ## 5. What this page adds vs existing wiki
 
@@ -113,9 +122,9 @@ That is **not** “raise MaxWaves.” Fix predicate shape (uniformize, predicati
 
 ## 6. Sources
 
-1. RDNA 2 ISA Reference Guide, Document ID **70648** — §2 program organization (scalar CF + EXEC); §2.1 wave32/64 half-skip; §3.3 EXECute mask + EXEC=0 skip limitations; §4.2 branching / subvector. Local text: `/workspace/rdna2-src/rdna2-isa.txt`.
-2. GPUOpen Occupancy explained — reservation limiters only; latency hiding via wave switch — https://gpuopen.com/learn/occupancy-explained/ (2023-12-20 / 2024-06-26)
-3. LLVM AMDGPUUsage — gfx1030 / wavefrontsize / cumode — https://llvm.org/docs/AMDGPUUsage.html
+1. RDNA 2 ISA Reference Guide, Document ID **70648** — §2 program organization (scalar CF + EXEC); §2.1 wave32/64 half-skip; §3.3 EXECute mask + EXEC=0 skip limitations; §4.2 branching / subvector. Local text: `/workspace/rdna2-src/rdna2-isa.txt`.[^isa70648]
+2. GPUOpen Occupancy explained — reservation limiters only; latency hiding via wave switch — https://gpuopen.com/learn/occupancy-explained/ (2023-12-20 / 2024-06-26)[^gpuopen-occupancy]
+3. LLVM AMDGPUUsage — gfx1030 / wavefrontsize / cumode — https://llvm.org/docs/AMDGPUUsage.html[^llvm-amdgpuusage]
 4. LLVM control-flow / execz — `SIAnnotateControlFlow`; PR #117567 (closed) / #123749 (follow-on) on spurious `s_cbranch_execz` when predicates are likely varying
 5. Wiki companions: [occupancy-composite.md](occupancy-composite.md), [wave-size-occupancy.md](wave-size-occupancy.md), [waitcnt-occupancy.md](waitcnt-occupancy.md), [hip-craft.md](../hip-craft/hip-craft.md)
 
@@ -131,3 +140,13 @@ That is **not** “raise MaxWaves.” Fix predicate shape (uniformize, predicati
 | [hip-craft.md](../hip-craft/hip-craft.md) | Wave32 contract; DPP / predication craft |
 | [valu.md](../arch-and-memory/valu.md) | Per-lane DOT still under EXEC |
 | [vgpr-occupancy.md](vgpr-occupancy.md) | Divergent live ranges can raise VGPR — measure the cliff; don’t invent an EXEC MaxWaves row |
+
+## Sources
+
+Primary sources for this page, cited inline as footnotes:
+
+[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
+[^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)
+

@@ -1,3 +1,22 @@
+---
+title: "Graph capture vs the RDNA2 page-commit guard — silicon"
+sources:
+  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/torch_bindings.cpp
+  - https://github.com/opengfx1030/vllm-rdna/commit/faf87f80fb0d979f2d3a546bae005cddd74a0a19
+  - https://github.com/opengfx1030/vllm-rdna/commit/f93619500c3e55daee5f60ae7f6d4279cdeb3f0d
+  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/compilation/cuda_graph.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/layernorm.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/skinny_gemms.cu
+  - https://github.com/opengfx1030/vllm-rdna/commit/c350fa218a55ea62e98fa068d13354321fc9e74b
+  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/ple_short_conv_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/commit/b26763e77d913a3d0f946048310580454cec0ee6
+  - https://github.com/opengfx1030/vllm-rdna/commit/143e2bf3262564d34cc4cbf6e1f13d6cd4ac65d7
+  - https://github.com/opengfx1030/vllm-rdna/commit/3092d635295aa02f714832f539fa647be95db8f7
+  - https://github.com/opengfx1030/vllm-rdna/commit/bb4cb3bdaaecaf4d7bc6788d4906181c3cc5730e
+  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/hc_rdna2.cu
+---
+
 # Graph capture vs the RDNA2 page-commit guard — silicon
 
 Dest: `opengfx1030/vllm-rdna` `rdna_extras`. Two separate rules, one lock:
@@ -44,8 +63,8 @@ Two commits, both 2026-09-03 12:11. HIP delta is one schema character; the rest 
 
 | Commit | File | Delta |
 |---|---|---|
-| `faf87f80` | `csrc/rocm/torch_bindings.cpp` | `exl3_hadamard_128(Tensor input, Tensor output, …)` → **`Tensor! output`**. +1/−1. Impl and `.cu` untouched. |
-| `f9361950` | `vllm/…/mamba/gdn/qwen_gdn_linear_attn.py` | `_forward_core_decode_non_spec`: the `ssm_state` NaN / all-zero probe is now wrapped in `if not torch.cuda.is_current_stream_capturing():`. +8/−4. |
+| `faf87f80` | `csrc/rocm/torch_bindings.cpp` | `exl3_hadamard_128(Tensor input, Tensor output, …)` → **`Tensor! output`**. +1/−1. Impl and `.cu` untouched. [^extras-torch-bindings-cpp][^commit-faf87f80] |
+| `f9361950` | `vllm/…/mamba/gdn/qwen_gdn_linear_attn.py` | `_forward_core_decode_non_spec`: the `ssm_state` NaN / all-zero probe is now wrapped in `if not torch.cuda.is_current_stream_capturing():`. +8/−4. [^commit-f9361950] |
 
 Per the commit message, capture-time warmup writes already commit the state pages and GDN prefill overwrites slot content before real decode, so skipping the probe under capture is safe. That is the author's rationale, not a measurement of ours — the numerics claim is unverified on our box.
 
@@ -57,7 +76,7 @@ Same page-commit family, wider surface. Not occupancy. No DOT / LDS-tile / KV-qu
 
 | Surface | Delta |
 |---|---|
-| `csrc/rocm/fa_rdna2.cu` | Host `O` / `O_partial` / `M_partial` (and decode/prefill fp16/fp8/int8 wrappers that still used `empty`) → **`torch::zeros`**. Capture bakes addresses; uncommitted pages fault on replay. |
+| `csrc/rocm/fa_rdna2.cu` | Host `O` / `O_partial` / `M_partial` (and decode/prefill fp16/fp8/int8 wrappers that still used `empty`) → **`torch::zeros`**. Capture bakes addresses; uncommitted pages fault on replay. [^extras-fa-rdna2-cu] |
 | GDN prefill / prep Python | `A` / `A_inv` / `w` / `u` / `h` / `v_new` / `final_state` / prep outs → **`torch.zeros`** (same rationale). |
 | New `causal_conv1d_rdna2.cu` | HIP AOT for GDN conv1d — registers (update) / tiny LDS (fwd). See [../kernels/causal-conv1d.md](../../kernels/causal-conv1d.md). |
 | FA Python dispatch | Prefer `torch.ops._rocm_C.fa_rdna2_*` over `load_inline` when the `.so` op exists (capture-safe). |
@@ -71,9 +90,9 @@ Same capture / D2H family, Python only on the scan; HIP adds gated RMSNorm (see 
 
 | Surface | Delta |
 |---|---|
-| `vllm/compilation/cuda_graph.py` | Per-replay `isnan().any()` + `nan_to_num_` on static graph inputs is now **opt-in** via `VLLM_CG_NAN_INPUT_CHECK=1` (default off). Blocking host syncs every replay were the tax; arenas/padded rows are the rationale for default-off. |
+| `vllm/compilation/cuda_graph.py` | Per-replay `isnan().any()` + `nan_to_num_` on static graph inputs is now **opt-in** via `VLLM_CG_NAN_INPUT_CHECK=1` (default off). Blocking host syncs every replay were the tax; arenas/padded rows are the rationale for default-off. [^extras-cuda-graph-py] |
 | `vllm/.../layernorm.py` | Gemma `(1+w)` scale folded `.to(x.dtype)` so `vllm_c` `rms_norm` dtype-match fires (fp32 scale was a silent native fallback). |
-| `csrc/rocm/layernorm.cu` (+ ops/bindings) | New AOT `gated_rms_norm` for Qwen3.x GDN `RMSNormGated` (norm-before-gate, fp16, silu/sigmoid). |
+| `csrc/rocm/layernorm.cu` (+ ops/bindings) | New AOT `gated_rms_norm` for Qwen3.x GDN `RMSNormGated` (norm-before-gate, fp16, silu/sigmoid). [^extras-layernorm-cu] |
 
 No `__launch_bounds__` / DOT / LDS-tile / KV-quant / CMake gfx1030 list change. Do not copy tok/s. Occupancy still FA-first.
 
@@ -83,11 +102,11 @@ Same freeze / ownership family. Room already Take'd. Not FA occupancy. No DOT / 
 
 | Surface | Delta |
 |---|---|
-| `csrc/rocm/skinny_gemms.cu` (`c350fa21`) | `wvSplitK` out: shared `Rdna2PersistBuf` → per-call `torch::empty`. **Do not share one PersistBuf across live projection outs** (or across GDN / PLE / HC / QSA freeze heaps). See [../kernels/skinny-gemm.md](../../kernels/skinny-gemm.md). |
-| `csrc/rocm/ple_short_conv_rdna2.cu` + `ops.h` (`b26763e7`) | Optional-tensor schema (`Tensor?` ↔ `std::optional<Tensor>`) so `_rocm_C` loads; host wrappers no longer lie as plain `Tensor`. Load fix, not a tile change. |
-| GDN prefill Python (`143e2bf3`) | Fallback `_packed_out` path: `empty_like` → `zeros_like` (page-commit). |
-| `hc_combine_*` Python (`3092d635`) | Output buffers: `new_empty` → `new_zeros` (page-commit; same freeze class). |
-| PLE forward (`bb4cb3bd`) | `@eager_break_during_capture` on offload handshake (triage / capture break). |
+| `csrc/rocm/skinny_gemms.cu` (`c350fa21`) | `wvSplitK` out: shared `Rdna2PersistBuf` → per-call `torch::empty`. **Do not share one PersistBuf across live projection outs** (or across GDN / PLE / HC / QSA freeze heaps). See [../kernels/skinny-gemm.md](../../kernels/skinny-gemm.md). [^extras-skinny-gemms-cu][^commit-c350fa21] |
+| `csrc/rocm/ple_short_conv_rdna2.cu` + `ops.h` (`b26763e7`) | Optional-tensor schema (`Tensor?` ↔ `std::optional<Tensor>`) so `_rocm_C` loads; host wrappers no longer lie as plain `Tensor`. Load fix, not a tile change. [^extras-ple-short-conv-rdna2-cu][^commit-b26763e7] |
+| GDN prefill Python (`143e2bf3`) | Fallback `_packed_out` path: `empty_like` → `zeros_like` (page-commit). [^commit-143e2bf3] |
+| `hc_combine_*` Python (`3092d635`) | Output buffers: `new_empty` → `new_zeros` (page-commit; same freeze class). [^commit-3092d635] |
+| PLE forward (`bb4cb3bd`) | `@eager_break_during_capture` on offload handshake (triage / capture break). [^commit-bb4cb3bd] |
 
 **Contract:** hc_combine is a third Flash-Next residual freeze heap (gated HC stream) — own arena/zeros before capture; separate from GDN rings, PLE short-conv, and QSA KV. Four freeze heaps if PLE armed. Do not fold APC-align stale-copy into the wvSplitK ticket. Occupancy still FA-first. Do not invent numbers.
 
@@ -97,7 +116,7 @@ Same page-commit family on the Python side; real HIP fix in `hc_rdna2.cu`. Not F
 
 | Surface | Delta |
 |---|---|
-| `csrc/rocm/hc_rdna2.cu` | `GROUP_DIM`/`DIM`-bounded loops (Flash-Next width 2560); chunked `hc_combine_norm`; weight index `w_base[b]` (was OOB on unshared). See [../kernels/qwen4exp-flash-next-hip.md](../../kernels/qwen4exp-flash-next-hip.md). |
+| `csrc/rocm/hc_rdna2.cu` | `GROUP_DIM`/`DIM`-bounded loops (Flash-Next width 2560); chunked `hc_combine_norm`; weight index `w_base[b]` (was OOB on unshared). See [../kernels/qwen4exp-flash-next-hip.md](../../kernels/qwen4exp-flash-next-hip.md). [^extras-hc-rdna2-cu] |
 | `hc_rdna2.py` | `_contig()` + outs `new_zeros` (page-commit; same freeze class as hc_combine / GDN / EXL3). |
 
 **Capture:** HC ops pass Triton parity in isolation. Arming `VLLM_RDNA_HC_PREFILL_HIP=1` still faults PIECEWISE capture in MoE (`moe_gemm_q4_kernel_rdna2` / `moe_align_block_size_kernel`). Gate stays default-off. Do not invent numbers. Occupancy still FA-first.
@@ -106,3 +125,23 @@ Same page-commit family on the Python side; real HIP fix in `hc_rdna2.cu`. Not F
 ## MoE fp32 scratch (tip `30b0bd4e`)
 
 When `VLLM_RDNA2_MOE_FP32_ACCUM=1`, `moe_fp32_scratch` in `moe_accum_rdna2.cuh` is a persistent per-(rows,N,device) tensor allocated outside capture; the per-call zero is `hipMemsetAsync` (legal capture node), never an alloc inside the captured region. Default CAS path does not use this scratch. Not a new freeze-heap class beside GDN/PLE/hc_combine — only the MoE epilogue opt-in.
+
+## Sources
+
+Primary sources for this page, cited inline as footnotes:
+
+[^extras-torch-bindings-cpp]: `csrc/rocm/torch_bindings.cpp`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/torch_bindings.cpp
+[^commit-faf87f80]: opengfx1030/vllm-rdna commit `faf87f80fb0d`. https://github.com/opengfx1030/vllm-rdna/commit/faf87f80fb0d979f2d3a546bae005cddd74a0a19 (exists, verified via GitHub API 2026-10-11)
+[^commit-f9361950]: opengfx1030/vllm-rdna commit `f93619500c3e`. https://github.com/opengfx1030/vllm-rdna/commit/f93619500c3e55daee5f60ae7f6d4279cdeb3f0d (exists, verified via GitHub API 2026-10-11)
+[^extras-fa-rdna2-cu]: `csrc/rocm/fa_rdna2.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu
+[^extras-cuda-graph-py]: `vllm/compilation/cuda_graph.py`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/compilation/cuda_graph.py
+[^extras-layernorm-cu]: `csrc/rocm/layernorm.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/layernorm.cu
+[^extras-skinny-gemms-cu]: `csrc/rocm/skinny_gemms.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/skinny_gemms.cu
+[^commit-c350fa21]: opengfx1030/vllm-rdna commit `c350fa218a55`. https://github.com/opengfx1030/vllm-rdna/commit/c350fa218a55ea62e98fa068d13354321fc9e74b (exists, verified via GitHub API 2026-10-11)
+[^extras-ple-short-conv-rdna2-cu]: `csrc/rocm/ple_short_conv_rdna2.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/ple_short_conv_rdna2.cu
+[^commit-b26763e7]: opengfx1030/vllm-rdna commit `b26763e77d91`. https://github.com/opengfx1030/vllm-rdna/commit/b26763e77d913a3d0f946048310580454cec0ee6 (exists, verified via GitHub API 2026-10-11)
+[^commit-143e2bf3]: opengfx1030/vllm-rdna commit `143e2bf32625`. https://github.com/opengfx1030/vllm-rdna/commit/143e2bf3262564d34cc4cbf6e1f13d6cd4ac65d7 (exists, verified via GitHub API 2026-10-11)
+[^commit-3092d635]: opengfx1030/vllm-rdna commit `3092d635295a`. https://github.com/opengfx1030/vllm-rdna/commit/3092d635295aa02f714832f539fa647be95db8f7 (exists, verified via GitHub API 2026-10-11)
+[^commit-bb4cb3bd]: opengfx1030/vllm-rdna commit `bb4cb3bdaaec`. https://github.com/opengfx1030/vllm-rdna/commit/bb4cb3bdaaecaf4d7bc6788d4906181c3cc5730e (exists, verified via GitHub API 2026-10-11)
+[^extras-hc-rdna2-cu]: `csrc/rocm/hc_rdna2.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/hc_rdna2.cu
+

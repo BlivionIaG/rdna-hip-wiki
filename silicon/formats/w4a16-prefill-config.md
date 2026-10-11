@@ -1,16 +1,25 @@
+---
+title: "W4A16 prefill config lock (gfx1030)"
+sources:
+  - https://github.com/opengfx1030/vllm-rdna/commit/56f67111dd87847c5e92e14a7076fec2c9ab6f22
+  - https://github.com/opengfx1030/vllm-rdna/commit/1046782fb8c4c3dde6607a98434d624c59fab015
+  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/q_gemm_rdna2_prefill.cu
+  - https://github.com/opengfx1030/vllm-rdna/commit/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0
+---
+
 # W4A16 prefill config lock (gfx1030)
 
-Dest: `opengfx1030/vllm-rdna` `rdna_extras` tip **`56f67111`**.
+Dest: `opengfx1030/vllm-rdna` `rdna_extras` tip **`56f67111`**.[^commit-56f67111]
 
 ## Take
 - Large-M AWQ/GPTQ prefill → **ConfigA** (`THREADS=256`, `N_TILE=1024`, `M_TILE=16`, **`K_STEP=32`**, `LDS=0`).
 - AWQ M>32 dispatcher → GPTQ `gptq_gemm_rdna2_prefill` (not a separate AWQ prefill object).
 - Same `fdot2` / `qdq_4_rdna2`; AWQ `zero_offset=0` via `use_v2_format`.
-- Dead `q_gemm_rdna2_awq_prefill.cu` removed (`1046782`).
+- Dead `q_gemm_rdna2_awq_prefill.cu` removed (`1046782`).[^commit-1046782]
 - Inner loops use `K_STEP/8`; **per-j group refresh** (`if (k + 8*j == nextgroup)`) so mid-block group boundaries are correct when `K_STEP > groupsize` (ConfigA with `K_STEP==groupsize` is behavior-neutral).
 
 ## Leave
-- **ConfigA_Large** (`THREADS=128`, `N_TILE=512`, `M_TILE=32`, `K_STEP=32`) and **ConfigP** (register double-buffered prefetch): deleted from tip `56f67111` after measuring slower than ConfigA on fat-M AWQ shapes (fewer M-blocks did not cut HBM / Infinity Cache already absorbs weight re-reads; THREADS=128 + fat `block_c` hit spill; ConfigP cut workgroups/CU). Do not resurrect without beating ConfigA on fat-M greedy.
+- **ConfigA_Large** (`THREADS=128`, `N_TILE=512`, `M_TILE=32`, `K_STEP=32`) and **ConfigP** (register double-buffered prefetch): deleted from tip `56f67111` after measuring slower than ConfigA on fat-M AWQ shapes (fewer M-blocks did not cut HBM / Infinity Cache already absorbs weight re-reads; THREADS=128 + fat `block_c` hit spill; ConfigP cut workgroups/CU). Do not resurrect without beating ConfigA on fat-M greedy.[^commit-56f67111]
 - Old **ConfigH** (`K_STEP=64`) name remains gone. Do not reintroduce K_STEP=64 dispatch until fat-M numerics match ConfigA.
 - Resurrect AWQ prefill object, tok/s claims, EXL3 DOT changes (ticket-26 stays `-cb 3inst`).
 
@@ -24,7 +33,7 @@ Companion: [kernels/w4a16.md](../../kernels/w4a16.md).
 
 ## K_STEP split-K repair (`3a0786ea`)
 
-Dest: `opengfx1030/vllm-rdna` `rdna_extras` @ **`3a0786ea`**. Object: `csrc/rocm/q_gemm_rdna2_prefill.cu` `compute_split_k` (gfx1030 W4A16 prefill; same TU W4A8 falls back into).
+Dest: `opengfx1030/vllm-rdna` `rdna_extras` @ **`3a0786ea`**. Object: `csrc/rocm/q_gemm_rdna2_prefill.cu` `compute_split_k` (gfx1030 W4A16 prefill; same TU W4A8 falls back into).[^extras-q-gemm-rdna2-prefill-cu][^commit-3a0786ea]
 
 ### Take — repair-only policy
 - Kernel walks K in `K_STEP`-wide chunks and does **not** clamp the last chunk to `k_per_split`. A split with `(size_k / split) % K_STEP != 0` over-reads the split’s LDS row / global K (NaN/garbage; e.g. `k=4352`, legacy `split=16` → `k_per_split=272` at ConfigV1).
@@ -47,3 +56,13 @@ From `bench_results/2026-09-29_w4a16-regression-audit/SUMMARY.md` + `split_table
 - Changing ConfigA / `K_STEP=32` tile geometry (unchanged)
 
 Companion W4A8 opt-in: [kernels/w4a8.md](../../kernels/w4a8.md).
+
+## Sources
+
+Primary sources for this page, cited inline as footnotes:
+
+[^commit-56f67111]: opengfx1030/vllm-rdna commit `56f67111dd87`. https://github.com/opengfx1030/vllm-rdna/commit/56f67111dd87847c5e92e14a7076fec2c9ab6f22 (exists, verified via GitHub API 2026-10-11)
+[^commit-1046782]: opengfx1030/vllm-rdna commit `1046782fb8c4`. https://github.com/opengfx1030/vllm-rdna/commit/1046782fb8c4c3dde6607a98434d624c59fab015 (exists, verified via GitHub API 2026-10-11)
+[^extras-q-gemm-rdna2-prefill-cu]: `csrc/rocm/q_gemm_rdna2_prefill.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/q_gemm_rdna2_prefill.cu
+[^commit-3a0786ea]: opengfx1030/vllm-rdna commit `3a0786eaa70f`. https://github.com/opengfx1030/vllm-rdna/commit/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0 (exists, verified via GitHub API 2026-10-11)
+

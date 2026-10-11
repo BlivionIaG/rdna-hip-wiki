@@ -1,10 +1,19 @@
+---
+title: "DeepEP insight on 4× V620 — PCIe P2P silicon boundary"
+sources:
+  - https://github.com/deepseek-ai/DeepEP
+  - https://github.com/deepseek-ai/DeepEP/blob/b306af06afd412c88e51e71802951606e40b7358/docs/legacy.md
+  - https://github.com/ROCm/DeepEP
+  - https://github.com/ROCm/mori
+---
+
 # DeepEP insight on 4× V620 — PCIe P2P silicon boundary
 
 Date: 2026-08-18. Engine context: [engine/deepep.md](../../engine/deepep.md). **Research / Later.** This page separates the transferable idea from NVIDIA/Instinct-specific transport.
 
 ## Transferable insight
 
-MoE dispatch/combine is sparse, asymmetric all-to-all, not symmetric AllReduce. The useful design principle is:
+MoE dispatch/combine is sparse, asymmetric all-to-all, not symmetric AllReduce. The useful design principle is:[^github-deepseek-ai-deepep]
 
 - route directly by destination expert/GPU;
 - avoid padding every peer to the same payload;
@@ -16,11 +25,11 @@ That principle applies to V620. DeepEP's implementation details do not transfer 
 
 ## What DeepEP actually proves
 
-Upstream DeepEP provides dedicated MoE dispatch/combine kernels with throughput and low-latency modes. Its legacy primary table reports H800 + CX7 400 Gb/s, 128 tokens, hidden 7168, top-8, FP8 dispatch/BF16 combine:
+Upstream DeepEP provides dedicated MoE dispatch/combine kernels with throughput and low-latency modes. Its legacy primary table reports H800 + CX7 400 Gb/s, 128 tokens, hidden 7168, top-8, FP8 dispatch/BF16 combine:[^github-deepseek-ai-deepep][^github-docs-legacy-md]
 
 | EP | Dispatch latency | Combine latency |
 |---:|---:|---:|
-| 8 | 77 us | 114 us |
+| 8 | 77 us | 114 us [^github-docs-legacy-md] |
 | 16 | 118 us | 195 us |
 | 32 | 155 us | 273 us |
 | 64 | 173 us | 314 us |
@@ -127,10 +136,21 @@ Later, after:
 
 Then: peer-store microbench → asymmetric dispatch prototype → fused quant experiment → overlap → engine integration.
 
-## Primary sources
+## Sources
+
+_Primary sources_
+
 
 - DeepEP: https://github.com/deepseek-ai/DeepEP
 - DeepEP legacy measurements: https://github.com/deepseek-ai/DeepEP/blob/b306af06afd412c88e51e71802951606e40b7358/docs/legacy.md (removed from `main` in def86514; pinned to the last commit that has it)
 - AMD DeepEP port: https://github.com/ROCm/DeepEP
 - MoRI and hardware matrix: https://github.com/ROCm/mori
 - V620 P2P platform contract: [rccl-p2p.md](rccl-p2p.md)
+
+Footnotes:
+
+[^github-deepseek-ai-deepep]: GitHub - deepseek-ai/DeepEP: DeepEP: an efficient expert-parallel communication library. https://github.com/deepseek-ai/DeepEP (checked 2026-10-11)
+[^github-docs-legacy-md]: github.com/deepseek-ai/DeepEP/blob/b306af06afd412c88e51e71802951606e40b7358/docs/legacy.md. https://github.com/deepseek-ai/DeepEP/blob/b306af06afd412c88e51e71802951606e40b7358/docs/legacy.md (checked 2026-10-11)
+[^github-rocm-deepep]: GitHub - ROCm/DeepEP. https://github.com/ROCm/DeepEP (checked 2026-10-11)
+[^github-rocm-mori]: GitHub - ROCm/mori: Modular RDMA Interface. https://github.com/ROCm/mori (checked 2026-10-11)
+

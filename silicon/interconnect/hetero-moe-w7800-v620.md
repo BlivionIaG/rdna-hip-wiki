@@ -1,3 +1,16 @@
+---
+title: "Heterogeneous MoE — silicon placement contract"
+sources:
+  - https://www.nvidia.com/en-us/products/workstations/dgx-spark/
+  - https://docs.nvidia.com/dgx/dgx-spark/hardware.html
+  - https://github.com/Llaminar/llaminar
+  - https://www.amd.com/en/products/graphics/workstations/radeon-ai-pro/ai-9000-series/amd-radeon-ai-pro-r9700.html
+  - https://rocm.docs.amd.com/en/latest/reference/gpu-specs.html
+  - https://github.com/ROCm/rccl-tests/issues/162
+  - https://www.amd.com/en/products/graphics/workstations/radeon-pro/w7800-48gb.html
+  - https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html
+---
+
 # Heterogeneous MoE — silicon placement contract
 
 Date: 2026-08-18 (W7800/V620 HIP–HIP). **Retipped 2026-08-27:** W7800 fast-tier is **dead** (cards selling). New Later form is Spark×2 + 8×V620. Engine placement: [../engine/multi-tier.md](../../engine/multi-tier.md). DeepEP-style routing (V620-internal only): [deepep-v620.md](deepep-v620.md). MoE compute: [../kernels/fp16-moe.md](../../kernels/fp16-moe.md), [../kernels/int8-moe.md](../../kernels/int8-moe.md).
@@ -7,20 +20,20 @@ Date: 2026-08-18 (W7800/V620 HIP–HIP). **Retipped 2026-08-27:** W7800 fast-tie
 | Domain | Hardware | ISA | Job |
 |---|---|---|---|
 | Fast | 2× NVIDIA DGX Spark | **GB10** CUDA (Blackwell TC / FP4) | attention, router, embeddings, LM head, n-gram, **live KV** |
-| Expert | 8× Radeon PRO V620 32GB | **gfx1030** HIP | expert GEMMs only (`fdot2` / `sdot4`) |
+| Expert | 8× Radeon PRO V620 32GB | **gfx1030** HIP | expert GEMMs only (`fdot2` / `sdot4`) [^v620-product] |
 | Spark↔Spark | ConnectX-7 | NCCL | first-party NV hop |
 | Spark→V620 | CX-7 ↔ (V620 host NIC, if any) | **not** HIP peer | **activations only**, two machines / two collectives unless the V620 rig also has a CX NIC |
 | V620↔V620 | 88096 PIX (attested P2P) | RCCL / `hipMemcpyPeer` | expert A2A **inside** the V620 box |
 
 This is **CUDA + HIP**, not two HIP targets. extras cannot drive GB10. hippih gfx1100 WMMA fat is more Later if the W7800s go. Do not start a second DOT tree or a Llaminar gfx1030 backend for this.
 
-**Official Spark numbers only** ([NVIDIA DGX Spark specs](https://www.nvidia.com/en-us/products/workstations/dgx-spark/), [hardware guide](https://docs.nvidia.com/dgx/dgx-spark/hardware.html)): 128 GB LPDDR5x unified @ **273 GB/s**, ConnectX-7 **200 Gbps**. Do not invent hop GB/s or tok/s.
+**Official Spark numbers only** ([NVIDIA DGX Spark specs](https://www.nvidia.com/en-us/products/workstations/dgx-spark/), [hardware guide](https://docs.nvidia.com/dgx/dgx-spark/hardware.html)): 128 GB LPDDR5x unified @ **273 GB/s**, ConnectX-7 **200 Gbps**. Do not invent hop GB/s or tok/s.[^nvidia-workstations-dgx-spark][^docs-dgx-spark-hardware-html]
 
-**Why the split still holds in silicon:** Spark has capacity for live KV/attn (128 GB) but is bandwidth-poor vs V620 GDDR6 **512 GB/s**. Experts (W4 / EXL3 / `moe_q_gemm`) stay on V620. Do not park live KV on V620.
+**Why the split still holds in silicon:** Spark has capacity for live KV/attn (128 GB) but is bandwidth-poor vs V620 GDDR6 **512 GB/s**. Experts (W4 / EXL3 / `moe_q_gemm`) stay on V620. Do not park live KV on V620.[^v620-product]
 
 **Wire:** extras `moe_q_gemm` eats **fp16**. Spark is FP4-native. Convert NVFP4/FP8/BF16 → half **on Spark** (or on the hop). Do not land those dtypes on V620 and do not add a new V620 DOT for the hop.
 
-**P2P / DeepEP:** 88096 PIX `hipMemcpyPeer` stays **V620-internal**. Spark cannot peer-store into a V620 BAR. DeepEP mapped-peer scatter/combine does **not** apply across the NIC. Until a V620-host CX NIC exists and is measured, assume host/NIC-staged activations. Leave [Llaminar/llaminar](https://github.com/Llaminar/llaminar) (still gfx906 / sm86 / GGUF). Their 3090+MI50 is one box, not this.
+**P2P / DeepEP:** 88096 PIX `hipMemcpyPeer` stays **V620-internal**. Spark cannot peer-store into a V620 BAR. DeepEP mapped-peer scatter/combine does **not** apply across the NIC. Until a V620-host CX NIC exists and is measured, assume host/NIC-staged activations. Leave [Llaminar/llaminar](https://github.com/Llaminar/llaminar) (still gfx906 / sm86 / GGUF). Their 3090+MI50 is one box, not this.[^github-llaminar-llaminar]
 
 **Order unchanged:** extras live HIP on V620 first (W4 / GDN / QSA indexer). Hetero hop is Later. FA pin stays closed.
 
@@ -30,12 +43,12 @@ Note 2026-08-27: maybe add a faster GPU later (R9700 or RDNA5). **No kernels now
 
 | SKU | ISA | Official | Role if bought |
 |---|---|---|---|
-| AI PRO R9700 | **gfx1201** RDNA4 | 32 GB GDDR6, 640 GB/s, 64 MB IC, 64 CU, LDS 128 KiB ([AMD](https://www.amd.com/en/products/graphics/workstations/radeon-ai-pro/ai-9000-series/amd-radeon-ai-pro-r9700.html), [ROCm gpu-specs](https://rocm.docs.amd.com/en/latest/reference/gpu-specs.html)) | **Expert SKU** (WMMA + hw FP8). Same 32 GB class as one V620 — **not** a Spark replacement. |
+| AI PRO R9700 | **gfx1201** RDNA4 | 32 GB GDDR6, 640 GB/s, 64 MB IC, 64 CU, LDS 128 KiB ([AMD](https://www.amd.com/en/products/graphics/workstations/radeon-ai-pro/ai-9000-series/amd-radeon-ai-pro-r9700.html), [ROCm gpu-specs](https://rocm.docs.amd.com/en/latest/reference/gpu-specs.html)) | **Expert SKU** (WMMA + hw FP8). Same 32 GB class as one V620 — **not** a Spark replacement. [^amd-ai-9000-series-amd-radeon-ai-pro-r9700-html][^rocm-reference-gpu-specs-html] |
 | RDNA5 | unknown | no ISA PDF as of 2026-08-27 | Wait. Do not invent opcodes. |
 
 - extras gfx1030 objects **will not load** (ANTIBLEED). New fatbin / TU if it ever lands. hippih would grow a fourth ISA (today: 1030 / 1100 / 900).
 - vLLM `supports_fp8()` / `on_rdna4()` / AITER RDNA4 analog stay **off** extras gfx1030. Do not import that path.
-- R9700 P2P/ipc is a known miss ([ROCm/rccl-tests#162](https://github.com/ROCm/rccl-tests/issues/162) `hipIpcGetMemHandle` on 4×R9700). 88096 V620 attestation does **not** transfer.
+- R9700 P2P/ipc is a known miss ([ROCm/rccl-tests#162](https://github.com/ROCm/rccl-tests/issues/162) `hipIpcGetMemHandle` on 4×R9700). 88096 V620 attestation does **not** transfer.[^github-issues-162]
 - Do not copy R9700 TOPS / tok/s onto coverage.
 
 
@@ -48,13 +61,13 @@ Kept below so old links still resolve. Do not treat W7800 as the live fast tier.
 
 | Domain | Hardware | ISA | Job |
 |---|---|---|---|
-| Fast | 2x Radeon PRO W7800 48GB | **gfx1100** RDNA3 | attention, router, embeddings, LM head, live KV |
-| Expert | 8x Radeon PRO V620 32GB | **gfx1030** RDNA2 | expert GEMMs only |
+| Fast | 2x Radeon PRO W7800 48GB | **gfx1100** RDNA3 | attention, router, embeddings, LM head, live KV [^amd-radeon-pro-w7800-48gb-html] |
+| Expert | 8x Radeon PRO V620 32GB | **gfx1030** RDNA2 | expert GEMMs only [^v620-product] |
 | Wire | PCIe 4.0, no xGMI/NVLink | — | **activations only** between domains |
 
 This is two HIP targets, not one fat binary. gfx1100 has WMMA 16x16x16, BF16 DOT, and VOPD. gfx1030 has none of those. Shared source must compile twice and dispatch by `hipGetDeviceProperties` / arch string.
 
-Official W7800 48GB page: RDNA3, 48 GB GDDR6, 96 MB Infinity Cache, PCIe 4.0 x16. Official V620: RDNA2, 32 GB, 128 MB IC, 72 CU, 512 GB/s. Do not treat the two cards as interchangeable Navi.
+Official W7800 48GB page: RDNA3, 48 GB GDDR6, 96 MB Infinity Cache, PCIe 4.0 x16. Official V620: RDNA2, 32 GB, 128 MB IC, 72 CU, 512 GB/s. Do not treat the two cards as interchangeable Navi.[^amd-radeon-pro-w7800-48gb-html][^v620-product]
 
 Ten dual-slot cards almost certainly span more than one root complex or host. Record topology before claiming a single-node P2P fabric.
 
@@ -150,7 +163,7 @@ Until that matrix exists, assume host-staged activation copies. Do not port IBGD
 
 ## Runtime fit: Llaminar vs SGLang fork
 
-Llaminar ([Llaminar/llaminar](https://github.com/Llaminar/llaminar)) is the closer **placement model**: explicit heterogeneous domains, TP/PP/MoE EP (WiP), GGUF, prefix-cache already present, OpenMPI + NCCL/RCCL/host collectives. Current ROCm backend is **gfx906 only**. gfx906 is Vega MFMA-class, not RDNA2/3. Their CUDA+ROCm examples are pipeline-parallel dense layers or host-staged TP, not attn-on-RDNA3 / experts-on-RDNA2.
+Llaminar ([Llaminar/llaminar](https://github.com/Llaminar/llaminar)) is the closer **placement model**: explicit heterogeneous domains, TP/PP/MoE EP (WiP), GGUF, prefix-cache already present, OpenMPI + NCCL/RCCL/host collectives. Current ROCm backend is **gfx906 only**. gfx906 is Vega MFMA-class, not RDNA2/3. Their CUDA+ROCm examples are pipeline-parallel dense layers or host-staged TP, not attn-on-RDNA3 / experts-on-RDNA2.[^github-llaminar-llaminar]
 
 Contributing kernels to Llaminar still means writing new gfx1030 and gfx1100 HIP backends. Their C++ graph/domain split is the reusable idea.
 
@@ -173,3 +186,14 @@ Silicon recommendation: implement V620 expert kernels and W7800 attention/router
 - AMD V620: https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html
 - Llaminar README: https://github.com/Llaminar/llaminar
 - This wiki: [valu.md](../arch-and-memory/valu.md), [rccl-p2p.md](rccl-p2p.md), [deepep-v620.md](deepep-v620.md)
+
+Footnotes:
+
+[^nvidia-workstations-dgx-spark]: Personal AI Supercomputer Powered by Blackwell | NVIDIA DGX Spark. https://www.nvidia.com/en-us/products/workstations/dgx-spark/ (checked 2026-10-11)
+[^docs-dgx-spark-hardware-html]: Hardware Overview — DGX Spark User Guide. https://docs.nvidia.com/dgx/dgx-spark/hardware.html (checked 2026-10-11)
+[^github-llaminar-llaminar]: GitHub - Llaminar/llaminar: 🚿 Llaminar: an LLM inferencing engine in C++.. https://github.com/Llaminar/llaminar (checked 2026-10-11)
+[^amd-ai-9000-series-amd-radeon-ai-pro-r9700-html]: AMD Radeon™ AI PRO R9700. https://www.amd.com/en/products/graphics/workstations/radeon-ai-pro/ai-9000-series/amd-radeon-ai-pro-r9700.html (checked 2026-10-11)
+[^rocm-reference-gpu-specs-html]: AMD GPU specifications — AMD ROCm 10.1.0. https://rocm.docs.amd.com/en/latest/reference/gpu-specs.html (checked 2026-10-11)
+[^github-issues-162]: (Issue): Radeon AI PRO R9700 4card failed in rccl-tests · Issue #162 · ROCm/rccl-tests. https://github.com/ROCm/rccl-tests/issues/162 (checked 2026-10-11)
+[^amd-radeon-pro-w7800-48gb-html]: AMD Radeon™ PRO W7800 48GB Professional Graphics. https://www.amd.com/en/products/graphics/workstations/radeon-pro/w7800-48gb.html (checked 2026-10-11)
+[^v620-product]: AMD Radeon PRO V620 product page. https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html (checked 2026-10-11)

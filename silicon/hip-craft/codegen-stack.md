@@ -1,3 +1,49 @@
+---
+title: "gfx1030 HIP codegen stack: use / ignore"
+sources:
+  - https://llvm.org/docs/AMDGPUUsage.html
+  - https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
+  - https://rocm.docs.amd.com/projects/composable_kernel/en/docs-6.4.1/tutorial_hello_world.html
+  - https://github.com/ROCm/composable_kernel/blob/develop/README.md
+  - https://github.com/ROCm/composable_kernel/issues/886
+  - https://github.com/vllm-project/vllm/pull/32944
+  - https://github.com/ROCm/composable_kernel/blob/develop/CHANGELOG.md
+  - https://github.com/ROCm/composable_kernel/pull/2466
+  - https://github.com/ROCm/composable_kernel/tree/develop/example/01_gemm
+  - https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/lds_index_swapping.html
+  - https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/hardware/lds_bank_conflicts.html
+  - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
+  - https://github.com/ROCm/hipBLASLt/issues/648
+  - https://triton-lang.org/main/python-api/generated/triton.Config.html
+  - https://rocm.docs.amd.com/projects/rocBLAS/en/latest/conceptual/rocblas-design-notes.html
+  - https://github.com/ROCm/rocWMMA
+  - https://rocm.blogs.amd.com/software-tools-optimization/profilers/README.html
+  - https://github.com/ROCm/TheRock/issues/3931
+  - https://github.com/ROCm/TheRock/issues/4768
+  - https://github.com/ROCm/TheRock/issues/4836
+  - https://github.com/triton-lang/triton/blob/main/third_party/amd/backend/compiler.py
+  - https://github.com/triton-lang/triton/blob/main/third_party/amd/lib/TritonAMDGPUToLLVM/DotOpToLLVM/FMA.cpp
+  - https://github.com/triton-lang/triton/commit/2926ae791c39c776e623602b15d2545424890b49
+  - https://github.com/openai/triton/pull/3083
+  - https://github.com/ROCm/aiter/issues/210
+  - https://rocm.docs.amd.com/en/docs-6.1.1/how-to/llm-fine-tuning-optimization/optimizing-triton-kernel.html
+  - https://github.com/ROCm/TheRock/issues/1062
+  - https://github.com/ROCm/TheRock/blob/main/cmake/therock_amdgpu_targets.cmake
+  - https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/cuda/tunable/README.md
+  - https://github.com/pytorch/pytorch/issues/140278
+  - https://github.com/pytorch/pytorch/pull/128753
+  - https://github.com/ROCm/TheRock/issues/1944
+  - https://github.com/ROCm/rocm-libraries/issues/8209
+  - https://rocm.docs.amd.com/projects/rocWMMA/en/docs-7.1.0/api-reference/api-reference-guide.html
+  - https://gpuopen.com/learn/occupancy-explained/
+  - https://gpuopen.com/rga/
+  - https://gpuopen.com/manuals/rga_manual/quickstart/
+  - https://gpuopen.com/rgp/
+  - https://gpuopen.com/learn/rgp_1_14/
+  - https://rocm.docs.amd.com/projects/HIP/en/docs-7.2.0/how-to/performance_guidelines.html
+  - https://github.com/ROCm/legacy-rocm-build/issues/1609
+---
+
 # gfx1030 HIP codegen stack: use / ignore
 
 Audience: someone writing **W4A16 / W8A8 / mxfp4 HIP** for **gfx1030** (no WMMA, no MFMA) who may later automate tile search.
@@ -22,11 +68,11 @@ Rule: every concrete claim is attributed. If a figure was not in a page opened t
 | **Triton AMD backend (compiler)** | **USE as a portable compiler.** Do not treat it as a tuned RDNA2 product. | `HIPOptions` sets `warp_size=32` for `gfx_major >= 10`. `tl.dot` lowers to `llvm.amdgcn.fdot2` / `llvm.amdgcn.sdot4` / `llvm.fmuladd`, **not** WMMA. | Autotune `BLOCK_{M,N,K}`, `num_warps`, `num_stages`, `waves_per_eu`. Ignore `matrix_instr_nonkdim` / `kpack` (MFMA knobs). |
 | **Triton as a vLLM/AITER FA product** | **IGNORE as a first-class gfx1030 path.** | vLLM `flash_attn_triton_available()` requires `on_gfx1x()` (gfx11/12). AITER `#210` (2025-03): “If you can run Triton kernels [on] gfx1030, then yes.” That is a compiler answer, not a quality claim. | Hand HIP attention, or a *your* Triton kernel you autotune. Do not wait for AITER. |
 | **Composable Kernel — `DeviceGemmDl` / `DeviceGemmDpp`** | **OPTIONAL reference**, not a product you ship. | Official hello-world: XDL GEMM **refuses** on gfx1030; `example_gemm_dl_fp16` is the NAVI2x path. README: DL/DPP “useful on NAVI2x”. | Read the DL instance for VALU tiling. Do not take a CK dependency in TheRock/PyTorch wheels — gfx103x is blacklisted. |
-| **CK Tile DSL (coords, XOR preshuffle)** | **TAKE THE IDEA. Do not ship the library.** | XOR / `make_xor_transform` is the right bank-conflict tool. CK's published formula is the **32-bank (CDNA) modulus**. gfx1030 WGP mode is **64 banks**. | Re-implement XOR with `% 64`. See companion LDS note. |
+| **CK Tile DSL (coords, XOR preshuffle)** | **TAKE THE IDEA. Do not ship the library.** | XOR / `make_xor_transform` is the right bank-conflict tool. CK's published formula is the **32-bank (CDNA) modulus**. gfx1030 WGP mode is **64 banks**. | Re-implement XOR with `% 64`. See companion LDS note. [^isa70648] |
 | **CK GEMM XDL / CK Tile universal GEMM / CK FMHA** | **IGNORE on gfx1030.** | XDL = MFMA. Tile GEMM/FMHA pipelines are XDL/WMMA. vLLM PR `#32944` (2026-01): “Flash Attention's CK backend only supports CDNA (gfx90a/gfx942/gfx950).” CK `#886` (2024-10): FA not on gfx1030/gfx1100. CK 1.2.0 later added **gfx11** FMHA — still not gfx10. | Triton FA (hand-rolled) or HIP. |
-| **hipBLASLt / TensileLite** | **IGNORE in default ROCm.** Community force-build is a science project. | TheRock `#1062`: gfx10xx “technically supported by tensilelite” but **excluded** (extops need gfx90a+ `.amdhsa_accum_offset`). hipBLASLt `#648`: ExtOp asm fails on gfx10; PyTorch falls back to hipBLAS. | rocBLAS Tensile + TunableOp. Do not spend weeks unblocking hipBLASLt unless you *are* that community porter. |
+| **hipBLASLt / TensileLite** | **IGNORE in default ROCm.** Community force-build is a science project. | TheRock `#1062`: gfx10xx “technically supported by tensilelite” but **excluded** (extops need gfx90a+ `.amdhsa_accum_offset`). hipBLASLt `#648`: ExtOp asm fails on gfx10; PyTorch falls back to hipBLAS. | rocBLAS Tensile + TunableOp. Do not spend weeks unblocking hipBLASLt unless you *are* that community porter. [^llvm-amdgpuusage] |
 | **rocWMMA** | **IGNORE.** | Official targets: gfx9 MFMA + gfx11/gfx12 WMMA. TheRock `#1944`: gfx103X “fundamentally incompatible.” rocm-libraries `#8209` (software WMMA via `v_dot2c`+DPP) was **rejected** — rocWMMA is a hardware-matrix abstraction, not a VALU emulator. | Call `sdot4` / `fdot2` yourself. |
-| **llvm-calc-occupancy** | **USE** before you launch a sweep. | Same `GCNSubtarget` math the compiler uses. | `-mcpu=gfx1030 -mattr=+wavefrontsize32`. |
+| **llvm-calc-occupancy** | **USE** before you launch a sweep. | Same `GCNSubtarget` math the compiler uses. | `-mcpu=gfx1030 -mattr=+wavefrontsize32`. [^llvm-calc-occupancy] |
 | **hipcc `-Rpass-analysis=kernel-resource-usage`** | **USE** every compile. | Prints VGPR/SGPR/LDS/occupancy/spills on stdout. | Gate the sweep: drop configs that spill. |
 | **RGA (Radeon GPU Analyzer)** | **USE offline** for ISA + live VGPR. | Binary-analysis mode reads HIP code objects. Live-VGPR column tells you which line bought the extra register block. | `rga -s bin` on the `.hsaco` / code object. Not a runtime profiler. |
 | **RGP (Radeon GPU Profiler)** | **USE if you are on Windows HIP**, or treat as optional. | Best *measured* occupancy + instruction-latency view on RDNA. AMD HPC blog: HIP/OCL RGP is a **Windows** story; Linux Instinct workflow is rocprof*. | Linux: `rocprofv3` + `LDSBankConflict` / occupancy. |
@@ -55,13 +101,13 @@ CK is not one library. It is three instruction families plus a newer Tile fronte
 
 Sources:
 
-- Hello-world, gfx1030 vs XDL vs DL: https://rocm.docs.amd.com/projects/composable_kernel/en/docs-6.4.1/tutorial_hello_world.html
-- README `DISABLE_DL_KERNELS` / `DISABLE_DPP_KERNELS` / `GPU_ARCHS`: https://github.com/ROCm/composable_kernel/blob/develop/README.md
-- CK `#886` FA: https://github.com/ROCm/composable_kernel/issues/886
-- vLLM `#32944`: https://github.com/vllm-project/vllm/pull/32944
-- CK changelog 1.2.0 (ROCm 7.13) “Added gfx11 support for FMHA”; WMMA gfx12 FMHA; MX on gfx950: https://github.com/ROCm/composable_kernel/blob/develop/CHANGELOG.md
-- CK Tile GEMM WMMA gfx11/12: https://github.com/ROCm/composable_kernel/pull/2466
-- Example GEMM families (`DeviceGemmDl` / `Xdl` / `Wmma`): https://github.com/ROCm/composable_kernel/tree/develop/example/01_gemm
+- Hello-world, gfx1030 vs XDL vs DL: https://rocm.docs.amd.com/projects/composable_kernel/en/docs-6.4.1/tutorial_hello_world.html[^rocm-docs-6-4-1-tutorial-hello-world-html]
+- README `DISABLE_DL_KERNELS` / `DISABLE_DPP_KERNELS` / `GPU_ARCHS`: https://github.com/ROCm/composable_kernel/blob/develop/README.md[^github-develop-readme-md]
+- CK `#886` FA: https://github.com/ROCm/composable_kernel/issues/886[^github-issues-886]
+- vLLM `#32944`: https://github.com/vllm-project/vllm/pull/32944[^github-pull-32944]
+- CK changelog 1.2.0 (ROCm 7.13) “Added gfx11 support for FMHA”; WMMA gfx12 FMHA; MX on gfx950: https://github.com/ROCm/composable_kernel/blob/develop/CHANGELOG.md[^github-develop-changelog-md]
+- CK Tile GEMM WMMA gfx11/12: https://github.com/ROCm/composable_kernel/pull/2466[^github-pull-2466]
+- Example GEMM families (`DeviceGemmDl` / `Xdl` / `Wmma`): https://github.com/ROCm/composable_kernel/tree/develop/example/01_gemm[^github-example-01-gemm]
 
 Build flags that matter if you *do* compile CK yourself:
 
@@ -76,7 +122,7 @@ TheRock / packaged ROCm will not hand you this. `therock_amdgpu_targets.cmake` l
 
 ### 1.2 Tile DSL and bank XOR
 
-CK Tile (`include/ck_tile`) is a compile-time coordinate / distributed-tensor DSL: `load_tile` / `store_tile`, `StaticDistributedTensor`, `make_xor_transform`. Docs: https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/lds_index_swapping.html and https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/hardware/lds_bank_conflicts.html
+CK Tile (`include/ck_tile`) is a compile-time coordinate / distributed-tensor DSL: `load_tile` / `store_tile`, `StaticDistributedTensor`, `make_xor_transform`. Docs: https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/lds_index_swapping.html and https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/hardware/lds_bank_conflicts.html[^rocm-ck-tile-lds-index-swapping-html][^rocm-hardware-lds-bank-conflicts-html]
 
 What is reusable on gfx1030:
 
@@ -86,7 +132,7 @@ What is reusable on gfx1030:
 
 What is *not* copy-pasteable:
 
-- CK's published bank formula is **`bank = (addr/4) mod 32`** (CDNA / 32-bank). gfx1030 **WGP mode is 64 banks** (RDNA 2 ISA §2.3.1; companion LDS note). If you take CK's XOR as-is you will *move* conflicts, not kill them.
+- CK's published bank formula is **`bank = (addr/4) mod 32`** (CDNA / 32-bank). gfx1030 **WGP mode is 64 banks** (RDNA 2 ISA §2.3.1; companion LDS note). If you take CK's XOR as-is you will *move* conflicts, not kill them.[^isa70648]
 - TileWindow “automatically applies XOR” is true inside CK Tile GEMM/FMHA, which you are not running.
 - Examples in the XOR doc are “A Block GEMM on MI300” — MFMA fragment layout, not VALU DOT.
 
@@ -100,7 +146,7 @@ bank  = dword % 64
 k0'   = k0 ^ (m % (KPerBlock / KPack))
 ```
 
-Pad-by-1 is the dumb alternative (wastes LDS, 64 KB/WG cap). Prefer XOR. Verify with `rocprofv3 --pmc LDSBankConflict` or RGP, not by staring at the formula.
+Pad-by-1 is the dumb alternative (wastes LDS, 64 KB/WG cap). Prefer XOR. Verify with `rocprofv3 --pmc LDSBankConflict` or RGP, not by staring at the formula.[^rocm-gpu-arch-specs][^llvm-baseinfo]
 
 ### 1.3 Is CK GEMM / FA usable, or CDNA-only?
 
@@ -125,7 +171,7 @@ Two different claims exist in the wild. They are not the same sentence.
 
 > “You can still use the latest PyTorch on the 5500 XT as long you compile it for the GPU's architecture and disable flash and memory-efficient attention (**Triton has no support for gfx101x and gfx103x arches**).”
 
-Source: https://github.com/ROCm/hipBLASLt/issues/648
+Source: https://github.com/ROCm/hipBLASLt/issues/648[^github-issues-648]
 
 That sentence is about **RDNA1 + a 2024 PyTorch/xFormers/memory-efficient-attention stack**, and it **lumps gfx103x with gfx101x**. It is **not** Triton's current compiler contract.
 
@@ -183,20 +229,20 @@ VgprBank    = 1
 
 ### 2.3 Autotune knobs that matter (and that do not)
 
-`num_warps=4` on RDNA **means 4 × 32 = 128 threads**, not 4 × 64. Triton's own `Config` docstring still says “8 * 32 = 256” (NVIDIA-centric). On gfx9 it would be 4 × 64; on gfx1030 it is 4 × 32. Source: `compiler.py` `warp_size` + https://triton-lang.org/main/python-api/generated/triton.Config.html
+`num_warps=4` on RDNA **means 4 × 32 = 128 threads**, not 4 × 64. Triton's own `Config` docstring still says “8 * 32 = 256” (NVIDIA-centric). On gfx9 it would be 4 × 64; on gfx1030 it is 4 × 32. Source: `compiler.py` `warp_size` + https://triton-lang.org/main/python-api/generated/triton.Config.html[^triton-lang-generated-triton-config-html]
 
 | Knob | On gfx1030 | Sweep? |
 |---|---|---|
 | `BLOCK_M` / `BLOCK_N` / `BLOCK_K` | Tile of the `tl.dot`. This is 90% of the search. | **Yes. First.** |
 | `num_warps` | 2 / 4 / 8. Workgroup threads = `num_warps * 32`. `num_warps=4` → 128. | **Yes. Second.** |
-| `num_stages` | Software pipeline of `tl.load`→`tl.dot`. Default 2. LDS × stages. | Yes, 1 vs 2. 3 often blows 64 KB. |
+| `num_stages` | Software pipeline of `tl.load`→`tl.dot`. Default 2. LDS × stages. | Yes, 1 vs 2. 3 often blows 64 KB. [^rocm-gpu-arch-specs][^llvm-baseinfo] |
 | `waves_per_eu` | Hint: LLVM `amdgpu-waves-per-eu`. 0 = compiler default. 2/4 asks for lower VGPR so more waves fit. | Yes if occupancy-limited. |
 | `GROUP_SIZE_M` | Persistent/grouped launch (L2 reuse). | Yes for fat GEMM; **no** for skinny decode. |
 | `matrix_instr_nonkdim` (16 vs 32) | MFMA shape. **No-op / ignore** on gfx1030. | No. |
 | `kpack` | MFMA K packing. gfx950 clamps to 1. | No. |
 | `num_ctas` > 1 | Cluster launch. `compiler.py` errors if the arch does not support it. | No. |
 
-Dump winner: `TRITON_PRINT_AUTOTUNING=1`. Dump ISA: Triton's AMD wiki (generate `amdgcn`, grep `.vgpr_count`, `ttg.shared`, `ttg.num-warps`).
+Dump winner: `TRITON_PRINT_AUTOTUNING=1`. Dump ISA: Triton's AMD wiki (generate `amdgcn`, grep `.vgpr_count`, `ttg.shared`, `ttg.num-warps`).[^llvm-amdgpuusage]
 
 AITER `#210` does **not** give you a recommended config. If you use Triton at all on this card, you own the autotune list.
 
@@ -239,7 +285,7 @@ That is a **gfx1032 community porter** report, not an AMD product. gfx1030 (6800
 
 ### 3.4 rocBLAS Tensile is the actual FP16 GEMM backend
 
-rocBLAS design notes: https://rocm.docs.amd.com/projects/rocBLAS/en/latest/conceptual/rocblas-design-notes.html
+rocBLAS design notes: https://rocm.docs.amd.com/projects/rocBLAS/en/latest/conceptual/rocblas-design-notes.html[^rocm-conceptual-rocblas-design-notes-html]
 
 - rocBLAS embeds **Tensile** (old generator) and *may* call hipBLASLt on arches that have it (gfx12 default).
 - `ROCBLAS_USE_HIPBLASLT=0` forces Tensile.
@@ -268,7 +314,7 @@ Also set `TORCH_BLAS_PREFER_HIPBLASLT=0` if you still see “Attempting to use h
 
 ## 4. rocWMMA
 
-Official README targets (https://github.com/ROCm/rocWMMA):
+Official README targets (https://github.com/ROCm/rocWMMA):[^github-rocm-rocwmma]
 
 - CDNA matrix cores: gfx908 / 90a / 942 / 950 as `gfx9`
 - RDNA AI: gfx1100/1101/1102/1151 as `gfx11`; gfx1200/1201 as `gfx12`
@@ -291,14 +337,14 @@ From the companion silicon brief + GPUOpen occupancy + LLVM IsaInfo (not re-deri
 |---|---|---|
 | Wave | 32 threads | `num_warps=4` → 128 threads; HIP WG=256 → 8 waves |
 | Wave slots | 16 / SIMD32 | Occupancy = assigned / 16 |
-| VGPR file | 1024 / SIMD32, granule 16 (LLVM IsaInfo; companion brief) | 64 VGPR → 16 waves; 128 VGPR → 8 waves |
-| LDS | 128 KB / WGP; **≤ 64 KB / workgroup**; granule 1 KB | Double-buf + pad must stay ≤ 64 KB |
+| VGPR file | 1024 / SIMD32, granule 16 (LLVM IsaInfo; companion brief) | 64 VGPR → 16 waves; 128 VGPR → 8 waves [^llvm-baseinfo] |
+| LDS | 128 KB / WGP; **≤ 64 KB / workgroup**; granule 1 KB | Double-buf + pad must stay ≤ 64 KB [^rocm-gpu-arch-specs][^llvm-baseinfo] |
 | LDS banks | **64** dword banks in WGP mode | XOR modulus 64, not CK's 32 |
 | Max WG | 1024 threads | Stay at 128 or 256 |
 | DOT | `v_dot2*` (f16), `v_dot4c_i32_i8` (sdot4), `v_dot8*_i4` | W8A8 BK % 4 == 0; W4 can use `v_dot8` i4 or unpack→f16 |
 | Infinity Cache | 128 MB on 6800/6900-class | Skinny decode is cache-resident more often than on RDNA1 |
 
-`llvm-calc-occupancy` is the source of truth for *your* binary:
+`llvm-calc-occupancy` is the source of truth for *your* binary:[^llvm-calc-occupancy]
 
 ```bash
 # same math the AMDGPU backend uses (GCNSubtarget)
@@ -309,7 +355,7 @@ llvm-calc-occupancy -mcpu=gfx1030 -mattr=+wavefrontsize32 \
 llvm-calc-occupancy -mcpu=gfx1030 -mattr=+wavefrontsize32 --limits
 ```
 
-Docs: https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
+Docs: https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html[^llvm-calc-occupancy]
 
 Every HIP compile:
 
@@ -330,9 +376,9 @@ rga -s bin --isa out/isa.txt --livereg out/livereg.txt --analysis out/stats.txt 
     my_kernel.co
 ```
 
-RGA does not run the kernel. Use it when occupancy math says “cut 8 VGPR to gain a wave” and you need to know *which* live range.
+RGA does not run the kernel. Use it when occupancy math says “cut 8 VGPR to gain a wave” and you need to know *which* live range.[^gpuopen-rga]
 
-RGP (measured occupancy, instruction latency, wave32 vs wave64, limiter hint on the Pipeline tab): Windows HIP via Radeon Developer Panel (RGP 1.14+). Linux HPC blog (https://rocm.blogs.amd.com/software-tools-optimization/profilers/README.html): RGP HIP is a Windows story; use **rocprofv3**.
+RGP (measured occupancy, instruction latency, wave32 vs wave64, limiter hint on the Pipeline tab): Windows HIP via Radeon Developer Panel (RGP 1.14+). Linux HPC blog (https://rocm.blogs.amd.com/software-tools-optimization/profilers/README.html): RGP HIP is a Windows story; use **rocprofv3**.[^rocm-profilers-readme-html]
 
 ```bash
 rocprofv3 --pmc LDSBankConflict,VALUBusy,SALUBusy,MemUnitStalled,GPUBusy \
@@ -353,8 +399,8 @@ shapes: capture the real vLLM decode/prefill (M,N,K) first — do not sweep 4k³
 
 Occupancy pre-filter (no GPU):
 
-1. Compile tile → read VGPR/LDS from `-Rpass-analysis` or the `.s` `.amdhsa_*` block.
-2. `llvm-calc-occupancy` → drop configs below your floor (start at 8 waves/SIMD for memory-bound, 4 for compute-bound).
+1. Compile tile → read VGPR/LDS from `-Rpass-analysis` or the `.s` `.amdhsa_*` block.[^llvm-amdgpuusage]
+2. `llvm-calc-occupancy` → drop configs below your floor (start at 8 waves/SIMD for memory-bound, 4 for compute-bound).[^llvm-calc-occupancy]
 3. Run survivors. Rank by time, not by occupancy. GPUOpen occupancy article: more waves can trash Infinity Cache / L0.
 
 ### 5.3 What to sweep first
@@ -363,7 +409,7 @@ Two different problems. Do not share a config list.
 
 #### W4A16 skinny (decode GEMV / “M = 1…16, N = hidden, K = hidden”)
 
-This is **memory-bound**, often Infinity-Cache resident. hipfire's gfx1030 note (community, not AMD): RDNA2's 128 MB IC changes the occupancy/ILP trade — **fewer waves, more work per wave** beat gfx1010-style `launch_bounds(32,20)` high-occupancy tunings.
+This is **memory-bound**, often Infinity-Cache resident. hipfire's gfx1030 note (community, not AMD): RDNA2's 128 MB IC changes the occupancy/ILP trade — **fewer waves, more work per wave** beat gfx1010-style `launch_bounds(32,20)` high-occupancy tunings.[^rocm-gpu-arch-specs]
 
 Sweep **in this order**:
 
@@ -387,7 +433,7 @@ Sweep **in this order**:
 
 1. **`BLOCK_K`** — 32, 64, 128 (all % 4 == 0). This is what keeps `sdot4` fed. 64 is the companion seed (4 KB+4 KB LDS at 64×64).
 2. **`BLOCK_M` × `BLOCK_N`** — (64,64), (128,64), (64,128), (128,128). Stop at 128×128 until VGPR < ~80 and no spill.
-3. **XOR vs pad on LDS** — sequential `int` along K is already conflict-free for wave32 on 64 banks; XOR matters when you *transpose* for the inner product. Measure `LDSBankConflict` before adding XOR.
+3. **XOR vs pad on LDS** — sequential `int` along K is already conflict-free for wave32 on 64 banks; XOR matters when you *transpose* for the inner product. Measure `LDSBankConflict` before adding XOR.[^isa70648]
 4. **`num_warps` 4 vs 8** (128 vs 256). 256 is the companion default for the 64×64×64 seed.
 5. **`num_stages` / double-buffer** — 8 KB → 16 KB. Still two WG/WGP. Do not triple-buffer.
 6. **`waves_per_eu` / launch_bounds** only after the tile is stable.
@@ -421,57 +467,57 @@ Triton equivalent if you prototype in Python first: `@triton.autotune` over `BLO
 
 **CK**
 
-- https://rocm.docs.amd.com/projects/composable_kernel/en/docs-6.4.1/tutorial_hello_world.html
-- https://github.com/ROCm/composable_kernel/blob/develop/README.md
-- https://github.com/ROCm/composable_kernel/blob/develop/CHANGELOG.md
-- https://github.com/ROCm/composable_kernel/issues/886
-- https://github.com/ROCm/composable_kernel/pull/2466
-- https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/lds_index_swapping.html
-- https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/hardware/lds_bank_conflicts.html
-- https://github.com/vllm-project/vllm/pull/32944
-- https://github.com/ROCm/TheRock/issues/3931
-- https://github.com/ROCm/TheRock/issues/4768
-- https://github.com/ROCm/TheRock/issues/4836
+- https://rocm.docs.amd.com/projects/composable_kernel/en/docs-6.4.1/tutorial_hello_world.html[^rocm-docs-6-4-1-tutorial-hello-world-html]
+- https://github.com/ROCm/composable_kernel/blob/develop/README.md[^github-develop-readme-md]
+- https://github.com/ROCm/composable_kernel/blob/develop/CHANGELOG.md[^github-develop-changelog-md]
+- https://github.com/ROCm/composable_kernel/issues/886[^github-issues-886]
+- https://github.com/ROCm/composable_kernel/pull/2466[^github-pull-2466]
+- https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/lds_index_swapping.html[^rocm-ck-tile-lds-index-swapping-html]
+- https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/hardware/lds_bank_conflicts.html[^rocm-hardware-lds-bank-conflicts-html]
+- https://github.com/vllm-project/vllm/pull/32944[^github-pull-32944]
+- https://github.com/ROCm/TheRock/issues/3931[^github-issues-3931]
+- https://github.com/ROCm/TheRock/issues/4768[^github-issues-4768]
+- https://github.com/ROCm/TheRock/issues/4836[^github-issues-4836]
 
 **Triton**
 
-- https://github.com/triton-lang/triton/blob/main/third_party/amd/backend/compiler.py
-- https://github.com/triton-lang/triton/blob/main/third_party/amd/lib/TritonAMDGPUToLLVM/DotOpToLLVM/FMA.cpp
-- https://github.com/triton-lang/triton/commit/2926ae791c39c776e623602b15d2545424890b49 (`#4594`, 2025-01-31)
-- https://github.com/openai/triton/pull/3083
-- https://github.com/ROCm/aiter/issues/210
-- https://github.com/ROCm/hipBLASLt/issues/648 (Triton-support comment; see §2.1)
-- https://triton-lang.org/main/python-api/generated/triton.Config.html
-- https://rocm.docs.amd.com/en/docs-6.1.1/how-to/llm-fine-tuning-optimization/optimizing-triton-kernel.html (MI300X knobs; use only to see what *not* to copy)
+- https://github.com/triton-lang/triton/blob/main/third_party/amd/backend/compiler.py[^github-backend-compiler-py]
+- https://github.com/triton-lang/triton/blob/main/third_party/amd/lib/TritonAMDGPUToLLVM/DotOpToLLVM/FMA.cpp[^github-dotoptollvm-fma-cpp]
+- https://github.com/triton-lang/triton/commit/2926ae791c39c776e623602b15d2545424890b49 (`#4594`, 2025-01-31)[^github-commit-2926ae791c39c776e623602b15d2545424]
+- https://github.com/openai/triton/pull/3083[^github-pull-3083]
+- https://github.com/ROCm/aiter/issues/210[^github-issues-210]
+- https://github.com/ROCm/hipBLASLt/issues/648 (Triton-support comment; see §2.1)[^github-issues-648]
+- https://triton-lang.org/main/python-api/generated/triton.Config.html[^triton-lang-generated-triton-config-html]
+- https://rocm.docs.amd.com/en/docs-6.1.1/how-to/llm-fine-tuning-optimization/optimizing-triton-kernel.html (MI300X knobs; use only to see what *not* to copy)[^rocm-llm-fine-tuning-optimization-optimizing-tri]
 
 **hipBLASLt / Tensile / TunableOp**
 
-- https://github.com/ROCm/TheRock/issues/1062
-- https://github.com/ROCm/TheRock/blob/main/cmake/therock_amdgpu_targets.cmake
-- https://github.com/ROCm/hipBLASLt/issues/648
-- https://rocm.docs.amd.com/projects/rocBLAS/en/latest/conceptual/rocblas-design-notes.html
-- https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/cuda/tunable/README.md
-- https://github.com/pytorch/pytorch/issues/140278
-- https://github.com/pytorch/pytorch/pull/128753
+- https://github.com/ROCm/TheRock/issues/1062[^github-issues-1062]
+- https://github.com/ROCm/TheRock/blob/main/cmake/therock_amdgpu_targets.cmake[^github-cmake-therock-amdgpu-targets-cmake]
+- https://github.com/ROCm/hipBLASLt/issues/648[^github-issues-648]
+- https://rocm.docs.amd.com/projects/rocBLAS/en/latest/conceptual/rocblas-design-notes.html[^rocm-conceptual-rocblas-design-notes-html]
+- https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/cuda/tunable/README.md[^github-tunable-readme-md]
+- https://github.com/pytorch/pytorch/issues/140278[^github-issues-140278]
+- https://github.com/pytorch/pytorch/pull/128753[^github-pull-128753]
 
 **rocWMMA**
 
-- https://github.com/ROCm/rocWMMA
-- https://github.com/ROCm/TheRock/issues/1944
-- https://github.com/ROCm/rocm-libraries/issues/8209
-- https://rocm.docs.amd.com/projects/rocWMMA/en/docs-7.1.0/api-reference/api-reference-guide.html
+- https://github.com/ROCm/rocWMMA[^github-rocm-rocwmma]
+- https://github.com/ROCm/TheRock/issues/1944[^github-issues-1944]
+- https://github.com/ROCm/rocm-libraries/issues/8209[^github-issues-8209]
+- https://rocm.docs.amd.com/projects/rocWMMA/en/docs-7.1.0/api-reference/api-reference-guide.html[^rocm-api-reference-api-reference-guide-html]
 
 **Occupancy / RGA / RGP**
 
-- https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
-- https://gpuopen.com/learn/occupancy-explained/
-- https://gpuopen.com/rga/
-- https://gpuopen.com/manuals/rga_manual/quickstart/
-- https://gpuopen.com/rgp/
-- https://gpuopen.com/learn/rgp_1_14/
-- https://rocm.blogs.amd.com/software-tools-optimization/profilers/README.html
-- https://rocm.docs.amd.com/projects/HIP/en/docs-7.2.0/how-to/performance_guidelines.html
-- https://github.com/ROCm/legacy-rocm-build/issues/1609 (`-Rpass-analysis=kernel-resource-usage`)
+- https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html[^llvm-calc-occupancy]
+- https://gpuopen.com/learn/occupancy-explained/[^gpuopen-occupancy]
+- https://gpuopen.com/rga/[^gpuopen-rga]
+- https://gpuopen.com/manuals/rga_manual/quickstart/[^gpuopen-rga-manual-quickstart]
+- https://gpuopen.com/rgp/[^gpuopen-rgp]
+- https://gpuopen.com/learn/rgp_1_14/[^gpuopen-learn-rgp-1-14]
+- https://rocm.blogs.amd.com/software-tools-optimization/profilers/README.html[^rocm-profilers-readme-html]
+- https://rocm.docs.amd.com/projects/HIP/en/docs-7.2.0/how-to/performance_guidelines.html[^rocm-how-to-performance-guidelines-html]
+- https://github.com/ROCm/legacy-rocm-build/issues/1609 (`-Rpass-analysis=kernel-resource-usage`)[^github-issues-1609]
 
 **DOT / W4A16 / W8A8**
 
@@ -484,4 +530,52 @@ Triton equivalent if you prototype in Python first: `@triton.autotune` over `BLO
 
 ## 7. One-paragraph recommendation
 
-On gfx1030 you are a **VALU-DOT HIP author**. Use rocBLAS Tensile + TunableOp (hipBLASLt off) for dense FP16; use Triton only as a compiler whose `tl.dot` is `fdot2`/`sdot4`; take CK's XOR idea with a **64-bank** modulus; ignore CK FA, CK XDL, hipBLASLt, rocWMMA, AITER, and every MFMA autotune knob. Sweep W4A16 skinny on **N and K plus launch_bounds**, W8A8 on **BK then square tiles**, with `llvm-calc-occupancy` + `-Rpass-analysis` as the pre-filter and rocprofv3/RGP as the lie detector.
+On gfx1030 you are a **VALU-DOT HIP author**. Use rocBLAS Tensile + TunableOp (hipBLASLt off) for dense FP16; use Triton only as a compiler whose `tl.dot` is `fdot2`/`sdot4`; take CK's XOR idea with a **64-bank** modulus; ignore CK FA, CK XDL, hipBLASLt, rocWMMA, AITER, and every MFMA autotune knob. Sweep W4A16 skinny on **N and K plus launch_bounds**, W8A8 on **BK then square tiles**, with `llvm-calc-occupancy` + `-Rpass-analysis` as the pre-filter and rocprofv3/RGP as the lie detector.[^llvm-calc-occupancy]
+
+## Sources
+
+Primary sources for this page, cited inline as footnotes:
+
+[^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)
+[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
+[^rocm-docs-6-4-1-tutorial-hello-world-html]: Hello World Tutorial — Composable Kernel 1.1.0 Documentation. https://rocm.docs.amd.com/projects/composable_kernel/en/docs-6.4.1/tutorial_hello_world.html (checked 2026-10-11)
+[^github-develop-readme-md]: composable_kernel/README.md at develop · ROCm/composable_kernel. https://github.com/ROCm/composable_kernel/blob/develop/README.md (checked 2026-10-11)
+[^github-issues-886]: Fused Attention Kernel with gfx1030? · Issue #886 · ROCm/composable_kernel. https://github.com/ROCm/composable_kernel/issues/886 (checked 2026-10-11)
+[^github-pull-32944]: (ROCm)(ViT) Enable Flash Attention Triton backend on RDNA3/RDNA4 by monajafi-amd · Pull Request #32944 · vllm-project/vllm. https://github.com/vllm-project/vllm/pull/32944 (checked 2026-10-11)
+[^github-develop-changelog-md]: composable_kernel/CHANGELOG.md at develop · ROCm/composable_kernel. https://github.com/ROCm/composable_kernel/blob/develop/CHANGELOG.md (checked 2026-10-11)
+[^github-pull-2466]: (CK_TILE) CK_TILE GEMM WMMA Support for GFX11/GFX12 by tywuAMD · Pull Request #2466 · ROCm/composable_kernel. https://github.com/ROCm/composable_kernel/pull/2466 (checked 2026-10-11)
+[^github-example-01-gemm]: composable_kernel/example/01_gemm at develop · ROCm/composable_kernel. https://github.com/ROCm/composable_kernel/tree/develop/example/01_gemm (checked 2026-10-11)
+[^rocm-ck-tile-lds-index-swapping-html]: Load Data Share Index Swapping — Composable Kernel 1.3.0 Documentation. https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/lds_index_swapping.html (checked 2026-10-11)
+[^rocm-hardware-lds-bank-conflicts-html]: Understanding AMD GPU LDS and Bank Conflicts — Composable Kernel 1.3.0 Documentation. https://rocm.docs.amd.com/projects/composable_kernel/en/latest/conceptual/ck_tile/hardware/lds_bank_conflicts.html (checked 2026-10-11)
+[^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
+[^github-issues-648]: Any plans for adding gfx10+ support? · Issue #648 · ROCm/hipBLASLt. https://github.com/ROCm/hipBLASLt/issues/648 (checked 2026-10-11)
+[^triton-lang-generated-triton-config-html]: triton.Config — Triton documentation. https://triton-lang.org/main/python-api/generated/triton.Config.html (checked 2026-10-11)
+[^rocm-conceptual-rocblas-design-notes-html]: rocBLAS design and usage notes — rocBLAS 5.7.0 Documentation. https://rocm.docs.amd.com/projects/rocBLAS/en/latest/conceptual/rocblas-design-notes.html (checked 2026-10-11)
+[^github-rocm-rocwmma]: GitHub - ROCm/rocWMMA: (DEPRECATED) Moved to ROCm/rocm-libraries repo. https://github.com/ROCm/rocWMMA (checked 2026-10-11)
+[^rocm-profilers-readme-html]: Introduction to profiling tools for AMD hardware — ROCm Blogs. https://rocm.blogs.amd.com/software-tools-optimization/profilers/README.html (checked 2026-10-11)
+[^github-issues-3931]: (Issue) CMake configuration for Composable Kernel fails when targeting gfx900, gfx103x · Issue #3931 · ROCm/TheRock. https://github.com/ROCm/TheRock/issues/3931 (checked 2026-10-11)
+[^github-issues-4768]: (Issue) Linux PyTorch wheels fail to build on gfx103x: Composable Kernel compile error `CK_BUFFER_RESOURCE_3RD_DWORD` undeclared · Issue #4768 · ROCm/TheRock. https://github.com/ROCm/TheRock/issues/4768 (checked 2026-10-11)
+[^github-issues-4836]: Stop force-disabling MIOPEN_USE_COMPOSABLEKERNEL when family contains arches without CK support · Issue #4836 · ROCm/TheRock. https://github.com/ROCm/TheRock/issues/4836 (checked 2026-10-11)
+[^github-backend-compiler-py]: triton/third_party/amd/backend/compiler.py at main · triton-lang/triton. https://github.com/triton-lang/triton/blob/main/third_party/amd/backend/compiler.py (checked 2026-10-11)
+[^github-dotoptollvm-fma-cpp]: triton/third_party/amd/lib/TritonAMDGPUToLLVM/DotOpToLLVM/FMA.cpp at main · triton-lang/triton. https://github.com/triton-lang/triton/blob/main/third_party/amd/lib/TritonAMDGPUToLLVM/DotOpToLLVM/FMA.cpp (checked 2026-10-11)
+[^github-commit-2926ae791c39c776e623602b15d2545424]: (AMD) Emit AMD specific intrinsics for FMA dot (#4594) · triton-lang/triton@2926ae7. https://github.com/triton-lang/triton/commit/2926ae791c39c776e623602b15d2545424890b49 (checked 2026-10-11)
+[^github-pull-3083]: (AMD)(Navi) Set up Warp Size depending on the architecture by joviliast · Pull Request #3083 · triton-lang/triton. https://github.com/openai/triton/pull/3083 (checked 2026-10-11)
+[^github-issues-210]: (Help) Does branch triton_mha_fwd_kernel should suport rdna2/gfx1030 amd gpu? · Issue #210 · ROCm/aiter. https://github.com/ROCm/aiter/issues/210 (checked 2026-10-11)
+[^rocm-llm-fine-tuning-optimization-optimizing-tri]: Optimizing Triton kernels — ROCm Documentation. https://rocm.docs.amd.com/en/docs-6.1.1/how-to/llm-fine-tuning-optimization/optimizing-triton-kernel.html (checked 2026-10-11)
+[^github-issues-1062]: (hipBLASLt) gfx architectures need to be excluded due to incomplete tensilelite support · Issue #1062 · ROCm/TheRock. https://github.com/ROCm/TheRock/issues/1062 (checked 2026-10-11)
+[^github-cmake-therock-amdgpu-targets-cmake]: TheRock/cmake/therock_amdgpu_targets.cmake at main · ROCm/TheRock. https://github.com/ROCm/TheRock/blob/main/cmake/therock_amdgpu_targets.cmake (checked 2026-10-11)
+[^github-tunable-readme-md]: pytorch/aten/src/ATen/cuda/tunable/README.md at main · pytorch/pytorch. https://github.com/pytorch/pytorch/blob/main/aten/src/ATen/cuda/tunable/README.md (checked 2026-10-11)
+[^github-issues-140278]: (ROCm)(TunableOp) TunableOp on some operations on tensor views results in memory access fault · Issue #140278 · pytorch/pytorch. https://github.com/pytorch/pytorch/issues/140278 (checked 2026-10-11)
+[^github-pull-128753]: (ROCm) Check supported archs before setting preferred blas backend to hipblasLT by jithunnair-amd · Pull Request #128753 · pytorch/pytorch. https://github.com/pytorch/pytorch/pull/128753 (checked 2026-10-11)
+[^github-issues-1944]: (rocWMMA) GFX Targets not supported · Issue #1944 · ROCm/TheRock. https://github.com/ROCm/TheRock/issues/1944 (checked 2026-10-11)
+[^github-issues-8209]: rocWMMA: add gfx1032 (RDNA2) support with software WMMA fallback by GrecAndrei · Pull Request #8209 · ROCm/rocm-libraries. https://github.com/ROCm/rocm-libraries/issues/8209 (checked 2026-10-11)
+[^rocm-api-reference-api-reference-guide-html]: API reference guide — rocWMMA 2.0.0 Documentation. https://rocm.docs.amd.com/projects/rocWMMA/en/docs-7.1.0/api-reference/api-reference-guide.html (checked 2026-10-11)
+[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
+[^gpuopen-rga]: AMD Radeon™ GPU Analyzer - AMD GPUOpen. https://gpuopen.com/rga/ (checked 2026-10-11)
+[^gpuopen-rga-manual-quickstart]: Quickstart | GPUOpen Manuals. https://gpuopen.com/manuals/rga_manual/quickstart/ (checked 2026-10-11)
+[^gpuopen-rgp]: AMD Radeon™ GPU Profiler - AMD GPUOpen. https://gpuopen.com/rgp/ (checked 2026-10-11)
+[^gpuopen-learn-rgp-1-14]: RDNA 3 Radeon GPU Profiler 1.14 introduces support for Radeon™ RX 7000 Series, HIP, and more - AMD GPUOpen. https://gpuopen.com/learn/rgp_1_14/ (checked 2026-10-11)
+[^rocm-how-to-performance-guidelines-html]: Performance guidelines — HIP 7.2.53210 Documentation. https://rocm.docs.amd.com/projects/HIP/en/docs-7.2.0/how-to/performance_guidelines.html (checked 2026-10-11)
+[^github-issues-1609]: How to get kernel assembly info from hipcc (similar to -Xptxas -v)? · Issue #1609 · ROCm/legacy-rocm-build. https://github.com/ROCm/legacy-rocm-build/issues/1609 (checked 2026-10-11)
+[^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
+[^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)

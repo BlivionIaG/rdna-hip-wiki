@@ -1,6 +1,16 @@
+---
+title: "SPI / ACE vs measured occupancy (gfx1030 / V620)"
+sources:
+  - https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
+  - https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html
+  - https://gpuopen.com/learn/occupancy-explained/
+  - https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html
+  - https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html
+---
+
 # SPI / ACE vs measured occupancy (gfx1030 / V620)
 
-Lock: **SPI (shader processor input / workgroup manager) and ACE (asynchronous compute engine) are not PIX / `llvm-calc-occupancy` MaxWaves limiters.** They explain why **measured** occupancy sits under **theoretical** when the grid cannot fill the ASIC or waves finish faster than the front-end can refill slots. Completes the “measured ≤ theory” story named on [occupancy-composite.md](occupancy-composite.md) — siblings own VGPR/LDS/WG/barrier and the cache thrash pages.
+Lock: **SPI (shader processor input / workgroup manager) and ACE (asynchronous compute engine) are not PIX / `llvm-calc-occupancy` MaxWaves limiters.** They explain why **measured** occupancy sits under **theoretical** when the grid cannot fill the ASIC or waves finish faster than the front-end can refill slots. Completes the “measured ≤ theory” story named on [occupancy-composite.md](occupancy-composite.md) — siblings own VGPR/LDS/WG/barrier and the cache thrash pages.[^llvm-calc-occupancy]
 
 Does **not** change extras HIP or UNC tickets. No tok/s. Do not restate the FA pin.
 
@@ -13,17 +23,17 @@ Companions: [architecture.md](../arch-and-memory/architecture.md) § CP/SPI, [oc
 | | |
 |---|---|
 | **Take** | When RGP / PIX shows **theory high** but **measured low** on a fat FA/W4 grid, first check **grid fill**, **host/device barriers between independent dispatches**, and **per-wave work vs launch cost** — not another VGPR shave. |
-| **Take** | V620 fill ceiling: **72 CU → 36 WGP → 36 × 4 SIMD × 16 = 2304 wave32 slots**. A dispatch with fewer wavefronts **cannot** hit 100% measured occupancy even at full theory ([cache-policy.md](../arch-and-memory/cache-policy.md)). |
+| **Take** | V620 fill ceiling: **72 CU → 36 WGP → 36 × 4 SIMD × 16 = 2304 wave32 slots**. A dispatch with fewer wavefronts **cannot** hit 100% measured occupancy even at full theory ([cache-policy.md](../arch-and-memory/cache-policy.md)). [^v620-product] |
 | **Take** | Overlap **independent** kernels (no dependency barrier) across queues / ACEs when the profile shows empty-GPU ramp after a drain. HIP: multiple ACEs exist; each ACE dispatches **one kernel at a time**. Exact ACE count on Navi 21: **unknown** — do not invent. |
 | **Take** | For skinny decode grids that under-fill 36 WGP, increase useful work per wave (tile / segment batching) so launch cost is amortized — same class as leapdragon’s segment fill ([leapdragon.md](../external-projects/leapdragon.md)). |
-| **Leave** | Do **not** put SPI/ACE / launch-rate into `llvm-calc-occupancy` or PIX `WaveOccupancyLimiters` (VGPR / LDS / Thread Group Size / Barriers only). |
+| **Leave** | Do **not** put SPI/ACE / launch-rate into `llvm-calc-occupancy` or PIX `WaveOccupancyLimiters` (VGPR / LDS / Thread Group Size / Barriers only). [^llvm-calc-occupancy] |
 | **Leave** | Do **not** invent a gfx1030 ACE count, SPI width, or waves-per-cycle launch table. Profile measured vs theory; cite GPUOpen / HIP for the mechanism. |
-| **Leave** | Do **not** assume workgroup→WGP mapping is sticky across launches — SPI placement is resource-driven and non-deterministic ([architecture.md](../arch-and-memory/architecture.md); HIP hardware implementation). |
+| **Leave** | Do **not** assume workgroup→WGP mapping is sticky across launches — SPI placement is resource-driven and non-deterministic ([architecture.md](../arch-and-memory/architecture.md); HIP hardware implementation). [^hip-hw-impl] |
 | **Leave** | Do not open UNC / retip extras for this page. |
 
 ## 1. Front-end path (host → SIMD slots)
 
-HIP hardware implementation + wiki architecture:
+HIP hardware implementation + wiki architecture:[^hip-hw-impl]
 
 ```text
 Host AQL / HIP launch
@@ -44,7 +54,7 @@ SPI tracks the same four resources PIX names: **wave slots, VGPR, SGPR, LDS**. O
 
 ## 2. Measured ≤ theory — two SPI/ACE classes
 
-GPUOpen Occupancy explained (RDNA2 MaxWaves = 16 / SIMD):
+GPUOpen Occupancy explained (RDNA2 MaxWaves = 16 / SIMD):[^gpuopen-occupancy]
 
 | Class | Symptom | Mechanism | Craft |
 |---|---|---|---|
@@ -63,7 +73,7 @@ These are **not** VGPR/LDS/WG/barrier limiters. PIX `WaveOccupancyLimiters` stay
 | RX 6900 XT (full Navi 21 class example in older wiki notes) | 80 | 40 | 2560 |
 | GPUOpen RX 7900 XTX example (RDNA3) | — | 48 | 3072 |
 
-Sources: AMD V620 product / press (72 CU); ROCm gpu-arch-specs V620 row; ISA CU = half WGP. Prefer **2304** for V620 craft. [occupancy-composite.md](occupancy-composite.md) historically said “40 WGP” for V620 — **wrong**; corrected to 36 / 2304 on this pass.
+Sources: AMD V620 product / press (72 CU); ROCm gpu-arch-specs V620 row; ISA CU = half WGP. Prefer **2304** for V620 craft. [occupancy-composite.md](occupancy-composite.md) historically said “40 WGP” for V620 — **wrong**; corrected to 36 / 2304 on this pass.[^v620-product]
 
 Example: 256-thread WG = 8 wave32 → **288** workgroups to fill all slots if every WG is resident at once (upper bound; real residency is still VGPR∩LDS capped).
 
@@ -102,10 +112,21 @@ Do **not** invent a gfx1030 “ACE utilization” PMC name. If a counter appears
 | [leapdragon.md](../external-projects/leapdragon.md) | Softmax segments to fill 36 WGP | Ties under-fill to GPUOpen lack-of-work class |
 | [hip-craft.md](../hip-craft/hip-craft.md) | RGP measured occupancy | Points here when theory ≠ measured |
 
-## Sources (opened this pass)
+## Sources
+
+_Sources (opened this pass)_
+
 
 1. GPUOpen Occupancy explained — measured vs theory; lack of work; launch-rate; PIX limiters VGPR/LDS/threadgroup/barriers only; RDNA2 MaxWaves 16 — https://gpuopen.com/learn/occupancy-explained/ (2023-12-20 / 2024-06-26)
 2. ROCm HIP Hardware implementation — CP/CPF/CPC, ACE (one kernel at a time), SPI workgroup manager, resource set (warp slots / VGPR / SGPR / LDS), non-deterministic WG→CU map — https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html
 3. ROCm GPU hardware specifications docs-7.2.4 — Radeon PRO V620: gfx1030, **72 CU** — https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html
 4. AMD Radeon PRO V620 product / press — 72 CU — https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html
 5. Wiki companions: [architecture.md](../arch-and-memory/architecture.md), [occupancy-composite.md](occupancy-composite.md), [cache-policy.md](../arch-and-memory/cache-policy.md), [leapdragon.md](../external-projects/leapdragon.md), [vgpr-occupancy.md](vgpr-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md)
+
+Footnotes:
+
+[^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
+[^hip-hw-impl]: ROCm HIP docs, "Hardware implementation". https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html (checked 2026-10-11)
+[^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
+[^rocm-reference-gpu-arch-specs-html]: GPU hardware specifications — ROCm Documentation. https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)
+[^v620-product]: AMD Radeon PRO V620 product page. https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html (checked 2026-10-11)
