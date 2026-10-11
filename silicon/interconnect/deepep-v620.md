@@ -130,7 +130,7 @@ Then: peer-store microbench → asymmetric dispatch prototype → fused quant ex
 ## Primary sources
 
 - DeepEP: https://github.com/deepseek-ai/DeepEP
-- DeepEP legacy measurements: https://github.com/deepseek-ai/DeepEP/blob/main/docs/legacy.md
+- DeepEP legacy measurements: https://github.com/deepseek-ai/DeepEP/blob/b306af06afd412c88e51e71802951606e40b7358/docs/legacy.md (removed from `main` in def86514; pinned to the last commit that has it)
 - AMD DeepEP port: https://github.com/ROCm/DeepEP
 - MoRI and hardware matrix: https://github.com/ROCm/mori
 - V620 P2P platform contract: [rccl-p2p.md](rccl-p2p.md)
