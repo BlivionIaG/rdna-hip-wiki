@@ -26,7 +26,7 @@ Their 1.7–2.2× vs FLA Triton is **H20**. Dead as a vLLM/HIP import. Same clas
 2. **Two-kernel split** (their deep-dive): K1 token-parallel (gate, L2, L/Mqk, invert) vs K2 head-parallel recurrence. One fused kernel left SMs idle on the recurrence. Same occupancy lesson as our decode vs prefill split.
 3. **Chunk 16 + no rescaling** only if the **safe gate** holds. Unbounded gate → FLA Triton `chunk_kda` (chunk 64, high-prec). We would do the same split.
 4. **`cu_seqlens` packed prefill** — already how vLLM/SGLang batch. Steal the packing, not CUTLASS.
-5. Cousin of Qwen3.5 **GDN** ([qwen35.md](../run-recipes/qwen35.md)): hybrid linear + full-attn. GDN stays Later / no HIP. FlashKDA is the Kimi-flavored fused prefill of that family.
+5. Cousin of Qwen3.5 **GDN** ([qwen35.md](../run-recipes/qwen35.md)): hybrid linear + full-attn. *(2026-08-19: "GDN stays Later / no HIP".)* HIP GDN on dest at `1dc3bac4`: decode kernel `gdn_decode_rdna2.cu`, `causal_conv1d_*_rdna2` and the opaque `qwen_gdn_full_forward` op are built for gfx1030; the HIP prefill chain is opt-in (`VLLM_GDN_HIP_PREFILL=1`, recipes set 0) and its kkt/delta_h/o unit tests fail, so prefill serves on Triton FLA.[^d-gdnfiles][^d-port-gdn] FlashKDA is the Kimi-flavored fused prefill of that family.
 
 ## gfx1030 HIP (only if we serve a KDA/GDN model)
 
@@ -52,3 +52,6 @@ silicon one-pager if you want — no SM90, no CUTLASS, 128×128 state = fdot2 ti
 - https://github.com/sgl-project/sglang/pull/29472
 - https://github.com/fla-org/flash-linear-attention/pull/852
 - [qwen35.md](../run-recipes/qwen35.md)
+
+[^d-gdnfiles]: dest GDN HIP kernels (`gdn_decode_rdna2.cu`, `gdn_prefill_*_rdna2.cu`, `causal_conv1d_rdna2.cu`) — <https://github.com/opengfx1030/vllm-rdna/tree/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm>; recipes set `VLLM_GDN_HIP_PREFILL=0` — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/recipes/flashnext.env>
+[^d-port-gdn]: dest v0.31.0 port notes, GDN HIP prefill opt-in and failing unit tests — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/docs/rdna2/v0.31.0-port-notes.md#L540-L557>

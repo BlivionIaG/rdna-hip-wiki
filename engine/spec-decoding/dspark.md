@@ -4,7 +4,7 @@ Date: 2026-08-17. Engine contract. Card: DSpark on [project 4](https://github.co
 
 **Verdict:** DSpark = **DFlash-style parallel backbone + lightweight Markov head + confidence-scheduled verify length**. Verify is still **extend (`q = 1+k`)**, and DSpark draft attn is **non-causal sliding-window** (upstream reuses SparseMLA with expanded topk so queries see each other). On gfx1030 it does **not** fire until a **fat MLA tile (`q>1`)** exists. No new DOT kernel. Same silicon blocker as MTP / DFlash / mix.
 
-Fork today: DSv4 gfx10x routing keeps this off (`VLLM_DISABLE_DSPARK_MTP`). DSpark is **not** serial MTP even when the checkpoint stores the module under `mtp.*` — upstream refuses a silent MTP fallback (vLLM #46965).
+Dest at `1dc3bac4`: DSpark is not served; the DSv4-Flash recipe runs `MTP=0` and the `VLLM_DISABLE_DSPARK_MTP` flag no longer exists[^d-dsv4env]. *(2026-08-17: "kept off by `VLLM_DISABLE_DSPARK_MTP`".)* DSpark is **not** serial MTP even when the checkpoint stores the module under `mtp.*` — upstream refuses a silent MTP fallback (vLLM #46965).
 
 ## What DSpark is (engine)
 
@@ -41,7 +41,7 @@ The Markov head and confidence head are tiny linears. They are not the ticket. T
 
 | Piece | Spec |
 |---|---|
-| Gate | stay off (`VLLM_DISABLE_DSPARK_MTP`) until fat tile + occupancy. |
+| Gate | stay off (recipe `MTP=0`; the old `VLLM_DISABLE_DSPARK_MTP` flag is gone) until fat tile + occupancy. |
 | Method | `dspark` only if `dspark_*` is in the checkpoint. Do not lie and run MTP. |
 | Draft attn | reuse HIP / Triton sparse MLA with expanded topk (upstream CUDA design). No TileLang port. |
 | Verify attn | fat tile. Short Br=32 is the MHA-shaped cousin. |
@@ -68,3 +68,4 @@ Added in the 2026-10-11 sourcing pass:
 
 - vLLM docs, Speculative Decoding — <https://docs.vllm.ai/en/latest/features/speculative_decoding/>
 
+[^d-dsv4env]: dest `tools/rdna/recipes/dsv4-flash.env` (`MTP=0`, `ATTN=none`) — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/recipes/dsv4-flash.env>; `VLLM_DISABLE_DSPARK_MTP` has no match in `vllm/`, `csrc/` or `tools/rdna/` at `1dc3bac4`

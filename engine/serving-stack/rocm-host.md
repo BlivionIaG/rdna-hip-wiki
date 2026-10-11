@@ -29,7 +29,7 @@ No tok/s claimed. This is host/runtime, not a kernel win.
 - **Host gate:** the host kernel's amdgpu must report DRM **≥ 3.64** (`dmesg | grep "Initialized amdgpu"`). ROCm 7.14-era userspace on older in-kernel amdgpu gives silent RCCL `all_gather` / `reduce_scatter` corruption (Ubuntu 24.04 stock 6.8) and a HIP VMM hang below 3.64; `HSA_DISABLE_CACHE=1` is only a stopgap. Record the DRM version next to the ROCm version in bring-up and bug reports. Detail: [toolchain/pin/README.md](../../toolchain/pin/README.md) ("Host amdgpu DRM is part of the pin")[^drm-6565][^drm-12145][^drm-9820].
 - Do not mix V340L onto this ROCm 7 host ([plx.md](../multi-gpu/plx.md)).
 
-retip the “Not on RHEL” cell in `silicon/rccl-p2p.md` to **official Ubuntu-only / attested Fedora 43 + RHEL 10 + 7.14**.
+retip the “Not on RHEL” cell in [silicon/interconnect/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md) to **official Ubuntu-only / attested Fedora 43 + RHEL 10 + 7.14**.
 
 ## ROCm 10.x — do not bump
 

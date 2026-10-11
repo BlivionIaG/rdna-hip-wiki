@@ -43,7 +43,7 @@ HIP: `__builtin_amdgcn_fdot2`, K even, `half2`-aligned. hipcc will **not** peeph
 
 Matches silicon proof order + [baseline-order.md](../stock-baseline/baseline-order.md).
 
-1. Occupancy flip — decode kernels landed at `1dc3bac4` (`amdgpu_waves_per_eu(4, 8)`); prefill (`__launch_bounds__(N, 1)`) and `skinny_gemms.cu` `wvSplitKrc_` (`(1, 1)`) are what is left[^dest-occupancy].
+1. Occupancy flip — decode kernels landed at `1dc3bac4` (`amdgpu_waves_per_eu(4, 8)`); prefill, including INT8 split-K and GQA prefill (`__launch_bounds__(N, 1)`) and `skinny_gemms.cu` `wvSplitKrc_` (`(1, 1)`) are what is left[^dest-occupancy].
 2. Microbench `fdot2` vs `__hfma2` vs scalar (must show `v_dot2c`).
 3. Skinny HIP vs `F.linear` at `M=1,2,4,8`.
 4. Prefill: rocBLAS vs 64×64×32; **keep BLAS if it wins**.
@@ -70,5 +70,5 @@ Added in the 2026-10-11 sourcing pass:
 
 [^rdna2-isa]: AMD, *RDNA 2 Shader Instruction Set Architecture* (ISA 70648) — <https://www.amd.com/content/dam/amd/en/documents/radeon-tech-docs/instruction-set-architectures/rdna2-shader-instruction-set-architecture.pdf>
 [^vllm-issue38107]: vLLM issue #38107 — gfx1030 bf16 is emulated — <https://github.com/vllm-project/vllm/issues/38107>
-[^dest-occupancy]: dest occupancy state at `1dc3bac4` — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L283-L284>, <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L535-L536> (decode); <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L1054> (prefill); <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/skinny_gemms.cu#L1344-L1346> (`wvSplitKrc_`)
+[^dest-occupancy]: dest occupancy state at `1dc3bac4` — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L283-L284>, <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L535-L536> (decode); <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L1054> (prefill); <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/skinny_gemms.cu#L1344-L1346> (`wvSplitKrc_`); INT8 / GQA prefill — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L2447>, <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L2695>, <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L3810>
 [^llvm-amdgpu-td]: LLVM `llvm/lib/Target/AMDGPU/AMDGPU.td` @ `694d1a69de0d`: `FeatureISAVersion10_3_0` (gfx1030) has dot1/2/5/6/7/10 only; `v_dot2_bf16_bf16` is `dot9-insts`, `v_dot2_f32_bf16` is `dot12-insts` (gfx11+) — <https://github.com/llvm/llvm-project/blob/694d1a69de0d/llvm/lib/Target/AMDGPU/AMDGPU.td>

@@ -12,7 +12,7 @@ Dest: `opengfx1030/vllm-rdna` `rdna_extras`. Occupancy first. No tok/s. No fabri
 |---|---|
 | Engine cadence | Base `EngineCore._should_throttle_prefills()` now consults `SchedulerConfig.prefill_schedule_interval` via a per-step `_prefill_step_counter` (shared predicate with DP). Default **1** = off (no behaviour change for existing deploys).[^dest-pr36] |
 | CLI / config | `--prefill-schedule-interval` / `prefill_schedule_interval` (≥1). Admit new prefills only every N engine steps so decoders get pure-decode steps in between. |
-| MTP launcher | `serve_gfx1030_flashnext_mtp.sh` exposes `--prefill-schedule-interval ${PREFILL_INTERVAL:-1}` (opt-in; leave at 1 unless CoS pins a value). |
+| Launcher | Launchers moved to `tools/rdna/` in the v0.31.0 port. `serve_rdna.sh` passes `--prefill-schedule-interval` only when `PREFILL_INTERVAL` is set (opt-in). *(2026-09-28 text named `serve_gfx1030_flashnext_mtp.sh` with `${PREFILL_INTERVAL:-1}`.)* |
 | Leave | Commit message includes V620 validation cells — **do not copy tok/s / ITL into serve pins**. Dest tip / UNC stay with VLLM_FORK_Manager. |
 
 Not a silicon change. No group spam required from the silicon tip watch.
@@ -35,7 +35,7 @@ flowchart TD
   DYN["dest opt-in VLLM_RDNA_DYNAMIC_PREFILL=1<br/>tunes chunk cap + interval per window"] -.-> IV
 ```
 
-Decode-first packing, leftover-budget prefill and RECOMPUTE preemption are stock V1[^vllm-anatomy][^vllm-v1-guide]; the token-budget idea is Sarathi-Serve[^sarathi]. Mixed decode+prefill steps were restored on dest in PR #38[^dest-pr38]; the interval knob and the adaptive controller are dest PR #36[^dest-pr36].
+Decode-first packing, leftover-budget prefill and RECOMPUTE preemption are stock V1[^vllm-anatomy][^vllm-v1-guide]; the token-budget idea is Sarathi-Serve[^sarathi]. Mixed decode+prefill steps were restored on dest in PR #38[^dest-pr38] and are the only mode at `1dc3bac4` (`VLLM_ROCM_NO_MIXED_BATCH` is gone; no env escape hatch)[^d-sched]; the interval knob and the adaptive controller are dest PR #36[^dest-pr36].
 
 ## Mechanics
 
@@ -108,3 +108,6 @@ Added in the 2026-10-11 sourcing pass:
 ## Kiely addendum (Jan 2026)
 
 Reusable prefix **ends at the first novel token**. Put stable context first (system, repo, RAG, history) and unique user tokens last. Incomplete last page is not reusable (vLLM hashes complete 16-token blocks). Chunked prefill is also the long-ISL interleave so decode is not stalled. Still **measure MBT** on V620; do not copy Instinct 8k/16k.
+
+[^d-launch]: dest `tools/rdna/serve_rdna.sh` (passes `--prefill-schedule-interval` only when `PREFILL_INTERVAL` is set) — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/serve_rdna.sh#L135>, <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/serve_rdna.sh#L270>
+[^d-sched]: dest `vllm/v1/core/sched/scheduler.py` at `1dc3bac4` (no `_no_mixed` / `VLLM_ROCM_NO_MIXED_BATCH`) — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/v1/core/sched/scheduler.py>

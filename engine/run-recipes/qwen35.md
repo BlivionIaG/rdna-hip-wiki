@@ -28,7 +28,7 @@ Their tok/s stay on the note page.
 | LLMM1 gfx1030 + wvSplitK off | Flip skinny gate to include gfx1030. **Do not** enable `wvSplitK` (device-assert). `k>8192` is HIP skinny / existing Triton GEMV, not a new family. |
 | Qwen3.5 / Gemma RMSNorm fuse | One kernel, `(1+w)` in fp32 from raw fp16 weight. After occupancy. |
 | Qwen3.5 AWQ-vd recipe | Requant post-pass only. Not a DOT. |
-| Qwen3.5 GDN | Later. No HIP linear-attn. |
+| Qwen3.5 GDN | *(2026-08-17: Later, no HIP.)* HIP GDN on dest at `1dc3bac4`: decode kernel `gdn_decode_rdna2.cu`, `causal_conv1d_*_rdna2` and the opaque `qwen_gdn_full_forward` op are built for gfx1030; the HIP prefill chain is opt-in (`VLLM_GDN_HIP_PREFILL=1`, recipes set 0) and its kkt/delta_h/o unit tests fail, so prefill serves on Triton FLA. |
 
 Paged Triton `num_warps=8` folds into the existing occupancy / head-64 Triton-paged card.
 
@@ -52,3 +52,5 @@ Linked inline on this page (each URL checked 2026-10-11):
 - <https://huggingface.co/ikantkode/Qwen3.5-4B-AWQ-vd>
 - <https://github.com/users/BlivionIaG/projects/4>
 
+[^d-gdnfiles]: dest GDN HIP kernels (`gdn_decode_rdna2.cu`, `gdn_prefill_*_rdna2.cu`, `causal_conv1d_rdna2.cu`) — <https://github.com/opengfx1030/vllm-rdna/tree/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm>; recipes set `VLLM_GDN_HIP_PREFILL=0` — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/recipes/flashnext.env>
+[^d-port-gdn]: dest v0.31.0 port notes, GDN HIP prefill opt-in and failing unit tests — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/docs/rdna2/v0.31.0-port-notes.md#L540-L557>
