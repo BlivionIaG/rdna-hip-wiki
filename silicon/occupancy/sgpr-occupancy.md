@@ -94,7 +94,7 @@ PIX `WaveOccupancyLimiters` lists four: **VGPR, LDS, Thread Group Size, Barriers
 
 ## Sources
 
-1. LLVM `IsaInfo::isSGPROccupancyLimited` / `getOccupancyWithNumSGPRs` / `getMaxNumSGPRs` — https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
+1. LLVM `IsaInfo::isSGPROccupancyLimited` / `getOccupancyWithNumSGPRs` / `getMaxNumSGPRs` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
 2. LLVM AMDGPUUsage — `COMPUTE_PGM_RSRC1.GRANULATED_WAVEFRONT_SGPR_COUNT` GFX10–GFX12 “Reserved, must be 0. (128 SGPRs always allocated.)” — https://llvm.org/docs/AMDGPUUsage.html
 3. LLVM PR [#154666](https://github.com/llvm/llvm-project/pull/154666) — force granulated SGPR count = 0 for gfx10+ (merged 2025-08-27)
 4. GPUOpen Occupancy explained (updated 2024-06-26) — fixed SGPRs; 16 slots; four PIX limiters — https://gpuopen.com/learn/occupancy-explained/

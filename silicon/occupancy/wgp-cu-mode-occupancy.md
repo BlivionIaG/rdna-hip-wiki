@@ -105,7 +105,7 @@ llvm-calc-occupancy -mcpu=gfx1030 -mattr=+wavefrontsize32,+cumode    --wg-size=2
 
 1. RDNA 2 ISA 70648 §2.3.1 (LDS 128 KB/WGP, 64 KB/WG, CU vs WGP split) / §10.3 (SIMDs 2 vs 4, higher LDS BW vs far-side caveat) — Document ID 70648; local text opened this pass (`/workspace/rdna2-src/rdna2-isa.txt`); AMD listing https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
 2. LLVM AMDGPUUsage Target Features — `cumode` / `-m[no-]cumode`, default off → WGP — https://llvm.org/docs/AMDGPUUsage.html (opened this pass)
-3. LLVM `IsaInfo::getLocalMemorySize` / `getAddressableLocalMemorySize` / `getMaxWorkGroupsPerCU` / `isFullSIMDMode` — https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (tip opened this pass)
+3. LLVM `IsaInfo::getLocalMemorySize` / `getAddressableLocalMemorySize` / `getMaxWorkGroupsPerCU` / `isFullSIMDMode` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (tip opened this pass)
 4. GPUOpen Occupancy explained (updated 2024-06-26) — 16 barriers / SIMD pair; PIX limiters — https://gpuopen.com/learn/occupancy-explained/ (opened this pass)
 5. HIP hardware implementation — RDNA WGP / LDS bank picture — https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html (opened this pass)
 6. Sibling wiki: [hip-craft.md](../hip-craft/hip-craft.md) §1, [lds-occupancy.md](../lds-and-tiles/lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [wave-size-occupancy.md](wave-size-occupancy.md), [architecture.md](../arch-and-memory/architecture.md) §3.1 / §4.2

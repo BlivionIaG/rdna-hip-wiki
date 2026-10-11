@@ -116,7 +116,7 @@ For a **128-thread** WG (N=4 → ~1 wave/SIMD): the per-SIMD budget is simply `a
 
 ## 6. Sources
 
-1. LLVM `IsaInfo::getVGPRAllocGranule` / `getVGPREncodingGranule` / `getTotalNumVGPRs` / `getAddressableNumArchVGPRs` / `getNumWavesPerEUWithNumVGPRs` / `getMaxNumVGPRs` / `isSGPROccupancyLimited` — https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
+1. LLVM `IsaInfo::getVGPRAllocGranule` / `getVGPREncodingGranule` / `getTotalNumVGPRs` / `getAddressableNumArchVGPRs` / `getNumWavesPerEUWithNumVGPRs` / `getMaxNumVGPRs` / `isSGPROccupancyLimited` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
 2. LLVM `llvm-calc-occupancy` — https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
 3. RDNA 2 ISA 70648 §3.6.4 (VGPR groups of 16 dwords wave32 / 8 wave64) — https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
 4. GPUOpen Occupancy explained (updated 2024-06-26) — https://gpuopen.com/learn/occupancy-explained/ — 16 slots/SIMD RDNA2; SGPR unlimited; VGPR limiter; RGA live-VGPR

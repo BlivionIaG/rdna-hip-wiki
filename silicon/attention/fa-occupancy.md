@@ -403,7 +403,7 @@ Do not keep `(256, 1)` under the belief it means 1 block/CU.
 - https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/indexer_paged_mqa_rdna2.cu
 - https://raw.githubusercontent.com/BlivionIaG/vllm/perf/rdna2_w4a16/csrc/rocm/ops.h
 - HIP `__launch_bounds__`: https://rocm.docs.amd.com/projects/HIP/en/docs-6.3.1/how-to/hip_cpp_language_extensions.html (second arg = `MIN_WARPS_PER_EXECUTION_UNIT`; CUDA port formula)
-- Macro lowering: https://github.com/ROCm-Developer-Tools/HIP/issues/2521
+- Macro lowering: https://github.com/ROCm/hip/issues/2521
 - Live branch: `rdna2_extras` @ `0fdb1884cb` (FA pins unchanged: decode `(4, 8)`, prefill `(N, 1)`).
 - Snapshot tree listing: `GET /repos/BlivionIaG/vllm/git/trees/perf/rdna2_w4a16?recursive=1` SHA `9ac015d0…`
 

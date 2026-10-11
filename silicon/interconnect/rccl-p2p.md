@@ -182,7 +182,7 @@ Official BAR layout (same page):
 BIOS knobs the same page names: **Above 4G Decoding = Enabled**, **MMIO High Base / MMIO High Size** so the aperture sits inside the device physical-address limit.
 
 HIP `hipDeviceProp_t.isLargeBar`: **1** if large PCI BAR, else **0**.
-https://rocmdocs.amd.com/projects/HIP/en/latest/doxygen/html/structhip_device_prop__t.html
+https://github.com/ROCm/hip/blob/rocm-7.0.0/include/hip/hip_runtime_api.h#L249
 
 AMD engineer on HIP #3103 (MI100, same rule for any PCIe P2P):
 
@@ -554,7 +554,7 @@ These are **Radeon / PCIe** failures, not Instinct XGMI failures. None of them i
 
 **B. P2P selected, 7000× slower than SHM (ROCm 7.2.3, RCCL 2.27.7)**
 
-https://github.com/ROCm/ROCm/issues/6576
+https://github.com/ROCm/legacy-rocm-build/issues/6576
 
 - Dual **W7800 48 GB (gfx1100)**, separate CPU root ports (`03:00.0` / `07:00.0`), **Gen4 x8/x8**, large BAR, Ubuntu 24.04, kernel 6.8, **RCCL 2.27.7 (ROCm 7.2.3 host)** and 2.28.3.
 - `rocm-smi --showtopo`: Weight **40**, Hops **2**, Link **PCIE**. RCCL still selects **direct P2P/IPC**.
@@ -650,7 +650,7 @@ vLLM: `--dtype float16` (not bf16), `--tensor-parallel-size 4`. Custom AR / Quic
 - https://rocm.docs.amd.com/projects/install-on-linux/en/docs-7.2.0/reference/system-requirements.html
 - https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html (7.14 V620 Ubuntu-only footnote)
 - [../engine/rocm-host.md](../../engine/rocm-host.md) — official vs attested (Fedora 43 / RHEL 10 / 7.14.0)
-- https://github.com/ROCm/ROCm/issues/1714
+- https://github.com/ROCm/legacy-rocm-build/issues/1714
 
 **P2P / IOMMU / BAR / HIP / ACS**
 - https://instinct.docs.amd.com/projects/amdgpu-docs/en/latest/conceptual/iommu.html
@@ -663,7 +663,7 @@ vLLM: `--dtype float16` (not bf16), `--tensor-parallel-size 4`. Custom AR / Quic
 - https://rocm.docs.amd.com/projects/ROCR-Runtime/en/latest/api-reference/environment_variables.html
 - https://rocm.docs.amd.com/projects/install-on-linux/en/docs-7.2.0/reference/install-faq.html
 - https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/troubleshooting/gpu_troubleshooting.html
-- https://github.com/ROCm/ROCm/issues/2616
+- https://github.com/ROCm/legacy-rocm-build/issues/2616
 - https://github.com/intel/compute-runtime/issues/935 (ACS / pci_p2pdma behavior)
 
 **RCCL / NCCL / PCIe rate**
@@ -676,7 +676,7 @@ vLLM: `--dtype float16` (not bf16), `--tensor-parallel-size 4`. Custom AR / Quic
 - https://pcisig.com/what-bit-rates-does-pcie-50-specification-support-and-how-does-it-compare-prior-pcie-generations
 
 **Known Radeon P2P failures**
-- https://github.com/ROCm/ROCm/issues/6576 (W7800 P2P 215 ms vs SHM 30 µs; RCCL 2.27.7 / ROCm 7.2.3)
+- https://github.com/ROCm/legacy-rocm-build/issues/6576 (W7800 P2P 215 ms vs SHM 30 µs; RCCL 2.27.7 / ROCm 7.2.3)
 - https://github.com/ROCm/rccl-tests/issues/162 (4× R9700 `hipIpcGetMemHandle`)
 - https://github.com/ROCm/rccl/issues/1454
 - https://github.com/ROCm/ROCm/issues/787 (BAR > 2^44)

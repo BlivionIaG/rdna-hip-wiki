@@ -74,7 +74,7 @@ So: shrinking BR/BC to free LDS is still the occupancy move for FA. Cutting thre
 
 ## 5. Sources
 
-1. LLVM `IsaInfo::getMaxWorkGroupsPerCU` — https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
+1. LLVM `IsaInfo::getMaxWorkGroupsPerCU` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
 2. LLVM `isSGPROccupancyLimited` (Major < 10) — same file
 3. GPUOpen Occupancy explained (updated 2024-06-26) — https://gpuopen.com/learn/occupancy-explained/ — 16 barriers / SIMD pair; PIX limiters; Thread Group Size vs Barriers
 4. `llvm-calc-occupancy` — https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html

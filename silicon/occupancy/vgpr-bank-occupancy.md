@@ -116,10 +116,10 @@ three-source VALU / DOT with two+ sources in the same vN mod 4 bank
 1. LLVM `GCNRegBankReassign.cpp` @ `llvmorg-12.0.0` — bank layout, read rule, gather, occupancy-capped scavenging — https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-12.0.0/llvm/lib/Target/AMDGPU/GCNRegBankReassign.cpp
 2. LLVM D61344 — gfx1010 GCNRegBankReassign pass — https://reviews.llvm.org/D61344
 3. LLVM D101313 — drop the pass (no perf win, compile-time cost) — https://reviews.llvm.org/D101313
-4. LLVM `AMDGPU.td` @ `llvmorg-12.0.0` (`FeatureRegisterBanking` in `FeatureGFX10`) and current `main` (absent; `FeatureISAVersion10_3_0`) — https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/AMDGPU/AMDGPU.td
+4. LLVM `AMDGPU.td` @ `llvmorg-12.0.0` (`FeatureRegisterBanking` in `FeatureGFX10`) and current `main` (absent; `FeatureISAVersion10_3_0`) — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td
 5. RDNA 2 ISA Reference Guide, Document **70648** — §13.3 DPP16 `BANK_MASK` note. Local `/workspace/rdna2-src/rdna2-isa.txt`
 6. GPUOpen Occupancy explained — PIX limiters — https://gpuopen.com/learn/occupancy-explained/
-7. LLVM `GCNVOPDUtils.cpp` — gfx11+ VOPD bank masks (Dead on gfx1030) — https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/AMDGPU/GCNVOPDUtils.cpp
+7. LLVM `GCNVOPDUtils.cpp` — gfx11+ VOPD bank masks (Dead on gfx1030) — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/GCNVOPDUtils.cpp
 
 ## 6. Cross-links
 

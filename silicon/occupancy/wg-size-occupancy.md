@@ -119,8 +119,8 @@ Assert `hipOccupancyMaxActiveBlocksPerMultiprocessor > 0` before graph capture (
 1. GPUOpen Occupancy explained (updated 2024-06-26) — https://gpuopen.com/learn/occupancy-explained/ — PIX Thread Group Size vs Barriers walkthrough
 2. GPUOpen Optimizing GPU occupancy with large thread groups — https://gpuopen.com/learn/optimizing-gpu-occupancy-resource-usage-large-thread-groups/ — atomic WG allocate/free
 3. PIX hardware counters — https://devblogs.microsoft.com/pix/hardware-counters-in-gpu-captures/ — `CSLimitedByThreadGroupLimit`
-4. LLVM `IsaInfo::getMaxWorkGroupsPerCU` / `getWavesPerWorkGroup` — https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
-5. LLVM `AMDGPUSubtarget::getOccupancyWithWorkGroupSizes` — https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp — PR #123748
+4. LLVM `IsaInfo::getMaxWorkGroupsPerCU` / `getWavesPerWorkGroup` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
+5. LLVM `AMDGPUSubtarget::getOccupancyWithWorkGroupSizes` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp — PR #123748
 6. `llvm-calc-occupancy` — https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html — ranged occupancy when WG size unspecified
 7. Clang `amdgpu_flat_work_group_size` — https://clang.llvm.org/docs/AttributeReference.html#amdgpu-flat-work-group-size
 8. LLVM AMDGPUUsage `amdgpu-flat-work-group-size` / waves-per-eu precedence

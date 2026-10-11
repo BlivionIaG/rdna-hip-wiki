@@ -471,7 +471,7 @@ Triton equivalent if you prototype in Python first: `@triton.autotune` over `BLO
 - https://gpuopen.com/learn/rgp_1_14/
 - https://rocm.blogs.amd.com/software-tools-optimization/profilers/README.html
 - https://rocm.docs.amd.com/projects/HIP/en/docs-7.2.0/how-to/performance_guidelines.html
-- https://github.com/ROCm/ROCm/issues/1609 (`-Rpass-analysis=kernel-resource-usage`)
+- https://github.com/ROCm/legacy-rocm-build/issues/1609 (`-Rpass-analysis=kernel-resource-usage`)
 
 **DOT / W4A16 / W8A8**
 

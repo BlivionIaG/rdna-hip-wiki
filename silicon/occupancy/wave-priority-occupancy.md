@@ -97,7 +97,7 @@ s_setprio raised forever → age tiebreak overridden → younger waves' VMEM iss
 ## 6. Sources
 
 1. RDNA 2 ISA Reference Guide, Document ID **70648** — §3.4 STATUS `SPI_PRIO`/`USER_PRIO`; §4.1 Table 7; SOPP `S_WAKEUP` (3), `S_SLEEP` (14), `S_SETPRIO` (15). Local: `/workspace/rdna2-src/rdna2-isa.txt`.
-2. LLVM `llvm/lib/Target/AMDGPU/AMDGPUSetWavePriority.cpp` (main) — pass logic, `amdgpu-set-wave-priority-valu-insts-threshold` default 100 — https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/AMDGPU/AMDGPUSetWavePriority.cpp
+2. LLVM `llvm/lib/Target/AMDGPU/AMDGPUSetWavePriority.cpp` (main) — pass logic, `amdgpu-set-wave-priority-valu-insts-threshold` default 100 — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUSetWavePriority.cpp
 3. LLVM `AMDGPUTargetMachine.cpp` — `-amdgpu-set-wave-priority` hidden, `cl::init(false)`.
 4. LLVM `IntrinsicsAMDGPU.td` / `SOPInstructions.td` — `int_amdgcn_s_setprio`, `int_amdgcn_s_sleep`, `S_WAKEUP` gfx8–12, `S_SLEEP_VAR` gfx12/13, `S_SETPRIO_INC_WG` GFX1250/13.
 5. LLVM AMDGPUUsage — `"amdgpu-wave-priority-threshold"` attribute; `COMPUTE_PGM_RSRC1.PRIORITY` "Must be 0", CP fills — https://llvm.org/docs/AMDGPUUsage.html

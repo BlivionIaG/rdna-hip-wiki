@@ -196,7 +196,7 @@ HIP / RCCL (same pass/fail as [rccl-p2p.md](rccl-p2p.md) §5.7):
 - `HSA_FORCE_FINE_GRAIN_PCIE=1`, `amdgpu.pcie_p2p=1`
 - `NCCL_P2P_LEVEL=PIX` for a 4-GPU job on one board; `PHB` if ranks span both USPs; `PXB` only if cascaded
 - `all_reduce_perf` + pairwise `hipMemcpyPeer` **ACS clear vs ACS on**, same-board vs cross-board
-- If RCCL “P2P” is ~215 ms, ship `NCCL_P2P_DISABLE=1` (SHM). P2P-on can be worse ([ROCm #6576](https://github.com/ROCm/ROCm/issues/6576))
+- If RCCL “P2P” is ~215 ms, ship `NCCL_P2P_DISABLE=1` (SHM). P2P-on can be worse ([ROCm #6576](https://github.com/ROCm/legacy-rocm-build/issues/6576))
 
 IOMMU: remap is AMD's Radeon-P2P story; `iommu=pt` is the RCCL hang workaround. **Measure both.** `iommu=off` is last resort.
 
@@ -226,7 +226,7 @@ A gfx1030 kernel does not program the PEX. It issues global stores/loads. Those 
 - https://github.com/ROCm/HIP/issues/3103 (large-BAR = first prefetchable `size=` VRAM)
 - https://docs.kernel.org/gpu/amdgpu/module-parameters.html (`pcie_p2p`, `rebar`)
 - [engine/plx.md](../../engine/plx.md), [rccl-p2p.md](rccl-p2p.md), [deepep-v620.md](deepep-v620.md), [v340l.md](../other-hardware/v340l.md)
-- [v620_toolbox pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/main/pcie_p2p)
+- [v620_toolbox pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/master/pcie_p2p)
 
 ## Later note (2026-08-27) — LocalLLaMA 1qeimyi (panchovix)
 

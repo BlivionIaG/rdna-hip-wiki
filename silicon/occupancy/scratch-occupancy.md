@@ -99,7 +99,7 @@ HIP also exposes `hipExtLimitScratchCurrent` (ROCm 7.0+ note in the same page) t
 ## Sources (opened this pass)
 
 1. LLVM AMDGPUUsage — Private AS 5, dword interleave, runtime backing pool, Absolute flat scratch on `gfx1030` — https://llvm.org/docs/AMDGPUUsage.html
-2. LLVM `GCNSubtarget.h` — `computeOccupancy` comment (“scratch … do not have enough information”); `getMaxWaveScratchSize` pre-GFX11 = `(256*4)*((1<<13)-1)` — https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/AMDGPU/GCNSubtarget.h
+2. LLVM `GCNSubtarget.h` — `computeOccupancy` comment (“scratch … do not have enough information”); `getMaxWaveScratchSize` pre-GFX11 = `(256*4)*((1<<13)-1)` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/GCNSubtarget.h
 3. LLVM `llvm-calc-occupancy` — options: wg-size / vgprs / sgprs / lds only — https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
 4. LLVM PR #123748 / commit `6206f54` — same scratch caveat on `computeOccupancy` — https://github.com/llvm/llvm-project/pull/123748
 5. Clang AttributeReference `amdgpu_waves_per_eu` — may limit group **and private** segment size as a codegen hint — https://clang.llvm.org/docs/AttributeReference.html#amdgpu-waves-per-eu

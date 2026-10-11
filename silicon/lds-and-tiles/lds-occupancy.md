@@ -105,8 +105,8 @@ Double-buffered / staged tiles: count **all** live LDS at the fattest pipeline p
 
 ## 6. Sources
 
-1. LLVM `IsaInfo::getLocalMemorySize` / `getAddressableLocalMemorySize` / `getPhysicalLocalMemorySize` / `getLdsDwGranularity` — https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
-2. LLVM `AMDGPUSubtarget::getOccupancyWithWorkGroupSizes` — https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp
+1. LLVM `IsaInfo::getLocalMemorySize` / `getAddressableLocalMemorySize` / `getPhysicalLocalMemorySize` / `getLdsDwGranularity` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (`getPhysicalLocalMemorySize` is on this main snapshot; `getLdsDwGranularity` is no longer on it and is cited at llvmorg-22.1.8: https://github.com/llvm/llvm-project/blob/llvmorg-22.1.8/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp#L3676)
+2. LLVM `AMDGPUSubtarget::getOccupancyWithWorkGroupSizes` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUSubtarget.cpp
 3. LLVM commit `10cef70` — “Clean up LDS-related occupancy calculations” (WGP pool vs 64 KB addressable)
 4. RDNA 2 ISA 70648 §2.3.1 / §3.6.6 / §10.3 — https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
 5. GPUOpen Occupancy explained (updated 2024-06-26) — https://gpuopen.com/learn/occupancy-explained/ — LDS limiter; SGPR unlimited on RDNA

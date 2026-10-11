@@ -9,7 +9,7 @@ Document IDs:
 - AMD “RDNA 3” Instruction Set Architecture: Reference Guide, Document ID **70650**. Official landing page: https://docs.amd.com/v/u/en-US/rdna3-shader-instruction-set-architecture-feb-2023_0
 - AMD RDNA Architecture presentation (GPUOpen, 2019): https://gpuopen.com/download/RDNA_Architecture_public.pdf
 - LLVM User Guide for AMDGPU Backend: https://llvm.org/docs/AMDGPUUsage.html
-- LLVM `AMDGPUBaseInfo.cpp` IsaInfo: https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
+- LLVM `AMDGPUBaseInfo.cpp` IsaInfo: https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
 - ROCm HIP Hardware implementation: https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html
 - GPUOpen “Occupancy explained”: https://gpuopen.com/learn/occupancy-explained/
 - Linux `amdkfd` cache tables (`kfd_crat.c`): https://lists.freedesktop.org/archives/amd-gfx/2021-March/061392.html and https://github.com/RadeonOpenCompute/ROCK-Kernel-Driver/blob/master/drivers/gpu/drm/amd/amdkfd/kfd_crat.c
@@ -172,7 +172,7 @@ Hardware wave slots:
 
 | Limit | RDNA 1 (gfx1010) | RDNA 2 (gfx1030) | Source |
 |---|---|---|---|
-| Max waves per SIMD (“per EU”) | **20** | **16** | LLVM `IsaInfo::getMaxWavesPerEU`: `return hasGFX10_3Insts(STI) ? 16 : 20;` https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp ; GPUOpen Occupancy explained: “RDNA1, each SIMD has 20 slots … RDNA 2 and RDNA 3 have 16 slots per SIMD.” https://gpuopen.com/learn/occupancy-explained/ |
+| Max waves per SIMD (“per EU”) | **20** | **16** | LLVM `IsaInfo::getMaxWavesPerEU`: `return hasGFX10_3Insts(STI) ? 16 : 20;` https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp ; GPUOpen Occupancy explained: “RDNA1, each SIMD has 20 slots … RDNA 2 and RDNA 3 have 16 slots per SIMD.” https://gpuopen.com/learn/occupancy-explained/ |
 | SIMDs that share a workgroup in WGP mode | 4 | 4 | LLVM `getEUsPerCU`: 4 unless `FeatureCuMode` |
 | SIMDs that share a workgroup in CU mode | 2 | 2 | same |
 | Max waves per WGP (WGP mode) | 80 | **64** | 16 × 4 |
@@ -458,7 +458,7 @@ For LLM kernels: gfx1100 is the first Radeon generation where **WMMA** is the co
 | **RDNA Architecture presentation** | WGP vs GCN CU, 1024 VGPR, I$/K$/L0/L1/L2 table, issue/latency, LDS 128 KB / 32-dword peak (RDNA 1 numbers; RDNA 2 ISA updates LDS to 64 banks) | https://gpuopen.com/download/RDNA_Architecture_public.pdf |
 | **RDNA 2 Explained (Radeon PRO W6000)** | Infinity Cache as global last-level cache | https://www.amd.com/content/dam/amd/en/documents/products/graphics/workstation/rdna2-explained-radeon-pro-W6000.pdf |
 | **LLVM AMDGPUUsage** | Targets `gfx1030`/`gfx1100`, triples, `cumode` / `wavefrontsize64`, address spaces, ABI | https://llvm.org/docs/AMDGPUUsage.html |
-| **LLVM IsaInfo** | Occupancy, VGPR totals, LDS 64/128 KB, waves/EU = 16 | https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp |
+| **LLVM IsaInfo** | Occupancy, VGPR totals, LDS 64/128 KB, waves/EU = 16 | https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp |
 | **LLVM gfx1030 asm** | Instruction syntax | https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.0.1/LLVM/llvm/html/AMDGPU/AMDGPUAsmGFX1030.html |
 | **HIP Hardware implementation** | SPI, ACE, LDS banks (64 on RDNA 2), WGP/Wave32 | https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html |
 | **GPUOpen Occupancy explained** | 16 slots, SGPR not limiting, how to read RGP | https://gpuopen.com/learn/occupancy-explained/ |
@@ -562,7 +562,7 @@ Use `llvm-calc-occupancy -mcpu=gfx1030 --wg-size=256 --vgprs=N --lds=K` before a
 6. https://gpuopen.com/learn/occupancy-explained/ — 16 slots, SGPR, limiters
 7. https://gpuopen.com/learn/wmma_on_rdna3/ — WMMA; RDNA 2 vs 3 FLOPS table
 8. https://llvm.org/docs/AMDGPUUsage.html — processors, features, address spaces
-9. https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp — occupancy / VGPR / LDS / waves
+9. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp — occupancy / VGPR / LDS / waves
 10. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
 11. https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html — SPI, LDS banks, RDNA WGP
 12. https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.0.1/LLVM/llvm/html/AMDGPU/AMDGPUAsmGFX1030.html

@@ -81,5 +81,5 @@ Other dead ends they paid for (do not reopen): `dwordx4` KV (loads ~83% peak), 5
 
 - https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/00-HARDWARE.md
 - https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/01-PATCHES.md
-- https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/plugins/fd_rdna2/fd_rdna2/fd_kernel2.py (intent only; GPL — do not vendor)
+- https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/builds/shared/plugins/fd_rdna2/fd_rdna2/fd_kernel2.py (intent only; GPL — do not vendor)
 - [../engine/leapdragon.md](../../engine/leapdragon.md), [../kernels/kv-int8.md](../../kernels/kv-int8.md), [fa-occupancy.md](../attention/fa-occupancy.md), [infinity-cache.md](../arch-and-memory/infinity-cache.md), [fp16-rdna2.md](../arch-and-memory/fp16-rdna2.md)

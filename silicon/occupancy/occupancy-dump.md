@@ -171,8 +171,8 @@ Apply the dump to kernels that still lack a resource table (EXL3 dense/MoE GEMM,
 ## Sources
 
 1. LLVM AMDGPUUsage — ELF note `NT_AMDGPU_METADATA` = 32, MessagePack, private AS 5 dword-interleave, Absolute flat scratch on `gfx1030` — https://llvm.org/docs/AMDGPUUsage.html
-2. LLVM `AMDGPUHSAMetadataStreamer.cpp` `getHSAKernelProps` — keys `.group_segment_fixed_size` / `.private_segment_fixed_size` / `.wavefront_size` / `.sgpr_count` / `.vgpr_count` / `.sgpr_spill_count` / `.vgpr_spill_count` — https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/AMDGPU/AMDGPUHSAMetadataStreamer.cpp
-3. LLVM AMDGPUMetadataVerifier — required vs optional kernel integers — https://github.com/llvm/llvm-project/blob/main/llvm/lib/BinaryFormat/AMDGPUMetadataVerifier.cpp
+2. LLVM `AMDGPUHSAMetadataStreamer.cpp` `getHSAKernelProps` — keys `.group_segment_fixed_size` / `.private_segment_fixed_size` / `.wavefront_size` / `.sgpr_count` / `.vgpr_count` / `.sgpr_spill_count` / `.vgpr_spill_count` — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPUHSAMetadataStreamer.cpp
+3. LLVM AMDGPUMetadataVerifier — required vs optional kernel integers — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/BinaryFormat/AMDGPUMetadataVerifier.cpp
 4. LLVM r346992 / D53445 — V3 note type 32, MessagePack — https://lists.llvm.org/pipermail/llvm-commits/Week-of-Mon-20181112/603452.html
 5. Clang HIP Support — `.hip_fatbin` dump + `clang-offload-bundler --unbundle` — https://clang.llvm.org/docs/HIPSupport.html
 6. Clang Offload Bundler — bundle ID `hip-amdgcn-amd-amdhsa--<target-id>` — https://clang.llvm.org/docs/ClangOffloadBundler.html
