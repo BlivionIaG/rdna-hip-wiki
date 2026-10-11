@@ -1,6 +1,6 @@
 # Inference engine map for 4× V620 (gfx1030)
 
-> **Dest today (2026-10-11):** [`opengfx1030/vllm-rdna` `rdna_extras`](https://github.com/opengfx1030/vllm-rdna/tree/rdna_extras) = vLLM **v0.31.0** port ([PR #47](https://github.com/opengfx1030/vllm-rdna/pull/47)), tip `1dc3bac4` (contains `8abf4c97`). Tips and branch names quoted below (`rdna2_extras` on BlivionIaG/vllm, `perf/rdna2_w4a16`) are **historical snapshots**. Serve locks (ROCm pin, all-reduce path, prefix caching) live in [fork/serve-locks.md](../../fork/serve-locks.md)10)#10) and [toolchain/pin/README.md](../../toolchain/pin/README.md); this page only says what the engine does.
+> **Dest today (2026-10-11):** [`opengfx1030/vllm-rdna` `rdna_extras`](https://github.com/opengfx1030/vllm-rdna/tree/rdna_extras) = vLLM **v0.31.0** port ([PR #47](https://github.com/opengfx1030/vllm-rdna/pull/47)), tip `fbe84e94` (contains `8abf4c97`; engine code claims are pinned at `1dc3bac4` unless a footnote says otherwise, since dest #52 changed only PLE Python/tools/tests). Tips and branch names quoted below (`rdna2_extras` on BlivionIaG/vllm, `perf/rdna2_w4a16`) are **historical snapshots**. Serve locks (ROCm pin, all-reduce path, prefix caching) live in [fork/serve-locks.md](../../fork/serve-locks.md)10)#10) and [toolchain/pin/README.md](../../toolchain/pin/README.md); this page only says what the engine does.
 
 Date: 2026-08-17. Sourced only. Hardware facts from [silicon/](../../silicon/README.md).
 
