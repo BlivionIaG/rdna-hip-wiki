@@ -34,7 +34,7 @@ gfx1030 hands back **uncommitted pages**: a `torch::empty` buffer that is never 
 |---|---|
 | W4A16 split-K partials | `torch::empty` instead of `hipMallocAsync` mempool reuse — [fa-occupancy.md](../attention/fa-occupancy.md) |
 | EXL3 6bpw lm_head dequant out | `torch.zeros`, not `empty` — [exl3.md](../formats/exl3.md) |
-| GDN `ssm_state` slot pages | NaN / all-zero probe then `zero_()` — [../kernels/gdn-decode.md](../../kernels/gdn-decode.md) |
+| GDN `ssm_state` slot pages | NaN / all-zero probe then `zero_()` — [../kernels/gdn-decode.md](../../kernels/linear-attn/gdn-decode.md) |
 
 The **buffer** fix (allocate zeroed) is capture-safe. The **probe** fix is not.
 
@@ -78,7 +78,7 @@ Same page-commit family, wider surface. Not occupancy. No DOT / LDS-tile / KV-qu
 |---|---|
 | `csrc/rocm/fa_rdna2.cu` | Host `O` / `O_partial` / `M_partial` (and decode/prefill fp16/fp8/int8 wrappers that still used `empty`) → **`torch::zeros`**. Capture bakes addresses; uncommitted pages fault on replay. [^extras-fa-rdna2-cu] |
 | GDN prefill / prep Python | `A` / `A_inv` / `w` / `u` / `h` / `v_new` / `final_state` / prep outs → **`torch.zeros`** (same rationale). |
-| New `causal_conv1d_rdna2.cu` | HIP AOT for GDN conv1d — registers (update) / tiny LDS (fwd). See [../kernels/causal-conv1d.md](../../kernels/causal-conv1d.md). |
+| New `causal_conv1d_rdna2.cu` | HIP AOT for GDN conv1d — registers (update) / tiny LDS (fwd). See [../kernels/causal-conv1d.md](../../kernels/linear-attn/causal-conv1d.md). |
 | FA Python dispatch | Prefer `torch.ops._rocm_C.fa_rdna2_*` over `load_inline` when the `.so` op exists (capture-safe). |
 | GDN / `rdna_attn` | `@eager_break_during_capture` on GDN `forward` and `do_kv_cache_update` (capture break, not a tile change). |
 
@@ -86,7 +86,7 @@ Occupancy leftover still FA prefill. Do not invent numbers.
 
 ## extras lock 2026-09-11 (tip `71a54552`, was `56f67111`)
 
-Same capture / D2H family, Python only on the scan; HIP adds gated RMSNorm (see [../kernels/layernorm.md](../../kernels/layernorm.md)).
+Same capture / D2H family, Python only on the scan; HIP adds gated RMSNorm (see [../kernels/layernorm.md](../../kernels/aot-glue/layernorm.md)).
 
 | Surface | Delta |
 |---|---|
@@ -102,7 +102,7 @@ Same freeze / ownership family. Room already Take'd. Not FA occupancy. No DOT / 
 
 | Surface | Delta |
 |---|---|
-| `csrc/rocm/skinny_gemms.cu` (`c350fa21`) | `wvSplitK` out: shared `Rdna2PersistBuf` → per-call `torch::empty`. **Do not share one PersistBuf across live projection outs** (or across GDN / PLE / HC / QSA freeze heaps). See [../kernels/skinny-gemm.md](../../kernels/skinny-gemm.md). [^extras-skinny-gemms-cu][^commit-c350fa21] |
+| `csrc/rocm/skinny_gemms.cu` (`c350fa21`) | `wvSplitK` out: shared `Rdna2PersistBuf` → per-call `torch::empty`. **Do not share one PersistBuf across live projection outs** (or across GDN / PLE / HC / QSA freeze heaps). See [../kernels/skinny-gemm.md](../../kernels/gemm-moe/skinny-gemm.md). [^extras-skinny-gemms-cu][^commit-c350fa21] |
 | `csrc/rocm/ple_short_conv_rdna2.cu` + `ops.h` (`b26763e7`) | Optional-tensor schema (`Tensor?` ↔ `std::optional<Tensor>`) so `_rocm_C` loads; host wrappers no longer lie as plain `Tensor`. Load fix, not a tile change. [^extras-ple-short-conv-rdna2-cu][^commit-b26763e7] |
 | GDN prefill Python (`143e2bf3`) | Fallback `_packed_out` path: `empty_like` → `zeros_like` (page-commit). [^commit-143e2bf3] |
 | `hc_combine_*` Python (`3092d635`) | Output buffers: `new_empty` → `new_zeros` (page-commit; same freeze class). [^commit-3092d635] |
@@ -116,7 +116,7 @@ Same page-commit family on the Python side; real HIP fix in `hc_rdna2.cu`. Not F
 
 | Surface | Delta |
 |---|---|
-| `csrc/rocm/hc_rdna2.cu` | `GROUP_DIM`/`DIM`-bounded loops (Flash-Next width 2560); chunked `hc_combine_norm`; weight index `w_base[b]` (was OOB on unshared). See [../kernels/qwen4exp-flash-next-hip.md](../../kernels/qwen4exp-flash-next-hip.md). [^extras-hc-rdna2-cu] |
+| `csrc/rocm/hc_rdna2.cu` | `GROUP_DIM`/`DIM`-bounded loops (Flash-Next width 2560); chunked `hc_combine_norm`; weight index `w_base[b]` (was OOB on unshared). See [../kernels/qwen4exp-flash-next-hip.md](../../kernels/models/qwen4exp-flash-next-hip.md). [^extras-hc-rdna2-cu] |
 | `hc_rdna2.py` (at `1dc3bac4`: `vllm/models/qwen4_exp/amd/ops/hc_rdna2.py`) | `_contig()` + outs `new_zeros` (page-commit; same freeze class as hc_combine / GDN / EXL3). |
 
 **Capture:** HC ops pass Triton parity in isolation. Arming `VLLM_RDNA_HC_PREFILL_HIP=1` still faults PIECEWISE capture in MoE (`moe_gemm_q4_kernel_rdna2` / `moe_align_block_size_kernel`). Gate stays default-off. Do not invent numbers. Occupancy still FA-first.

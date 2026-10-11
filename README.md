@@ -27,7 +27,7 @@ Do not invent IC TB/s, L2 associativity, or a P2P-works claim. Hardware numbers 
 
 1. [silicon/arch-and-memory/architecture.md](silicon/arch-and-memory/architecture.md) — CU / WGP / caches
 2. [silicon/hip-craft/hip-craft.md](silicon/hip-craft/hip-craft.md) — waitcnt, occupancy, builtins
-3. [kernels/w4a16.md](kernels/w4a16.md) — the live dense/MoE path
+3. [kernels/quant/w4a16.md](kernels/quant/w4a16.md) — the live dense/MoE path
 4. [silicon/attention/fa-occupancy.md](silicon/attention/fa-occupancy.md) — `fa_rdna2` launch_bounds / LDS
 5. [engine/overview/full-map.md](engine/overview/full-map.md) — one-page engine verdict + technique table
 6. [engine/attention/attention-dispatch.md](engine/attention/attention-dispatch.md) — fa_rdna2 vs Triton, head-64, short vs split-K

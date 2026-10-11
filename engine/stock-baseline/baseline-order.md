@@ -8,7 +8,7 @@ Source snapshot for stock dispatch: vLLM `main` @ `49fb2ee` (2026-08-18). Fork t
 
 0. **Harness / dispatch proof.** Same model, dtype `half`, clocks, graph mode, TP, block size, request set. Log the **actual** backend and kernel name. No tok/s until dispatch is proven.
 1. **Stock map.** [triton-rocm.md](triton-rocm.md). What gfx1030 actually launches today.
-2. **Skinny GEMM lab.** [kernels/triton-skinny-gemm.md](../../kernels/triton-skinny-gemm.md). Stock is rocBLAS/`torch.nn.functional.linear`. HIP `wvSplitK` / `LLMM1` do **not** dispatch on gfx1030 in stock vLLM.[^vllm-pr34709]
+2. **Skinny GEMM lab.** [kernels/gemm-moe/triton-skinny-gemm.md](../../kernels/gemm-moe/triton-skinny-gemm.md). Stock is rocBLAS/`torch.nn.functional.linear`. HIP `wvSplitK` / `LLMM1` do **not** dispatch on gfx1030 in stock vLLM.[^vllm-pr34709]
 3. **Triton FA lab.** [triton-flash-attention.md](triton-flash-attention.md). `TRITON_ATTN` is the clean baseline. `ROCM_ATTN` on gfx1030 is Triton prefill + Triton `kernel_paged_attention_2d`, **not** HIP decode.
 4. **HIP A/B.** Same contract as the stock path. `fa_rdna2` / custom skinny only after parity.
 5. **FlyDSL gates.** [flydsl.md](../alt-engines/flydsl.md). Compiler object → `fdot2`/`sdot4` ISA → skinny proof. No engine claim before that.

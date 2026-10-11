@@ -1,6 +1,6 @@
 # Native HIP FP16 MoE on gfx1030 — draft
 
-Date: 2026-08-18. **Spec / Todo.** Engine contract; silicon tile belongs in [kernels/fp16-moe.md](../../kernels/fp16-moe.md). Target: vLLM V1, gfx1030 wave32, fp16 activations + fp16 weights, fp32 accumulation. No MFMA/WMMA/AGPR/bf16. Inner op must be `V_DOT2_F32_F16` (`fdot2`).
+Date: 2026-08-18. **Spec / Todo.** Engine contract; silicon tile belongs in [kernels/gemm-moe/fp16-moe.md](../../kernels/gemm-moe/fp16-moe.md). Target: vLLM V1, gfx1030 wave32, fp16 activations + fp16 weights, fp32 accumulation. No MFMA/WMMA/AGPR/bf16. Inner op must be `V_DOT2_F32_F16` (`fdot2`).
 
 This is a new unquantized FP16 MoE backend, not a rewrite of `moe_q_gemm_rdna2` and not AITER/CK.
 
@@ -109,7 +109,7 @@ moe_fp16_w2_rdna2(gateup, w2_packed, expert_ids, offsets,
 
 One project card: **Native HIP FP16 MoE (gfx1030)**, Status **Todo**, priority after the current occupancy subject.
 
-- [ ] Silicon tile + ISA page (`kernels/fp16-moe.md`).
+- [ ] Silicon tile + ISA page (`kernels/gemm-moe/fp16-moe.md`).
 - [ ] Reference op and vLLM method/dispatch.
 - [ ] Decode `M=1/2/4/8` kernel.
 - [ ] Prefill grouped tile.

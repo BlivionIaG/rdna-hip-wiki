@@ -41,7 +41,7 @@ Same ISA we already fire ([valu.md](../arch-and-memory/valu.md), [fp16-rdna2.md]
 - No WMMA. No rocBLAS-required for their portable path (they `dlopen` HIP; rocBLAS is MI300-lazy).
 - Lloyd codebook-in-LDS is **out of scope on gfx10** in their own MQ3 plan (RDNA2 vs RDNA3 cvt). Leave Lloyd-on-gfx10.[^github-plans-mq3-gfx10-md]
 
-HIP does not need their Triton byte-slice dodge (that was leapdragon `fd_rdna2`). Packed load → VGPR cvt → `fdot2` stays ours ([../kernels/kv-int8.md](../../kernels/kv-int8.md)).
+HIP does not need their Triton byte-slice dodge (that was leapdragon `fd_rdna2`). Packed load → VGPR cvt → `fdot2` stays ours ([../kernels/kv-int8.md](../../kernels/attention/kv-int8.md)).
 
 ## Occupancy
 

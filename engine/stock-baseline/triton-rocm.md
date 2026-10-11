@@ -1,6 +1,6 @@
 # Stock ROCm Triton / HIP dispatch on gfx1030
 
-Date: 2026-08-18. **Stock only.** vLLM `main` @ `49fb2ee`. Do not overwrite with tuned configs. Tuning: [triton-tuning.md](triton-tuning.md). Order: [baseline-order.md](baseline-order.md). Extras HIP vs leftover Triton JIT (after RMSNorm AOT): [kernels/triton-jit-aot.md](../../kernels/triton-jit-aot.md).
+Date: 2026-08-18. **Stock only.** vLLM `main` @ `49fb2ee`. Do not overwrite with tuned configs. Tuning: [triton-tuning.md](triton-tuning.md). Order: [baseline-order.md](baseline-order.md). Extras HIP vs leftover Triton JIT (after RMSNorm AOT): [kernels/aot-glue/triton-jit-aot.md](../../kernels/aot-glue/triton-jit-aot.md).
 
 "Supported" here means source/dispatch, not measured tok/s.
 
@@ -57,7 +57,7 @@ Native decode gates: CDNA (head 64/128, …) or `_ON_GFX1X` (gfx11/12, head 128,
 
 Master flag `VLLM_ROCM_USE_SKINNY_GEMM` (default on) **has no effect on gfx1030** under this gate. Stock decode GEMM is BLAS. ikantkode's overlay opening `LLMM1` for gfx1030 is **not stock** ([qwen35.md](../run-recipes/qwen35.md)).
 
-Detail: [kernels/triton-skinny-gemm.md](../../kernels/triton-skinny-gemm.md).
+Detail: [kernels/gemm-moe/triton-skinny-gemm.md](../../kernels/gemm-moe/triton-skinny-gemm.md).
 
 ## Sources
 

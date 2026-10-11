@@ -41,11 +41,11 @@ flowchart LR
 
 | Page | Contents |
 |---|---|
-| [../kernels/gdn-decode.md](../kernels/gdn-decode.md) | GDN decode HIP `(2,4)`, no LDS |
-| [../kernels/gdn-prefill.md](../kernels/gdn-prefill.md) | GDN prefill 5 HIP; kkt no `fdot2`; wy ~58 KB LDS |
-| [../kernels/layernorm.md](../kernels/layernorm.md) | HIP AOT RMSNorm, tiny LDS, no DOT; not FA leftover |
-| [../kernels/w4a8.md](../kernels/w4a8.md) | W4A8 `sdot4` Live opt-in @ `3a0786ea`; MoE accum dual-mode @ `30b0bd4e`; W4A16 default unchanged |
-| [../kernels/qwen4exp-flash-next-hip.md](../kernels/qwen4exp-flash-next-hip.md) | Flash-Next HIP glue T46–T49 + mrope fixes @ 5c3c0c6f |
+| [../kernels/linear-attn/gdn-decode.md](../kernels/linear-attn/gdn-decode.md) | GDN decode HIP `(2,4)`, no LDS |
+| [../kernels/linear-attn/gdn-prefill.md](../kernels/linear-attn/gdn-prefill.md) | GDN prefill 5 HIP; kkt no `fdot2`; wy ~58 KB LDS |
+| [../kernels/aot-glue/layernorm.md](../kernels/aot-glue/layernorm.md) | HIP AOT RMSNorm, tiny LDS, no DOT; not FA leftover |
+| [../kernels/quant/w4a8.md](../kernels/quant/w4a8.md) | W4A8 `sdot4` Live opt-in @ `3a0786ea`; MoE accum dual-mode @ `30b0bd4e`; W4A16 default unchanged |
+| [../kernels/models/qwen4exp-flash-next-hip.md](../kernels/models/qwen4exp-flash-next-hip.md) | Flash-Next HIP glue T46–T49 + mrope fixes @ 5c3c0c6f |
 | [../toolchain/pin/README.md](../toolchain/pin/README.md) | Live ROCm pin (source of truth) |
 
 ## Sources

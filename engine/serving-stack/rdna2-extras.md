@@ -64,7 +64,7 @@ Replay list (minimum): `csrc/rocm/*rdna2*`, `fa_rdna2`, `skinny_gemms.cu`, `rocm
 
 - `9ff87936` merge message, `3e05abc9` all-reduce
 - `vllm/platforms/rocm.py` on extras
-- RDNA2_Researcher HIP review (`kernels/rdna2-extras.md`)
+- RDNA2_Researcher HIP review (`kernels/overlays/rdna2-extras.md`)
 - [coverage.md](../overview/coverage.md), [fork-delta.md](fork-delta.md), [hippih.md](../alt-engines/hippih.md)
 
 Added in the 2026-10-11 sourcing pass:

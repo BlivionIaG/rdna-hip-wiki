@@ -13,7 +13,7 @@ sources:
 
 # Heterogeneous MoE — silicon placement contract
 
-Date: 2026-08-18 (W7800/V620 HIP–HIP). **Retipped 2026-08-27:** W7800 fast-tier is **dead** (cards selling). New Later form is Spark×2 + 8×V620. Engine placement: [../engine/multi-tier.md](../../engine/moe/multi-tier.md). DeepEP-style routing (V620-internal only): [deepep-v620.md](deepep-v620.md). MoE compute: [../kernels/fp16-moe.md](../../kernels/fp16-moe.md), [../kernels/int8-moe.md](../../kernels/int8-moe.md).
+Date: 2026-08-18 (W7800/V620 HIP–HIP). **Retipped 2026-08-27:** W7800 fast-tier is **dead** (cards selling). New Later form is Spark×2 + 8×V620. Engine placement: [../engine/multi-tier.md](../../engine/moe/multi-tier.md). DeepEP-style routing (V620-internal only): [deepep-v620.md](deepep-v620.md). MoE compute: [../kernels/fp16-moe.md](../../kernels/gemm-moe/fp16-moe.md), [../kernels/int8-moe.md](../../kernels/gemm-moe/int8-moe.md).
 
 ## 2026-08-27 retip — Spark (GB10) + 8× V620
 

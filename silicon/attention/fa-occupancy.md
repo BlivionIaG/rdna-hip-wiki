@@ -109,7 +109,7 @@ Official dest tip (BlivionIaG `rdna2_extras` is archive). FA HIP delta vs `8f258
 - LDS / BR/BC tile shapes unchanged (decode Bc 64/32; prefill Br 16). No new VGPR dump this hour — do not retip pin closed. Occupancy leftover still FA prefill LDS (1 WG / 64 KB).[^rocm-gpu-arch-specs][^llvm-baseinfo]
 - Platform: `VLLM_USE_RDNA2_FA=1` prefers `RDNA_ATTN`; custom paged-attn gate allows head 128/256 and `block_size >= 1` (hybrids 784/1056).
 
-Do not copy tok/s. See [kernels/kv-int8.md](../../kernels/kv-int8.md).
+Do not copy tok/s. See [kernels/attention/kv-int8.md](../../kernels/attention/kv-int8.md).
 
 Capture / Triton tile note: clamp staged K/V with `TILE×head×el×stages+256 ≤ 65536` before cudagraph ([lds-tiles.md](../lds-and-tiles/lds-tiles.md) Radiance A-tile). Does **not** clear the prefill `(N, 1)` / 1 WG @ 64 KiB leftover.
 
@@ -155,7 +155,7 @@ Hardware model used for occupancy (as requested): **16 waves/SIMD32**, **1024 VG
 
 `(4, 8)` is a compiler occupancy *range*, not a runtime query. If decode already sat ≤128 VGPR, +1% is expected. Do not close the occupancy card. Fat-M W4 / ConfigA unchanged.[^extras-fa-rdna2-cu]
 
-`gdn_decode_rdna2` + five `gdn_prefill_*`: all `(2, 4)`, not `(1,1)` (still true at `1dc3bac4`).[^gdn-tip-wpe] kkt stays scalar FMA. wy ~58 KB. delta_h @ `e054854f` is 128-thr / 0 LDS *(historical: at `1dc3bac4` `GDN_THREADS = 256` in `gdn_prefill_delta_h_rdna2.cu`)*. o-kernel @ `77d6fdf8` is BV 64 / ~56 KB LDS (was 32 / ~44) *(historical: at `1dc3bac4` `GDN_BV = 32` and `GDN_LDS_TOTAL_BYTES` = 16384 + 16384 + 8192 + 4096 + 256 = 45312 B, about 44 KiB, i.e. the BV=32 shape)*.[^gdn-tip-o] Not the FA occupancy leftover. See [../kernels/gdn-prefill.md](../../kernels/gdn-prefill.md).[^commit-e054854f][^commit-77d6fdf8]
+`gdn_decode_rdna2` + five `gdn_prefill_*`: all `(2, 4)`, not `(1,1)` (still true at `1dc3bac4`).[^gdn-tip-wpe] kkt stays scalar FMA. wy ~58 KB. delta_h @ `e054854f` is 128-thr / 0 LDS *(historical: at `1dc3bac4` `GDN_THREADS = 256` in `gdn_prefill_delta_h_rdna2.cu`)*. o-kernel @ `77d6fdf8` is BV 64 / ~56 KB LDS (was 32 / ~44) *(historical: at `1dc3bac4` `GDN_BV = 32` and `GDN_LDS_TOTAL_BYTES` = 16384 + 16384 + 8192 + 4096 + 256 = 45312 B, about 44 KiB, i.e. the BV=32 shape)*.[^gdn-tip-o] Not the FA occupancy leftover. See [../kernels/gdn-prefill.md](../../kernels/linear-attn/gdn-prefill.md).[^commit-e054854f][^commit-77d6fdf8]
 
 ## 1. `__launch_bounds__` → `amdgpu_waves_per_eu`
 

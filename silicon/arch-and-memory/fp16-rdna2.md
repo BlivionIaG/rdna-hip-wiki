@@ -10,7 +10,7 @@ sources:
 
 # Fastest gfx1030 FP16 path — silicon contract
 
-Date: 2026-08-18. **Study / after occupancy.** Peak math from [valu.md](valu.md). Engine: [engine/fp16-rdna2.md](../../engine/quant-formats/fp16-rdna2.md). Native MoE tiles: [../kernels/fp16-moe.md](../../kernels/fp16-moe.md). Stock hole: [../kernels/triton-skinny-gemm.md](../../kernels/triton-skinny-gemm.md).
+Date: 2026-08-18. **Study / after occupancy.** Peak math from [valu.md](valu.md). Engine: [engine/fp16-rdna2.md](../../engine/quant-formats/fp16-rdna2.md). Native MoE tiles: [../kernels/fp16-moe.md](../../kernels/gemm-moe/fp16-moe.md). Stock hole: [../kernels/triton-skinny-gemm.md](../../kernels/gemm-moe/triton-skinny-gemm.md).
 
 ## One-line verdict
 
@@ -87,7 +87,7 @@ Do not launch a 64×64 tile at `M=1`. Do not copy gfx1100 WMMA 16×16 fragments.
 4. Prefill: rocBLAS vs 64×64×32 `fdot2` tile; keep BLAS if it wins.
 5. MLA prefill: fix `load_row`, then `fdot2` both-sides-half.
 6. `fa_rdna2` vs forced `TRITON_ATTN` after step 1.
-7. Native FP16 MoE decode uses the same skinny contract ([../kernels/fp16-moe.md](../../kernels/fp16-moe.md)).
+7. Native FP16 MoE decode uses the same skinny contract ([../kernels/fp16-moe.md](../../kernels/gemm-moe/fp16-moe.md)).
 
 Record cold compile, warm, median/p10/p90, VGPR/LDS/spills/waves, DRAM bytes, IC/L2 hits, and the profiler symbol. No invented tok/s.
 

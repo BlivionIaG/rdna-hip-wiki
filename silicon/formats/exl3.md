@@ -26,7 +26,7 @@ sources:
 
 # EXL3 / QTIP on gfx1030 — silicon
 
-Occupancy + live W4 still first. Kernel contract: [../kernels/exl3.md](../../kernels/exl3.md). Engine/vLLM: [../engine/exl3.md](../../engine/quant-formats/exl3.md).
+Occupancy + live W4 still first. Kernel contract: [../kernels/exl3.md](../../kernels/quant/exl3.md). Engine/vLLM: [../engine/exl3.md](../../engine/quant-formats/exl3.md).
 
 Not EXL2. Not Marlin. Not a CUDA `exl3_gemv` / `mgemm` port.
 
@@ -176,11 +176,11 @@ Range `f9361950` → `aac1fcd6` (+5). Silicon Take on EXL3: `62694f20` adds **un
 
 Why: fused dense GEMM re-decodes each tile per M-block (`M_PER=8` cap). Prefill pulls decode out once, then **rocBLAS** on the fp16 matrix (Python in `exl3.py`). Produce stays `-cb 3inst`. Occupancy leftover still FA prefill `(N,1)`. Do **not** copy any prefill speedup claim from the commit message. Do not invent numbers.
 
-Non-silicon in the same tip (for dest context only): `38595867` sliding_window arg on `fa_rdna2` splitk wrapper (Python); `9ba5d5f4` drops lm_head debug print. GDN HIP delta is on [kernels/gdn-prefill.md](../../kernels/gdn-prefill.md).[^commit-38595867][^commit-9ba5d5f4]
+Non-silicon in the same tip (for dest context only): `38595867` sliding_window arg on `fa_rdna2` splitk wrapper (Python); `9ba5d5f4` drops lm_head debug print. GDN HIP delta is on [kernels/linear-attn/gdn-prefill.md](../../kernels/linear-attn/gdn-prefill.md).[^commit-38595867][^commit-9ba5d5f4]
 
 ## extras lock 2026-10-01 (dest tip `30b0bd4e`)
 
-HIP/ISA delta since `3a0786ea` (W4A8 lock). Companion: [../kernels/exl3.md](../../kernels/exl3.md).[^commit-3a0786ea]
+HIP/ISA delta since `3a0786ea` (W4A8 lock). Companion: [../kernels/exl3.md](../../kernels/quant/exl3.md).[^commit-3a0786ea]
 
 **Take — codebook / window**
 
@@ -195,7 +195,7 @@ HIP/ISA delta since `3a0786ea` (W4A8 lock). Companion: [../kernels/exl3.md](../.
 
 **Unchanged:** produce `-cb 3inst`; no WMMA; occupancy leftover FA prefill `(N,1)` / EXL3 VGPR; CMake EXL3 sources unchanged. Do not invent numbers. Do not copy tok/s.
 
-Same tip also lands MoE epilogue dual-mode (`moe_accum_rdna2.cuh`) — see [../kernels/w4a8.md](../../kernels/w4a8.md) + [../kernels/w4a16.md](../../kernels/w4a16.md) (W4A16/W4A8 MoE; not EXL3 CAS).
+Same tip also lands MoE epilogue dual-mode (`moe_accum_rdna2.cuh`) — see [../kernels/w4a8.md](../../kernels/quant/w4a8.md) + [../kernels/w4a16.md](../../kernels/quant/w4a16.md) (W4A16/W4A8 MoE; not EXL3 CAS).
 
 ## Sources
 

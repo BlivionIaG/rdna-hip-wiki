@@ -1,6 +1,6 @@
 # INT8 KV cache on gfx1030 — engine spec
 
-Date: 2026-08-21. Engine contract. Silicon: [kernels/kv-int8.md](../../kernels/kv-int8.md). Policy page (FP8 dead as a *unit*, offload physics): [kv-quant-offload.md](kv-quant-offload.md). One card on [project 4](https://github.com/users/BlivionIaG/projects/4). Dest is `opengfx1030/vllm-rdna` **`rdna_extras`** (historically `rdna2_extras` on BlivionIaG/vllm). Occupancy still first.
+Date: 2026-08-21. Engine contract. Silicon: [kernels/attention/kv-int8.md](../../kernels/attention/kv-int8.md). Policy page (FP8 dead as a *unit*, offload physics): [kv-quant-offload.md](kv-quant-offload.md). One card on [project 4](https://github.com/users/BlivionIaG/projects/4). Dest is `opengfx1030/vllm-rdna` **`rdna_extras`** (historically `rdna2_extras` on BlivionIaG/vllm). Occupancy still first.
 
 **Verdict:** cut KV bytes 2× vs fp16 by storing INT8 and **dequantizing inside `fa_rdna2`**. An unfused “dequant to an fp16 cache, then attend” kernel erases the memory win. Native FP8 KV stays **Dead** (`supports_fp8()` false).[^vllm-rocm-py] Sage INT8 QK is prefill *Q*, not this.
 
