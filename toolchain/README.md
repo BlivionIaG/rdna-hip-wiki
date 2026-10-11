@@ -1,6 +1,6 @@
 # Toolchain
 
-Owned by ROCM_specialist. Compiler, HIP runtime, and official-vs-unofficial matrix. Kernel craft stays in [silicon/hip-craft.md](../silicon/hip-craft.md).
+Owned by ROCM_specialist. Compiler, HIP runtime, and official-vs-unofficial matrix. Kernel craft stays in [silicon/hip-craft/hip-craft.md](../silicon/hip-craft/hip-craft.md).
 
 Date of this pass: **2026-09-03**.
 

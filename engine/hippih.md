@@ -4,7 +4,7 @@
 
 Date: 2026-08-21. Repo: [BlivionIaG/hippih](https://github.com/BlivionIaG/hippih). README today: *HIP maxxing inference engine for localLLM masters*. Tree is README + LICENSE only — **contract first**, no tok/s.
 
-Silicon: [silicon/hippih.md](../silicon/hippih.md). **Three compile targets, no shared fatbins.**
+Silicon: [silicon/external-projects/hippih.md](../silicon/external-projects/hippih.md). **Three compile targets, no shared fatbins.**
 
 ## Role (corrected)
 
@@ -14,7 +14,7 @@ Not a discard. **hippih is the custom HIP engine** for the three ISAs we own:
 |---|---|---|
 | **gfx1030** | V620 | packed DOT only — `fdot2` / `sdot4` / `sdot8`. Wave32. No WMMA/MFMA/FP8. |
 | **gfx1100** | W7800 | RDNA3. WMMA/bf16 **local** ok (fat prefill). Do not require WMMA on V620. |
-| **gfx900** | V340L | Vega10. `v_mad_mix_f32` + `v_pk_fma_f16`. **No DOT.** gfx906 / gfx1030 objects will not load. [silicon/v340l.md](../silicon/v340l.md) |
+| **gfx900** | V340L | Vega10. `v_mad_mix_f32` + `v_pk_fma_f16`. **No DOT.** gfx906 / gfx1030 objects will not load. [silicon/other-hardware/v340l.md](../silicon/other-hardware/v340l.md) |
 
 `on_rdna()` (v0.27.1 = gfx11/12) must **not** gate gfx1030 or gfx900 paths. No shared occupancy attribute across the three TUs.
 
@@ -60,6 +60,6 @@ Later. Occupancy still first. One hippih-contract card after extras occupancy la
 ## Sources
 
 - hippih README (stub)
-- [silicon/hippih.md](../silicon/hippih.md)
+- [silicon/external-projects/hippih.md](../silicon/external-projects/hippih.md)
 - [rdna2-extras.md](rdna2-extras.md), [sglang-fork.md](sglang-fork.md), [fp16-rdna2.md](fp16-rdna2.md), [alt-engines.md](alt-engines.md), [hipfire.md](hipfire.md)
 - Note 2026-08-20: own SGLang path; 2026-08-21: keep full hippih way, hipfire steal only

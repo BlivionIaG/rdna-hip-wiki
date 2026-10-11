@@ -1,8 +1,8 @@
 # PLX / PEX switches — engine contract
 
-Date: 2026-08-19. Engine page for **PEX88096** (Gen4) and **PEX8749** (Gen3). Silicon/register dump: [silicon/plx-p2p-mmio.md](../silicon/plx-p2p-mmio.md). Bench lives in [v620_toolbox/pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/main/pcie_p2p). Do **not** invent GB/s or a “P2P works” claim for an unmeasured hop. Occupancy still first.
+Date: 2026-08-19. Engine page for **PEX88096** (Gen4) and **PEX8749** (Gen3). Silicon/register dump: [silicon/interconnect/plx-p2p-mmio.md](../silicon/interconnect/plx-p2p-mmio.md). Bench lives in [v620_toolbox/pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/main/pcie_p2p). Do **not** invent GB/s or a “P2P works” claim for an unmeasured hop. Occupancy still first.
 
-Companions: [silicon/plx-p2p-mmio.md](../silicon/plx-p2p-mmio.md), [silicon/rccl-p2p.md](../silicon/rccl-p2p.md), [deepep.md](deepep.md), [multi-tier.md](multi-tier.md).
+Companions: [silicon/interconnect/plx-p2p-mmio.md](../silicon/interconnect/plx-p2p-mmio.md), [silicon/interconnect/rccl-p2p.md](../silicon/interconnect/rccl-p2p.md), [deepep.md](deepep.md), [multi-tier.md](multi-tier.md).
 
 ## Reference hardware (2026-08-19)
 
@@ -42,7 +42,7 @@ Sources: [BC-0484EN](https://docs.broadcom.com/doc/BC-0484EN), [BC00-0445EN](htt
 
 ## Engine ceiling (math only)
 
-PCIe payload one way, 128b/130b ([silicon/rccl-p2p.md](../silicon/rccl-p2p.md)):
+PCIe payload one way, 128b/130b ([silicon/interconnect/rccl-p2p.md](../silicon/interconnect/rccl-p2p.md)):
 
 | Hop | x16 payload | Ring n=4 algbw ceiling (`1.5 S/B`) |
 |---|---|---|
@@ -52,7 +52,7 @@ PCIe payload one way, 128b/130b ([silicon/rccl-p2p.md](../silicon/rccl-p2p.md)):
 
 A V620 is Gen4 x16 **to the slot**. If the path is 8749 (or a V340L), the **device or switch** is the gen drop. `lspci` **LnkSta** (not LnkCap) is the number that matters.
 
-**Lane budget:** one 88096 = 96 data lanes = **one 5-slot x16 backplane** (CPU + 5 GPU). Two of those = 10× x16. One chip still cannot do 2+8 x16 alone (176). Two chips can (5+5). One 8749 cannot do 4× x16. [silicon/plx-p2p-mmio.md](../silicon/plx-p2p-mmio.md).
+**Lane budget:** one 88096 = 96 data lanes = **one 5-slot x16 backplane** (CPU + 5 GPU). Two of those = 10× x16. One chip still cannot do 2+8 x16 alone (176). Two chips can (5+5). One 8749 cannot do 4× x16. [silicon/interconnect/plx-p2p-mmio.md](../silicon/interconnect/plx-p2p-mmio.md).
 
 ## What we use vs what we ignore
 
@@ -118,6 +118,6 @@ Later. One platform card: “PEX ACS + PIX matrix” after occupancy. do not ret
 - https://docs.broadcom.com/doc/BC-0484EN (PEX88000 brief, 2019-07-17)
 - https://docs.broadcom.com/doc/BC00-0445EN (family table)
 - https://docs.broadcom.com/doc/12351856 (PEX8749 brief, 2011-08-22)
-- [silicon/plx-p2p-mmio.md](../silicon/plx-p2p-mmio.md)
-- [silicon/rccl-p2p.md](../silicon/rccl-p2p.md)
+- [silicon/interconnect/plx-p2p-mmio.md](../silicon/interconnect/plx-p2p-mmio.md)
+- [silicon/interconnect/rccl-p2p.md](../silicon/interconnect/rccl-p2p.md)
 - [v620_toolbox pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/main/pcie_p2p)

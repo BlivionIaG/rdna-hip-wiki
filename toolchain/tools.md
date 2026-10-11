@@ -180,7 +180,7 @@ Vs Oct 5 ~10:25 community baseline. **No dest/pin lever.** Live dest stays **7.1
 | [RYZENNAVI/comfyui-zluda-rdna2](https://github.com/RYZENNAVI/comfyui-zluda-rdna2) | Leave | ComfyUI + ZLUDA Windows RDNA2; not HIP inference toolchain. |
 | Triton AMD / aiter / Strata / rapier / sar/v620 / rocjitsu | unchanged | Triton #11922/#11911 still open, no gfx1030 PR; Strata HIP churn is gfx1151; rocjitsu still no gfx1030 topology JSON. |
 
-Heads-up for ROCm 10.1+: `rocm-smi` is no longer in the standard build, so the `rocm-smi --showtopo` lines in [silicon/rccl-p2p.md](../silicon/rccl-p2p.md) need the `amd-smi topology` equivalent when anyone runs on 10.1 (owner: RDNA2_Researcher). Not a 7.14.0 dest issue.
+Heads-up for ROCm 10.1+: `rocm-smi` is no longer in the standard build, so the `rocm-smi --showtopo` lines in [silicon/interconnect/rccl-p2p.md](../silicon/interconnect/rccl-p2p.md) need the `amd-smi topology` equivalent when anyone runs on 10.1 (owner: RDNA2_Researcher). Not a 7.14.0 dest issue.
 
 Artifact: `/workspace/rocm-rdna-domain-20261006-1020.md`.
 

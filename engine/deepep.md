@@ -1,6 +1,6 @@
 # DeepEP insight — not a gfx1030 first ticket
 
-Date: 2026-08-18. Engine note. Sourced from DeepSeek DeepEP (V3/R1 production; Wafer-AI / V4 Flash 0731 write-up). Silicon boundary: [silicon/deepep-v620.md](../silicon/deepep-v620.md). P2P facts: [silicon/rccl-p2p.md](../silicon/rccl-p2p.md). MoE kernels stay [fp16-moe.md](fp16-moe.md) / [int8-moe.md](int8-moe.md). PD stays [pd-disagg.md](pd-disagg.md) (**skip as a win** on this box).
+Date: 2026-08-18. Engine note. Sourced from DeepSeek DeepEP (V3/R1 production; Wafer-AI / V4 Flash 0731 write-up). Silicon boundary: [silicon/interconnect/deepep-v620.md](../silicon/interconnect/deepep-v620.md). P2P facts: [silicon/interconnect/rccl-p2p.md](../silicon/interconnect/rccl-p2p.md). MoE kernels stay [fp16-moe.md](fp16-moe.md) / [int8-moe.md](int8-moe.md). PD stays [pd-disagg.md](pd-disagg.md) (**skip as a win** on this box).
 
 ## What they actually did
 
@@ -14,7 +14,7 @@ Ports, not drop-ins here: AMD **MORI** (Instinct / gfx942+ in SGLang), Tencent, 
 
 1. **Do not treat MoE A2A as AllReduce.** Density heuristic we already have: low activation → no-EP + AllReduce; high → EP + AllToAll. DeepEP is *how* to implement the second, not a reason to ignore the first.
 2. **Collective ownership stays in the engine.** GEMM `w2` default under TP/EP is unreduced routed rows. `0c59068e` only changed RCCL transport (broken `vllm::all_reduce` dispatcher → direct PYNCCL). It does not put RCCL inside a DOT kernel.
-3. **Intra-node analogue on 4×V620 is a mapped-peer scatter/combine kernel over PCIe BARs** — destination receive buffers, peer-map, routing waves write packed tokens to remote pointers. That is “skip the host bounce,” not “build a 48-byte IB WQE.” **Do not call it GPU-initiated DMA:** no opened HIP source exposes device-side peer SDMA/NIC doorbells. Measure pairwise peer-store bandwidth, remote atomic/system-scope completion, and four-GPU contention before designing a lock-free path. Unknown until [silicon/deepep-v620.md](../silicon/deepep-v620.md) + [silicon/rccl-p2p.md](../silicon/rccl-p2p.md) say otherwise.
+3. **Intra-node analogue on 4×V620 is a mapped-peer scatter/combine kernel over PCIe BARs** — destination receive buffers, peer-map, routing waves write packed tokens to remote pointers. That is “skip the host bounce,” not “build a 48-byte IB WQE.” **Do not call it GPU-initiated DMA:** no opened HIP source exposes device-side peer SDMA/NIC doorbells. Measure pairwise peer-store bandwidth, remote atomic/system-scope completion, and four-GPU contention before designing a lock-free path. Unknown until [silicon/interconnect/deepep-v620.md](../silicon/interconnect/deepep-v620.md) + [silicon/interconnect/rccl-p2p.md](../silicon/interconnect/rccl-p2p.md) say otherwise.
 4. **Fuse quant into the comm kernel only after a real A2A exists.** W8A8 `sdot4` still needs A8 on the compute side; do not invent a DeepEP-FP8 dispatch for a box with no RDMA fabric.
 
 ## What we do not steal
@@ -43,5 +43,5 @@ No new DOT. No change to `combine_mode` ownership.
 - DeepSeek DeepEP (published library used for V3/R1)
 - Wafer-AI DeepSeek V4 Flash 0731 Fast write-up (2026-08, secondary)
 - SGLang `--moe-a2a-backend` `deepep` / `mori`
-- [silicon/deepep-v620.md](../silicon/deepep-v620.md)
+- [silicon/interconnect/deepep-v620.md](../silicon/interconnect/deepep-v620.md)
 - [moe.md](moe.md), [pd-disagg.md](pd-disagg.md)

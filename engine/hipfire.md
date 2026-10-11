@@ -2,7 +2,7 @@
 
 Date: 2026-08-21. Engine review of [warpfront/hipfire](https://github.com/warpfront/hipfire) (Apache-2.0 as of v0.3.0; v0.2.1 was dual MIT/Apache). **Standalone Rust + HIP engine**, not a vLLM plugin and not a fork of extras. Occupancy still first. Do **not** copy their tok/s onto [coverage.md](coverage.md).
 
-Silicon: [../silicon/hipfire.md](../silicon/hipfire.md).
+Silicon: [../silicon/hipfire.md](../silicon/external-projects/hipfire.md).
 
 Headline benches are **gfx1100 / gfx1151 / gfx1201 WMMA**. gfx1030 is listed as *portable HIP + Redline dispatch*, not the tuned family. Their `tests/speed-baselines/gfx1030.txt` exists (2026-04-28, MQ4 + HIPGRAPH + asym3 KV; small models on 16 GB 6900 XT, **27B on a V620 Pro 32 GB and not CI-enforced**). Measurement peer after occupancy — not our extras W4 / 4× / 7.14 / 88096 number.
 

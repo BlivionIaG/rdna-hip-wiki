@@ -2,7 +2,7 @@
 
 Occupancy-first. Sources via `gh api` / PR patch only (no clones). No invented tok/s. Does **not** change extras HIP or UNC.
 
-Companions already covering the dump / hint side: [silicon/occupancy-dump.md](../../silicon/occupancy-dump.md) (`NT_AMDGPU_METADATA`), [silicon/occupancy-composite.md](../../silicon/occupancy-composite.md), [silicon/hip-craft.md](../../silicon/hip-craft.md) §1.3, [silicon/wg-size-occupancy.md](../../silicon/wg-size-occupancy.md). This note adds the **object-linking ABI floor** that those pages do not yet lock.
+Companions already covering the dump / hint side: [silicon/occupancy/occupancy-dump.md](../../silicon/occupancy/occupancy-dump.md) (`NT_AMDGPU_METADATA`), [silicon/occupancy/occupancy-composite.md](../../silicon/occupancy/occupancy-composite.md), [silicon/hip-craft/hip-craft.md](../../silicon/hip-craft/hip-craft.md) §1.3, [silicon/occupancy/wg-size-occupancy.md](../../silicon/occupancy/wg-size-occupancy.md). This note adds the **object-linking ABI floor** that those pages do not yet lock.
 
 ## Verdict
 
@@ -14,7 +14,7 @@ Source: [llvm/llvm-project#199475](https://github.com/llvm/llvm-project/pull/199
 
 ### What it is
 
-Under object linking, TUs no longer share whole-program register visibility. Callers/callees must agree on a **register-budget floor** called *ABI occupancy* (waves/EU). The backend records that floor in each function’s **`.amdgpu.info`** as **`.amdgpu_occupancy`** / note type **`INFO_OCCUPANCY` (11)**. HSA kernel metadata (`.vgpr_count`, KD `NumVGPRsForWavesPerEU`, resource-derived `Occupancy`) stays local — the ABI field is a **contract**, not a rewrite of the dump recipe on [occupancy-dump.md](../../silicon/occupancy-dump.md).
+Under object linking, TUs no longer share whole-program register visibility. Callers/callees must agree on a **register-budget floor** called *ABI occupancy* (waves/EU). The backend records that floor in each function’s **`.amdgpu.info`** as **`.amdgpu_occupancy`** / note type **`INFO_OCCUPANCY` (11)**. HSA kernel metadata (`.vgpr_count`, KD `NumVGPRsForWavesPerEU`, resource-derived `Occupancy`) stays local — the ABI field is a **contract**, not a rewrite of the dump recipe on [occupancy-dump.md](../../silicon/occupancy/occupancy-dump.md).
 
 ### Default floor (formula)
 
@@ -44,7 +44,7 @@ Tests (`object-linking-abi-occupancy*.ll`) cover gfx900 + **gfx10.1** wave32/64 
 
 ### Craft implication for gfx1030 (when/if enabled)
 
-Today’s wiki rule already says: pin `amdgpu_flat_work_group_size` to the **real** launch flat size; IR omit → `1,1024` ([wg-size-occupancy.md](../../silicon/wg-size-occupancy.md)). Under object linking that pin is no longer only a compile hint — it **is** the ABI VGPR contract. A 256-thread kernel left at IR default `1,1024` would compile against an **8-wave / 128-VGPR** ABI floor even if it never launches 1024. Pinning `256,256` lowers the ABI floor to **2** and restores the full 256-VGPR file budget for separately compiled device helpers.
+Today’s wiki rule already says: pin `amdgpu_flat_work_group_size` to the **real** launch flat size; IR omit → `1,1024` ([wg-size-occupancy.md](../../silicon/occupancy/wg-size-occupancy.md)). Under object linking that pin is no longer only a compile hint — it **is** the ABI VGPR contract. A 256-thread kernel left at IR default `1,1024` would compile against an **8-wave / 128-VGPR** ABI floor even if it never launches 1024. Pinning `256,256` lowers the ABI floor to **2** and restores the full 256-VGPR file budget for separately compiled device helpers.
 
 **Do not** flip hipcc to `-amdgpu-enable-object-linking` on dest until the PR merges and TheRock/ROCm llvm carries it. Watch only.
 

@@ -2,7 +2,7 @@
 
 Date: 2026-08-18. Engine study. Occupancy on `fa_rdna2` + `skinny_gemms.cu` still first. Do not invent tok/s.
 
-Silicon contract: [silicon/fp16-rdna2.md](../silicon/fp16-rdna2.md) (peak numbers: [silicon/valu.md](../silicon/valu.md)). MoE: [fp16-moe.md](fp16-moe.md) + [kernels/fp16-moe.md](../kernels/fp16-moe.md). Baselines: [baseline-order.md](baseline-order.md), [kernels/triton-skinny-gemm.md](../kernels/triton-skinny-gemm.md). Attention: [attention-dispatch.md](attention-dispatch.md).
+Silicon contract: [silicon/arch-and-memory/fp16-rdna2.md](../silicon/arch-and-memory/fp16-rdna2.md) (peak numbers: [silicon/arch-and-memory/valu.md](../silicon/arch-and-memory/valu.md)). MoE: [fp16-moe.md](fp16-moe.md) + [kernels/fp16-moe.md](../kernels/fp16-moe.md). Baselines: [baseline-order.md](baseline-order.md), [kernels/triton-skinny-gemm.md](../kernels/triton-skinny-gemm.md). Attention: [attention-dispatch.md](attention-dispatch.md).
 
 ## The only inner op
 
@@ -59,6 +59,6 @@ Reuse occupancy + baseline epic. Not a new first kernel ticket.
 
 ## Sources
 
-- [silicon/fp16-rdna2.md](../silicon/fp16-rdna2.md)
+- [silicon/arch-and-memory/fp16-rdna2.md](../silicon/arch-and-memory/fp16-rdna2.md)
 - [baseline-order.md](baseline-order.md), [fp16-moe.md](fp16-moe.md)
 - Note 2026-08-18

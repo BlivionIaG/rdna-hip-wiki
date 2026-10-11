@@ -1,6 +1,6 @@
 # fa_rdna2 dispatch / head-64 / short vs split-K
 
-Date: 2026-08-17. Engine slice. Occupancy / LDS / VGPR live in [silicon/fa-occupancy.md](../silicon/fa-occupancy.md). Live tree details from VLLM_FORK_Manager (not all pushed).
+Date: 2026-08-17. Engine slice. Occupancy / LDS / VGPR live in [silicon/attention/fa-occupancy.md](../silicon/attention/fa-occupancy.md). Live tree details from VLLM_FORK_Manager (not all pushed).
 
 `VLLM_USE_RDNA2_FA=1` splits MHA: `fa_rdna2_decode_paged` vs `fa_rdna2_prefill_*`.
 
@@ -26,7 +26,7 @@ fa_rdna2 decode/prefill as reported: D=128/256 only. Treat 64 as the first missi
 
 ## Short vs split-K (72 CU V620)
 
-**Locked:** Split-K = grid-fill when B×H leaves 72 CUs idle. Short Br=32 = small-q. Do **not** use D=256 split-K to "fix occupancy." Occupancy is [silicon/fa-occupancy.md](../silicon/fa-occupancy.md): drop the second `__launch_bounds__` arg, add `amdgpu_waves_per_eu(4, 8)` on decode 128/256.
+**Locked:** Split-K = grid-fill when B×H leaves 72 CUs idle. Short Br=32 = small-q. Do **not** use D=256 split-K to "fix occupancy." Occupancy is [silicon/attention/fa-occupancy.md](../silicon/attention/fa-occupancy.md): drop the second `__launch_bounds__` arg, add `amdgpu_waves_per_eu(4, 8)` on decode 128/256.
 
 Split-K (Flash-Decoding): extra parallel axis = KV partitions + LSE reduce.
 

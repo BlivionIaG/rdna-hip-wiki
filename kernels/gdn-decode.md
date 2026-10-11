@@ -26,7 +26,7 @@ Do **not** put the microbench 9× on coverage. Fat-M / ConfigA unchanged.
 
 ## Capture guard (dest `f9361950`, 2026-09-03)
 
-The `ssm_state` RDNA2 uncommitted-page probe (`torch.isnan(...).any().item()` / all-zero → `zero_()`) is a **device→host sync** and is illegal under stream capture — it aborted cudagraph capture at engine startup with `hipErrorStreamCaptureUnsupported`. Dest now wraps it in `if not torch.cuda.is_current_stream_capturing():`. Python only; the `.cu` tile above is unchanged. Rule: [../silicon/graph-capture.md](../silicon/graph-capture.md).
+The `ssm_state` RDNA2 uncommitted-page probe (`torch.isnan(...).any().item()` / all-zero → `zero_()`) is a **device→host sync** and is illegal under stream capture — it aborted cudagraph capture at engine startup with `hipErrorStreamCaptureUnsupported`. Dest now wraps it in `if not torch.cuda.is_current_stream_capturing():`. Python only; the `.cu` tile above is unchanged. Rule: [../silicon/graph-capture.md](../silicon/hip-craft/graph-capture.md).
 
 ## NULL_BLOCK_ID=0 sentinel (dest `7779514b`, 2026-09-08)
 
@@ -34,4 +34,4 @@ The `ssm_state` RDNA2 uncommitted-page probe (`torch.isnan(...).any().item()` / 
 
 ## extras lock 2026-09-17 (tip `50120e13`, engine `388a61b6`)
 
-Python only (`qwen_gdn_linear_attn.py`): removed the one-shot `conv_state.zero_()` / `ssm_state.zero_()` “page-commit sanitizers” that ran on the first `gdn_decode_rdna2` of a process. Those wiped the paged GDN state **after** the first request’s prefill had written recurrent state, so fresh-server long prompts decoded from zeros. KV backing is already zero-initialised by `allocate_kv_cache` — wipes unnecessary and harmful. HIP decode tile / LDS / `(2,4)` unchanged. Supersedes the capture-guard narrative around one-shot `zero_()` as a correctness path; keep host-sync probes illegal under capture ([../silicon/graph-capture.md](../silicon/graph-capture.md)).
+Python only (`qwen_gdn_linear_attn.py`): removed the one-shot `conv_state.zero_()` / `ssm_state.zero_()` “page-commit sanitizers” that ran on the first `gdn_decode_rdna2` of a process. Those wiped the paged GDN state **after** the first request’s prefill had written recurrent state, so fresh-server long prompts decoded from zeros. KV backing is already zero-initialised by `allocate_kv_cache` — wipes unnecessary and harmful. HIP decode tile / LDS / `(2,4)` unchanged. Supersedes the capture-guard narrative around one-shot `zero_()` as a correctness path; keep host-sync probes illegal under capture ([../silicon/graph-capture.md](../silicon/hip-craft/graph-capture.md)).

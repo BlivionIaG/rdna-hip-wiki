@@ -2,15 +2,15 @@
 
 Date: 2026-08-20. Retipped 2026-08-27 (Spark fast tier; W7800 dead). Engine contract. **Product path (locked):** optimize **vLLM fork first**, then **SGLang overlay** (parallel serving, after occupancy), then **Llaminar**, then **hippih**. Occupancy + V620 HIP MoE still first. Do not invent tok/s.
 
-Silicon: [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md). V340L: [silicon/v340l.md](../silicon/v340l.md). PLX hop: [plx.md](plx.md), [silicon/plx-p2p-mmio.md](../silicon/plx-p2p-mmio.md). Related: [moe.md](moe.md), [deepep.md](deepep.md), [alt-engines.md](alt-engines.md), [hippih.md](hippih.md), [sglang-fork.md](sglang-fork.md).
+Silicon: [silicon/interconnect/hetero-moe-w7800-v620.md](../silicon/interconnect/hetero-moe-w7800-v620.md). V340L: [silicon/other-hardware/v340l.md](../silicon/other-hardware/v340l.md). PLX hop: [plx.md](plx.md), [silicon/interconnect/plx-p2p-mmio.md](../silicon/interconnect/plx-p2p-mmio.md). Related: [moe.md](moe.md), [deepep.md](deepep.md), [alt-engines.md](alt-engines.md), [hippih.md](hippih.md), [sglang-fork.md](sglang-fork.md).
 
 ## Topology (human plan)
 
 - **Fast tier (retipped 2026-08-27):** 2× DGX Spark (**GB10** CUDA) — attention, router, embeddings, LM head, n-gram, **live KV**. W7800 gfx1100 row is **dead** (cards selling).
 - **Capacity tier:** 8× V620 32 GB (**gfx1030**) — expert GEMMs only (`fdot2` / `sdot4`)
 - **Bus rule:** ship **activations only**, **fp16 on the hop**. Spark FP4/FP8/BF16 converts **on Spark**. Two machines: Spark↔Spark is CX-7 NCCL; Spark→V620 is not HIP peer.
-- **V340L:** 8 cards, Vega10 / **gfx900**, PCIe 3.0 x16 dual-die. **Later, separate host.** [silicon/v340l.md](../silicon/v340l.md).
-- **R9700 / RDNA5:** Later, not a workstream. R9700 = gfx1201, 32 GB / 640 GB/s — expert SKU if bought, **not** Spark. New fatbin, no AITER RDNA4 import, no tok/s copy. RDNA5: wait for ISA. Silicon: [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md).
+- **V340L:** 8 cards, Vega10 / **gfx900**, PCIe 3.0 x16 dual-die. **Later, separate host.** [silicon/other-hardware/v340l.md](../silicon/other-hardware/v340l.md).
+- **R9700 / RDNA5:** Later, not a workstream. R9700 = gfx1201, 32 GB / 640 GB/s — expert SKU if bought, **not** Spark. New fatbin, no AITER RDNA4 import, no tok/s copy. RDNA5: wait for ISA. Silicon: [silicon/interconnect/hetero-moe-w7800-v620.md](../silicon/interconnect/hetero-moe-w7800-v620.md).
 
 **Reference hardware:** two **5-slot x16 Gen4 88096** backplanes (10 GPU slots) + **8 V620**. Each board is CPU x16 + 5× GPU x16 = 96 lanes exact, PIX inside the board.
 
@@ -18,7 +18,7 @@ Silicon: [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md)
 
 **Do not mix V340L + V620 on the same ROCm 7 host** (toolbox: remapped MMIO map fail). 10 slots cannot hold 8+8 cards anyway. V340L is hippih gfx900 mix/FMA, not extras.
 
-Live form is **CUDA GB10 + HIP gfx1030**, not two HIP targets. extras cannot drive Spark. V620 stays `fdot2`/`sdot4`. Do not park live KV on V620. Decode hop is tiny; **prefill is the bus**. 88096 PIX P2P stays **V620-internal**; Spark→V620 is CX-7 / host-staged, not `hipMemcpyPeer`. Historical W7800↔V620 P2P is obsolete. Silicon: [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md).
+Live form is **CUDA GB10 + HIP gfx1030**, not two HIP targets. extras cannot drive Spark. V620 stays `fdot2`/`sdot4`. Do not park live KV on V620. Decode hop is tiny; **prefill is the bus**. 88096 PIX P2P stays **V620-internal**; Spark→V620 is CX-7 / host-staged, not `hipMemcpyPeer`. Historical W7800↔V620 P2P is obsolete. Silicon: [silicon/interconnect/hetero-moe-w7800-v620.md](../silicon/interconnect/hetero-moe-w7800-v620.md).
 
 ## Engine base (locked 2026-08-20, corrected)
 
@@ -104,4 +104,4 @@ Occupancy still first.
 - LLVM gfx906 VOP3P (DOT): https://rocm.docs.amd.com/projects/llvm-project/en/latest/LLVM/llvm/html/AMDGPU/AMDGPUAsmGFX906.html
 - LLVM `fdot2.ll` (gfx900 → mix/FMA, gfx906 → `v_dot2_f32_f16`)
 - Phoronix: Vega20 DL = fdot2/sdot4/sdot8, not Vega10
-- [silicon/v340l.md](../silicon/v340l.md), [silicon/hetero-moe-w7800-v620.md](../silicon/hetero-moe-w7800-v620.md), [plx.md](plx.md)
+- [silicon/other-hardware/v340l.md](../silicon/other-hardware/v340l.md), [silicon/interconnect/hetero-moe-w7800-v620.md](../silicon/interconnect/hetero-moe-w7800-v620.md), [plx.md](plx.md)

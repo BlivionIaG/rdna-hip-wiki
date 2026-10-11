@@ -8,7 +8,7 @@ ROCm **7.2.0** and **7.14.0** system-requirements: V620 / gfx1030 is ✅ with fo
 
 Sources: [7.2 system-requirements](https://rocm.docs.amd.com/projects/install-on-linux/en/docs-7.2.0/reference/system-requirements.html) footnote [8]; [latest](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html) footnote [8] / [9].
 
-That is **QA scope**, not physics. Fedora is not in the matrix. “Not on RHEL” in [silicon/rccl-p2p.md](../silicon/rccl-p2p.md) meant the footnote, not a measured fail.
+That is **QA scope**, not physics. Fedora is not in the matrix. “Not on RHEL” in [silicon/interconnect/rccl-p2p.md](../silicon/interconnect/rccl-p2p.md) meant the footnote, not a measured fail.
 
 ## Attested (2026-08-19)
 
@@ -28,7 +28,7 @@ No tok/s claimed. This is host/runtime, not a kernel win.
 - `rdna2_extras` PYNCCL bypass (`3e05abc9`) was for Torch 2.12 + a 7.14-class venv. Stay on that path unless a 7.14 dispatcher is re-measured.
 - Do not mix V340L onto this ROCm 7 host ([plx.md](plx.md)).
 
-retip the “Not on RHEL” cell in `silicon/rccl-p2p.md` to **official Ubuntu-only / attested Fedora 43 + RHEL 10 + 7.14**.
+retip the “Not on RHEL” cell in `silicon/interconnect/rccl-p2p.md` to **official Ubuntu-only / attested Fedora 43 + RHEL 10 + 7.14**.
 
 ## Sources
 
@@ -41,6 +41,6 @@ retip the “Not on RHEL” cell in `silicon/rccl-p2p.md` to **official Ubuntu-o
 
 **Live stays 7.14.0.** V620 Ubuntu-only footnote still applies. hipBLASLt local tuner is still not a gfx1030 dest (TheRock #1062). FlyDSL/CK/GEAK/TileLang stay Leave. Roofline in rocprofiler-compute is **GFX11xx**, not gfx1030.
 
-Silicon: [../silicon/rccl-p2p.md](../silicon/rccl-p2p.md) (GIN ≠ 88096 PIX).
+Silicon: [../silicon/rccl-p2p.md](../silicon/interconnect/rccl-p2p.md) (GIN ≠ 88096 PIX).
 
 **gfx1030 not dropped (checked 2026-08-28):** TheRock `main` `cmake/therock_amdgpu_targets.cmake` still adds `gfx1030` (`gfx103X-dgpu`). Excludes are libraries (hipBLASLt #1062, CK, rocWMMA, hipTensor, hipSPARSELt, rocprofiler-compute) — not the target. RCCL stays. ROCm 10.0.0 compatibility matrix still lists V620 / W6800 (Ubuntu-only V620 footnote).

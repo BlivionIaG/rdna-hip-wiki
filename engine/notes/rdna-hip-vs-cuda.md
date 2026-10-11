@@ -2,7 +2,7 @@
 
 Date: 2026-08-28. Scope: **4×/8× V620 gfx1030**, extras HIP, later hippih. Not Instinct. Not a CUDA port. Do not invent tok/s. Occupancy still first. Pin stays closed. No new ticket.
 
-Contract index: [../coverage.md](../coverage.md). Silicon: [../../silicon/valu.md](../../silicon/valu.md), [../../silicon/rccl-p2p.md](../../silicon/rccl-p2p.md). Tickets: see [project 4](https://github.com/users/BlivionIaG/projects/4).
+Contract index: [../coverage.md](../coverage.md). Silicon: [../../silicon/valu.md](../../silicon/arch-and-memory/valu.md), [../../silicon/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md). Tickets: see [project 4](https://github.com/users/BlivionIaG/projects/4).
 
 Three different “missing.” Do not mix them.
 

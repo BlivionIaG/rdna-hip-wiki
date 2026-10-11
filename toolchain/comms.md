@@ -1,6 +1,6 @@
 # RCCL on RDNA — what the source actually gates
 
-Date: **2026-09-03**. Owned by ROCM_specialist (library/runtime plumbing). Measured P2P and topology work stays in [silicon/rccl-p2p.md](../silicon/rccl-p2p.md).
+Date: **2026-09-03**. Owned by ROCM_specialist (library/runtime plumbing). Measured P2P and topology work stays in [silicon/interconnect/rccl-p2p.md](../silicon/interconnect/rccl-p2p.md).
 
 
 ## 2026-10-07 — RCCL corruption traced to host amdgpu, not RCCL
@@ -65,7 +65,7 @@ New knobs, both **default 0** and **arch-agnostic** (`RCCL_PARAM(IntraGraphGen,"
 | gfx1200 / gfx1201 | 7 | 7 |
 | gfx942 / gfx950 | 5 / 6 | 5 / 6 |
 
-This answers the open unknown in [silicon/rccl-p2p.md](../silicon/rccl-p2p.md) ("a published gfx1030 RCCL Ring/Tree tuning table"): there is a per-arch tuning index in RCCL source, and **gfx1030 sits on index 0, the generic row** — the same row as gfx906/gfx908/gfx90a. AMD is adding Navi3 tuning and leaving Navi2x on the default table. Filling a gfx1030 row is our own tuning work, and it needs `NCCL_DEBUG_SUBSYS=TUNING` measurements first.
+This answers the open unknown in [silicon/interconnect/rccl-p2p.md](../silicon/interconnect/rccl-p2p.md) ("a published gfx1030 RCCL Ring/Tree tuning table"): there is a per-arch tuning index in RCCL source, and **gfx1030 sits on index 0, the generic row** — the same row as gfx906/gfx908/gfx90a. AMD is adding Navi3 tuning and leaving Navi2x on the default table. Filling a gfx1030 row is our own tuning work, and it needs `NCCL_DEBUG_SUBSYS=TUNING` measurements first.
 
 Also in this PR: the `NCCL_TUNING` `INFO` spam is now rank-0 only, and `ncclTopoPreset()` gained an `nChannels` sanity check (`[1,MAXCHANNELS]`, plus a warn when a graph's channel count is below `comm->nChannels`).
 

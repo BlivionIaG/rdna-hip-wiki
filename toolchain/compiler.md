@@ -2,7 +2,7 @@
 
 Date: **2026-10-07**. Audience: someone compiling HIP for **gfx1030** (live), with later **gfx1100** and **gfx900** TUs.
 
-Companions: [silicon/hip-craft.md](../silicon/hip-craft.md).
+Companions: [silicon/hip-craft/hip-craft.md](../silicon/hip-craft/hip-craft.md).
 
 ## Gotcha — HIP `__shfl_xor` keeps a bounds check in full-wave reductions (2026-10-07)
 

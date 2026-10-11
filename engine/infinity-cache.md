@@ -1,6 +1,6 @@
 # Infinity Cache — how inference rides it
 
-Date: 2026-08-19. Engine contract. SKU table: [silicon/infinity-cache.md](../silicon/infinity-cache.md). HIP knobs + fit math: [silicon/cache-policy.md](../silicon/cache-policy.md). Occupancy still first. Do not invent tok/s or IC TB/s.
+Date: 2026-08-19. Engine contract. SKU table: [silicon/arch-and-memory/infinity-cache.md](../silicon/arch-and-memory/infinity-cache.md). HIP knobs + fit math: [silicon/arch-and-memory/cache-policy.md](../silicon/arch-and-memory/cache-policy.md). Occupancy still first. Do not invent tok/s or IC TB/s.
 
 **Yes, we use it.** Not as a switch. IC is already on every GPU-memory path (MALL). The only persist mechanism on gfx1030 is **fit the hot set + reread it + default loads + don't thrash**. HIP has no persist bit, no prefetch-into-IC, no IC bypass.
 
@@ -20,7 +20,7 @@ Continuous batching helps because the **same shard** is reread every token. Chun
 
 ## Fit on this box (TP=4, capacity not a promise)
 
-From [cache-policy.md](../silicon/cache-policy.md) §4. Numbers are **bytes vs 128 MiB**, not measured hits.
+From [cache-policy.md](../silicon/arch-and-memory/cache-policy.md) §4. Numbers are **bytes vs 128 MiB**, not measured hits.
 
 | Workload | Shard vs IC | Weight path |
 |---|---|---|
@@ -60,5 +60,5 @@ No new first kernel. Occupancy + V620 HIP MoE still first. Nontemporal on the 27
 
 ## Sources
 
-- [silicon/infinity-cache.md](../silicon/infinity-cache.md), [silicon/cache-policy.md](../silicon/cache-policy.md)
+- [silicon/arch-and-memory/infinity-cache.md](../silicon/arch-and-memory/infinity-cache.md), [silicon/arch-and-memory/cache-policy.md](../silicon/arch-and-memory/cache-policy.md)
 - Note 2026-08-19 (user: can we use IC to speed inference)

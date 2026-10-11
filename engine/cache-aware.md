@@ -39,5 +39,5 @@ Same occupancy card. APC/MBT is tune-and-measure after occupancy, not a new firs
 
 ## Sources
 
-- [batching.md](batching.md), [infinity-cache.md](infinity-cache.md), [silicon/cache-policy.md](../silicon/cache-policy.md)
+- [batching.md](batching.md), [infinity-cache.md](infinity-cache.md), [silicon/arch-and-memory/cache-policy.md](../silicon/arch-and-memory/cache-policy.md)
 - Note 2026-08-20 (user: cache-aware scheduling)
