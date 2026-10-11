@@ -23,6 +23,16 @@ sources:
 ---
 # GDN chunked prefill — extras HIP (`aac1fcd6`)
 
+## Current state at dest `rdna_extras` @ `1dc3bac4` (checked 2026-10-11)
+
+| Item | State |
+|---|---|
+| Gate | `VLLM_GDN_HIP_PREFILL` is opt-in (default off); the flashnext recipes pin it to `0`. The default prefill is Triton/FLA.[^gdnp-tip-gate] |
+| Occupancy | All GDN kernels: `__launch_bounds__(N)` + `amdgpu_waves_per_eu(2, 4)`.[^gdnp-tip-k] |
+| `delta_h` | **256 threads, `GDN_BV = 32`.** That is not the `e054854f`/`5d2cf49f` 128 / BV 16 values in the table below; those are BlivionIaG history.[^gdnp-tip-k] |
+| `o` | **`GDN_BV = 32`, LDS 45312 B.** That is not the `77d6fdf8` BV 64 / ~56 KB value below, which is historical.[^gdnp-tip-k] |
+
+
 `b53a7a2` landed the 5 kernels. Two later fixes make multi-chunk **correct**. `e054854f` is spill/LDS on **delta_h only**. `77d6fdf8` is o-kernel BV. `5d2cf49f` is delta_h unroll (not a tok/s close). `aac1fcd6` is the multi-chunk **correctness** close for delta_h indexing:[^c-b53a7a2][^c-e054854f][^c-77d6fdf8][^c-5d2cf49f][^c-aac1fcd6]
 
 | SHA | Bug | Silicon [^c-aac1fcd6][^c-b53a7a2] |
@@ -44,8 +54,8 @@ All five: `__launch_bounds__(N)` + `amdgpu_waves_per_eu(2, 4)` — not `(1,1)`.[
 | `gdn_prefill_prep_rdna2` | 128 | scan / half cvt | 1 float carry | fused post-conv + chunk cumsum [^f-aac1fcd6-gdn-prefill-prep-rdna2-cu] |
 | `gdn_prefill_kkt_rdna2` | 256 | **scalar fp32 FMA** | 16 KB `k[64,128]` half | `_CAST_DOT_TO_K_DTYPE=False` on gfx1030. **No `fdot2`** [^f-aac1fcd6-gdn-prefill-kkt-rdna2-cu] |
 | `gdn_prefill_solve_wy_rdna2` | 256 | Phase1 fp32 FMA Schur; Phase2 **`fdot2`** | **~58 KB** (`A`/`Ai` 16+16, `Aih` 8, rhsT 16.5, pad 2) | 64 KB tight. `expf` not `__expf` [^f-aac1fcd6-gdn-prefill-solve-wy-rdna2-cu] |
-| `gdn_prefill_delta_h_rdna2` | **128** (`e054854f`; was 256) | **`fdot2`** (rtne half pairs) | **0** (ELF). Was 64 KB group_segment at 256-thr | serial inter-chunk. Same `(2, 4)` [^c-e054854f][^f-e054854f-gdn-prefill-delta-h-rdna2-cu] |
-| `gdn_prefill_o_rdna2` | 256 (`77d6fdf8` BV=64) | **`fdot2`** qk / qh / Av | **~56 KB** (was ~44). q+k reuse slot for `b_A` | causal `>=`. Tiles 4→2 [^c-77d6fdf8][^f-77d6fdf8-gdn-prefill-o-rdna2-cu] |
+| `gdn_prefill_delta_h_rdna2` | **128** (`e054854f`; was 256) *(historical; 256 / BV 32 at `1dc3bac4`)* | **`fdot2`** (rtne half pairs) | **0** (ELF). Was 64 KB group_segment at 256-thr | serial inter-chunk. Same `(2, 4)` [^c-e054854f][^f-e054854f-gdn-prefill-delta-h-rdna2-cu] |
+| `gdn_prefill_o_rdna2` | 256 (`77d6fdf8` BV=64) *(historical; BV 32 / 45312 B at `1dc3bac4`)* | **`fdot2`** qk / qh / Av | **~56 KB** (was ~44). q+k reuse slot for `b_A` | causal `>=`. Tiles 4→2 [^c-77d6fdf8][^f-77d6fdf8-gdn-prefill-o-rdna2-cu] |
 
 ### Chain at a glance
 
@@ -95,3 +105,5 @@ Engine only (no `csrc/rocm` tile change): `VLLM_GDN_HIP_PREFILL` defaults to **o
 [^f-5d2cf49f-gdn-prefill-delta-h-rdna2-cu]: BlivionIaG/vllm `csrc/rocm/gdn_prefill_delta_h_rdna2.cu` @ [`5d2cf49f`](https://github.com/BlivionIaG/vllm/blob/5d2cf49f32486b53db4058d9532c82d8668361ae/csrc/rocm/gdn_prefill_delta_h_rdna2.cu).
 [^c-5ce7d86e]: opengfx1030/vllm-rdna commit [`5ce7d86e`](https://github.com/opengfx1030/vllm-rdna/commit/5ce7d86eaf759c40d83de0973e9318e193ffe28a) (2026-09-04) — "fix(gdn): default GDN HIP prefill chain to off (chunk-boundary corruption)".
 [^f-aac1fcd6-test-gdn-prefill-rdna2-py]: opengfx1030/vllm-rdna `tests/kernels/test_gdn_prefill_rdna2.py` @ [`aac1fcd6`](https://github.com/opengfx1030/vllm-rdna/blob/aac1fcd6ce0b3ab66875d05d17c8087003524cda/tests/kernels/test_gdn_prefill_rdna2.py).
+[^gdnp-tip-k]: `GDN_BV` / `GDN_THREADS` in `csrc/rocm/gdn_prefill_delta_h_rdna2.cu` L46-L47 and `csrc/rocm/gdn_prefill_o_rdna2.cu` L51-L77 (BV 32, LDS 16384+16384+8192+4096+256 B); `amdgpu_waves_per_eu(2, 4)` on all six GDN kernels, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/gdn_prefill_delta_h_rdna2.cu#L46-L68 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/gdn_prefill_o_rdna2.cu#L51-L77
+[^gdnp-tip-gate]: `_gdn_prefill_dispatch_available()` in `vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py` L168-L175 (opt-in `VLLM_GDN_HIP_PREFILL=1`; comment: HIP chain 8.7% slower than Triton/FLA on a 16k prefill); flashnext recipes set `VLLM_GDN_HIP_PREFILL=0` (`tools/rdna/recipes/flashnext.env` L45), dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py#L168-L175 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/recipes/flashnext.env#L45

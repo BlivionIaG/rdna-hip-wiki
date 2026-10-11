@@ -38,15 +38,24 @@ sources:
 ---
 # EXL3 — silicon / HIP contract
 
+## Current state at dest `rdna_extras` @ `1dc3bac4` (checked 2026-10-11)
+
+| Item | State |
+|---|---|
+| Build | `exl3_dot2_{moe,dense,dequant}.cu` + `exl3_hadamard.cu` are on the unconditional ROCm list (the device-pass gate inside each `.cu` picks gfx1030/gfx1100).[^exl3-tip-build] |
+| Ops | `exl3_gemm_rdna2`, `exl3_project_rdna2`, `exl3_hadamard_128`, `exl3_dequant_bits6_mul1`, `exl3_decode_trellis_rdna2`.[^exl3-tip-bind] |
+| Codebooks | `cb` 0 (3inst), 1 (mcg), 2 (mul1) all dispatch. Python `exl3_codebook_id` maps mul1/mcg markers to 2/1.[^exl3-tip-cb] |
+| Occupancy | Dense v3 GEMM: `__launch_bounds__(V3_THREADS)`; Hadamard `__launch_bounds__(32)`. No `waves_per_eu` on EXL3 kernels.[^exl3-tip-lb] |
+
 Occupancy + live W4 still first. Silicon: [silicon/formats/exl3.md](../../silicon/formats/exl3.md).[^exl3-cb][^exl3-dq][^f-30b0bd4e-exl3-dot2-common-cuh]
 
 Take the math only: unpack trellis → fp16 → `fdot2`. Same job as mxfp4, fatter decode. **No** Marlin / MMA / WMMA port.[^qtip]
 
 ## Live extras (2026-08-28)
 
-In the fork. Tip `e268c7d3`. HIP ISA lock `a2c8d5cf`: own `exl3_dot2_*` files, not a fatter `mxfp4_dot2_moe` unpack. Inner loop is 16×16 window → `decode_3inst<cb>` → `half2` → `fdot2`. No GEMM `__launch_bounds__`. `e268c7d3` deleted unused `TILES_N` / `offset_m` / `c0` (gfx1030 `-Werror`); behavior unchanged.[^c-e268c7d3][^c-a2c8d5cf][^f-e268c7d3-exl3-dot2-common-cuh][^exl3-cb]
+In the fork. Tip `e268c7d3`. HIP ISA lock `a2c8d5cf`: own `exl3_dot2_*` files, not a fatter `mxfp4_dot2_moe` unpack. Inner loop is 16×16 window → `decode_3inst<cb>` → `half2` → `fdot2`. No GEMM `__launch_bounds__` *(historical; the dense v3 kernel `gemm_exl3_v3_kernel_rdna` has `__launch_bounds__(V3_THREADS)` at `1dc3bac4`[^exl3-tip-lb])*. `e268c7d3` deleted unused `TILES_N` / `offset_m` / `c0` (gfx1030 `-Werror`); behavior unchanged.[^c-e268c7d3][^c-a2c8d5cf][^f-e268c7d3-exl3-dot2-common-cuh][^exl3-cb]
 
-HIP compiles `cb==0` (`3inst`) and `cb==1` (`mcg`). `cb==2` (`mul1`) does not launch. Live Python still only feeds unmarked 2/3/4-bit single-shard into the kernel; marked mul1/mcg layers fold fp16.[^exl3-cb]
+*(Historical, tip `e268c7d3`)* HIP compiles `cb==0` (`3inst`) and `cb==1` (`mcg`). `cb==2` (`mul1`) does not launch. Live Python still only feeds unmarked 2/3/4-bit single-shard into the kernel; marked mul1/mcg layers fold fp16. **At `1dc3bac4`** all three codebooks dispatch (`cb` 0/1/2 in `exl3_gemm_rdna2` dense and MoE), and Python picks the codebook per module from the checkpoint's mul1/mcg markers.[^exl3-tip-cb][^exl3-cb]
 
 ## Arch guard lock 2026-09-21 (dest tip `f3dd65fa` / `3d6df9ed`)
 
@@ -229,3 +238,7 @@ EXL3 is a QTIP-style trellis code: a weight group is a walk on a bitshift trelli
 [^f-30b0bd4e-torch-bindings-cpp]: opengfx1030/vllm-rdna `csrc/rocm/torch_bindings.cpp` @ [`30b0bd4e`](https://github.com/opengfx1030/vllm-rdna/blob/30b0bd4e3604a6ea678244a0df74e452ac05fee6/csrc/rocm/torch_bindings.cpp).
 [^f-30b0bd4e-exl3-py]: opengfx1030/vllm-rdna `vllm/model_executor/layers/quantization/exl3.py` @ [`30b0bd4e`](https://github.com/opengfx1030/vllm-rdna/blob/30b0bd4e3604a6ea678244a0df74e452ac05fee6/vllm/model_executor/layers/quantization/exl3.py).
 [^fpr-30]: opengfx1030/vllm-rdna PR #30 — [explore] RDNA2 W4A16 torch.compile M-dispatch. <https://github.com/opengfx1030/vllm-rdna/pull/30>
+[^exl3-tip-build]: `CMakeLists.txt` L1566-L1575 (unconditional EXL3 + layernorm list), dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/CMakeLists.txt#L1566-L1575
+[^exl3-tip-bind]: `csrc/rocm/torch_bindings.cpp` L536-L560 (EXL3 op schemas), dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/torch_bindings.cpp#L536-L560
+[^exl3-tip-cb]: `cb == 2` dispatch in `csrc/rocm/exl3_dot2_dense.cu` L553-L580 and `csrc/rocm/exl3_dot2_moe.cu` L245; `_CB` / `exl3_codebook_id` in `vllm/model_executor/layers/quantization/exl3.py` L132-L155, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/exl3_dot2_dense.cu#L553-L580 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/exl3_dot2_moe.cu#L245 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/quantization/exl3.py#L132-L155
+[^exl3-tip-lb]: `gemm_exl3_v3_kernel_rdna` `__launch_bounds__(V3_THREADS)` at `csrc/rocm/exl3_dot2_dense.cu` L479; `had_*_r_128_kernel` `__launch_bounds__(32)` at `csrc/rocm/exl3_hadamard.cu` L183/L193, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/exl3_dot2_dense.cu#L479 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/exl3_hadamard.cu#L183-L193

@@ -32,6 +32,16 @@ sources:
 ---
 # Skinny GEMM — silicon / HIP contract
 
+## Current state at dest `rdna_extras` @ `1dc3bac4` (checked 2026-10-11)
+
+These are unchanged at the tip:
+- `wvSplitKrc_` still carries `amdgpu_waves_per_eu(1, 1)`.
+- `VLLM_ROCM_MOE_SKINNY` is still default on.
+- `VLLM_RDNA_DENSE_GEMV` is still default off.
+- Resident MoE (`VLLM_RDNA_MOE_RESIDENT` / `_SKINNY`) is still default off.
+- `_rocm_C_skinny` (`VLLM_SKINNY_SRC`) is still built for all archs except gfx1250.[^sk-tip]
+
+
 Live: `skinny_gemms.cu`. **Incomplete.** Same occupancy ticket as `fa_rdna2`.[^f-3b59ee16-skinny-gemms-cu][^f-3b59ee16-fa-rdna2-cu]
 
 ## gfx1030 path
@@ -121,3 +131,4 @@ No `__launch_bounds__` / `waves_per_eu` on the new kernels. No EXL3 DOT, FA, KV-
 [^f-e1315629-moe-q-gemm-rdna2-cu]: opengfx1030/vllm-rdna `csrc/rocm/moe_q_gemm_rdna2.cu` @ [`e1315629`](https://github.com/opengfx1030/vllm-rdna/blob/e131562936f9c6f27c26449b00aaaeeb34159b4c/csrc/rocm/moe_q_gemm_rdna2.cu).
 [^f-e1315629-mxfp4-dot2-common-cuh]: opengfx1030/vllm-rdna `csrc/rocm/mxfp4_dot2_common.cuh` @ [`e1315629`](https://github.com/opengfx1030/vllm-rdna/blob/e131562936f9c6f27c26449b00aaaeeb34159b4c/csrc/rocm/mxfp4_dot2_common.cuh).
 [^f-e1315629-envs-py]: opengfx1030/vllm-rdna `vllm/envs.py` @ [`e1315629`](https://github.com/opengfx1030/vllm-rdna/blob/e131562936f9c6f27c26449b00aaaeeb34159b4c/vllm/envs.py).
+[^sk-tip]: `wvSplitKrc_` `amdgpu_waves_per_eu(1, 1)` at `csrc/rocm/skinny_gemms.cu` L1345; `VLLM_ROCM_MOE_SKINNY` default "1" (`vllm/envs.py` L1430), `VLLM_RDNA_DENSE_GEMV` default "0" (L1460), `VLLM_RDNA_MOE_RESIDENT` / `_SKINNY` default 0 (L1424-L1429); `VLLM_SKINNY_SRC` / `_rocm_C_skinny` at `CMakeLists.txt` L1491-L1511, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/skinny_gemms.cu#L1345 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/envs.py#L1424-L1460 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/CMakeLists.txt#L1491-L1511

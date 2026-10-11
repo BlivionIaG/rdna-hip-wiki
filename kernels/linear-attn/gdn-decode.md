@@ -11,6 +11,11 @@ sources:
 ---
 # GDN packed decode — extras HIP (`69d2efe` / tip `47d92b6`)
 
+## Current state at dest `rdna_extras` @ `1dc3bac4` (checked 2026-10-11)
+
+`gdn_decode_rdna2.cu` is still present: 256 threads, `GDN_BV = 32`, `__launch_bounds__(256)` + `amdgpu_waves_per_eu(2, 4)`. HIP decode is **default on**: `VLLM_GDN_DECODE_RDNA2` is anything but `"0"`, on gfx10x/RDNA2 with fp16 and `head_k_dim == 128`.[^gdnd-tip]
+
+
 Tip **`b53a7a2`**. Qwen3.5/3.6 GatedDeltaNet **packed single-token** decode. Replaces Triton `fused_recurrent_gated_delta_rule_packed_decode` on the non-spec path. Prefill is now HIP (`b53a7a2`) — [gdn-prefill.md](gdn-prefill.md). Occupancy card stays the FA leftover — this is not a new first subject.[^c-b53a7a2]
 
 Do **not** put the microbench 9× on coverage. Fat-M / ConfigA unchanged.[^c-69d2efe][^c-47d92b6][^f-69d2efe-gdn-decode-rdna2-cu]
@@ -56,3 +61,4 @@ Python only (`qwen_gdn_linear_attn.py`): removed the one-shot `conv_state.zero_(
 [^f-7779514b-gdn-decode-rdna2-cu]: opengfx1030/vllm-rdna `csrc/rocm/gdn_decode_rdna2.cu` @ [`7779514b`](https://github.com/opengfx1030/vllm-rdna/blob/7779514b449c358c14cb58c739cc33cd7efca3b4/csrc/rocm/gdn_decode_rdna2.cu).
 [^c-f9361950]: opengfx1030/vllm-rdna commit [`f9361950`](https://github.com/opengfx1030/vllm-rdna/commit/f93619500c3e55daee5f60ae7f6d4279cdeb3f0d) (2026-09-03) — "fix(gdn): skip host-sync NaN guard during cudagraph capture".
 [^f-50120e13-qwen-gdn-linear-attn-py]: opengfx1030/vllm-rdna `vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py` @ [`50120e13`](https://github.com/opengfx1030/vllm-rdna/blob/50120e13b46895fc5d074e88fc493f1eef69da9f/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py).
+[^gdnd-tip]: `csrc/rocm/gdn_decode_rdna2.cu` L23-L54 (`GDN_BV 32`, `GDN_THREADS 256`, `__launch_bounds__(GDN_THREADS)` + `amdgpu_waves_per_eu(2, 4)`); dispatch gated on `VLLM_GDN_DECODE_RDNA2` != "0" (default on) in `vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py` L1540-L1548 and L2138-L2144, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/gdn_decode_rdna2.cu#L23-L54 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py#L1540-L1548 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py#L2138-L2144

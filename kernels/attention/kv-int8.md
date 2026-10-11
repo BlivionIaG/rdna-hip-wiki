@@ -17,6 +17,14 @@ sources:
 ---
 # INT8 KV cache on gfx1030 — silicon / HIP contract
 
+## Current state at dest `rdna_extras` @ `1dc3bac4` (checked 2026-10-11)
+
+| Item | State |
+|---|---|
+| Kernels | Built: the decode template `<KV_T, IS_FP8, IS_INT8>` (128 and 256), `fa_prefill_paged_varlen_splitk_kernel_int8_{128,256}` (`__launch_bounds__(N, 1)`) and the writer `reshape_and_cache_int8_rdna2`.[^kv-tip-fa][^kv-tip-bind] |
+| Wiring | **Not wired.** The binding comment says: "Not wired up yet: RDNA_ATTN still rejects quantized KV caches, and fa_rdna2_decode_paged_int8 is not registered." No Python caller of `reshape_and_cache_int8_rdna2` was found.[^kv-tip-bind] |
+| Accepted KV dtypes | `RdnaAttentionBackend.supported_kv_cache_dtypes = ["auto", "float16"]`. The FA fast path returns False for any quantized KV mode.[^kv-tip-backend] |
+
 ## extras lock 2026-09-03 — `opengfx1030/vllm-rdna` `rdna_extras` @ `ea78104d`
 
 Dest tip moved `8f2583d2` → `ea78104d` (23 commits). HIP silicon that landed for KV-INT8 / FA:[^c-8f2583d2][^c-ea78104d]
@@ -26,7 +34,7 @@ Dest tip moved `8f2583d2` → `ea78104d` (23 commits). HIP silicon that landed f
 | Decode `fa_decode_paged_splitk_kernel{,_256}` | Template `<KV_T, IS_FP8, IS_INT8>`. INT8 path loads i8, `cvt * k_scale_per_tok[n,h]` / `v_scale_per_tok` into the **same** fp16 LDS tile, then existing `fdot2` QK. | Occupancy attr stays `__launch_bounds__(128\|256)` + `amdgpu_waves_per_eu(4, 8)`. **Not** the old scalar `__hmul` pth stub. [^f-ea78104d-fa-rdna2-cu] |
 | Prefill INT8 | New `fa_prefill_paged_varlen_splitk_kernel_int8_{128,256}`. Tile dequant into LDS (~32.7 KB vs ~48 KB fp16); still `__launch_bounds__(N, 1)`. | Prefill occupancy leftover **unchanged**. Do not retip FA pin closed. [^f-ea78104d-fa-rdna2-cu] |
 | Writer | `reshape_and_cache_int8_rdna2` — `__launch_bounds__(HEAD_DIM, 4)`. Cache layout `[2, blocks, H_kv, D+4, block_size]` with scale as 4 LE bytes at offset D per slot. | One CTA/(token,head). Absmax → `scale = max(absmax/127, 1e-6)`. [^f-ea78104d-fa-rdna2-cu] |
-| Wiring | `torch_bindings` + `vllm/v1/attention/backends/rdna_attn.py` (`VLLM_USE_RDNA2_FA=1`). Platform gate: head_size ∈ {128,256}, `block_size >= 1`. | Python dispatch only; ISA is `fa_rdna2.cu`. [^f-ea78104d-rdna-attn-py][^f-ea78104d-fa-rdna2-cu][^f-ea78104d-envs-py] |
+| Wiring *(historical claim at `ea78104d`; at `1dc3bac4`, INT8 KV is **not** wired, see the current-state table)* | `torch_bindings` + `vllm/v1/attention/backends/rdna_attn.py` (`VLLM_USE_RDNA2_FA=1`). Platform gate: head_size ∈ {128,256}, `block_size >= 1`. | Python dispatch only; ISA is `fa_rdna2.cu`. [^f-ea78104d-rdna-attn-py][^f-ea78104d-fa-rdna2-cu][^f-ea78104d-envs-py] |
 
 Leave this hour: EXL3 Python mul1-fold / debug fprintf, GDN ssm zeroing, `VLLM_FORCE_CUSTOM_ALL_REDUCE` (AR fabric, already Leave / ticket-27). Do not copy tok/s. Occupancy still first (FA prefill `(N,1)` / LDS 1 WG per 64 KB).[^f-ea78104d-envs-py]
 
@@ -143,3 +151,6 @@ Do **not**: vendor the plugin; copy the 4-way Q permute / `PAD=8` / `GQA=6` hard
 [^f-4cc1fe59-fa-rdna2-cu]: BlivionIaG/vllm `csrc/rocm/fa_rdna2.cu` @ [`4cc1fe59`](https://github.com/BlivionIaG/vllm/blob/4cc1fe59710171585d63ba76522891305ff22423/csrc/rocm/fa_rdna2.cu).
 [^c-4cc1fe59]: BlivionIaG/vllm commit [`4cc1fe59`](https://github.com/BlivionIaG/vllm/commit/4cc1fe59710171585d63ba76522891305ff22423) (2026-08-21) — "feat(rocm): port fp8 + int8 KV cache decode and prefill from perf/rdna2_w4a16".
 [^isa]: AMD, *"RDNA 2" Instruction Set Architecture Reference Guide* (doc 70648): "Feature Changes in RDNA2 Devices" dot-product list; VOP2 opcodes 2 `V_DOT2C_F32_F16` / 13 `V_DOT4C_I32_I8`; VOP3P opcodes 19–25 `V_DOT2_F32_F16` … `V_DOT8_U32_U4`; LDS "128kB memory per workgroup processor split up into 64 banks of dword-wide RAMs"; "a single workgroup may allocate up to 64kB of LDS". <https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture>
+[^kv-tip-fa]: `csrc/rocm/fa_rdna2.cu` L268-L284 (template comment and `fa_decode_paged_splitk_kernel`), L534 (`_256`), L2447 / L2695 (INT8 prefill, `__launch_bounds__(128|256, 1)`), dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L268-L284 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L2447 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L2695
+[^kv-tip-bind]: `csrc/rocm/torch_bindings.cpp` L430-L440 (INT8 writer binding and its "Not wired up yet" comment), dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/torch_bindings.cpp#L430-L440
+[^kv-tip-backend]: `vllm/v1/attention/backends/rdna_attn.py` L281-L282 (`get_kv_quant_mode(...) != KVQuantMode.NONE` → False) and L583 (`supported_kv_cache_dtypes`), dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/v1/attention/backends/rdna_attn.py#L281-L282 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/v1/attention/backends/rdna_attn.py#L583

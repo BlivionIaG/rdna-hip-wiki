@@ -8,6 +8,11 @@ sources:
 ---
 # Causal conv1d HIP — extras (`7779514b`)
 
+## Current state at dest `rdna_extras` @ `1dc3bac4` (checked 2026-10-11)
+
+Both env gates still default to `"1"`. The decode (UPDATE) HIP path now runs **before** the Triton launch and returns early, so the double-fire described below is historical. Neither kernel carries `__launch_bounds__`.[^conv-tip]
+
+
 Dest: `opengfx1030/vllm-rdna` `rdna_extras` tip **`7779514b`** (was `feb7b457`). New file `csrc/rocm/causal_conv1d_rdna2.cu` (+434), CMake gfx1030 list, `_rocm_C` bindings. Replaces Triton `_causal_conv1d_fwd_kernel` / `_update_kernel` for the Qwen GDN path (same JIT / cudagraph class as RMSNorm — [triton-jit-aot.md](../aot-glue/triton-jit-aot.md)).[^c-7779514b][^c-feb7b457][^f-7779514b-causal-conv1d-rdna2-cu]
 
 Not the FA occupancy leftover. No `fdot2` / DOT — depthwise FIR is scalar fp32 FMA. Do not invent tok/s.[^c-7779514b][^f-7779514b-causal-conv1d-rdna2-cu]
@@ -28,9 +33,9 @@ Env defaults are **`"1"`** (dispatch ON) despite stale “GATED OFF” comments:
 | Env | Default | Path |
 |---|---|---|
 | `VLLM_CAUSAL_CONV1D_RDNA2_FWD` | `"1"` | Prefill: HIP **before** Triton, early `return` — correct [^c-7779514b][^f-7779514b-causal-conv1d-rdna2-cu][^f-7779514b-causal-conv1d-py] |
-| `VLLM_CAUSAL_CONV1D_RDNA2_UPDATE` | `"1"` | Decode: HIP sits **after** the `_causal_conv1d_update_kernel[grid]` launch — Triton already launched; HIP may overwrite `out` / `conv_state` [^c-7779514b][^f-7779514b-causal-conv1d-rdna2-cu][^f-7779514b-causal-conv1d-py] |
+| `VLLM_CAUSAL_CONV1D_RDNA2_UPDATE` | `"1"` | *(Historical, `7779514b`; fixed by `1dc3bac4`)* Decode: HIP sits **after** the `_causal_conv1d_update_kernel[grid]` launch — Triton already launched; HIP may overwrite `out` / `conv_state` [^c-7779514b][^f-7779514b-causal-conv1d-rdna2-cu][^f-7779514b-causal-conv1d-py] |
 
-**Leave / fix later:** move the UPDATE HIP block above the Triton launch (mirror FWD), or the decode path double-fires. Author notes production faults at GDN `dim=5120` / `block_size=784` page alignment — do not claim soak-clean.[^c-7779514b][^f-7779514b-causal-conv1d-rdna2-cu][^f-7779514b-causal-conv1d-py]
+**Leave / fix later** *(historical; done at `1dc3bac4`, where the UPDATE HIP block runs before the Triton launch and returns early[^conv-tip])*: move the UPDATE HIP block above the Triton launch (mirror FWD), or the decode path double-fires. Author notes production faults at GDN `dim=5120` / `block_size=784` page alignment — do not claim soak-clean.[^c-7779514b][^f-7779514b-causal-conv1d-rdna2-cu][^f-7779514b-causal-conv1d-py]
 
 ## Capture class
 
@@ -46,3 +51,4 @@ Still first subject = FA prefill `(N,1)` / 1 WG @ 64 KiB. This kernel is tiny LD
 [^c-feb7b457]: opengfx1030/vllm-rdna commit [`feb7b457`](https://github.com/opengfx1030/vllm-rdna/commit/feb7b457e3a0e471d3231e58226603ebde3a053d) (2026-09-06) — "feat: add exllama-clone AWQ prefill kernel for high-M (gfx1030)".
 [^f-7779514b-causal-conv1d-rdna2-cu]: opengfx1030/vllm-rdna `csrc/rocm/causal_conv1d_rdna2.cu` @ [`7779514b`](https://github.com/opengfx1030/vllm-rdna/blob/7779514b449c358c14cb58c739cc33cd7efca3b4/csrc/rocm/causal_conv1d_rdna2.cu).
 [^f-7779514b-causal-conv1d-py]: opengfx1030/vllm-rdna `vllm/model_executor/layers/mamba/ops/causal_conv1d.py` @ [`7779514b`](https://github.com/opengfx1030/vllm-rdna/blob/7779514b449c358c14cb58c739cc33cd7efca3b4/vllm/model_executor/layers/mamba/ops/causal_conv1d.py).
+[^conv-tip]: `vllm/model_executor/layers/mamba/ops/causal_conv1d.py` L724-L732 (FWD gate, default "1") and L1281-L1322 (UPDATE gate, default "1"; comment "HIP decode conv1d MUST run instead of Triton, not after it"; early `return` before `_causal_conv1d_update_kernel[grid]`); kernels at `csrc/rocm/causal_conv1d_rdna2.cu` L51/L220 with no `__launch_bounds__`, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/mamba/ops/causal_conv1d.py#L724-L732 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/mamba/ops/causal_conv1d.py#L1281-L1322 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/causal_conv1d_rdna2.cu
