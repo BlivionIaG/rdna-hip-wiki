@@ -67,13 +67,18 @@ Sources for the diagram: [^ardefault][^arcomm][^ar27b][^cardefault].
 
 Clients (OmO, OMP, LiteLLM, OpenCode, Codex, …) talk OpenAI `/v1` only. They never set `VLLM_*`, `ROCM_*`, `HSA_*`, `HIP_*` or fork-specific `extra_body`. If a default is wrong, fix the **server launcher**[^clients]. The tooling side of this rule is in the LLM tooling wiki's [harness comparison](https://github.com/BlivionIaG/llm-tooling-wiki/blob/ea613ffacd26d19ed35e4cc1140edbbd1292757e/agent-routing/harness-comparison.md) (private repo); it isn't copied here.
 
-The launcher's export allow-list is `RDSE_ENV_KEYS`[^envkeys]. Fork knobs a client must never set, each checked to exist at `1dc3bac4`:
+**Rule:** every `VLLM_RDNA*`, `VLLM_FA_RDNA2*`, `VLLM_PLE*`, `LMCACHE_*`, hetero, all-reduce and System One setting is server-side only. A client or gateway never sets any of them.
+
+`RDSE_ENV_KEYS`[^envkeys] is not an export allow-list. It only chooses which variables `--print` shows[^envprint]. The server starts through `exec` and inherits the launcher's whole environment[^exec].
+
+Examples, each checked to exist at `1dc3bac4`:
 
 | Env var | Where it is read at `1dc3bac4` |
 |---|---|
 | `VLLM_RDNA_AR` | `vllm/envs.py` (default `"0"`)[^ardefault]; `cuda_communicator.py`[^arcomm] |
 | `VLLM_PLE_QUANT_DIR` | `vllm/envs.py`[^plequant]; INT4 PLE table from PR #49[^pr49] |
 | `VLLM_RDNA2_W4A8_SDOT4` | `rdna2_w4a16.py` (`W4A8_ENV_VAR`)[^w4a8gate] |
+| `VLLM_RDNA_AR_ONESHOT_KB` | `vllm/envs.py`, one-shot size cap (default 64 KiB)[^oneshot]. `RDNA_AR_ONESHOT_MAX` is a compile-time constant, not a setting |
 | `VLLM_USE_RDNA2_FA` | `vllm/envs.py`[^fa]; pins `RDNA_ATTN` (see [dispatch.md](dispatch.md)) |
 
 `VLLM_HETERO_MOE` is **not** at `1dc3bac4` (no match anywhere in the tree). Hetero MoE is still the draft PR #40[^pr40], so it is left out of this table.
@@ -107,3 +112,6 @@ The launcher's export allow-list is `RDSE_ENV_KEYS`[^envkeys]. Fork knobs a clie
 [^pr49]: PR #49 "[RDNA2] INT4 PLE table on the upstream PLE path (VLLM_PLE_QUANT_DIR)": <https://github.com/opengfx1030/vllm-rdna/pull/49>
 [^fa]: `VLLM_USE_RDNA2_FA`: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/envs.py#L1442-L1444>
 [^pr40]: Draft PR #40 "default-off hetero MoE for gfx1100 hot experts and gfx1030 cold experts": <https://github.com/opengfx1030/vllm-rdna/pull/40>
+[^envprint]: `rdse_print_plan` loops over `RDSE_ENV_KEYS` only for `--print`: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/serve_rdna.sh#L343-L358>
+[^exec]: `exec "${cmd[@]}"`: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/serve_rdna.sh#L368>
+[^oneshot]: `VLLM_RDNA_AR_ONESHOT_KB`: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/envs.py#L1470>
