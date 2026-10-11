@@ -18,13 +18,13 @@ Date: **2026-10-11**. Live dest stays ROCm **7.14.0** ([pin](../pin/README.md)).
 
 ```mermaid
 flowchart TD
-  call["device allocation"]
+  hipCall["device allocation"]
   malloc["hipMalloc / hipFree"]
   async["hipMallocAsync on the default pool"]
   vmm["hipMemAddressReserve, hipMemCreate, hipMemMap, hipMemSetAccess"]
-  call --> malloc
-  call --> async
-  call --> vmm
+  hipCall --> malloc
+  hipCall --> async
+  hipCall --> vmm
   malloc --> mallocok["reported control: 0 of 600 mismatches"]
   async --> asyncbad["reported: buffer reads back as zeros, hipSuccess"]
   async --> thr["hipMemPoolAttrReleaseThreshold = UINT64_MAX: 0 of 600"]
