@@ -1,6 +1,6 @@
 # DFlash — engine spec (gfx1030)
 
-Date: 2026-08-17. Engine contract. Card: DFlash on [project 4](https://github.com/users/BlivionIaG/projects/4). Not sdot4. Sibling cards: [mtp.md](mtp.md), [dspark.md](dspark.md). Family page: [specdec.md](specdec.md). Do not edit `perf/rdna2_w4a16` from this page. Occupancy still first.
+Date: 2026-08-17. Engine contract. Card: DFlash on [project 4](https://github.com/users/BlivionIaG/projects/4). Not sdot4. Sibling cards: [mtp.md](mtp.md), [dspark.md](dspark.md). Family page: [specdec.md](specdec.md). Do not edit dest `rdna_extras` (historically `perf/rdna2_w4a16`) from this page. Occupancy still first.
 
 **Verdict:** DFlash is a **block-diffusion parallel drafter**. It projects target hidden states into the speculator KV and proposes a block in one pass. Verify is still **extend (`q = 1+k`)**. On gfx1030 it does **not** fire until a **fat MLA tile (`q>1`)** exists. No new DOT kernel. Same silicon blocker as MTP / mix / DSpark.
 

@@ -1,10 +1,10 @@
-# `rdna2_extras` — release-based overlay
+# `rdna2_extras` — release-based overlay (historical)
 
-> **Dest today (2026-10-11):** [`opengfx1030/vllm-rdna` `rdna_extras`](https://github.com/opengfx1030/vllm-rdna/tree/rdna_extras) = vLLM **v0.31.0** port ([PR #47](https://github.com/opengfx1030/vllm-rdna/pull/47)), tip `1dc3bac4` (contains `8abf4c97`). Tips and branch names quoted below (`rdna2_extras` on BlivionIaG/vllm, `perf/rdna2_w4a16`) are **historical snapshots**. Serve locks (ROCm pin, APC, PYNCCL / `VLLM_RDNA_AR=0`) live in [fork/](../../fork/README.md) and [toolchain/matrix.md](../../toolchain/matrix.md); this page only says what the engine does.
+> **Dest today (2026-10-11):** [`opengfx1030/vllm-rdna` `rdna_extras`](https://github.com/opengfx1030/vllm-rdna/tree/rdna_extras) = vLLM **v0.31.0** port ([PR #47](https://github.com/opengfx1030/vllm-rdna/pull/47)), tip `1dc3bac4` (contains `8abf4c97`). Tips and branch names quoted below (`rdna2_extras` on BlivionIaG/vllm, `perf/rdna2_w4a16`) are **historical snapshots**. Serve locks (ROCm pin, all-reduce path, prefix caching) live in [fork/serve-locks.md](../../fork/serve-locks.md) (fork PR #10) and [toolchain/pin/README.md](../../toolchain/pin/README.md); this page only says what the engine does.
 
 Date: 2026-08-19. Engine review of [BlivionIaG/vllm](https://github.com/BlivionIaG/vllm) branch **`rdna2_extras`** @ **`3e05abc9`**.
 
-**Policy (locked):** human work goes on `rdna2_extras` = **vLLM release tag + gfx1030 overlay**. `perf/rdna2_w4a16` is the historical source, not the forward branch. Bots still do not PR upstream or edit the human branch. Occupancy still first.
+**Policy (locked 2026-08-19, historical branch name):** human work went on `rdna2_extras` = **vLLM release tag + gfx1030 overlay**. `perf/rdna2_w4a16` is the historical source, not the forward branch. Bots still do not PR upstream or edit the human branch. Occupancy still first.
 
 ## What landed
 
@@ -20,7 +20,7 @@ Merge resolutions that matter:
 | `deepseek_v4/amd/rocm.py` | Upstream AITER FP8 (CDNA) **and** gfx10x fp16 inv-RoPE |
 | `qwen_triton_warmup.py` | Upstream `kv_block_zeroer` (covers block-size 256) + `deepseek_v4` type |
 | `spinloop.cpp` | Upstream clang/`x86intrin` |
-| `RocmPlatform.use_custom_op_collectives` | **`return False`** — PYNCCL `_all_reduce_out_place` (torch 2.12 + venv-7.14). Broader than gfx10-only; ROCm-wide. Transport only. GEMM still does not own RCCL. |
+| `RocmPlatform.use_custom_op_collectives` | *(historical @ `3e05abc9`; current path: [fork/serve-locks.md](../../fork/serve-locks.md))* **`return False`** — PYNCCL `_all_reduce_out_place` (torch 2.12 + venv-7.14). Broader than gfx10-only; ROCm-wide. Transport only. GEMM still does not own RCCL. |
 
 ## Not fixed by the rebase
 
@@ -58,7 +58,7 @@ Replay list (minimum): `csrc/rocm/*rdna2*`, `fa_rdna2`, `skinny_gemms.cu`, `rocm
 
 ## Cards
 
-Retip In Progress work to `rdna2_extras` @ `3e05abc9`. Occupancy still first. Same Later list. CMake-gap issue on project 4 (W8A16-FP8 MoE not compiled).
+*(historical)* Retip In Progress work to `rdna2_extras` @ `3e05abc9`. Today's tip is `opengfx1030/vllm-rdna` `rdna_extras` @ `1dc3bac4`; tip bumps belong to [fork/](../../fork/README.md). Occupancy still first. Same Later list. CMake-gap issue on project 4 (W8A16-FP8 MoE not compiled).
 
 ## Sources
 

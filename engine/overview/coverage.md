@@ -1,6 +1,6 @@
 # vLLM / HIP coverage on gfx1030
 
-> **Dest today (2026-10-11):** [`opengfx1030/vllm-rdna` `rdna_extras`](https://github.com/opengfx1030/vllm-rdna/tree/rdna_extras) = vLLM **v0.31.0** port ([PR #47](https://github.com/opengfx1030/vllm-rdna/pull/47)), tip `1dc3bac4` (contains `8abf4c97`). Tips and branch names quoted below (`rdna2_extras` on BlivionIaG/vllm, `perf/rdna2_w4a16`) are **historical snapshots**. Serve locks (ROCm pin, APC, PYNCCL / `VLLM_RDNA_AR=0`) live in [fork/](../../fork/README.md) and [toolchain/matrix.md](../../toolchain/matrix.md); this page only says what the engine does.
+> **Dest today (2026-10-11):** [`opengfx1030/vllm-rdna` `rdna_extras`](https://github.com/opengfx1030/vllm-rdna/tree/rdna_extras) = vLLM **v0.31.0** port ([PR #47](https://github.com/opengfx1030/vllm-rdna/pull/47)), tip `1dc3bac4` (contains `8abf4c97`). Tips and branch names quoted below (`rdna2_extras` on BlivionIaG/vllm, `perf/rdna2_w4a16`) are **historical snapshots**. Serve locks (ROCm pin, all-reduce path, prefix caching) live in [fork/serve-locks.md](../../fork/serve-locks.md) (fork PR #10) and [toolchain/pin/README.md](../../toolchain/pin/README.md); this page only says what the engine does.
 
 Date: 2026-08-22. Progress map. Tip of human branch: **`rdna2_extras`** @ **`d24f6c25`** (read-only). Overlay of vLLM **v0.27.1** + gfx1030 work (`9ff87936` merge). Historical source: `perf/rdna2_w4a16` (stale @ `3baecdb516`). Review: [rdna2-extras.md](../serving-stack/rdna2-extras.md). Tickets stay on [project 4](https://github.com/users/BlivionIaG/projects/4). Do not invent tok/s. Do not edit that branch from this page.
 
@@ -54,7 +54,7 @@ Silicon contracts: [kernels/](../../kernels/README.md). `sdot4` explore: [kernel
 | Path | Status | Notes |
 |---|---|---|
 | `fa_rdna2` FA2 + `fdot2` D=128/256 | **Live** | Prefill Br=16/32, decode paged split-K. Occupancy ticket stands. |
-| Occupancy flip | Ticket | `fa_rdna2` **and** `skinny_gemms.cu`. Same trap: `amdgpu_waves_per_eu(1, 1)` / HIP second `launch_bounds` arg. Fix: drop min-blocks, `amdgpu_waves_per_eu(4, 8)` on decode-class kernels. |
+| Occupancy flip | **Decode landed** @ `1dc3bac4`; prefill + skinny still Ticket[^dest-occupancy] | `fa_rdna2` paged decode D=128/256 now `amdgpu_waves_per_eu(4, 8)`; prefill kernels still `__launch_bounds__(N, 1)`; `skinny_gemms.cu` `wvSplitKrc_` still `amdgpu_waves_per_eu(1, 1)`. Original note: Same trap: `amdgpu_waves_per_eu(1, 1)` / HIP second `launch_bounds` arg. Fix: drop min-blocks, `amdgpu_waves_per_eu(4, 8)` on decode-class kernels. |
 | FULL cudagraphs | **Live glue** @ `d24f6c25` | `_cudagraph_support = ALWAYS` on RDNA_ATTN. Recaptures the same `(1,1)` kernel. Rebase-must-keep, not occupancy. |
 | Sage INT8 QK `sdot4` | Ticket / Must | Prefill only. **v2 write #2** after occupancy. [sage-attention.md](../attention/sage-attention.md) + [kernels/attention/sage-qk.md](../../kernels/attention/sage-qk.md) |
 | Head-64 FA2 tile | Ticket / Must | Triton hole. **v2 write #3** after Sage. |
@@ -82,7 +82,7 @@ Silicon contracts: [kernels/](../../kernels/README.md). `sdot4` explore: [kernel
 
 | Path | Status | Notes |
 |---|---|---|
-| gfx1030/gfx1100 all-reduce bypass | **Live** @ `3e05abc9` | `RocmPlatform.use_custom_op_collectives()` returns False (ROCm-wide) → PYNCCL `_all_reduce_out_place`. Transport only. Same intent as `0c59068e`. Verified TP=4 Qwen3.6-35B-A3B-FP16 on the historical branch. |
+| gfx1030/gfx1100 all-reduce bypass | **Live** @ `3e05abc9` *(historical; current path: [fork/serve-locks.md](../../fork/serve-locks.md))* | `RocmPlatform.use_custom_op_collectives()` returns False (ROCm-wide) → PYNCCL `_all_reduce_out_place`. Transport only. Same intent as `0c59068e`. Verified TP=4 Qwen3.6-35B-A3B-FP16 on the historical branch. |
 | RCCL inside MoE GEMM | **Dead** | Engine owns `combine_mode`. Default under TP/EP = unreduced routed rows. `3e05abc9` does not change that. [moe.md](../moe/moe.md) |
 | DeepEP / IBGDA / MORI | **Later** | Steal asymmetry only. On 4×V620 the analogue is GPU-initiated PCIe P2P if peer access is real. [deepep.md](../multi-gpu/deepep.md) |
 | FlyDSL as a backend | Gate 0 | Compiler may emit gfx1030. Every shipped fast GEMM/MoE/FA is MFMA or gfx11/12 WMMA. [flydsl.md](../alt-engines/flydsl.md) |
@@ -104,7 +104,7 @@ Do not HIP-rewrite unused Triton (AITER FA, FA3, Marlin).
 
 ## v2 write order (locked with silicon)
 
-1. Occupancy flip: `fa_rdna2` + `skinny_gemms.cu`. Current subject. **Not fixed by the extras rebase or by `d24f6c25` graphs.**
+1. Occupancy flip: `fa_rdna2` + `skinny_gemms.cu`. *(2026-08-22 text: "Current subject. Not fixed by the extras rebase or by `d24f6c25` graphs.")* At `1dc3bac4` the decode half has landed; prefill and `wvSplitKrc_` remain[^dest-occupancy].
 2. Sage QK prefill (`sdot4`).
 3. Head-64 paged HIP.
 4. Then: W8A8 `sdot4`, INT8 KV, MLA fat tile, W4A8, NVFP4 unpack→`fdot2`. HIP MLA: **OOB on prefill `load_row`**, then `fdot2` on prefill first (both sides half). Decode `fdot2` after FP8 unpack is gone. Note on the MLA card, not this list.
@@ -115,7 +115,7 @@ Native HIP FP16 / INT8 MoE sit after occupancy (and after a measured stock basel
 
 ## Progress
 
-Locked 2026-08-22: human branch is **`rdna2_extras`** @ **`d24f6c25`**. Overlay merge `9ff87936` onto v0.27.1. `4cc1fe59` INT8 KV is not the fused contract. `d24f6c25` FULL graphs are glue. Occupancy still first. Allowlist ≠ fire list. EXL3 HIP live WIP ([exl3.md](../quant-formats/exl3.md); tip `e268c7d3`, ISA `a2c8d5cf`). Occupancy still first. Engine tickets live on GitHub project 4 (V620 inference); this page is the index.
+Locked 2026-08-22 *(historical)*: human branch was **`rdna2_extras`** @ **`d24f6c25`**. Overlay merge `9ff87936` onto v0.27.1. `4cc1fe59` INT8 KV is not the fused contract. `d24f6c25` FULL graphs are glue. Occupancy still first. Allowlist ≠ fire list. EXL3 HIP live WIP ([exl3.md](../quant-formats/exl3.md); tip `e268c7d3`, ISA `a2c8d5cf`). Occupancy still first. Engine tickets live on GitHub project 4 (V620 inference); this page is the index.
 
 ## Sources
 
@@ -135,3 +135,4 @@ Added in the 2026-10-11 sourcing pass:
 - AMD, *RDNA 2 Shader Instruction Set Architecture* (ISA 70648) — <https://www.amd.com/content/dam/amd/en/documents/radeon-tech-docs/instruction-set-architectures/rdna2-shader-instruction-set-architecture.pdf>
 - LLVM AMDGPU backend usage (processor feature table, dot insts per target) — <https://llvm.org/docs/AMDGPUUsage.html>
 
+[^dest-occupancy]: dest occupancy state at `1dc3bac4` — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L283-L284>, <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L535-L536> (decode); <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L1054> (prefill); <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/skinny_gemms.cu#L1344-L1346> (`wvSplitKrc_`)

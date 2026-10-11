@@ -1,69 +1,53 @@
 # Silicon
 
-How gfx1030 actually works, and what HIP can control.
+How gfx1030 (RDNA 2, Navi 21, V620) actually works, and what HIP can control. Every page carries a `## Sources` section with footnotes; claims that could not be sourced are marked `(unsourced)`.
+
+```mermaid
+flowchart LR
+  A[arch-and-memory<br/>CU/WGP, VALU, caches] --> L[lds-and-tiles<br/>banks, pads, tiles]
+  A --> O[occupancy<br/>limiters + effective]
+  L --> O
+  O --> H[hip-craft<br/>waitcnt, builtins, codegen]
+  O --> F[attention<br/>fa_rdna2, GQA, KDA]
+  H --> F
+  H --> M[formats<br/>EXL3, mxfp4, K_STEP]
+  A --> I[interconnect<br/>PCIe, RCCL, P2P, AR]
+  X[external-projects<br/>Take/Leave] -.-> H
+  V[other-hardware<br/>V340L gfx900] -.-> A
+```
+
+| Folder | What lives there |
+|---|---|
+| [arch-and-memory/](arch-and-memory/README.md) | CU/WGP/SIMD32 layout, VALU and packed DOT, the cache hierarchy (L0/GL1/L2/Infinity Cache/GDDR6) and what HIP can set on it. (5 pages) |
+| [lds-and-tiles/](lds-and-tiles/README.md) | LDS pool, 64-bank mapping, padding vs XOR swizzle, and the GEMM/attention tile seeds that follow from them. (3 pages) |
+| [occupancy/](occupancy/README.md) | Hard limiters (VGPR, LDS, barriers, WG size, wave size, WGP/CU mode) and the effective-occupancy pages: things that are not a PIX MaxWaves row but park or starve waves inside a held slot. (24 pages) |
+| [hip-craft/](hip-craft/README.md) | waitcnt, scopes, kernarg, builtins, the codegen stack we use (HIP + DOT) and graph-capture rules. (3 pages) |
+| [attention/](attention/README.md) | `fa_rdna2` launch bounds and LDS/VGPR budget, GQA subgroup dispatch, FlashKDA on gfx1030. (3 pages) |
+| [formats/](formats/README.md) | Silicon-side notes for EXL3, DSv4 Flash mxfp4, and the W4A16 prefill K_STEP config. Format contracts live in [../kernels/](../kernels/README.md). (3 pages) |
+| [interconnect/](interconnect/README.md) | 4x V620 over PCIe 4.0: RCCL, P2P, PLX switch and MMIO, the custom one-shot all-reduce, DeepEP mapping and the hetero MoE layout. (5 pages) |
+| [external-projects/](external-projects/README.md) | Third-party kernels, forks and recipes read against gfx1030: what we Take, what we Leave. (8 pages) |
+| [other-hardware/](other-hardware/README.md) | V340L (Vega10 gfx900) notes. Vega routing belongs to GFX900_manager; these pages only record why it is not a V620 drop-in. (2 pages) |
+
+## Start here
+
+1. [arch-and-memory/architecture.md](arch-and-memory/architecture.md): CU / WGP / caches
+2. [hip-craft/hip-craft.md](hip-craft/hip-craft.md): waitcnt, occupancy workflow, builtins
+3. [occupancy/occupancy-composite.md](occupancy/occupancy-composite.md): how the limiters fold into one number
+4. [lds-and-tiles/lds-tiles.md](lds-and-tiles/lds-tiles.md): 64-bank formula and tile seeds
+5. [attention/fa-occupancy.md](attention/fa-occupancy.md): `fa_rdna2` launch_bounds / LDS
+6. [interconnect/rccl-p2p.md](interconnect/rccl-p2p.md): 4x V620, RCCL, P2P
+
+## Related pages in other folders
 
 | Page | Contents |
 |---|---|
-| [architecture.md](architecture.md) | WGP/CU, wave32/64, VGPR, L0/L1/L2/IC, no WMMA |
-| [lds-tiles.md](lds-tiles.md) | 64-bank formula, GEMM/attention tile seeds, DP4A recipe |
-| [cache-policy.md](cache-policy.md) | What HIP can set; IC fit; no persist/bypass |
-| [infinity-cache.md](infinity-cache.md) | IC is RDNA2 intro; V620 128 MB / W7800 96 MB; not XGMI |
-| [rccl-p2p.md](rccl-p2p.md) | 4× V620 PCIe 4.0, RCCL, P2P attested, GB/s unmeasured |
-| [rdna-allreduce.md](rdna-allreduce.md) | T44 push one-shot AR on dest tip a4060647; Uncached+host flags; opt-in VLLM_RDNA_AR=1 |
-| [plx-p2p-mmio.md](plx-p2p-mmio.md) | PEX88096/8749 lane budget, ACS `+0x6`, BAR0/MMIO, Linux dump |
-| [hip-craft.md](hip-craft.md) | waitcnt, scopes, kernarg, builtins, occupancy workflow |
-| [fa-occupancy.md](fa-occupancy.md) | Live `fa_rdna2` LDS/VGPR/`__launch_bounds__` |
-| [occupancy-dump.md](occupancy-dump.md) | NT_AMDGPU_METADATA VGPR/SGPR/LDS/scratch dump recipe |
-| [scratch-occupancy.md](scratch-occupancy.md) | Scratch/private AS 5 is not a waves/SIMD limiter; ROCr may cut waves_per_cu |
-| [barrier-occupancy.md](barrier-occupancy.md) | Barrier slots 32 WGP / 16 CU; single-wave free; not FA leftover |
-| [lds-occupancy.md](lds-occupancy.md) | LDS pool 128 KB WGP / 64 KB WG; LLVM 512 B vs ISA 1 KB granule; MaxWGsLDS ladder |
-| [lds-bank-occupancy.md](lds-bank-occupancy.md) | Bank conflicts = LDS *latency*, not MaxWGsLDS; pad vs XOR at occupancy cliff |
-| [vgpr-occupancy.md](vgpr-occupancy.md) | VGPR waves/EU: 1024 file, granule 16, launch_bounds EU=SIMD32; WG spanning |
-| [sgpr-occupancy.md](sgpr-occupancy.md) | SGPR is **not** a limiter on GFX10+; descriptor SGPR count must be 0; 128 always allocated |
-| [wg-size-occupancy.md](wg-size-occupancy.md) | PIX Thread Group Size: atomic WG lifetime; flat_work_group_size range; ≠ Barriers |
-| [wave-size-occupancy.md](wave-size-occupancy.md) | Wave32 vs wave64: rescales VGPR/N/beats; HIP ships wave32; not a PIX row |
-| [wgp-cu-mode-occupancy.md](wgp-cu-mode-occupancy.md) | WGP vs CU (`-mcumode`): LDS pool / barriers / SIMDs-per-WG; HIP ships WGP |
-| [occupancy-composite.md](occupancy-composite.md) | Fold: min(VGPR, LDS, WG/barrier); llvm-calc-occupancy; PIX↔LLVM; measured vs theory |
-| [icache-occupancy.md](icache-occupancy.md) | I$/SQC 32 KB/WGP: not a PIX MaxWaves row; fetch-stall vs effective occupancy |
-| [kcache-occupancy.md](kcache-occupancy.md) | K$/SQC DCache 16 KB/WGP: not a PIX MaxWaves row; scalar/kernarg miss vs effective occupancy |
-| [l0-gl1-occupancy.md](l0-gl1-occupancy.md) | Vector L0/TCP 16 KB/CU + GL1 128 KB/SA: not a PIX MaxWaves row; thrash vs effective occupancy |
-| [l2-occupancy.md](l2-occupancy.md) | L2 4 MiB GPU-wide (mid vs IC): not a PIX MaxWaves row; thrash vs effective occupancy |
-| [infinity-cache-occupancy.md](infinity-cache-occupancy.md) | IC/MALL 128 MiB GPU-wide (last-level vs L2): not a PIX MaxWaves row; thrash vs effective occupancy |
-| [hard-clause-occupancy.md](hard-clause-occupancy.md) | gfx10+ `S_CLAUSE` hard clauses: not a PIX MaxWaves row; arbiter lock / burst vs effective interleave |
-| [waitcnt-occupancy.md](waitcnt-occupancy.md) | waitcnt / VMCNT+VSCNT+LGKMCNT scoreboard: not a PIX MaxWaves row; park vs effective occupancy |
-| [exec-divergence-occupancy.md](exec-divergence-occupancy.md) | EXEC / lane divergence: not a PIX MaxWaves row; lane-idle vs effective occupancy |
-| [trans-occupancy.md](trans-occupancy.md) | Transcendental / SFU (¼ rate, 8-wide, co-issue): not a PIX MaxWaves row; TRANS starve vs effective occupancy |
-| [vgpr-bank-occupancy.md](vgpr-bank-occupancy.md) | VGPR 4-bank (`vN mod 4`) / SGPR 8 paired-bank operand reads: not a PIX MaxWaves row; LLVM dropped bank reassign (D101313) — footnote, never trade VGPRs |
-| [wave-priority-occupancy.md](wave-priority-occupancy.md) | Wave priority (`S_SETPRIO`, SPI+USER prio, age tiebreak) / `S_SLEEP` / `S_WAKEUP`: not a PIX MaxWaves row; arbiter bias / voluntary park inside reserved slots; LLVM `-amdgpu-set-wave-priority` is an off-by-default A/B |
-| [atomic-occupancy.md](atomic-occupancy.md) | Atomics: gfx1030 has **no** global/flat FP add atomic — fp32 `atomicAdd` is a `global_atomic_cmpswap` retry loop (even with `-munsafe-fp-atomics`); LDS `ds_add_f32` native; global fmin/fmax native only with no-fine-grained md; not a PIX MaxWaves row (vmcnt parks + EXEC shrink inside a held slot) |
-| [dpp-crosslane-occupancy.md](dpp-crosslane-occupancy.md) | Cross-lane ops: DPP `row_shr`/`row_xmask` + `v_permlanex16` are VALU; `__shfl*` = `ds_bpermute` (LDS pipe, 0 LDS bytes, `lgkmcnt` park); `wave_reduce_*` = serial readlane loop on clang 22; `row_bcast`/`wave_*` gone in GFX10; extras `REDUCE_SUM_DPP_WAVE32` (`0x118…0x111`) verified correct; not a PIX MaxWaves row |
-| [hazard-occupancy.md](hazard-occupancy.md) | Software hazard waitstates: gfx1030 has HW interlocks and none of the gfx101x hazard features, so clang emits 0 `s_nop`/`s_waitcnt_depctr`/`vscnt null` (probe); gfx1013/gfx101x builds of the same source get them, so gfx1030 objects are unsafe on BC-250; don't copy NOP padding; not a PIX MaxWaves row |
-| [spi-ace-occupancy.md](spi-ace-occupancy.md) | SPI/ACE: measured ≤ theory (lack of work / launch-rate); V620 fill 36 WGP × 4 × 16 = 2304; not a PIX MaxWaves row |
-| [graph-capture.md](graph-capture.md) | Capture vs page-commit guard: no D2H on the captured path; `Tensor!` on every HIP out arg |
-| [codegen-stack.md](codegen-stack.md) | Use HIP+DOT; ignore CK XDL, hipBLASLt, rocWMMA, AITER |
-| [valu.md](valu.md) | gfx1030 VALU: enc / size / issue / which DOT we fire. gfx1100 extras |
-| [fp16-rdna2.md](fp16-rdna2.md) | Fastest FP16: explicit `fdot2` + occupancy; skinny decode, measure BLAS prefill |
-| [flashkda.md](flashkda.md) | FlashKDA: no SM90/CUTLASS/bf16; 128×128 state = `fdot2` later |
-| [sglang-fork.md](sglang-fork.md) | SGLang overlay imports extras HIP; no second DOT / AITER tree |
-| [leapdragon.md](leapdragon.md) | leapdragon recipe: grid fill, LDS@256, BLOCK_KN sweep; not our occupancy card |
-| [hipfire.md](hipfire.md) | hipfire: capability dispatch + sdot4 MMQ on gfx10; WMMA is gfx11/12 only |
-| [flydsl-dot-atoms.md](flydsl-dot-atoms.md) | FlyDSL gfx1030 feasibility; formal `fdot2`/`sdot4` atoms and proof gates |
-| [deepep-v620.md](deepep-v620.md) | DeepEP insight → mapped-peer PCIe scatter, not IBGDA |
-| [hetero-moe-w7800-v620.md](hetero-moe-w7800-v620.md) | Spark×2 (GB10 CUDA) + 8×V620: activations-only hop, KV on Spark; W7800 row dead |
-| [v340l.md](v340l.md) | V340L = Vega10 **gfx900**, dual-die; not a V620 drop-in |
-| [v340l-rocm-714.md](v340l-rocm-714.md) | Adopted 2026-09-03: TheRock nightly ROCm 10 `device-gfx900` (Path A). Official 7.14/10.0 debs ❌ Vega |
-| [v340l-macos-tb.md](v340l-macos-tb.md) | Locked: 1× UT4G + 1× 88096 + 8× V340L. Repo [BlivionIaG/v340l-macos](https://github.com/BlivionIaG/v340l-macos) |
-| [v340l-tune.md](v340l-tune.md) | 8× V340L Linux tune: COMPUTE+MCLK lock, 110 W/die, 8 GB packing |
-| [hippih.md](hippih.md) | hippih stub: three ISAs (`fdot2` / WMMA / `mad_mix`); extras stays first |
-| [exl3.md](exl3.md) | EXL3/QTIP: Viterbi is quant-time; infer is 3-inst codebook → half → `fdot2`. mul1/K=1..8 lock @ `30b0bd4e` |
-| [../kernels/gdn-decode.md](../kernels/linear-attn/gdn-decode.md) | GDN decode HIP `(2,4)`, no LDS |
-| [../kernels/gdn-prefill.md](../kernels/linear-attn/gdn-prefill.md) | GDN prefill 5 HIP; kkt no `fdot2`; wy ~58 KB LDS |
-| [../kernels/layernorm.md](../kernels/aot-glue/layernorm.md) | HIP AOT RMSNorm, tiny LDS, no DOT; not FA leftover |
-| [dsv4-flash.md](dsv4-flash.md) | DSv4 Flash: mxfp4 expert tile is the decode kernel; leftover is MXFP8 + e8m0/128², not W8A16-FP8 |
-| [wafer-gpu-perf.md](wafer-gpu-perf.md) | wafer-ai list: ISA is 70648 + valu, not their MI350/CDNA4 |
-| [petit-kernel.md](petit-kernel.md) | causalflow petit FP4: Take shuffle/LDS/denorm caveats; Leave MFMA/CDNA |
-| [curvedinf-int8-vllm.md](curvedinf-int8-vllm.md) | curvedinf INT8 fork: Take PTH-KV + GDN fp32; Leave CK/UA/XGMI; `sdot4` Later |
-- [w4a16-prefill-config.md](w4a16-prefill-config.md) — ConfigA K_STEP=32 dest; ConfigH Leave (`7ac98a26`); K_STEP split repair @ `3a0786ea` (8 repairs / 13 legacy keep / 0 deviation)
-| [../kernels/w4a8.md](../kernels/quant/w4a8.md) | W4A8 `sdot4` Live opt-in @ `3a0786ea`; MoE accum dual-mode @ `30b0bd4e`; W4A16 default unchanged |
-| [fa-gqa.md](fa-gqa.md) | FA GQA subgroup default; HEAD_DIM 128/256 prefill (@ `bb40498c`); true variant dropped |
-| [../kernels/qwen4exp-flash-next-hip.md](../kernels/models/qwen4exp-flash-next-hip.md) | Flash-Next HIP glue T46–T49 + mrope fixes @ 5c3c0c6f |
+| [../kernels/linear-attn/gdn-decode.md](../kernels/linear-attn/gdn-decode.md) | GDN decode HIP `(2,4)`, no LDS |
+| [../kernels/linear-attn/gdn-prefill.md](../kernels/linear-attn/gdn-prefill.md) | GDN prefill 5 HIP; kkt no `fdot2`; wy ~58 KB LDS |
+| [../kernels/aot-glue/layernorm.md](../kernels/aot-glue/layernorm.md) | HIP AOT RMSNorm, tiny LDS, no DOT; not FA leftover |
+| [../kernels/quant/w4a8.md](../kernels/quant/w4a8.md) | W4A8 `sdot4` Live opt-in @ `3a0786ea`; MoE accum dual-mode @ `30b0bd4e`; W4A16 default unchanged |
+| [../kernels/models/qwen4exp-flash-next-hip.md](../kernels/models/qwen4exp-flash-next-hip.md) | Flash-Next HIP glue T46–T49 + mrope fixes @ 5c3c0c6f |
+| [../toolchain/pin/README.md](../toolchain/pin/README.md) | Live ROCm pin (source of truth) |
+
+## Sources
+
+This is an index page; it makes no technical claims of its own. Primary sources are cited with footnotes and a `## Sources` section on each linked page.

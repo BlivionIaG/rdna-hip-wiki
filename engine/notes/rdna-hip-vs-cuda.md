@@ -2,7 +2,7 @@
 
 Date: 2026-08-28. Scope: **4×/8× V620 gfx1030**, extras HIP, later hippih. Not Instinct. Not a CUDA port. Do not invent tok/s. Occupancy still first. Pin stays closed. No new ticket.
 
-Contract index: [../coverage.md](../overview/coverage.md). Silicon: [../../silicon/valu.md](../../silicon/valu.md), [../../silicon/rccl-p2p.md](../../silicon/rccl-p2p.md). Tickets: see [project 4](https://github.com/users/BlivionIaG/projects/4).
+Contract index: [../coverage.md](../overview/coverage.md). Silicon: [../../silicon/arch-and-memory/valu.md](../../silicon/arch-and-memory/valu.md), [../../silicon/interconnect/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md). Tickets: see [project 4](https://github.com/users/BlivionIaG/projects/4).
 
 Three different “missing.” Do not mix them.
 
@@ -73,7 +73,7 @@ Upstream does **not** list gfx1030. Forced build:
 - Stock HIP paged-decode: `on_gfx1x`.
 - Skinny `wvSplitK` / `LLMM1`: `on_gfx9() or on_gfx1x()`. `VLLM_ROCM_USE_SKINNY_GEMM` is a no-op here.
 - `ROCM_ATTN` on gfx1030 is Triton prefill + Triton `kernel_paged_attention_2d`, not HIP decode.
-- Custom collectives off → PYNCCL (locked, correct).
+- Custom collectives off → PYNCCL (locked, correct) *(as of 2026-08-28; current all-reduce lock: [fork/serve-locks.md](../../fork/serve-locks.md))*.
 - Official FA / MoE whitelist is CDNA or gfx11/12.
 
 SGLang overlay is **after occupancy**. hippih is after extras + SGLang + Llaminar. Do not start a CUDA-clone engine.

@@ -1,6 +1,6 @@
 # DSpark — engine spec (gfx1030)
 
-Date: 2026-08-17. Engine contract. Card: DSpark on [project 4](https://github.com/users/BlivionIaG/projects/4). Not sdot4. Sibling cards: [mtp.md](mtp.md), [dflash.md](dflash.md). Family page: [specdec.md](specdec.md). Do not edit `perf/rdna2_w4a16` from this page. Occupancy still first.
+Date: 2026-08-17. Engine contract. Card: DSpark on [project 4](https://github.com/users/BlivionIaG/projects/4). Not sdot4. Sibling cards: [mtp.md](mtp.md), [dflash.md](dflash.md). Family page: [specdec.md](specdec.md). Do not edit dest `rdna_extras` (historically `perf/rdna2_w4a16`) from this page. Occupancy still first.
 
 **Verdict:** DSpark = **DFlash-style parallel backbone + lightweight Markov head + confidence-scheduled verify length**. Verify is still **extend (`q = 1+k`)**, and DSpark draft attn is **non-causal sliding-window** (upstream reuses SparseMLA with expanded topk so queries see each other). On gfx1030 it does **not** fire until a **fat MLA tile (`q>1`)** exists. No new DOT kernel. Same silicon blocker as MTP / DFlash / mix.
 

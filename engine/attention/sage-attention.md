@@ -4,7 +4,7 @@ Date: 2026-08-17. Locked. Check this page against a real HIP implementation late
 
 Paper: Zhang et al., *SageAttention: Accurate 8-bit attention for Plug-and-Play Inference Acceleration*, [arXiv 2410.02367](https://arxiv.org/abs/2410.02367).
 
-Silicon packing: RDNA2_Researcher. Dispatch: this page + [attention-dispatch.md](attention-dispatch.md). Ticket: existing Sage card on [project 4](https://github.com/users/BlivionIaG/projects/4) — prefill-only, **after occupancy**. No new ticket. Do not edit `perf/rdna2_w4a16` for this.
+Silicon packing: RDNA2_Researcher. Dispatch: this page + [attention-dispatch.md](attention-dispatch.md). Ticket: existing Sage card on [project 4](https://github.com/users/BlivionIaG/projects/4) — prefill-only, **after occupancy**. No new ticket. Do not edit dest `rdna_extras` (historically `perf/rdna2_w4a16`) for this.
 
 ## Verdict
 
@@ -65,7 +65,7 @@ Mark each against the implementation, not this prose.
 - [ ] No second `__launch_bounds__` min-blocks (HIP waves/EU).
 - [ ] Quality: perplexity or a product eval vs fa_rdna2 FP16 QK. Do not ship on kernel time alone.
 - [ ] Timing: prefill QK-bound shapes only (long q, D=128/256). Report vs `fa_rdna2_prefill_*` on the same box. No copied 4090 2.1×.
-- [ ] Branch is `perf/rdna2_w4a16_bot` or a ticket — not a silent edit of `perf/rdna2_w4a16`.
+- [ ] Work goes through a dest PR or a ticket — not a silent edit of dest `rdna_extras` (historical wording: `perf/rdna2_w4a16_bot`, not `perf/rdna2_w4a16`).
 
 ## Unknowns (do not fill)
 

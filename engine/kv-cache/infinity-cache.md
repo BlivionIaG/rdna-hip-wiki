@@ -1,6 +1,6 @@
 # Infinity Cache — how inference rides it
 
-Date: 2026-08-19. Engine contract. SKU table: [silicon/infinity-cache.md](../../silicon/infinity-cache.md). HIP knobs + fit math: [silicon/cache-policy.md](../../silicon/cache-policy.md). Occupancy still first. Do not invent tok/s or IC TB/s.
+Date: 2026-08-19. Engine contract. SKU table: [silicon/arch-and-memory/infinity-cache.md](../../silicon/arch-and-memory/infinity-cache.md). HIP knobs + fit math: [silicon/arch-and-memory/cache-policy.md](../../silicon/arch-and-memory/cache-policy.md). Occupancy still first. Do not invent tok/s or IC TB/s.
 
 **Yes, we use it.** Not as a switch. IC is already on every GPU-memory path (MALL). The only persist mechanism on gfx1030 is **fit the hot set + reread it + default loads + don't thrash**. HIP has no persist bit, no prefetch-into-IC, no IC bypass.
 
@@ -20,7 +20,7 @@ Continuous batching helps because the **same shard** is reread every token. Chun
 
 ## Fit on this box (TP=4, capacity not a promise)
 
-From [cache-policy.md](../../silicon/cache-policy.md) §4. Numbers are **bytes vs 128 MiB**, not measured hits.
+From [cache-policy.md](../../silicon/arch-and-memory/cache-policy.md) §4. Numbers are **bytes vs 128 MiB**, not measured hits.
 
 | Workload | Shard vs IC | Weight path |
 |---|---|---|
@@ -40,7 +40,7 @@ Prefill fat `M≥32` GEMM working sets are **larger than 128 MB**. IC does not m
 
 Extra waves on a miss-path GEMV multiply outstanding GDDR6 and **evict** the 128 MB. That is why `fa_rdna2` / `skinny_gemms.cu` occupancy is still first — a perfect fit with `__launch_bounds__(N, 1)` / `waves_per_eu(1,1)` is not the win.
 
-Two HIP streams or SDMA on the same V620 **fight** the same 128 MB. A “layer lives in IC” claim is only true if that GPU is otherwise quiet. Collectives stay outside GEMM ([rdna2-extras.md](../serving-stack/rdna2-extras.md) PYNCCL bypass).
+Two HIP streams or SDMA on the same V620 **fight** the same 128 MB. A “layer lives in IC” claim is only true if that GPU is otherwise quiet. Collectives stay outside GEMM ([rdna2-extras.md](../serving-stack/rdna2-extras.md), historical PYNCCL bypass; current all-reduce path: [fork/serve-locks.md](../../fork/serve-locks.md)).
 
 Do **not** paste gfx940 `sc0`/`sc1` persist, gfx11 MALL NOALLOC (DLC), or `llvm.prefetch` (ignored on gfx1030).
 
@@ -60,7 +60,7 @@ No new first kernel. Occupancy + V620 HIP MoE still first. Nontemporal on the 27
 
 ## Sources
 
-- [silicon/infinity-cache.md](../../silicon/infinity-cache.md), [silicon/cache-policy.md](../../silicon/cache-policy.md)
+- [silicon/arch-and-memory/infinity-cache.md](../../silicon/arch-and-memory/infinity-cache.md), [silicon/arch-and-memory/cache-policy.md](../../silicon/arch-and-memory/cache-policy.md)
 - Note 2026-08-19 (user: can we use IC to speed inference)
 
 Added in the 2026-10-11 sourcing pass:

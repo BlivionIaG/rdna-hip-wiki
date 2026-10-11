@@ -1,6 +1,6 @@
 # INT2 + mixed INT2/INT4 MoE — engine spec
 
-Date: 2026-08-17. Engine contract. Silicon: [kernels/quant/int2.md](../../kernels/quant/int2.md). Cards: INT2, mixed INT2/INT4 MoE on [project 4](https://github.com/users/BlivionIaG/projects/4). Not sdot4-explore (that is W8A8 / Sage / W4A8). Do not edit `perf/rdna2_w4a16` from this page. Occupancy still first.
+Date: 2026-08-17. Engine contract. Silicon: [kernels/quant/int2.md](../../kernels/quant/int2.md). Cards: INT2, mixed INT2/INT4 MoE on [project 4](https://github.com/users/BlivionIaG/projects/4). Not sdot4-explore (that is W8A8 / Sage / W4A8). Do not edit dest `rdna_extras` (historically `perf/rdna2_w4a16`) from this page. Occupancy still first.
 
 **Verdict:** no i2 DOT on gfx1030. INT2 is a **weight pack**, not a new inner op. Unpack 16×i2/dword → fp16 → live `fdot2` (W2A16 first). Mixed MoE is the same DOT with **two unpackers**, bitwidth grouped **outside** the K loop. Not on the branch. Not INT2 KV (Triton #40633 is cache, different ticket family).
 

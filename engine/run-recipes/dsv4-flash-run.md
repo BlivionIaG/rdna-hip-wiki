@@ -1,6 +1,6 @@
 # DeepSeek-V4-Flash on 4	imesV620 (120 GB) — quality destination
 
-Date: 2026-08-22. Engine contract. Human branch **`rdna2_extras`**. Occupancy still first. Pair with [exl3.md](../quant-formats/exl3.md), [dspark.md](../spec-decoding/dspark.md), [silicon/dsv4-flash.md](../../silicon/dsv4-flash.md).
+Date: 2026-08-22. Engine contract. Dest `opengfx1030/vllm-rdna` **`rdna_extras`** (written against `rdna2_extras`, now historical). Occupancy still first. Pair with [exl3.md](../quant-formats/exl3.md), [dspark.md](../spec-decoding/dspark.md), [silicon/formats/dsv4-flash.md](../../silicon/formats/dsv4-flash.md).
 
 **Goal (user lock):** maximize quality with **QTIP/EXL3** and a **native HIP** kernel that runs it. Size target is **K216-class ~100 GiB** so 4×30 GB (120 GB) still has KV room. Official 0731 QAT MXFP4/MXFP8 is the *producer input*, not the all-GPU serve. Int4-FP8 is a side checkpoint, not the quality path.
 

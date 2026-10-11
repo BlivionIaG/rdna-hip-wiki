@@ -6,7 +6,7 @@ Silicon/dispatch: same gates as extras — `on_gfx10x()`, not `on_rdna()` (v0.27
 
 ## Role (corrected)
 
-Not “radix ideas only.” **A rebase-on-release SGLang overlay**, same process as `rdna2_extras`: track an upstream tag, add gfx1030 HIP + dispatch, never PR upstream from this room.
+Not “radix ideas only.” **A rebase-on-release SGLang overlay**, same process as the vLLM dest (`rdna_extras`; historically `rdna2_extras`): track an upstream tag, add gfx1030 HIP + dispatch, never PR upstream from this room.
 
 What we want from SGLang that extras does not own:
 
@@ -23,7 +23,7 @@ What we do **not** want: their Instinct/AITER kernels, `on_rdna()` gates, SM90 F
 
 | Order | Engine | Why |
 |---|---|---|
-| **1. Now** | vLLM **`rdna2_extras`** | Live HIP. Occupancy + `load_row` + CMake gap. |
+| **1. Now** | vLLM dest **`rdna_extras`** (historically `rdna2_extras`) | Live HIP. Occupancy + `load_row` + CMake gap. |
 | **2. Parallel** | **SGLang rdna2 overlay** | Own serving path. **Import extras HIP after occupancy** — do not rewrite `fdot2`. |
 | **3. Next hetero** | **Llaminar** | Heterogeneous domains. ROCm gfx906 only today. |
 | **4. In-house** | **hippih** | Three ISA. Steal extras kernels + SGLang serving + Llaminar placement. |

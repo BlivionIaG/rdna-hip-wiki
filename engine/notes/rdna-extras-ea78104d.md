@@ -4,7 +4,7 @@ Dest: [`opengfx1030/vllm-rdna`](https://github.com/opengfx1030/vllm-rdna) branch
 
 ## Take (silicon)
 
-1. **FA INT8 fused decode** — `fa_rdna2.cu` templates `IS_INT8`; LDS fp16 + `fdot2`; decode keeps `waves_per_eu(4, 8)`. Writer `reshape_and_cache_int8_rdna2`. Details: [kernels/attention/kv-int8.md](../../kernels/attention/kv-int8.md), [silicon/fa-occupancy.md](../../silicon/fa-occupancy.md).
+1. **FA INT8 fused decode** — `fa_rdna2.cu` templates `IS_INT8`; LDS fp16 + `fdot2`; decode keeps `waves_per_eu(4, 8)`. Writer `reshape_and_cache_int8_rdna2`. Details: [kernels/attention/kv-int8.md](../../kernels/attention/kv-int8.md), [silicon/attention/fa-occupancy.md](../../silicon/attention/fa-occupancy.md).
 2. **FA INT8 prefill splitk** — new kernels; still `(N, 1)` occupancy trap.
 3. **Sparse MLA HIP prefill** — `sparse_mla_prefill_kernel` `__launch_bounds__(32)`. [kernels/attention/mla-sparse.md](../../kernels/attention/mla-sparse.md).
 4. **W8A8-FP8 dense** — per-block-K `a_scale`; same LDS + `fdot2`. [kernels/quant/w8a8-fp8.md](../../kernels/quant/w8a8-fp8.md).
