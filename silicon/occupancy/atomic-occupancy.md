@@ -2,7 +2,7 @@
 title: "Atomics (global FP CAS loops / LDS atomics) vs effective occupancy (gfx1030)"
 sources:
   - https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/moe_accum_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/moe_accum_rdna2.cuh
   - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td
   - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
 ---
@@ -122,7 +122,7 @@ LDS pre-reduce + 1 CAS/elt = fewer global loops per WG; LDS fp32 add is native
 Footnotes:
 
 [^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
-[^extras-moe-accum-rdna2-cu]: `csrc/rocm/moe_accum_rdna2.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/moe_accum_rdna2.cu
+[^extras-moe-accum-rdna2-cu]: `csrc/rocm/moe_accum_rdna2.cuh`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/moe_accum_rdna2.cuh
 [^llvm-amdgpu-td]: LLVM AMDGPU.td, main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td (checked 2026-10-11)
 [^probe-atomic]: Box compiler probe `/workspace/atomic-probe/` (HIP sources and `.s` output; `.ident` "Debian clang version 22.1.8 (1~deb13u4)", upstream clang 22.1.8, not the ROCm 7.14.0 pin). Local box path, not a public URL; re-run to reproduce.
 [^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)

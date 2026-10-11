@@ -9,7 +9,7 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/02357ecd12cc835050117bccc68d47770bd8f7a2
   - https://github.com/opengfx1030/vllm-rdna/commit/25e8788ab01d30ce42b3f5fd910e45a3b7de95c7
   - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/exl3_dot2_dequant.cu
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/exl3_dot2_common.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/exl3_dot2_common.cuh
   - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/exl3_dot2_dense.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/torch_bindings.cpp
   - https://github.com/opengfx1030/vllm-rdna/commit/faf87f80fb0d979f2d3a546bae005cddd74a0a19
@@ -213,7 +213,7 @@ Footnotes:
 [^commit-02357ecd]: opengfx1030/vllm-rdna commit `02357ecd12cc`. https://github.com/opengfx1030/vllm-rdna/commit/02357ecd12cc835050117bccc68d47770bd8f7a2 (exists, verified via GitHub API 2026-10-11)
 [^commit-25e8788]: opengfx1030/vllm-rdna commit `25e8788ab01d`. https://github.com/opengfx1030/vllm-rdna/commit/25e8788ab01d30ce42b3f5fd910e45a3b7de95c7 (exists, verified via GitHub API 2026-10-11)
 [^extras-exl3-dot2-dequant-cu]: `csrc/rocm/exl3_dot2_dequant.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/exl3_dot2_dequant.cu
-[^extras-exl3-dot2-common-cu]: `csrc/rocm/exl3_dot2_common.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/exl3_dot2_common.cu
+[^extras-exl3-dot2-common-cu]: `csrc/rocm/exl3_dot2_common.cuh`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/exl3_dot2_common.cuh
 [^extras-exl3-dot2-dense-cu]: `csrc/rocm/exl3_dot2_dense.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/exl3_dot2_dense.cu
 [^extras-torch-bindings-cpp]: `csrc/rocm/torch_bindings.cpp`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/torch_bindings.cpp
 [^commit-faf87f80]: opengfx1030/vllm-rdna commit `faf87f80fb0d`. https://github.com/opengfx1030/vllm-rdna/commit/faf87f80fb0d979f2d3a546bae005cddd74a0a19 (exists, verified via GitHub API 2026-10-11)

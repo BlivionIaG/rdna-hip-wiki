@@ -19,6 +19,18 @@ sources:
 
 # FA GQA (gfx1030)
 
+## Current state at dest tip `1dc3bac4` (v0.31.0 port, checked 2026-10-11)
+
+Sections below are dated locks; where they disagree with this table, this table wins.
+
+| Surface | State at `1dc3bac4` |
+|---|---|
+| GQA prefill | Templated `fa_prefill_paged_varlen_gqa_kernel`, `__launch_bounds__(256, 1)`; dispatch reads `VLLM_FA_RDNA2_GQA_MODE` (default `subgroup`) in `vllm/v1/attention/backends/rdna_attn.py`.[^gqa-tip-prefill][^gqa-tip-mode] |
+| GQA decode kernel | `fa_decode_paged_splitk_gqa_kernel_256`, `__launch_bounds__(256)`, `GQA_MAX_G = 8`, no `waves_per_eu`.[^gqa-tip-dec] |
+| GQA decode gate | **Off by env default, on in launcher serves.** The kernel library runs it only when `VLLM_FA_RDNA2_GQA_DECODE` starts with `1`; the dispatch comment says it is off by default since 2026-09-09 because `n_dec>=2` produced garbage from the first decode token.[^gqa-tip-gate] But `serve_rdna.sh` defaults `ATTN=fa`, and `rdna_select_attention fa` exports `VLLM_USE_RDNA2_FA=1` and `VLLM_FA_RDNA2_GQA_DECODE=${VLLM_FA_RDNA2_GQA_DECODE:-1}`.[^gqa-tip-launcher][^gqa-tip-select] By recipe at the tip: `flashnext`, `flashnext-mtp0`, `flashnext-mtp2`, `27b-awq` and `27b-exl3` set `ATTN=fa`; `full` and `dsv4-flash` set `ATTN=none` (`full` exports `VLLM_USE_RDNA2_FA=1` itself but not the GQA-decode flag).[^fa-tip-recipes] Whether the launcher should keep setting the flag is an open `fork/` question; this page records the code only. |
+| Launcher scripts | `serve_gfx1030_flashnext.sh` and `serve_gfx1030_flashnext_mtp.sh` are now 4-line aliases that `exec serve_rdna.sh RECIPE=flashnext` / `RECIPE=flashnext-mtp2`; the defaults described in the dated locks below now come from `serve_rdna.sh` and `rdna_launcher_common.sh`.[^gqa-tip-alias] |
+| Split decode | `VLLM_FA_RDNA2_SPLIT_DECODE` default `1`, `_SPLIT_DECODE_MAX_ROWS = 256`, `VLLM_FA_RDNA2_VERIFY_FULL_GRAPH` default `1`; all still read in `rdna_attn.py`.[^gqa-tip-mode] |
+
 ## extras lock 2026-10-02 — tip `bb40498c` (PR #34 GQA prefill HEAD_DIM 128/256)
 
 Dest: `opengfx1030/vllm-rdna` `rdna_extras` (`bc5fbee5`→`bb40498c`, +3; silicon in `284fbad0`, then bench/docs). Occupancy first. No tok/s. No fabricated occupancy %.[^commit-bc5fbee5][^commit-bb40498c][^commit-284fbad0]
@@ -67,7 +79,7 @@ Dest: `opengfx1030/vllm-rdna` `rdna_extras`. Occupancy first. No tok/s. No fabri
 
 | Surface | Lock |
 |---|---|
-| Production launcher FA | `serve_gfx1030_flashnext.sh`: `VLLM_USE_RDNA2_FA` defaults **1**; `VLLM_FA_RDNA2_GQA_DECODE` defaults **1** (overridable; `VLLM_USE_RDNA2_FA=0` falls back to Triton). Mirrors MTP launcher defaults at `83e6af80`. [^commit-83e6af80] |
+| Production launcher FA | *(historical at `ae5bedfd`; at `1dc3bac4` this script is an alias for `serve_rdna.sh RECIPE=flashnext`, same effective defaults via `rdna_select_attention`)* `serve_gfx1030_flashnext.sh`: `VLLM_USE_RDNA2_FA` defaults **1**; `VLLM_FA_RDNA2_GQA_DECODE` defaults **1** (overridable; `VLLM_USE_RDNA2_FA=0` falls back to Triton). Mirrors MTP launcher defaults at `83e6af80`. [^commit-83e6af80] |
 | Tree pin | Same script exports `PYTHONPATH=<script's tree>` first so the served code matches the launcher (avoids a copied venv's other-tree editable finder winning). |
 | Unchanged ISA | Still `__launch_bounds__(128|256)` (prefill often `(N, 1)`); `__builtin_amdgcn_fdot2`; XOR LDS swizzle; `fa_clip_kv_walk` / `fa_masked` / GQA register softmax; MTP verify-through-decode as at `83e6af80`. [^commit-83e6af80] |
 
@@ -85,7 +97,7 @@ Dest: `opengfx1030/vllm-rdna` `rdna_extras`. Occupancy first. No tok/s. No fabri
 |---|---|
 | MTP verify path | Uniform short causal batches (`1 < max_seqlen_q <= 8` and `sum(q_lens) == nseq * max`) run one `fa_rdna2_decode_paged` per position with `seq_len_i = S - (L-1-i)` — exact per-token causal prefix; reuses validated decode kernel (no prefill walk). |
 | Capture metadata | `RdnaAttentionMetadataBuilder` `_cudagraph_support` = `UNIFORM_BATCH` (was `UNIFORM_SINGLE_TOKEN_DECODE`); `supports_draft_decode_metadata_update = True`. Capture zeros `seq_lens` only; keeps capture-shaped `query_start_loc`. |
-| MTP launcher defaults | `serve_gfx1030_flashnext_mtp.sh`: `ATTN` default **fa** (was triton; `ATTN=triton` remains fallback). When fa: `VLLM_USE_RDNA2_FA=1` and `VLLM_FA_RDNA2_GQA_DECODE` defaults **1** (was opt-in off). |
+| MTP launcher defaults | *(historical at `83e6af80`; at `1dc3bac4` an alias for `serve_rdna.sh RECIPE=flashnext-mtp2`)* `serve_gfx1030_flashnext_mtp.sh`: `ATTN` default **fa** (was triton; `ATTN=triton` remains fallback). When fa: `VLLM_USE_RDNA2_FA=1` and `VLLM_FA_RDNA2_GQA_DECODE` defaults **1** (was opt-in off). |
 | Unchanged ISA | Still `__launch_bounds__(128|256)` (prefill often `(N, 1)`); `__builtin_amdgcn_fdot2`; XOR LDS swizzle; `fa_clip_kv_walk` / `fa_masked` / GQA register softmax as at `bfd5286d`. [^commit-bfd5286d] |
 
 QSA still blocks the fused draft path (`supports_draft_decode_metadata_update` is inert there). Do not invent numbers. Do not copy tok/s.
@@ -104,9 +116,9 @@ Dest: `opengfx1030/vllm-rdna` `rdna_extras`. Occupancy first. No tok/s. No fabri
 | Prefill sliding window | `fa_masked`: keep keys with `q - k < w` (was `k >= q - w`); matches decode + FA/Triton. |
 | GQA prefill D=256 softmax | Online softmax in registers via BC-lane `__shfl_xor` (BC=16); one barrier fewer per tile; **no** `sM`/`sL`/`sD` LDS. Launcher smem = `sQ+sK+sV+sP` only; O stays `o_acc[RDS]` registers (prior register-O lock). |
 | Decode | Whole-tile splits keep `uint4` V load on every split; keys left of sliding window skipped (`kv_lo`); combine zeros `seq_len==0` (graph padding) instead of NaN. |
-| GQA decode kernel | `fa_decode_paged_splitk_gqa_kernel_256` opt-in `VLLM_FA_RDNA2_GQA_DECODE=1` (default **off**). |
+| GQA decode kernel | `fa_decode_paged_splitk_gqa_kernel_256` opt-in `VLLM_FA_RDNA2_GQA_DECODE=1` (default **off** in the kernel library). *(At `1dc3bac4` still off by env default, but launcher serves with `ATTN=fa` export it as `1`; see the current-state table.)* |
 | Host / persist | Ops take model softmax `scale` + caller-provided `out` (RDNA_ATTN in-place); drop staging memset/`copy_`; `rdna2_persist_empty` for fully-overwritten decode/split-K scratch (GEMM/AR `rdna2_persist_zeros` unchanged). |
-| Unchanged ISA | Still `__launch_bounds__(128|256)` (prefill often `(N, 1)`); `__builtin_amdgcn_fdot2`; XOR LDS swizzle where previously present. Default ATTN remains triton; FA path opt-in `VLLM_USE_RDNA2_FA`. |
+| Unchanged ISA | Still `__launch_bounds__(128|256)` (prefill often `(N, 1)`); `__builtin_amdgcn_fdot2`; XOR LDS swizzle where previously present. Default ATTN remains triton; FA path opt-in `VLLM_USE_RDNA2_FA`. *(Historical at `bfd5286d`: at `1dc3bac4` `serve_rdna.sh` defaults `ATTN=fa`.)* |
 
 CMake gfx1030 append list: **unchanged** this tip window. `97fbae58` (hippihx V1) and `f22fee02` (HIP MoE MTP) are Python-only — no `csrc/rocm` object contract.[^commit-97fbae58][^commit-f22fee02]
 
@@ -159,4 +171,11 @@ Primary sources for this page, cited inline as footnotes:
 [^commit-5c3c0c6f]: opengfx1030/vllm-rdna commit `5c3c0c6f53a3`. https://github.com/opengfx1030/vllm-rdna/commit/5c3c0c6f53a3bffc20319de5621f1e560ffa4ab4 (exists, verified via GitHub API 2026-10-11)
 [^commit-d1b200b1]: opengfx1030/vllm-rdna commit `d1b200b1c1ce`. https://github.com/opengfx1030/vllm-rdna/commit/d1b200b1c1ceb204c2a6cbc85b80f9b6526d052f (exists, verified via GitHub API 2026-10-11)
 [^commit-13a3daf4]: opengfx1030/vllm-rdna commit `13a3daf458f4`. https://github.com/opengfx1030/vllm-rdna/commit/13a3daf458f46986d379fae8fd29b7b258892c73 (exists, verified via GitHub API 2026-10-11)
-
+[^gqa-tip-prefill]: `fa_prefill_paged_varlen_gqa_kernel` `__launch_bounds__(256, 1)`, `csrc/rocm/fa_rdna2.cu`, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L3810
+[^gqa-tip-mode]: `VLLM_USE_RDNA2_FA`, `VLLM_FA_RDNA2_GQA_MODE` (default `subgroup`), `VLLM_FA_RDNA2_SPLIT_DECODE`, `_SPLIT_DECODE_MAX_ROWS`, `VLLM_FA_RDNA2_VERIFY_FULL_GRAPH` in `vllm/v1/attention/backends/rdna_attn.py`, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/v1/attention/backends/rdna_attn.py#L66-L89
+[^gqa-tip-dec]: `GQA_MAX_G` and `fa_decode_paged_splitk_gqa_kernel_256`, `csrc/rocm/fa_rdna2.cu`, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L772-L776
+[^gqa-tip-gate]: `fa_gqa_decode_enabled()` and the GQA-decode dispatch comment, `csrc/rocm/fa_rdna2.cu`, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L2937-L2943 and https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L3061-L3068
+[^gqa-tip-launcher]: `ATTN=${ATTN:-fa}` and the `case $ATTN` dispatch, `tools/rdna/serve_rdna.sh`, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/serve_rdna.sh#L146 and https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/serve_rdna.sh#L234-L238
+[^gqa-tip-select]: `rdna_select_attention()`, `tools/rdna/rdna_launcher_common.sh`, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/rdna_launcher_common.sh#L106-L119
+[^gqa-tip-alias]: `tools/rdna/serve_gfx1030_flashnext.sh` and `tools/rdna/serve_gfx1030_flashnext_mtp.sh`, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/serve_gfx1030_flashnext.sh and https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/serve_gfx1030_flashnext_mtp.sh
+[^fa-tip-recipes]: `ATTN=` lines in `tools/rdna/recipes/*.env` (flashnext.env L27, flashnext-mtp0.env L18, flashnext-mtp2.env L18, 27b-awq.env L26, 27b-exl3.env L18, full.env L19 and L35, dsv4-flash.env L30), dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/tree/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/recipes
