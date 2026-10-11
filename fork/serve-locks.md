@@ -40,7 +40,7 @@ All serves go through one launcher, `bash tools/rdna/serve_rdna.sh RECIPE=<name>
 
 | Lock | State at `1dc3bac4` | Evidence |
 |---|---|---|
-| ROCm **7.14.0** | Build and serve venvs are `venv-7.14.0_*` with `ROCM_HOME=/opt/rocm/core-7.14`, torch `2.12.0+rocm7.14.0` | [^build][^portvenv] · pin details: [toolchain/matrix.md](../toolchain/matrix.md) |
+| ROCm **7.14.0** | Build and serve venvs are `venv-7.14.0_*` with `ROCM_HOME=/opt/rocm/core-7.14`, torch `2.12.0+rocm7.14.0` | [^build][^portvenv] · pin details: [toolchain/pin/](../toolchain/pin/README.md) |
 | fp16 activations | The launcher always passes `--dtype float16`. The RDNA2 W4A16 kernel refuses non-fp16, and the RDNA2 MoE GEMM has no bf16 dot on gfx1030 | [^dtype][^w4fp16][^moebf16] |
 | All-reduce: room lock `VLLM_RDNA_AR=0` / PYNCCL | **Disagrees with the tip.** In code the default is `VLLM_RDNA_AR=0` (RCCL / pynccl chain). Every TP recipe sets `RDNA_AR=1` / `VLLM_RDNA_AR=1`: one-shot up to 64 KiB, RCCL above, `VLLM_FORCE_CUSTOM_ALL_REDUCE=0` | [^ardefault][^arcomm][^ar27b][^arfn] |
 | `rdna_ar` shared-output-buffer fix | `00fcc97f` (2026-10-08): `rdna_ar` returns a fresh `empty_like` output per call instead of one process-wide persistent buffer. **It is in the tip** (ancestor of `1dc3bac4`) | [^arfix] |
