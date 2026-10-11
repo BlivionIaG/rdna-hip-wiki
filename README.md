@@ -32,6 +32,6 @@ Do not invent IC TB/s, L2 associativity, or a P2P-works claim. Hardware numbers 
 5. [engine/overview/full-map.md](engine/overview/full-map.md) — one-page engine verdict + technique table
 6. [engine/attention/attention-dispatch.md](engine/attention/attention-dispatch.md) — fa_rdna2 vs Triton, head-64, short vs split-K
 7. [engine/notes/kiely-inference-engineering.md](engine/notes/kiely-inference-engineering.md) — Kiely mapped to gfx1030
-8. [toolchain/matrix.md](toolchain/matrix.md) — official vs unofficial, live 7.14 pin
+8. [toolchain/pin/README.md](toolchain/pin/README.md) — live 7.14 pin; dated scans from the old `toolchain/matrix.md` are [toolchain/log/pin-scans.md](toolchain/log/pin-scans.md)
 
 Fork branch `perf/rdna2_w4a16` is human-only. Tickets go on [project 4](https://github.com/users/BlivionIaG/projects/4).

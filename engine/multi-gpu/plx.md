@@ -83,7 +83,7 @@ A V620 is Gen4 x16 **to the slot**. If the path is 8749 (or a V340L), the **devi
 | `lspci` AtomicOps | present (ROCm requires PCIe atomics) |
 | BIOS | Above 4G Decoding on, ReBAR on, CSM off, ACS off for bare metal |
 | IOMMU | Remap is AMD’s Radeon-P2P story; `iommu=pt` is the RCCL hang workaround. **Measure both.** |
-| Host kernel | `dmesg \| grep "Initialized amdgpu"` reports DRM **≥ 3.64** before trusting rccl-tests. Older stock kernels (Ubuntu 24.04 6.8) give silent RCCL corruption; `HSA_DISABLE_CACHE=1` is only a stopgap. [toolchain/comms.md](../../toolchain/comms.md) (2026-10-07), [toolchain/hip-runtime.md](../../toolchain/hip-runtime.md)[^drm364] |
+| Host kernel | `dmesg \| grep "Initialized amdgpu"` reports DRM **≥ 3.64** before trusting rccl-tests. Older stock kernels (Ubuntu 24.04 6.8) give silent RCCL corruption; `HSA_DISABLE_CACHE=1` is only a stopgap. [toolchain/comms/README.md](../../toolchain/comms/README.md) (2026-10-07), [toolchain/runtime/README.md](../../toolchain/runtime/README.md)[^drm364] |
 | HIP | `hipDeviceCanAccessPeer` all 1s; `isLargeBar==1` |
 | RCCL | `HSA_FORCE_FINE_GRAIN_PCIE=1`; log shows **P2P** not only SHM; small-S not ~215 ms ([ROCm #6576](https://github.com/ROCm/legacy-rocm-build/issues/6576)) |
 | Toolbox | `amd-smi topology` GPU↔GPU **ENABLED**, hops 2, PCIE — validated 4×V620 state in `pcie_p2p/AGENTS.md` |
@@ -123,5 +123,5 @@ Later. One platform card: “PEX ACS + PIX matrix” after occupancy. do not ret
 - [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md)
 - [v620_toolbox pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/master/pcie_p2p)
 
-[^drm364]: amdgpu DRM ≥ 3.64 host gate — <https://github.com/ROCm/legacy-rocm-build/issues/6565>, <https://github.com/ROCm/rocm-systems/issues/12145>, <https://github.com/ROCm/rocm-systems/issues/9820>; summary in toolchain/hip-runtime.md
+[^drm364]: amdgpu DRM ≥ 3.64 host gate — <https://github.com/ROCm/legacy-rocm-build/issues/6565>, <https://github.com/ROCm/rocm-systems/issues/12145>, <https://github.com/ROCm/rocm-systems/issues/9820>; summary in toolchain/pin/README.md
 [^dest-rdna-ar]: dest `csrc/rocm/rdna_allreduce.cuh` (`RDNA_AR_ONESHOT_MAX` 65536, two-shot removed) — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/rdna_allreduce.cuh#L66-L70>; `vllm/envs.py` `VLLM_RDNA_AR` comment — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/envs.py#L1470-L1476>; fresh output per call — <https://github.com/opengfx1030/vllm-rdna/commit/00fcc97ff5015158da93f52bd32f2c70757f0f8a>

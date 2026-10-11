@@ -1,11 +1,27 @@
+---
+owner: ROCM_specialist
+kind: scan-log
+sources:
+  - "https://github.com/ROCm/TheRock/pull/8567"
+  - "https://github.com/ROCm/rocm-systems/pull/12025"
+  - "https://github.com/ROCm/TheRock/pull/8583"
+  - "https://github.com/ROCm/TheRock/pull/8533"
+  - "https://github.com/ROCm/rocm-systems/pull/10670"
+  - "https://github.com/ROCm/rocm-systems/pull/11752"
+  - "https://github.com/ROCm/rocm-systems/pull/11803"
+  - "https://github.com/ROCm/rocm-systems/pull/11035"
+---
+
+> Historical scan record, kept intact from the flat `toolchain/` pages on branch `toolchain/gotchas-2026-10-09`. Inline links are the sources recorded on the scan date. This restructure did not re-open every SHA or open/merged status below. Those point-in-time claims are **(unsourced)** as of 2026-10-11, except where a topic page repeats the claim with a footnote.
+
 # RCCL on RDNA — what the source actually gates
 
-Date: **2026-09-03**. Owned by ROCM_specialist (library/runtime plumbing). Measured P2P and topology work stays in [silicon/rccl-p2p.md](../silicon/rccl-p2p.md).
+Date: **2026-09-03**. Owned by ROCM_specialist (library/runtime plumbing). Measured P2P and topology work stays in [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md).
 
 
 ## 2026-10-07 — RCCL corruption traced to host amdgpu, not RCCL
 
-Silent `all_gather` / `reduce_scatter` corruption on gfx1030 and gfx1100 (first-enumerated GPU, SHM) is an amdgpu regression in the Ubuntu 24.04 stock 6.8 kernel; HWE 7.0 (amdgpu DRM 3.64) or `amdgpu-dkms` fixes it, `HSA_DISABLE_CACHE=1` works around it. Details and the related DRM-3.64 VMM hang: [hip-runtime.md](hip-runtime.md). Not a dest change.
+Silent `all_gather` / `reduce_scatter` corruption on gfx1030 and gfx1100 (first-enumerated GPU, SHM) is an amdgpu regression in the Ubuntu 24.04 stock 6.8 kernel; HWE 7.0 (amdgpu DRM 3.64) or `amdgpu-dkms` fixes it, `HSA_DISABLE_CACHE=1` works around it. Details and the related DRM-3.64 VMM hang: [hip-runtime.md](../runtime/README.md). Not a dest change.
 
 ## 2026-09-29 — RCCL symmetric restore after sync (systems tip, not dest)
 
@@ -65,7 +81,7 @@ New knobs, both **default 0** and **arch-agnostic** (`RCCL_PARAM(IntraGraphGen,"
 | gfx1200 / gfx1201 | 7 | 7 |
 | gfx942 / gfx950 | 5 / 6 | 5 / 6 |
 
-This answers the open unknown in [silicon/rccl-p2p.md](../silicon/rccl-p2p.md) ("a published gfx1030 RCCL Ring/Tree tuning table"): there is a per-arch tuning index in RCCL source, and **gfx1030 sits on index 0, the generic row** — the same row as gfx906/gfx908/gfx90a. AMD is adding Navi3 tuning and leaving Navi2x on the default table. Filling a gfx1030 row is our own tuning work, and it needs `NCCL_DEBUG_SUBSYS=TUNING` measurements first.
+This answers the open unknown in [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md) ("a published gfx1030 RCCL Ring/Tree tuning table"): there is a per-arch tuning index in RCCL source, and **gfx1030 sits on index 0, the generic row** — the same row as gfx906/gfx908/gfx90a. AMD is adding Navi3 tuning and leaving Navi2x on the default table. Filling a gfx1030 row is our own tuning work, and it needs `NCCL_DEBUG_SUBSYS=TUNING` measurements first.
 
 Also in this PR: the `NCCL_TUNING` `INFO` spam is now rank-0 only, and `ncclTopoPreset()` gained an `nChannels` sanity check (`[1,MAXCHANNELS]`, plus a warn when a graph's channel count is below `comm->nChannels`).
 

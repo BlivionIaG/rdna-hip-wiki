@@ -1,8 +1,126 @@
+---
+owner: ROCM_specialist
+kind: scan-log
+sources:
+  - "https://github.com/bitsandbytes-foundation/bitsandbytes/pull/2089"
+  - "https://github.com/Niko1221/Strata/issues/1180"
+  - "https://github.com/ROCm/rocm-systems/pull/11618"
+  - "https://github.com/ggml-org/llama.cpp/pull/29910"
+  - "https://github.com/ggml-org/llama.cpp/blob/master/.github/workflows/hip-quality-check.yml"
+  - "https://github.com/ggml-org/llama.cpp/pull/29927"
+  - "https://github.com/ROCm/TheRock/pull/8588"
+  - "https://github.com/ROCm/TheRock/pull/8607"
+  - "https://github.com/ROCm/rocm-systems/pull/12269"
+  - "https://github.com/ROCm/rocm-systems/pull/12201"
+  - "https://github.com/ROCm/rocm-systems/pull/12209"
+  - "https://github.com/ROCm/rocm-systems/pull/11414"
+  - "https://github.com/ROCm/TheRock/pull/8696"
+  - "https://github.com/ROCm/TheRock/pull/8697"
+  - "https://github.com/ROCm/TheRock/pull/8569"
+  - "https://github.com/ROCm/TheRock/pull/8656"
+  - "https://github.com/ROCm/TheRock/pull/8619"
+  - "https://github.com/ROCm/TheRock/pull/8599"
+  - "https://github.com/ROCm/TheRock/pull/8631"
+  - "https://github.com/ROCm/TheRock/pull/8535"
+  - "https://github.com/ROCm/TheRock/pull/8483"
+  - "https://github.com/ROCm/TheRock/pull/8585"
+  - "https://github.com/ROCm/TheRock/pull/8259"
+  - "https://github.com/ROCm/TheRock/issues/7909"
+  - "https://github.com/ROCm/TheRock/issues/7976"
+  - "https://github.com/ROCm/TheRock/pull/8561"
+  - "https://github.com/ROCm/TheRock/pull/8594"
+  - "https://github.com/ROCm/TheRock/pull/8583"
+  - "https://github.com/ROCm/TheRock/pull/8577"
+  - "https://github.com/ROCm/TheRock/pull/8533"
+  - "https://github.com/ROCm/TheRock/pull/8530"
+  - "https://github.com/ROCm/rocm-systems/pull/12250"
+  - "https://github.com/ROCm/rocm-systems/pull/10670"
+  - "https://github.com/ROCm/TheRock/pull/8557"
+  - "https://github.com/ROCm/TheRock/pull/8528"
+  - "https://github.com/ROCm/TheRock/pull/8523"
+  - "https://github.com/ROCm/TheRock/pull/8516"
+  - "https://github.com/ROCm/TheRock/pull/8508"
+  - "https://github.com/ROCm/TheRock/pull/8525"
+  - "https://github.com/ROCm/TheRock/pull/8512"
+  - "https://github.com/ROCm/rocm-systems/pull/12076"
+  - "https://github.com/ROCm/rocm-systems/pull/12195"
+  - "https://github.com/ROCm/TheRock/pull/8542"
+  - "https://github.com/ROCm/TheRock/pull/8532"
+  - "https://github.com/ROCm/TheRock/pull/8553"
+  - "https://github.com/ROCm/TheRock/pull/8543"
+  - "https://github.com/ROCm/TheRock/pull/8472"
+  - "https://github.com/ROCm/TheRock/pull/8506"
+  - "https://github.com/ROCm/TheRock/pull/8494"
+  - "https://github.com/ROCm/TheRock/pull/8470"
+  - "https://github.com/ROCm/TheRock/pull/8448"
+  - "https://github.com/ROCm/TheRock/pull/8449"
+  - "https://github.com/ROCm/TheRock/pull/8444"
+  - "https://github.com/ROCm/TheRock/pull/8442"
+  - "https://github.com/ROCm/TheRock/pull/8440"
+  - "https://github.com/ROCm/TheRock/pull/8418"
+  - "https://github.com/ROCm/TheRock/pull/8445"
+  - "https://nightly.repo.amd.com/rocm/whl-next/`"
+  - "https://github.com/ROCm/TheRock/issues/7751"
+  - "https://github.com/llvm/llvm-project/pull/201186"
+  - "https://github.com/llvm/llvm-project/pull/202753"
+  - "https://github.com/ROCm/TheRock/pull/7972"
+  - "https://github.com/ROCm/TheRock/pull/8426"
+  - "https://github.com/ROCm/TheRock/pull/8113"
+  - "https://github.com/ROCm/TheRock/pull/8430"
+  - "https://github.com/ROCm/TheRock/pull/8420"
+  - "https://github.com/ROCm/TheRock/pull/8416"
+  - "https://github.com/ROCm/TheRock/pull/8412"
+  - "https://github.com/ROCm/TheRock/pull/8406"
+  - "https://github.com/ROCm/TheRock/pull/8370"
+  - "https://github.com/ROCm/TheRock/pull/8409"
+  - "https://github.com/ROCm/TheRock/pull/8404"
+  - "https://github.com/ROCm/TheRock/pull/8410"
+  - "https://github.com/ROCm/TheRock/pull/8386"
+  - "https://github.com/ROCm/TheRock/pull/8392"
+  - "https://github.com/ROCm/TheRock/pull/8369"
+  - "https://github.com/llvm/llvm-project/pull/218923"
+  - "https://github.com/ROCm/TheRock/pull/8385"
+  - "https://github.com/ROCm/TheRock/pull/8306"
+  - "https://github.com/ROCm/TheRock/pull/8307"
+  - "https://github.com/ROCm/TheRock/pull/8358"
+  - "https://github.com/ROCm/rocm-systems/pull/11752"
+  - "https://github.com/ROCm/rocm-systems/pull/11803"
+  - "https://github.com/ROCm/TheRock/pull/8266"
+  - "https://github.com/ROCm/llvm-project/pull/4465"
+  - "https://github.com/ROCm/TheRock/pull/8258"
+  - "https://github.com/ROCm/TheRock/pull/8108"
+  - "https://github.com/ROCm/llvm-project/pull/217195"
+  - "https://github.com/ROCm/TheRock/pull/8125"
+  - "https://github.com/ROCm/TheRock/pull/8124"
+  - "https://github.com/ROCm/TheRock/pull/8077"
+  - "https://github.com/ROCm/TheRock/pull/7082"
+  - "https://github.com/ROCm/TheRock/pull/8098"
+  - "https://github.com/ROCm/TheRock/pull/7859"
+  - "https://github.com/ROCm/llvm-project/pull/4267"
+  - "https://github.com/ROCm/rocm-systems/pull/9647"
+  - "https://github.com/ROCm/llvm-project/issues/4213"
+  - "https://github.com/ROCm/llvm-project/pull/4234"
+  - "https://github.com/ROCm/llvm-project/pull/4251"
+  - "https://github.com/ROCm/llvm-project/pull/4079"
+  - "https://github.com/ROCm/llvm-project/pull/4081"
+  - "https://github.com/ROCm/llvm-project/pull/4077"
+---
+
+> Historical scan record, kept intact from the flat `toolchain/` pages on branch `toolchain/gotchas-2026-10-09`. Inline links are the sources recorded on the scan date. This restructure did not re-open every SHA or open/merged status below. Those point-in-time claims are **(unsourced)** as of 2026-10-11, except where a topic page repeats the claim with a footnote.
+
 # Compiler / hipcc
 
-Date: **2026-10-07**. Audience: someone compiling HIP for **gfx1030** (live), with later **gfx1100** and **gfx900** TUs.
+Date: **2026-10-09**. Audience: someone compiling HIP for **gfx1030** (live), with later **gfx1100** and **gfx900** TUs.
 
-Companions: [silicon/hip-craft.md](../silicon/hip-craft.md).
+Companions: [silicon/hip-craft.md](../../silicon/hip-craft.md).
+
+## Gotcha — pass DPP operands as bits, not as `float` (2026-10-09)
+
+`__builtin_amdgcn_mov_dpp` is integer-typed. bitsandbytes [#2089](https://github.com/bitsandbytes-foundation/bitsandbytes/pull/2089) (open) found that passing a `float` straight in made ROCm 6.4.4 / clang 19 emit numeric float→int and int→float conversions around the DPP move, so the 4-bit `Linear4bit` warp reduction on gfx1100 had relative L1 error 0.125 instead of 0.002. ROCm 10 / clang 23 happened to lower it correctly. Always wrap with `__float_as_uint` / `__uint_as_float` (or `__builtin_bit_cast`) so the result doesn't depend on the compiler's implicit conversion. This also matches the bitcast form recorded in [silicon/dpp-crosslane-occupancy.md](../../silicon/dpp-crosslane-occupancy.md). Craft note only, no pin change.
+
+## Gotcha — `amdgpu_waves_per_eu` VGPR caps can silently compute wrong on some compilers (2026-10-08)
+
+Strata [#1180](https://github.com/Niko1221/Strata/issues/1180) (fixed in Strata 0.1.40.2): a gfx11 WMMA MoE prefill kernel built with `__attribute__((amdgpu_waves_per_eu(8)))` gave **deterministically wrong output** (rel RMS 6.5e-2, 0/20 runs pass) on **gfx1100** with ROCm 7.10 / AMD clang 22; the same kernel with the cap at 1 passed 20/20. On ROCm 7.14.1 / AMD clang 23 (gfx1151), the capped build passes the FP64 parity test and is 4–16% faster, so it is compiler-specific, not a wrong idea. The source comment justified the cap with "only 0–5 regs spill", measured on an older compiler. Lesson: a `waves_per_eu` or `launch_bounds` occupancy cap is a per-compiler claim. When we bump the compiler, re-run the kernel's parity test with the cap on and re-check spills (`-Rpass-analysis=kernel-resource-usage`). Gate the cap on a measured toolchain, not on `__clang_major__ >= N`. The same issue also had a separate missing `__syncthreads()` after a double-buffered LDS write, which failed about 45% of runs. Not reproduced on our 7.14.0 dest; craft note only, no pin or dest change.
 
 ## Gotcha — HIP `__shfl_xor` keeps a bounds check in full-wave reductions (2026-10-07)
 
