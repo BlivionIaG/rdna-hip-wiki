@@ -83,7 +83,7 @@ Wider Triton `BLOCK_M` 32–128 at D=256 is a measured dead end (fp32 acc `BLOCK
 
 ## Not a dead end for us
 
-Their “custom W4 GEMV is dead” assumes Exllama already at **~91% of 506 GB/s**. extras `fa_rdna2` / `skinny_gemms.cu` still sit on `(1,1)`. That card is **not** this dead-end.
+Their “custom W4 GEMV is dead” assumes Exllama already at **~91% of 506 GB/s**. extras `fa_rdna2` / `skinny_gemms.cu` still sit on `(1,1)` *(as of 2026-08-21; at `1dc3bac4` FA paged decode is `waves_per_eu(4, 8)` and FA prefill is still `__launch_bounds__(N, 1)`, and skinny `wvSplitKrc_` is still `waves_per_eu(1, 1)`)*.[^ld-tip-occ] That card is **not** this dead-end.
 
 Other dead ends they paid for (do not reopen): `dwordx4` KV (loads ~83% peak), 544 B KV align, `GPU_MAX_HW_QUEUES=8`, hoist attn range-mask, unpack-then-reshape INT8 to `(TILE,256)` LDS.
 
@@ -103,3 +103,4 @@ Footnotes:
 [^github-fd-rdna2-fd-kernel2-py]: vllm-rdna2-recipe/builds/shared/plugins/fd_rdna2/fd_rdna2/fd_kernel2.py at main · leapdragon/vllm-rdna2-recipe. https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/builds/shared/plugins/fd_rdna2/fd_rdna2/fd_kernel2.py (checked 2026-10-11)
 [^llvm-baseinfo]: LLVM AMDGPUBaseInfo.cpp (IsaInfo), main snapshot eb61ef62df4f. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp (checked 2026-10-11)
 [^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)
+[^ld-tip-occ]: `csrc/rocm/fa_rdna2.cu` L283-L284 (decode `__launch_bounds__(128)` + `amdgpu_waves_per_eu(4, 8)`) and L1054 (prefill `(N, 1)`); `csrc/rocm/skinny_gemms.cu` L1345 (`amdgpu_waves_per_eu(1, 1)`), dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L283-L284 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/fa_rdna2.cu#L1054 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/skinny_gemms.cu#L1345
