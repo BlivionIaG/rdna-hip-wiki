@@ -15,6 +15,9 @@ sources:
 ---
 # NVFP4 on gfx1030 — silicon / HIP contract
 
+> **Status at dest `rdna_extras` @ `1dc3bac4` (checked 2026-10-11):** no RDNA NVFP4 kernel is present or built. The `nvfp4_dot2_common.cuh` / `nvfp4_gemm_rdna2` / `moe_nvfp4_gemm_rdna2` names below are a historical or planned contract (BlivionIaG `add17dd7`), not live code.[^nv-tip]
+
+
 Engine dispatch and checkpoint layout: [engine/quant-formats/nvfp4.md](../../engine/quant-formats/nvfp4.md). This page is the ISA and tile. Check a future kernel against the list at the bottom.[^nvfp4-blog][^isa][^f-add17dd7-mxfp4-dot2-common-cuh]
 
 **There is no NVFP4 unit on gfx1030.** Inner op is unpack E2M1 → fp16, apply E4M3 (× optional FP32), then `fdot2`. Same DOT as live mxfp4. The delta is the **scale**, not a new instruction.[^nvfp4-blog]
@@ -115,3 +118,4 @@ Petit (CDNA NVFP4/MXFP4 reference): [silicon/external-projects/petit-kernel.md](
 [^lc-24438]: llama.cpp issue #24438 — ROCm/HIP MoE token-gen at ~40% bandwidth on gfx1151 (per-lane nibble LUT serialization). <https://github.com/ggml-org/llama.cpp/issues/24438>
 [^f-add17dd7-mxfp4-dot2-dense-cu]: BlivionIaG/vllm `csrc/rocm/mxfp4_dot2_dense.cu` @ [`add17dd7`](https://github.com/BlivionIaG/vllm/blob/add17dd7b35942748fae68f7a7cec939c46d0b82/csrc/rocm/mxfp4_dot2_dense.cu).
 [^c-add17dd7]: BlivionIaG/vllm commit [`add17dd7`](https://github.com/BlivionIaG/vllm/commit/add17dd7b35942748fae68f7a7cec939c46d0b82) (2026-08-17) — "feat(rocm): fp16 sparse MLA Triton kernels + indexer int64 fix for gfx1030".
+[^nv-tip]: No `nvfp4` RDNA file in `csrc/rocm/` and no RDNA NVFP4 entry in the gfx1030 CMake list at dest 1dc3bac4 (the only `nvfp4` sources in `CMakeLists.txt` are CUDA `csrc/libtorch_stable/quantization/fp4/*`). https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/CMakeLists.txt#L1519-L1550

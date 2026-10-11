@@ -16,11 +16,14 @@ sources:
 ---
 # HIP AOT RMSNorm — extras `83de31cf` + gated `71a54552`
 
+**At dest `1dc3bac4` (checked 2026-10-11):** `layernorm.cu` (with `gated_rms_norm`) is still on the unconditional list next to EXL3, not inside the gfx1030 block.[^ln-tip]
+
+
 ## dest tip 2026-09-11 — `opengfx1030/vllm-rdna` `rdna_extras` @ `71a54552`
 
 Tip moved **`56f67111` → `71a54552`** (+3). Silicon: new **`gated_rms_norm`** AOT HIP for Qwen3.x GDN `RMSNormGated` (norm-before-gate). Same tile family as plain `rms_norm` — not a new occupancy subject. FA leftover still first. ticket-26 still EXL3 `-cb 3inst`. W4A16 ConfigA lock unchanged.[^c-56f67111][^c-71a54552][^f-56f67111-layernorm-cu]
 
-Companion infra (Python, same tip window): Gemma `(1+w)` scale folded to `x.dtype` so `vllm_c` `rms_norm` dtype-match fires; per-replay cudagraph `isnan().any()` scan gated behind `VLLM_CG_NAN_INPUT_CHECK=1` (default off) — [silicon/hip-craft/graph-capture.md](../../silicon/hip-craft/graph-capture.md).[^c-71a54552]
+Companion infra (Python, same tip window): Gemma `(1+w)` scale folded to `x.dtype` so `vllm_c` `rms_norm` dtype-match fires; per-replay cudagraph `isnan().any()` scan gated behind `VLLM_CG_NAN_INPUT_CHECK=1` (default off; *historical*: neither the scan nor the env exists in `vllm/compilation/cuda_graph.py` at `1dc3bac4`[^ln-tip-cg]) — [silicon/hip-craft/graph-capture.md](../../silicon/hip-craft/graph-capture.md).[^c-71a54552]
 
 ## Gated RMSNorm tile (`71a54552`)
 
@@ -89,3 +92,5 @@ Public entries are global-scope (`83de31cf` closed `vllm::rocm_layernorm` before
 [^c-83de31cf]: BlivionIaG/vllm commit [`83de31cf`](https://github.com/BlivionIaG/vllm/commit/83de31cf8c55ac2e63f538c2d08dd8f1668a52bb) (2026-09-01) — "fix(rocm/layernorm): close namespace braces before global-scope public entries".
 [^c-ea78104d]: opengfx1030/vllm-rdna commit [`ea78104d`](https://github.com/opengfx1030/vllm-rdna/commit/ea78104d5fc8cb5d8ee7a5d7e2d35d89ee90229a) (2026-09-03) — "fix(rocm): platform gates + MoE W8A16 parity (completes fb1687bde)".
 [^c-f22a15b6]: BlivionIaG/vllm commit [`f22a15b6`](https://github.com/BlivionIaG/vllm/commit/f22a15b64bf4b3525dba8a7fca0379c3513cf5ca) (2026-09-01) — "fix(rocm/layernorm): 64-bit shfl mask + move public entries to global scope".
+[^ln-tip-cg]: No `isnan` / `VLLM_CG_NAN_INPUT_CHECK` in `vllm/compilation/cuda_graph.py` at dest 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/compilation/cuda_graph.py
+[^ln-tip]: `csrc/rocm/layernorm.cu` (`gated_rms_norm_kernel` L136) on the unconditional ROCm list next to EXL3 (`CMakeLists.txt` L1570-L1575, outside the `VLLM_ROCM_HAS_GFX1030` block that starts at L1517), dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/layernorm.cu#L136 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/CMakeLists.txt#L1517-L1575

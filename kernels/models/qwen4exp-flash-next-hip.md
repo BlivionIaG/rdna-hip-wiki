@@ -48,6 +48,18 @@ sources:
 ---
 # Qwen3.8-Flash-Next / Qwen4Exp HIP — tip `8960a3bc`
 
+## Current state at dest `rdna_extras` @ `1dc3bac4` (checked 2026-10-11)
+
+| Gate | Default at `1dc3bac4` | What it selects |
+|---|---|---|
+| `VLLM_RDNA_FUSED_HC` | **on** (`"1"`) | `rdna_fused_glue.cu` decode HC mix (M ≤ 8), `__launch_bounds__(WAVES * 32)`.[^q4-tip-envs][^q4-tip-hcpy] |
+| `VLLM_RDNA_HC_PREFILL_FUSED` | **2** | New `csrc/rocm/hc_prefill_rdna2.cu` (`rdna_hc_mix_prefill`): split-K HIP down-GEMM + fused silu/up-GEMM/sigmoid/mix for prefill (M > 8). 1 = rocBLAS down + fused kernel; 0 = torch/Triton. Falls back to 0 when the op is not built (gfx1030 only).[^q4-tip-rdnaops][^q4-tip-hcprefill] |
+| `VLLM_RDNA_HC_PREFILL_HIP` | off | Older `hc_rdna2.cu` elementwise prefill kernels (sections below).[^q4-tip-envs] |
+| `VLLM_RDNA_QSA_HIP` | off | `qsa_rdna2.cu`.[^q4-tip-envs] |
+| `VLLM_RDNA_PLE_CONV_HIP` | off | `ple_short_conv_rdna2.cu`.[^q4-tip-envs] |
+
+`VLLM_ROCM_NO_MIXED_BATCH` is absent at `1dc3bac4` (consistent with the `e3bf3d33` note below). Sections tagged with older tips are history.
+
 Dest: `opengfx1030/vllm-rdna` `rdna_extras` @ **`50120e13`** (2026-09-17; HC capture-safe `_contig` on top of `8960a3bc`). Flash-Next / Qwen4Exp gfx1030 HIP opt-in paths. No tok/s. Occupancy still first.[^c-50120e13][^c-8960a3bc]
 
 CMake gfx1030 `EXT_SRC` includes: `rdna_fused_glue.cu`, `hc_rdna2.cu`, `qsa_rdna2.cu`, `ple_short_conv_rdna2.cu`, `mrope_rdna2.cu` (plus prior list). Unchanged by this tip.[^f-8960a3bc-rdna-fused-glue-cu][^f-8960a3bc-hc-rdna2-cu][^f-8960a3bc-qsa-rdna2-cu][^f-8960a3bc-ple-short-conv-rdna2-cu][^f-8960a3bc-mrope-rdna2-cu]
@@ -58,7 +70,7 @@ CMake gfx1030 `EXT_SRC` includes: `rdna_fused_glue.cu`, `hc_rdna2.cu`, `qsa_rdna
 
 - Explicit `__builtin_amdgcn_fdot2` on fp16 and int8→half2 weight rows (wave32 lanes stride K).[^f-c6d99ca3-rdna-fused-glue-cu][^f-50120e13-rdna-fused-glue-cu]
 - `__launch_bounds__(WAVES * 32)`; tiny `__shared__ float s_gate[kMaxM]` on one kernel.[^f-c6d99ca3-rdna-fused-glue-cu][^f-50120e13-rdna-fused-glue-cu]
-- Opt-in: `VLLM_RDNA_FUSED_HC=1` + `on_gfx10x()`. Default off.[^f-c6d99ca3-envs-py]
+- Gate: `VLLM_RDNA_FUSED_HC` (+ ROCm, fp16 input). **Default on** (`"1"`), already at `c6d99ca3` and still at `1dc3bac4`; the earlier "opt-in, default off" wording here was wrong.[^f-c6d99ca3-envs-py][^q4-tip-envs][^q4-tip-hcpy]
 - No WMMA. Real DOT path for Flash-Next decode glue.[^f-c6d99ca3-rdna-fused-glue-cu][^f-50120e13-rdna-fused-glue-cu]
 
 ### T47 `hc_rdna2.cu` — HyperConnection prefill glue
@@ -141,7 +153,7 @@ Leave: author tok/s and the HIP-vs-Triton gap figures. The same tip's adaptive p
 
 ## Leave
 
-- Do not treat fused_glue / HC / QSA / PLE defaults as on — `VLLM_RDNA_FUSED_HC`, `VLLM_RDNA_HC_PREFILL_HIP`, `VLLM_RDNA_QSA_HIP`, `VLLM_RDNA_PLE_CONV_HIP` are all env-gated opt-in (default off) until soak / capture-safe.[^f-c6d99ca3-envs-py]
+- Defaults at `1dc3bac4`: `VLLM_RDNA_FUSED_HC` is **on** (fused decode glue). `VLLM_RDNA_HC_PREFILL_HIP`, `VLLM_RDNA_QSA_HIP`, `VLLM_RDNA_PLE_CONV_HIP` are opt-in (default off). Do not treat the last three as on.[^q4-tip-envs]
 - Do not flip `VLLM_RDNA_HC_PREFILL_HIP=1` on serve until MoE PIECEWISE capture fault is resolved (HC alone is not enough).[^f-c6d99ca3-envs-py]
 - No transplant of HC/PLE onto GLM KDA / norm-after-gate (same split as gated_rms_norm / causal_conv).[^f-c6d99ca3-layernorm-cu]
 - No WMMA/FP8 objects; gfx1030 stays fdot2 / EXL3.[^c-50120e13][^f-50120e13-CMakeLists-txt]
@@ -199,3 +211,7 @@ FA prefill leftover still first (`__launch_bounds__(*, 1)`). ticket-26 EXL3 `-cb
 [^f-50120e13-mrope-rdna2-cu]: opengfx1030/vllm-rdna `csrc/rocm/mrope_rdna2.cu` @ [`50120e13`](https://github.com/opengfx1030/vllm-rdna/blob/50120e13b46895fc5d074e88fc493f1eef69da9f/csrc/rocm/mrope_rdna2.cu).
 [^f-c6d99ca3-layernorm-cu]: opengfx1030/vllm-rdna `csrc/rocm/layernorm.cu` @ [`c6d99ca3`](https://github.com/opengfx1030/vllm-rdna/blob/c6d99ca30580f0ce6a97a168fa53bf9c6ee6b2af/csrc/rocm/layernorm.cu).
 [^f-50120e13-CMakeLists-txt]: opengfx1030/vllm-rdna `CMakeLists.txt` @ [`50120e13`](https://github.com/opengfx1030/vllm-rdna/blob/50120e13b46895fc5d074e88fc493f1eef69da9f/CMakeLists.txt).
+[^q4-tip-envs]: `vllm/envs.py` L2191-L2197 (`VLLM_RDNA_FUSED_HC` default "1", `HC_PREFILL_HIP` / `QSA_HIP` / `PLE_CONV_HIP` default "0"), dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/envs.py#L2191-L2197
+[^q4-tip-hcpy]: `_rdna_fused_ok()` in `vllm/models/qwen4_exp/amd/hyperconnection.py` L66-L72, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/models/qwen4_exp/amd/hyperconnection.py#L66-L72
+[^q4-tip-rdnaops]: `_HC_PREFILL_FUSED` modes in `vllm/model_executor/layers/rdna_ops.py` L118-L125, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/rdna_ops.py#L118-L125
+[^q4-tip-hcprefill]: `csrc/rocm/hc_prefill_rdna2.cu` (header L1-L20; kernels L66, L250 `__launch_bounds__(TY * 16)`) and binding `rdna_hc_mix_prefill` at `csrc/rocm/torch_bindings.cpp` L85-L87, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/hc_prefill_rdna2.cu ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/torch_bindings.cpp#L85-L87
