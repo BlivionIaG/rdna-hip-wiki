@@ -59,8 +59,8 @@ LDS: keep the WG under 64 KiB. Occupancy = min(VGPR, LDS, SIMD). Do not pin `(N,
 
 ## Wiki gaps this pass
 
-- No `VERIFY` token left on DOT8 / bank pages. DOT8 stays **Explore / W4A4 i4×i4 only** ([w4a4.md](w4a4.md), [silicon/valu.md](../silicon/valu.md)). `ds_read_b128` cycle count still **unknown** ([silicon/lds-tiles.md](../silicon/lds-tiles.md) §8).
-- Bank serial walk diagram now in [silicon/lds-tiles.md](../silicon/lds-tiles.md) §1.2 (was formula-only).
+- No `VERIFY` token left on DOT8 / bank pages. DOT8 stays **Explore / W4A4 i4×i4 only** ([w4a4.md](w4a4.md), [silicon/arch-and-memory/valu.md](../silicon/arch-and-memory/valu.md)). `ds_read_b128` cycle count still **unknown** ([silicon/lds-and-tiles/lds-tiles.md](../silicon/lds-and-tiles/lds-tiles.md) §8).
+- Bank serial walk diagram now in [silicon/lds-and-tiles/lds-tiles.md](../silicon/lds-and-tiles/lds-tiles.md) §1.2 (was formula-only).
 - Empty-ish kernel stubs (`lightning-indexer.md`, `mxfp4.md`, `skinny-gemm.md`, `flashkda.md`) are one-pagers by design, not blank.
 
 ## Does this change extras / tickets?

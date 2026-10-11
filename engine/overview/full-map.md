@@ -56,7 +56,7 @@ Verdicts are this page's technique table; serve locks (prefix caching, all-reduc
 | KV FP8 | Not a vLLM path (`supports_fp8()` false). If you write KV quant, INT8 + fused dequant. |
 | KV offload (host/SSD) | Prefix reuse and preemption only. Not per-token decode H2D. |
 | MoE expert offload | Huge MoE: CPU-resident experts + GPU attention. gfx1030 is outside AITER and the Triton MoE whitelist. |
-| Tensor parallel | Capacity, not speed. RCCL Ring/Tree over PCIe. No XGMI. Stock vLLM custom AR is gfx94/95 only; dest ships `rdna_ar`, a push one-shot all-reduce up to 64 KiB (`RDNA_AR_ONESHOT_MAX`), RCCL above; two-shot was removed; since `00fcc97f` each call returns a fresh output tensor[^dest-rdna-ar]. Mechanics: [silicon/rdna-allreduce.md](../../silicon/rdna-allreduce.md); whether it is on: [fork/serve-locks.md](../../fork/serve-locks.md). |
+| Tensor parallel | Capacity, not speed. RCCL Ring/Tree over PCIe. No XGMI. Stock vLLM custom AR is gfx94/95 only; dest ships `rdna_ar`, a push one-shot all-reduce up to 64 KiB (`RDNA_AR_ONESHOT_MAX`), RCCL above; two-shot was removed; since `00fcc97f` each call returns a fresh output tensor[^dest-rdna-ar]. Mechanics: [silicon/interconnect/rdna-allreduce.md](../../silicon/interconnect/rdna-allreduce.md); whether it is on: [fork/serve-locks.md](../../fork/serve-locks.md). |
 | Pipeline parallel | AMD's hint with no high-speed interconnect. No sourced RDNA2 measurement. |
 
 ## Write order (engine, not silicon)
@@ -71,9 +71,9 @@ Verdicts are this page's technique table; serve locks (prefix caching, all-reduc
 
 ## Cache / RCCL (one-liners)
 
-HIP default loads stay. No persist / IC bypass / prefetch on gfx1030. Single-GPU: only 7B W4/mxfp4 fit a layer in 128 MB IC. TP=4: 7B all formats; 27B W4/mxfp4 fit; 27B W8A8 ~7 MiB over (format-size note, not a live kernel). Leftover IC is hundreds of KV tokens, not the full cache. Details: [silicon/cache-policy.md](../../silicon/cache-policy.md).
+HIP default loads stay. No persist / IC bypass / prefetch on gfx1030. Single-GPU: only 7B W4/mxfp4 fit a layer in 128 MB IC. TP=4: 7B all formats; 27B W4/mxfp4 fit; 27B W8A8 ~7 MiB over (format-size note, not a live kernel). Leftover IC is hundreds of KV tokens, not the full cache. Details: [silicon/arch-and-memory/cache-policy.md](../../silicon/arch-and-memory/cache-policy.md).
 
-4× V620 is PCIe 4.0 x16 only. `HSA_FORCE_FINE_GRAIN_PCIE=1` + large BAR. Ring n=4 algbw ≤ ~21 GB/s if the bus is perfect. W4A16 does not shrink all-reduce. P2P is attested on this 4× V620 (attested, 2026-08-17). Still no measured `hipMemcpyPeer` GB/s. Custom AR is a policy/perf question, not a “does P2P exist” question. Details: [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md). Before trusting rccl-tests or a TP=4 run, check the host kernel: `dmesg | grep "Initialized amdgpu"` must report DRM **≥ 3.64**; older stock kernels (Ubuntu 24.04 6.8) give silent `all_gather` / `reduce_scatter` corruption and a VMM hang, and `HSA_DISABLE_CACHE=1` is only a stopgap[^drm364]. See [toolchain/comms/README.md](../../toolchain/comms/README.md) (2026-10-07) and [toolchain/runtime/README.md](../../toolchain/runtime/README.md).
+4× V620 is PCIe 4.0 x16 only. `HSA_FORCE_FINE_GRAIN_PCIE=1` + large BAR. Ring n=4 algbw ≤ ~21 GB/s if the bus is perfect. W4A16 does not shrink all-reduce. P2P is attested on this 4× V620 (attested, 2026-08-17). Still no measured `hipMemcpyPeer` GB/s. Custom AR is a policy/perf question, not a “does P2P exist” question. Details: [silicon/interconnect/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md). Before trusting rccl-tests or a TP=4 run, check the host kernel: `dmesg | grep "Initialized amdgpu"` must report DRM **≥ 3.64**; older stock kernels (Ubuntu 24.04 6.8) give silent `all_gather` / `reduce_scatter` corruption and a VMM hang, and `HSA_DISABLE_CACHE=1` is only a stopgap[^drm364]. See [toolchain/comms/README.md](../../toolchain/comms/README.md) (2026-10-07) and [toolchain/runtime/README.md](../../toolchain/runtime/README.md).
 
 ## Unknowns (do not fill)
 

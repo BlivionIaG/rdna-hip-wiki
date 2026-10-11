@@ -21,7 +21,7 @@ sources:
 
 Date: **2026-10-11**. Audience: someone compiling HIP for **gfx1030** (live dest), with later **gfx1100** and **gfx900** translation units.
 
-What DPP, `ds_bpermute`, and `amdgpu_waves_per_eu` do on the gfx1030 ISA is in [silicon/dpp-crosslane-occupancy.md](../../silicon/dpp-crosslane-occupancy.md), [silicon/vgpr-occupancy.md](../../silicon/vgpr-occupancy.md), and [silicon/hip-craft.md](../../silicon/hip-craft.md). This page keeps flags and compiler-version bugs. The nightly SHA log is [../log/compiler-scans.md](../log/compiler-scans.md).
+What DPP, `ds_bpermute`, and `amdgpu_waves_per_eu` do on the gfx1030 ISA is in [silicon/occupancy/dpp-crosslane-occupancy.md](../../silicon/occupancy/dpp-crosslane-occupancy.md), [silicon/occupancy/vgpr-occupancy.md](../../silicon/occupancy/vgpr-occupancy.md), and [silicon/hip-craft/hip-craft.md](../../silicon/hip-craft/hip-craft.md). This page keeps flags and compiler-version bugs. The nightly SHA log is [../log/compiler-scans.md](../log/compiler-scans.md).
 
 ## Flags
 
@@ -49,13 +49,13 @@ flowchart LR
   co1100 --> bundle
 ```
 
-On RDNA, rocmcc documents `-mwavefrontsize64` / `-mno-wavefrontsize64` and `-mcumode` (CU mode versus WGP mode).[^rocmcc] HIP's language extensions say AMD devices return `warpSize` 64 on gfx9 and 32 on gfx10 and above, and that HIP does not support `warpSize` of 64 on gfx10 and above. The same page says the `mwavefrontsize64` compiler option is not supported by the HIP runtime.[^hipwarp] What WGP versus CU mode does to LDS and the SIMD map is [silicon/hip-craft.md](../../silicon/hip-craft.md). Do not add `-mwavefrontsize64` or `-mcumode` on the live gfx1030 line.
+On RDNA, rocmcc documents `-mwavefrontsize64` / `-mno-wavefrontsize64` and `-mcumode` (CU mode versus WGP mode).[^rocmcc] HIP's language extensions say AMD devices return `warpSize` 64 on gfx9 and 32 on gfx10 and above, and that HIP does not support `warpSize` of 64 on gfx10 and above. The same page says the `mwavefrontsize64` compiler option is not supported by the HIP runtime.[^hipwarp] What WGP versus CU mode does to LDS and the SIMD map is [silicon/hip-craft/hip-craft.md](../../silicon/hip-craft/hip-craft.md). Do not add `-mwavefrontsize64` or `-mcumode` on the live gfx1030 line.
 
 `-Rpass-analysis=kernel-resource-usage` is how the spill notes below were read. `--save-temps` keeps the assembly.
 
 ## Gotcha — `amdgpu_waves_per_eu` can miscompile on clang 22
 
-Clang documents `__attribute__((amdgpu_waves_per_eu(min[, max])))` as an optimization hint. The backend may limit SGPRs, VGPRs, and group or private memory so that at least `min` and at most `max` waves fit on an execution unit. It warns when it cannot meet the request. Passing `0, 0` means no extra limit.[^clangwpe] The gfx1030 reading of "EU" (one SIMD32) and the VGPR ladder are [silicon/vgpr-occupancy.md](../../silicon/vgpr-occupancy.md). This page only records where that hint produced wrong answers.
+Clang documents `__attribute__((amdgpu_waves_per_eu(min[, max])))` as an optimization hint. The backend may limit SGPRs, VGPRs, and group or private memory so that at least `min` and at most `max` waves fit on an execution unit. It warns when it cannot meet the request. Passing `0, 0` means no extra limit.[^clangwpe] The gfx1030 reading of "EU" (one SIMD32) and the VGPR ladder are [silicon/occupancy/vgpr-occupancy.md](../../silicon/occupancy/vgpr-occupancy.md). This page only records where that hint produced wrong answers.
 
 Strata [#1180](https://github.com/Niko1221/Strata/issues/1180) (open; the occupancy cap is switched off in engine 0.1.40.2 when `__clang_major__ >= 22`): a gfx11 WMMA MoE prefill kernel built with `amdgpu_waves_per_eu(8)` returned wrong results on **gfx1100** with ROCm 7.10 / AMD clang 22. Relative RMS against the kernel's own int8-rounded model was 6.544e-02. With the barrier present, the cap at 8 failed 0/20 runs and the cap at 1 passed 20/20.[^strata1180] The same issue also had a missing `__syncthreads()` after a double-buffered LDS write, which failed about 45% of runs on that machine; the two defects are independent in the report.[^strata1180]
 
@@ -65,13 +65,13 @@ No repro on the 7.14.0 dest is written here. No pin change.
 
 ## Gotcha — `__shfl_xor` keeps a bounds check
 
-CLR `__shfl_xor` has a lane bounds check that should fold away when `width == warpSize`. [rocm-systems#11618](https://github.com/ROCm/rocm-systems/pull/11618) (open) says LLVM cannot prove `__lane_id() < warpSize`, so the check survives as `v_cndmask`. The PR masks the lane id with `warpSize - 1`. On a wave32 butterfly (`k32.hip`, five steps) compiled with ROCm 10.0 / LLVM 23, gfx1030 and gfx1100 each go from 32 `v_*` and 5 `v_cndmask` to 11 `v_*` and 0 `v_cndmask`. gfx90a (`k64.hip`) goes from 40 / 6 to 17 / 0. With `width = 8` the `v_cndmask` count is unchanged.[^shfl11618] What a shuffle costs in pipes and waitcnt on gfx1030 is [silicon/dpp-crosslane-occupancy.md](../../silicon/dpp-crosslane-occupancy.md).
+CLR `__shfl_xor` has a lane bounds check that should fold away when `width == warpSize`. [rocm-systems#11618](https://github.com/ROCm/rocm-systems/pull/11618) (open) says LLVM cannot prove `__lane_id() < warpSize`, so the check survives as `v_cndmask`. The PR masks the lane id with `warpSize - 1`. On a wave32 butterfly (`k32.hip`, five steps) compiled with ROCm 10.0 / LLVM 23, gfx1030 and gfx1100 each go from 32 `v_*` and 5 `v_cndmask` to 11 `v_*` and 0 `v_cndmask`. gfx90a (`k64.hip`) goes from 40 / 6 to 17 / 0. With `width = 8` the `v_cndmask` count is unchanged.[^shfl11618] What a shuffle costs in pipes and waitcnt on gfx1030 is [silicon/occupancy/dpp-crosslane-occupancy.md](../../silicon/occupancy/dpp-crosslane-occupancy.md).
 
 Until that PR is in a pin we build, `--save-temps` and a search for `v_cndmask` in a full-wave reduction is the check. No pin change.
 
 ## Gotcha — pass DPP operands as bits
 
-`__builtin_amdgcn_mov_dpp` is integer-typed. bitsandbytes [#2089](https://github.com/bitsandbytes-foundation/bitsandbytes/pull/2089) (open) reports that passing a `float` through it on ROCm 6.4.4 / clang 19 emitted numeric float↔int conversions. On RX 7900 GRE / gfx1100 the `Linear4bit` warp reduction had relative L1 error 0.125295 before the patch and 0.002051 after wrapping the value in `__float_as_uint` / `__uint_as_float`. A patched ROCm 10 / clang 23 build passed the same three tests.[^bnb2089] The bit pattern DPP moves, and which DPP controls exist on gfx1030, are [silicon/dpp-crosslane-occupancy.md](../../silicon/dpp-crosslane-occupancy.md). Keep the bitcast so the result does not depend on the compiler's implicit conversion. No pin change.
+`__builtin_amdgcn_mov_dpp` is integer-typed. bitsandbytes [#2089](https://github.com/bitsandbytes-foundation/bitsandbytes/pull/2089) (open) reports that passing a `float` through it on ROCm 6.4.4 / clang 19 emitted numeric float↔int conversions. On RX 7900 GRE / gfx1100 the `Linear4bit` warp reduction had relative L1 error 0.125295 before the patch and 0.002051 after wrapping the value in `__float_as_uint` / `__uint_as_float`. A patched ROCm 10 / clang 23 build passed the same three tests.[^bnb2089] The bit pattern DPP moves, and which DPP controls exist on gfx1030, are [silicon/occupancy/dpp-crosslane-occupancy.md](../../silicon/occupancy/dpp-crosslane-occupancy.md). Keep the bitcast so the result does not depend on the compiler's implicit conversion. No pin change.
 
 ## Gotcha — full unroll can spill VGPRs on RDNA
 

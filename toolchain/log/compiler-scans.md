@@ -112,11 +112,11 @@ sources:
 
 Date: **2026-10-09**. Audience: someone compiling HIP for **gfx1030** (live), with later **gfx1100** and **gfx900** TUs.
 
-Companions: [silicon/hip-craft.md](../../silicon/hip-craft.md).
+Companions: [silicon/hip-craft/hip-craft.md](../../silicon/hip-craft/hip-craft.md).
 
 ## Gotcha — pass DPP operands as bits, not as `float` (2026-10-09)
 
-`__builtin_amdgcn_mov_dpp` is integer-typed. bitsandbytes [#2089](https://github.com/bitsandbytes-foundation/bitsandbytes/pull/2089) (open) found that passing a `float` straight in made ROCm 6.4.4 / clang 19 emit numeric float→int and int→float conversions around the DPP move, so the 4-bit `Linear4bit` warp reduction on gfx1100 had relative L1 error 0.125 instead of 0.002. ROCm 10 / clang 23 happened to lower it correctly. Always wrap with `__float_as_uint` / `__uint_as_float` (or `__builtin_bit_cast`) so the result doesn't depend on the compiler's implicit conversion. This also matches the bitcast form recorded in [silicon/dpp-crosslane-occupancy.md](../../silicon/dpp-crosslane-occupancy.md). Craft note only, no pin change.
+`__builtin_amdgcn_mov_dpp` is integer-typed. bitsandbytes [#2089](https://github.com/bitsandbytes-foundation/bitsandbytes/pull/2089) (open) found that passing a `float` straight in made ROCm 6.4.4 / clang 19 emit numeric float→int and int→float conversions around the DPP move, so the 4-bit `Linear4bit` warp reduction on gfx1100 had relative L1 error 0.125 instead of 0.002. ROCm 10 / clang 23 happened to lower it correctly. Always wrap with `__float_as_uint` / `__uint_as_float` (or `__builtin_bit_cast`) so the result doesn't depend on the compiler's implicit conversion. This also matches the bitcast form recorded in [silicon/occupancy/dpp-crosslane-occupancy.md](../../silicon/occupancy/dpp-crosslane-occupancy.md). Craft note only, no pin change.
 
 ## Gotcha — `amdgpu_waves_per_eu` VGPR caps can silently compute wrong on some compilers (2026-10-08)
 

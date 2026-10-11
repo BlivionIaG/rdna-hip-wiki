@@ -33,7 +33,7 @@ HC HIP chain compute-correct for Flash-Next production shape. Six defects cleare
 
 Author parity vs Triton at `N=4, DIM=10240, hc_count=4, HC_DIM=2560, W_SHARED=0`: grouped_gemma_rmsnorm / combine_norm / silu / gate_mix / combine all at fp16 noise. That is the commit author's claim — not a measurement of ours. Do not invent numbers.
 
-**Leave gate default-off.** With `VLLM_RDNA_HC_PREFILL_HIP=1`, server still faults during PIECEWISE capture in the MoE path (`moe_gemm_q4_kernel_rdna2` or `moe_align_block_size_kernel`, order varies). HC ops correct in isolation; not proven capture-safe in context. See [../silicon/graph-capture.md](../silicon/graph-capture.md).
+**Leave gate default-off.** With `VLLM_RDNA_HC_PREFILL_HIP=1`, server still faults during PIECEWISE capture in the MoE path (`moe_gemm_q4_kernel_rdna2` or `moe_align_block_size_kernel`, order varies). HC ops correct in isolation; not proven capture-safe in context. See [../silicon/hip-craft/graph-capture.md](../silicon/hip-craft/graph-capture.md).
 
 Wrappers from `d0d577f1` remain: `hc_{grouped_gemma_rmsnorm,silu,gate_mix,combine,combine_norm}_rdna2` in `_custom_ops.py` matching `torch_bindings.cpp`. Without them the path was inert (`AttributeError`).
 

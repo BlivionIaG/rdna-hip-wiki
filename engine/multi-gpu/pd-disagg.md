@@ -12,7 +12,7 @@ vLLM: PD does **not** raise throughput; it decouples TTFT vs ITL.[^vllm-disagg] 
 
 Sourced alternatives on this box: colocate + [chunked prefill](../scheduling/batching.md), OffloadingConnector, ktransformers-style CPU sparse attn (don't move KV on decode).
 
-This is collectives / a KV fabric, not something RCCL P2P unlocks. See [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md).
+This is collectives / a KV fabric, not something RCCL P2P unlocks. See [silicon/interconnect/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md).
 
 ## Diagram — PD request path (generic)
 

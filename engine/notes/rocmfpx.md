@@ -66,4 +66,4 @@ Side project, not a vLLM card: [../llamacpp-rocmfpx.md](../alt-engines/llamacpp-
 - https://github.com/charlie12345/ROCmFPX README + `ggml/rocmfp4/`
 - `rocmfp4_hip_codebook.cuh` (`amdgcn_perm` Codebook10)
 - `rocmfp4.h` (`block_rocmfp4` 18 B / `block_rocmfp4_fast` 17 B)
-- [nvfp4.md](../quant-formats/nvfp4.md), [w4a4.md](../quant-formats/w4a4.md), [silicon/valu.md](../../silicon/valu.md)
+- [nvfp4.md](../quant-formats/nvfp4.md), [w4a4.md](../quant-formats/w4a4.md), [silicon/arch-and-memory/valu.md](../../silicon/arch-and-memory/valu.md)

@@ -8,7 +8,7 @@ ROCm **7.2.0** and **7.14.0** system-requirements: V620 / gfx1030 is ✅ with fo
 
 Sources: [7.2 system-requirements](https://rocm.docs.amd.com/projects/install-on-linux/en/docs-7.2.0/reference/system-requirements.html) footnote [8]; [latest](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html) footnote [8] / [9].
 
-That is **QA scope**, not physics. Fedora is not in the matrix. “Not on RHEL” in [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md) meant the footnote, not a measured fail.
+That is **QA scope**, not physics. Fedora is not in the matrix. “Not on RHEL” in [silicon/interconnect/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md) meant the footnote, not a measured fail.
 
 ## Attested (2026-08-19)
 
@@ -38,7 +38,7 @@ Pin and status live in [toolchain/pin/README.md](../../toolchain/pin/README.md);
 - **ROCm 10.1.0 docs and compatibility matrix are live (since 2026-10-06)**[^rocm1010]. Per [toolchain/pin/README.md](../../toolchain/pin/README.md), Core SDK 10.1.0 still lists **gfx1030** (V620, W6800) and gfx1100/1101/1102; the framework support lists exclude gfx1030. Breaking for host scripts: `rocm-smi` is no longer the default tool, use `amd-smi`.
 - ROCm 10.0 (2026-08-27): [Newsroom](https://newsroom.amd.com/news/rocm-10-software-ai-native-developer-experiences/) is PR. [Blog](https://rocm.blogs.amd.com/ecosystems-and-partners/rocm-x-blog/README.html) is TheRock-on-7.14 plus ROCm.AI (CLI / amd/skills / Hyperloom). Skills/Hyperloom/vLLM adapters are Instinct (MI300/325/350/355) and EPYC. Official 3.3×/2.4× is MI355x — do not copy.
 - hipBLASLt local tuner is still not a gfx1030 dest (TheRock #1062[^therock1062]). FlyDSL/CK/GEAK/TileLang stay Leave. Roofline in rocprofiler-compute is **GFX11xx**, not gfx1030.
-- Silicon: [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md) (GIN ≠ 88096 PIX).
+- Silicon: [silicon/interconnect/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md) (GIN ≠ 88096 PIX).
 - **gfx1030 not dropped (checked 2026-08-28):** TheRock `main` `cmake/therock_amdgpu_targets.cmake` still adds `gfx1030` (`gfx103X-dgpu`). Excludes are libraries (hipBLASLt #1062, CK, rocWMMA, hipTensor, hipSPARSELt, rocprofiler-compute) — not the target. RCCL stays. The ROCm 10.0.0 matrix listed V620 / W6800 (Ubuntu-only V620 footnote).
 
 ## Sources

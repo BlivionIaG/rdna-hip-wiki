@@ -35,7 +35,7 @@ The race-detector plugin notes from the previous flat page were not re-opened th
 
 ## `amd-smi` and `rocm-smi`
 
-ROCm 10.1.0 release notes (2026-10-05) say `rocm-smi-lib` is no longer built or installed in the standard TheRock build. `amd-smi` is the replacement.[^rn1010] The live dest is still 7.14.0, so this is a 10.1+ fact. Topology commands that still say `rocm-smi` live in [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md); switch them to `amd-smi` when a host is actually on 10.1.
+ROCm 10.1.0 release notes (2026-10-05) say `rocm-smi-lib` is no longer built or installed in the standard TheRock build. `amd-smi` is the replacement.[^rn1010] The live dest is still 7.14.0, so this is a 10.1+ fact. Topology commands that still say `rocm-smi` live in [silicon/interconnect/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md); switch them to `amd-smi` when a host is actually on 10.1.
 
 ## `tune_rocblas` and the spill gate
 

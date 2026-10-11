@@ -9,7 +9,7 @@ sources:
 
 Owned by ROCM_specialist. This folder is the ROCm pin, the compiler and HIP runtime, the math libraries those kernels call, and RCCL's arch and host-kernel gates.
 
-Kernel craft (what the gfx1030 ISA does, occupancy, DPP encodings, `__launch_bounds__`) stays in [silicon/](../silicon/README.md). RCCL topology, PCIe P2P, and custom all-reduce stay in [silicon/rccl-p2p.md](../silicon/rccl-p2p.md). This folder links there instead of copying those pages.
+Kernel craft (what the gfx1030 ISA does, occupancy, DPP encodings, `__launch_bounds__`) stays in [silicon/](../silicon/README.md). RCCL topology, PCIe P2P, and custom all-reduce stay in [silicon/interconnect/rccl-p2p.md](../silicon/interconnect/rccl-p2p.md). This folder links there instead of copying those pages.
 
 The live dest pin is ROCm **7.14.0**. The GitHub tag `rocm-7.14.0` is commit `830cc1b5e90d7da1b07e39113d7a5c95f3e687a1`.[^tag7140]
 

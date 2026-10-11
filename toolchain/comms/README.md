@@ -26,7 +26,7 @@ sources:
 
 Date: **2026-10-11**. Host-kernel gate, arch gating, NCCL-compat environment variables, and HIP/RCCL bugs that show up when P2P setup fails or a collective is pathologically slow.
 
-Topology, PCIe P2P bandwidth, and custom all-reduce policy for the 4× V620 box are [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md). This page does not restate them. The intact 2026-09-03 scan of the then-open Navi PR is [../log/comms-notes.md](../log/comms-notes.md).
+Topology, PCIe P2P bandwidth, and custom all-reduce policy for the 4× V620 box are [silicon/interconnect/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md). This page does not restate them. The intact 2026-09-03 scan of the then-open Navi PR is [../log/comms-notes.md](../log/comms-notes.md).
 
 ## Bring-up
 
@@ -71,7 +71,7 @@ const bool disableRingDiversity = isGfx_110x_120x && !p2pDisabled;
 
 The automatic ring generator is gfx110/gfx120 and only when P2P is disabled. `rcclParamIntraGraphGen()` is OR'd in front of that arch test, so the parameter itself is not arch-checked in this expression.[^connect] The PR body says the knobs default off, that Navi's default is 2 channels, and that the author considers about 4% on P2P/IPC and about 10% on the SHM path possible. Those percentages are the author's, not a measurement from this wiki.[^navi11035] The environment-variable spellings and the numeric channel defaults (the 2026-09-03 scan's `RCCL_INIT_CHANNELS` / 56 / 6) were not re-found in `param.cc` or `rccl_vars.h` at this merge commit (unsourced). They remain in the [archived scan](../log/comms-notes.md).
 
-`rcclGetTuningIndexForArch` at the same commit maps **gfx1030 → 0**, the same index as gfx906, gfx908, and gfx90a. gfx1100, gfx1101, and gfx1102 map to 10. gfx1151 maps to 9. gfx1200 and gfx1201 map to 7.[^tuning] The 2026-09-03 scan of the open PR said gfx1102 stayed at 0; the merged file read this pass has gfx1102 at 10. gfx1030 is still the generic row. Filling a gfx1030 row is separate tuning work and needs `NCCL_DEBUG_SUBSYS=TUNING` measurements first. Measured topology stays in [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md).
+`rcclGetTuningIndexForArch` at the same commit maps **gfx1030 → 0**, the same index as gfx906, gfx908, and gfx90a. gfx1100, gfx1101, and gfx1102 map to 10. gfx1151 maps to 9. gfx1200 and gfx1201 map to 7.[^tuning] The 2026-09-03 scan of the open PR said gfx1102 stayed at 0; the merged file read this pass has gfx1102 at 10. gfx1030 is still the generic row. Filling a gfx1030 row is separate tuning work and needs `NCCL_DEBUG_SUBSYS=TUNING` measurements first. Measured topology stays in [silicon/interconnect/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md).
 
 `ncclTopoPreset` at that commit warns when `nChannels` is outside `[1, MAXCHANNELS]` and when a graph's channel count is below `comm->nChannels`.[^connect]
 
@@ -81,7 +81,7 @@ Do not flip `VLLM_RDNA_AR` or `FORCE_CUSTOM_ALL_REDUCE` from this page. Custom a
 
 RCCL accepts the NCCL names. The rows below are the current NVIDIA environment-variables page, read 2026-10-11. That page is not pinned to the NCCL version a given RCCL build tracks. Where AMD prints its own number, the citation is the RCCL 2.27.7 usage tips on the docs-7.2.0 tree.[^ncclenv][^rccltips]
 
-Which `NCCL_P2P_LEVEL` cutoff matches a given host is measured topology on [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md). This table does not assign one.
+Which `NCCL_P2P_LEVEL` cutoff matches a given host is measured topology on [silicon/interconnect/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md). This table does not assign one.
 
 | Variable | What the opened page says |
 |---|---|
@@ -97,7 +97,7 @@ On an 8× MI300X system the same RCCL 2.27.7 tips say RCCL already uses **32** c
 
 MSCCL on that page is enabled by default on MI300X. Other platforms use `RCCL_MSCCL_FORCE_ENABLE=1`. MSCCL++ is `RCCL_MSCCLPP_ENABLE=1`, with `RCCL_MSCCLPP_THRESHOLD` defaulting to 1 MB. The tips page does not mention `RCCL_MSCCL_ENABLE`.[^rccltips]
 
-Symmetric memory and the GIN device API are the ROCm 10.0 section below. vLLM's custom all-reduce gate stays on [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md).
+Symmetric memory and the GIN device API are the ROCm 10.0 section below. vLLM's custom all-reduce gate stays on [silicon/interconnect/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md).
 
 ## HIP and RCCL bugs
 
@@ -115,7 +115,7 @@ These are reports on other GPUs. None of them is a published V620 rccl-tests tab
 
 With `NCCL_P2P_DISABLE=1` the same collectives are 30–41 µs for small sizes and 26 GB/s at 33 MB. With P2P selected, the report's figure is a fixed ~215 ms per collective. A vLLM TP=2 probe goes from 42.43 s to 0.029 s for 8 tokens (1477×). The report gives ~5.3 s/step on a 12-layer model (24 × 221 ms) and ~27 s on a 64-layer model (128 × 211 ms). It also says the ROCm 7.2.3 host, single-process two-GPU rccl-tests with P2P enabled, crashes with an illegal memory access and an amdgpu UTCL2 page fault on the second GPU, and that the slowdown still happens with `amd_iommu=off`. The reporter's reading of the stall (one GPU at 100%, the other at 0%, host idle; "~215 ms ≈ 20+ MES process quanta") is the reporter's, not an AMD root-cause note.[^rccl6576]
 
-The workaround recorded in that issue is `NCCL_P2P_DISABLE=1`. On 4× V620, time both transports before treating a slow collective as a kernel bug. The peer matrix for this box is [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md).
+The workaround recorded in that issue is `NCCL_P2P_DISABLE=1`. On 4× V620, time both transports before treating a slow collective as a kernel bug. The peer matrix for this box is [silicon/interconnect/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md).
 
 ### Device copy and IPC open
 
@@ -133,7 +133,7 @@ The workaround recorded in that issue is `NCCL_P2P_DISABLE=1`. On 4× V620, time
 
 The ROCm 10.0 blog, dated August 27, 2026, by Liam Berry, Saad Rahim, Anshul Gupta, and Evan Groenke, says RCCL advances its upstream NCCL merge from **2.28.3 to 2.30.4** and adds symmetric memory for tightly coupled multi-GPU peer-to-peer, a GPU-initiated networking (GIN) device API that starts network transfers over GDA and SDMA instead of bouncing through the CPU, one-sided host APIs, and Pythonic APIs. The same paragraph also names large-scale bootstrap improvements, fault-tolerance enhancements, copy-engine collectives, hierarchical AllGather, and direct collectives.[^rocm10blog]
 
-The blog does not publish a V620 or gfx1030 GIN bandwidth. This page does not add one. PIX BAR `hipMemcpyPeer` on the V620 stays in [silicon/deepep-v620.md](../../silicon/deepep-v620.md). Live dest stays **7.14.0**.
+The blog does not publish a V620 or gfx1030 GIN bandwidth. This page does not add one. PIX BAR `hipMemcpyPeer` on the V620 stays in [silicon/interconnect/deepep-v620.md](../../silicon/interconnect/deepep-v620.md). Live dest stays **7.14.0**.
 
 ## Sources
 
