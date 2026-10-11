@@ -1,26 +1,26 @@
 ---
 title: Kernel dispatch on gfx1030
 owner: VLLM_FORK_Manager
-pinned_tip: 1dc3bac4cda3201a1b4fb345e044578e84a272cf
+pinned_tip: fbe84e9411abcd229bd836deffe23f92176b978e
 upstream_base: db9527a46873454610df6dbedf79a36d6bf1a7f6
 verified: 2026-10-11
 sources:
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/platforms/rdna.py
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/platforms/rocm.py
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/docs/rdna2/v0.31.0-port-notes.md
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/kernels/linear/__init__.py
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/kernels/linear/mixed_precision/rdna2_w4a16.py
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/q_gemm_rdna2_common.cuh
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/fused_moe/oracle/int_wna16.py
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/fused_moe/oracle/mxfp4.py
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/rocm_moe_rdna.py
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/moe_q_gemm_rdna2.cu
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/q_gemm_rdna3.cu
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/q_gemm_rdna3_wmma.cu
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/moe_q_gemm_rdna3.cu
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/skinny_gemms_int4.cu
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/skinny_gemms.cu
-  - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/CMakeLists.txt
+  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/platforms/rdna.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/platforms/rocm.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/docs/rdna2/v0.31.0-port-notes.md
+  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/model_executor/kernels/linear/__init__.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/model_executor/kernels/linear/mixed_precision/rdna2_w4a16.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/q_gemm_rdna2_common.cuh
+  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/model_executor/layers/fused_moe/oracle/int_wna16.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/model_executor/layers/fused_moe/oracle/mxfp4.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/rocm_moe_rdna.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/moe_q_gemm_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/q_gemm_rdna3.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/q_gemm_rdna3_wmma.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/moe_q_gemm_rdna3.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/skinny_gemms_int4.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/skinny_gemms.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/CMakeLists.txt
   - https://github.com/vllm-project/vllm/blob/db9527a46873454610df6dbedf79a36d6bf1a7f6/vllm/platforms/rocm.py
   - https://github.com/vllm-project/vllm/blob/db9527a46873454610df6dbedf79a36d6bf1a7f6/csrc/rocm/torch_bindings.cpp
   - https://github.com/vllm-project/vllm/blob/db9527a46873454610df6dbedf79a36d6bf1a7f6/csrc/rocm/skinny_gemms_int4.cu
@@ -32,7 +32,7 @@ sources:
 
 [← fork/](README.md)
 
-How a gfx1030 layer ends up on a given kernel in `rdna_extras` at `1dc3bac4`. It has two halves: **runtime gates** in Python, which pick the kernel class, and **compile-time macros** in HIP, which decide whether the device code exists at all for gfx1030. Kernel formats live in [kernels/](../kernels/README.md); attention backend choice in depth is in [engine/attention-dispatch.md](../engine/attention/attention-dispatch.md).
+How a gfx1030 layer ends up on a given kernel in `rdna_extras` at `fbe84e94`. It has two halves: **runtime gates** in Python, which pick the kernel class, and **compile-time macros** in HIP, which decide whether the device code exists at all for gfx1030. Kernel formats live in [kernels/](../kernels/README.md); attention backend choice in depth is in [engine/attention-dispatch.md](../engine/attention/attention-dispatch.md).
 
 ## Runtime gates
 
@@ -108,27 +108,27 @@ Moved from the old `fork/README.md` "Gates (stock vLLM)" and re-checked against 
 
 ## Sources
 
-[^rdna]: `vllm/platforms/rdna.py`: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/platforms/rdna.py#L13-L44>
-[^gfx10x]: Fork `_ON_GFX10X` / `on_gfx10x()`: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/platforms/rocm.py#L228-L229> and <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/platforms/rocm.py#L340-L345>
-[^onrdna]: `_ON_RDNA = _ON_GFX1X and not _ON_CDNA`, `on_rdna()`: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/platforms/rocm.py#L242> and <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/platforms/rocm.py#L396-L397>
-[^gating]: Port notes "RDNA gating": <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/docs/rdna2/v0.31.0-port-notes.md?plain=1#L83-L101>
-[^linprio]: ROCm `_POSSIBLE_KERNELS`: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/kernels/linear/__init__.py#L525-L534>
-[^w4can]: `RDNA2W4A16LinearKernel.can_implement`: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/kernels/linear/mixed_precision/rdna2_w4a16.py#L243-L263>
-[^w4a8]: W4A8 gate (`VLLM_RDNA2_W4A8_SDOT4`, `W4A8_MIN_ROWS = 33`): <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/kernels/linear/mixed_precision/rdna2_w4a16.py#L39-L49> and <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/kernels/linear/mixed_precision/rdna2_w4a16.py#L97-L104>
-[^fdot2]: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/q_gemm_rdna2_common.cuh#L37-L45>
-[^moeprio]: WNA16 `_get_priority_backends`: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/fused_moe/oracle/int_wna16.py#L132-L162>
-[^moeincompat]: `_backend_incompatibility_reason` for `RDNA2_W4A16`: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/fused_moe/oracle/int_wna16.py#L176-L187>
-[^ctmoe]: `rocm_moe_rdna.is_supported` / `make_method`: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/rocm_moe_rdna.py#L16-L39> and <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/rocm_moe_rdna.py#L95-L110>
-[^moefdot2]: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/moe_q_gemm_rdna2.cu#L28>
-[^moebf16]: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/moe_q_gemm_rdna2.cu#L439-L445>
-[^mxfp4]: MXFP4 oracle, DeepSeek-V4 priority: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/fused_moe/oracle/mxfp4.py#L708-L718>
-[^fa]: `RDNA_ATTN` selection: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/platforms/rocm.py#L553-L554> and <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/platforms/rocm.py#L1134-L1148>
-[^faenv]: `VLLM_USE_RDNA2_FA` default False: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/envs.py#L1442-L1444>
-[^rdna3]: `__HIP__RDNA3__`: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/q_gemm_rdna3.cu#L47-L49>, <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/moe_q_gemm_rdna3.cu#L30-L32>
-[^wmma]: `q_gemm_rdna3_wmma.cu` header (`v_wmma_f32_16x16x16_{f16,bf16}_w32`) and macro: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/q_gemm_rdna3_wmma.cu#L16> and <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/q_gemm_rdna3_wmma.cu#L47-L49>
-[^gfx1xfork]: Fork `skinny_gemms_int4.cu`: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/skinny_gemms_int4.cu#L14-L19>
-[^skinny]: Fork `skinny_gemms.cu`: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/skinny_gemms.cu#L36-L39>
-[^cmake]: Fork `CMakeLists.txt`: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/CMakeLists.txt#L1593-L1599>
+[^rdna]: `vllm/platforms/rdna.py`: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/platforms/rdna.py#L13-L44>
+[^gfx10x]: Fork `_ON_GFX10X` / `on_gfx10x()`: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/platforms/rocm.py#L228-L229> and <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/platforms/rocm.py#L340-L345>
+[^onrdna]: `_ON_RDNA = _ON_GFX1X and not _ON_CDNA`, `on_rdna()`: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/platforms/rocm.py#L242> and <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/platforms/rocm.py#L396-L397>
+[^gating]: Port notes "RDNA gating": <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/docs/rdna2/v0.31.0-port-notes.md?plain=1#L83-L101>
+[^linprio]: ROCm `_POSSIBLE_KERNELS`: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/model_executor/kernels/linear/__init__.py#L526-L535>
+[^w4can]: `RDNA2W4A16LinearKernel.can_implement`: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/model_executor/kernels/linear/mixed_precision/rdna2_w4a16.py#L243-L263>
+[^w4a8]: W4A8 gate (`VLLM_RDNA2_W4A8_SDOT4`, `W4A8_MIN_ROWS = 33`): <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/model_executor/kernels/linear/mixed_precision/rdna2_w4a16.py#L39-L49> and <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/model_executor/kernels/linear/mixed_precision/rdna2_w4a16.py#L97-L104>
+[^fdot2]: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/q_gemm_rdna2_common.cuh#L37-L45>
+[^moeprio]: WNA16 `_get_priority_backends`: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/model_executor/layers/fused_moe/oracle/int_wna16.py#L132-L162>
+[^moeincompat]: `_backend_incompatibility_reason` for `RDNA2_W4A16`: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/model_executor/layers/fused_moe/oracle/int_wna16.py#L176-L187>
+[^ctmoe]: `rocm_moe_rdna.is_supported` / `make_method`: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/rocm_moe_rdna.py#L16-L39> and <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/rocm_moe_rdna.py#L95-L110>
+[^moefdot2]: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/moe_q_gemm_rdna2.cu#L28>
+[^moebf16]: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/moe_q_gemm_rdna2.cu#L439-L445>
+[^mxfp4]: MXFP4 oracle, DeepSeek-V4 priority: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/model_executor/layers/fused_moe/oracle/mxfp4.py#L708-L718>
+[^fa]: `RDNA_ATTN` selection: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/platforms/rocm.py#L553-L554> and <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/platforms/rocm.py#L1134-L1148>
+[^faenv]: `VLLM_USE_RDNA2_FA` default False: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/envs.py#L1442-L1444>
+[^rdna3]: `__HIP__RDNA3__`: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/q_gemm_rdna3.cu#L47-L49>, <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/moe_q_gemm_rdna3.cu#L30-L32>
+[^wmma]: `q_gemm_rdna3_wmma.cu` header (`v_wmma_f32_16x16x16_{f16,bf16}_w32`) and macro: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/q_gemm_rdna3_wmma.cu#L16> and <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/q_gemm_rdna3_wmma.cu#L47-L49>
+[^gfx1xfork]: Fork `skinny_gemms_int4.cu`: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/skinny_gemms_int4.cu#L14-L19>
+[^skinny]: Fork `skinny_gemms.cu`: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/skinny_gemms.cu#L36-L39>
+[^cmake]: Fork `CMakeLists.txt`: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/CMakeLists.txt#L1593-L1599>
 [^upgfx1x]: v0.31.0 `_ON_GFX1X` / `on_gfx1x()`: <https://github.com/vllm-project/vllm/blob/db9527a46873454610df6dbedf79a36d6bf1a7f6/vllm/platforms/rocm.py#L212> and <https://github.com/vllm-project/vllm/blob/db9527a46873454610df6dbedf79a36d6bf1a7f6/vllm/platforms/rocm.py#L301-L302>
 [^pr52391]: vllm-project/vllm#52391 "[Feature][ROCm] Enable gfx1030 (RDNA2) as a recognized RDNA arch", open as of 2026-10-11: <https://github.com/vllm-project/vllm/pull/52391>
 [^upbind]: v0.31.0 `torch_bindings.cpp` `#ifdef VLLM_ROCM_GFX1100`: <https://github.com/vllm-project/vllm/blob/db9527a46873454610df6dbedf79a36d6bf1a7f6/csrc/rocm/torch_bindings.cpp#L56-L76>
@@ -136,4 +136,4 @@ Moved from the old `fork/README.md` "Gates (stock vLLM)" and re-checked against 
 [^upskinny]: v0.31.0 `skinny_gemms_int4.cu` macro and stub: <https://github.com/vllm-project/vllm/blob/db9527a46873454610df6dbedf79a36d6bf1a7f6/csrc/rocm/skinny_gemms_int4.cu#L15-L18> and <https://github.com/vllm-project/vllm/blob/db9527a46873454610df6dbedf79a36d6bf1a7f6/csrc/rocm/skinny_gemms_int4.cu#L344-L356>
 [^upfp8]: v0.31.0 `supports_mx` / `supports_fp8`: <https://github.com/vllm-project/vllm/blob/db9527a46873454610df6dbedf79a36d6bf1a7f6/vllm/platforms/rocm.py#L1076-L1082>
 [^upcar]: v0.31.0 `use_custom_allreduce`: <https://github.com/vllm-project/vllm/blob/db9527a46873454610df6dbedf79a36d6bf1a7f6/vllm/platforms/rocm.py#L1096-L1099>
-[^forkcar]: Fork `use_custom_allreduce`: <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/platforms/rocm.py#L1257-L1263>
+[^forkcar]: Fork `use_custom_allreduce`: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/vllm/platforms/rocm.py#L1257-L1263>
