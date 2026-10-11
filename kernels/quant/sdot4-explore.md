@@ -55,7 +55,7 @@ Reuse the existing W8A8 INT8 and Sage cards (spec / Todo). W4A8 `sdot4` **landed
 
 - RDNA 2 ISA 70648: `V_DOT4_I32_I8`, `V_DOT8_I32_I4`
 - GPUOpen WMMA table: IU8 512, IU4 1024, packed FP16 256
-- LDS recipe 9: [silicon/lds-tiles.md](../../silicon/lds-tiles.md)
+- LDS recipe 9: [silicon/lds-and-tiles/lds-tiles.md](../../silicon/lds-and-tiles/lds-tiles.md)
 
 [^isa]: AMD, *"RDNA 2" Instruction Set Architecture Reference Guide* (doc 70648): "Feature Changes in RDNA2 Devices" dot-product list; VOP2 opcodes 2 `V_DOT2C_F32_F16` / 13 `V_DOT4C_I32_I8`; VOP3P opcodes 19–25 `V_DOT2_F32_F16` … `V_DOT8_U32_U4`; LDS "128kB memory per workgroup processor split up into 64 banks of dword-wide RAMs"; "a single workgroup may allocate up to 64kB of LDS". <https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture>
 [^gpuopen]: GPUOpen, *How to accelerate AI applications on RDNA 3 using WMMA* — per-CU FLOPS/clock table (RX 6950 XT: FP16 256, BF16 N/A, IU8 512, IU4 1024; RX 7900 XTX: FP16/BF16 512). <https://gpuopen.com/learn/wmma_on_rdna3/>

@@ -34,7 +34,7 @@ Env defaults are **`"1"`** (dispatch ON) despite stale “GATED OFF” comments:
 
 ## Capture class
 
-Same family as [silicon/graph-capture.md](../../silicon/graph-capture.md): Triton JIT scratch pointers go stale under cudagraph replay; HIP keeps scratch in registers (update) or LDS (fwd). FA / GDN host scratch in this tip also moves `torch.empty` → `torch.zeros` for page commit.[^c-7779514b][^f-7779514b-causal-conv1d-rdna2-cu]
+Same family as [silicon/hip-craft/graph-capture.md](../../silicon/hip-craft/graph-capture.md): Triton JIT scratch pointers go stale under cudagraph replay; HIP keeps scratch in registers (update) or LDS (fwd). FA / GDN host scratch in this tip also moves `torch.empty` → `torch.zeros` for page commit.[^c-7779514b][^f-7779514b-causal-conv1d-rdna2-cu]
 
 ## Occupancy
 

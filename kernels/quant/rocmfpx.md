@@ -69,7 +69,7 @@ No extra silicon in the prefix-cache path: it is “don’t recompute K/V for th
 ## Sources
 
 - `ggml/rocmfp4/rocmfp4_hip.cu`, `rocmfp4_hip_codebook.cuh`, `rocmfp4.h`
-- [silicon/valu.md](../../silicon/valu.md)
+- [silicon/arch-and-memory/valu.md](../../silicon/arch-and-memory/valu.md)
 - Engine pages above
 - ROCmFPX README / `scripts/build-rdna2.sh`
 

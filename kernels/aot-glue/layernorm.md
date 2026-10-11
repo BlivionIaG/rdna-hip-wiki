@@ -20,7 +20,7 @@ sources:
 
 Tip moved **`56f67111` → `71a54552`** (+3). Silicon: new **`gated_rms_norm`** AOT HIP for Qwen3.x GDN `RMSNormGated` (norm-before-gate). Same tile family as plain `rms_norm` — not a new occupancy subject. FA leftover still first. ticket-26 still EXL3 `-cb 3inst`. W4A16 ConfigA lock unchanged.[^c-56f67111][^c-71a54552][^f-56f67111-layernorm-cu]
 
-Companion infra (Python, same tip window): Gemma `(1+w)` scale folded to `x.dtype` so `vllm_c` `rms_norm` dtype-match fires; per-replay cudagraph `isnan().any()` scan gated behind `VLLM_CG_NAN_INPUT_CHECK=1` (default off) — [silicon/graph-capture.md](../../silicon/graph-capture.md).[^c-71a54552]
+Companion infra (Python, same tip window): Gemma `(1+w)` scale folded to `x.dtype` so `vllm_c` `rms_norm` dtype-match fires; per-replay cudagraph `isnan().any()` scan gated behind `VLLM_CG_NAN_INPUT_CHECK=1` (default off) — [silicon/hip-craft/graph-capture.md](../../silicon/hip-craft/graph-capture.md).[^c-71a54552]
 
 ## Gated RMSNorm tile (`71a54552`)
 

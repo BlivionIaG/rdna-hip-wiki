@@ -38,7 +38,7 @@ sources:
 ---
 # EXL3 — silicon / HIP contract
 
-Occupancy + live W4 still first. Silicon: [silicon/exl3.md](../../silicon/exl3.md).[^exl3-cb][^exl3-dq][^f-30b0bd4e-exl3-dot2-common-cuh]
+Occupancy + live W4 still first. Silicon: [silicon/formats/exl3.md](../../silicon/formats/exl3.md).[^exl3-cb][^exl3-dq][^f-30b0bd4e-exl3-dot2-common-cuh]
 
 Take the math only: unpack trellis → fp16 → `fdot2`. Same job as mxfp4, fatter decode. **No** Marlin / MMA / WMMA port.[^qtip]
 
@@ -50,7 +50,7 @@ HIP compiles `cb==0` (`3inst`) and `cb==1` (`mcg`). `cb==2` (`mul1`) does not la
 
 ## Arch guard lock 2026-09-21 (dest tip `f3dd65fa` / `3d6df9ed`)
 
-`__HIP__RDNA__` on `exl3_dot2_{dense,dequant,moe}.cu` matches the docker RDNA fatbin set: `gfx1030`/`1031`, `gfx1100`/`1101`, `gfx1150`/`1151`, `gfx1200`/`1201`. Compile-guard only — ISA and tile contract above unchanged. Not `gfx900`/`906`/`1013`. See [silicon/exl3.md](../../silicon/exl3.md).[^c-f3dd65fa][^c-3d6df9ed]
+`__HIP__RDNA__` on `exl3_dot2_{dense,dequant,moe}.cu` matches the docker RDNA fatbin set: `gfx1030`/`1031`, `gfx1100`/`1101`, `gfx1150`/`1151`, `gfx1200`/`1201`. Compile-guard only — ISA and tile contract above unchanged. Not `gfx900`/`906`/`1013`. See [silicon/formats/exl3.md](../../silicon/formats/exl3.md).[^c-f3dd65fa][^c-3d6df9ed]
 
 ## Pack
 

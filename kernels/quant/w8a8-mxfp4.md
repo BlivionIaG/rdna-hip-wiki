@@ -34,16 +34,16 @@ sources:
 ---
 # W8A8 + mxfp4 on gfx1030 — kernel-writer brief
 
-Audience: someone writing custom HIP W8A8 (dense + MoE) and mxfp4 kernels for gfx1030 (4× Radeon PRO V620; ROCm 7.2 when this brief was written — live pin is now ROCm 7.14.0, see [toolchain/matrix.md](../../toolchain/matrix.md)). This is a study of **vLLM / llama.cpp / AITER / ISA**, not a review of a private tree.
+Audience: someone writing custom HIP W8A8 (dense + MoE) and mxfp4 kernels for gfx1030 (4× Radeon PRO V620; ROCm 7.2 when this brief was written — live pin is now ROCm 7.14.0, see [toolchain/pin/README.md](../../toolchain/pin/README.md)). This is a study of **vLLM / llama.cpp / AITER / ISA**, not a review of a private tree.
 
 Rule: every concrete number is attributed. If a figure is not in a source that was opened, it is marked **unknown**. Do not contradict the companions.
 
 Companions (already on disk; not re-derived):
-- `silicon/architecture.md` — no WMMA, no MFMA, no FP8/FP4 unit; packed DOT only
+- `silicon/arch-and-memory/architecture.md` — no WMMA, no MFMA, no FP8/FP4 unit; packed DOT only
 - `kernels/quant/w4a16.md` — DOT2 decode/prefill geometry you reuse for mxfp4-after-unpack
-- `silicon/hip-craft.md` — `sdot4` / `sdot8` / `fdot2` builtins, waitcnt, occupancy
-- `silicon/cache-policy.md` — IC fit: 7B W8A8 misses unsharded; 27B W8A8 ~7 MiB over at TP=4
-- `silicon/lds-tiles.md` — recipe 9: **64×64×64 i8**
+- `silicon/hip-craft/hip-craft.md` — `sdot4` / `sdot8` / `fdot2` builtins, waitcnt, occupancy
+- `silicon/arch-and-memory/cache-policy.md` — IC fit: 7B W8A8 misses unsharded; 27B W8A8 ~7 MiB over at TP=4
+- `silicon/lds-and-tiles/lds-tiles.md` — recipe 9: **64×64×64 i8**
 - `engine/serving-stack/vllm-sglang-map.md` — vLLM has **no** DP4A dispatch on gfx1030; AITER gated CDNA3+
 
 Date of this pass: **2026-08-17**. How to read status words: **keep** / **drop** / **rewrite** / **unknown** — same meanings as the W4A16 brief.
@@ -684,12 +684,12 @@ If you need a reference implementation of **sdot4** GEMM, llama.cpp `ggml_cuda_d
 11. https://github.com/vllm-project/vllm/pull/19417 — `(1,1)` is per-token, not per-tensor
 
 ### IC / tiles / map
-12. `silicon/cache-policy.md` §4.3–§4.4 — 7B W8A8 193.01 MiB miss; 27B W8A8 TP=4 135.00 MiB / **6.9 MiB over**
-13. `silicon/lds-tiles.md` recipe 9 — **64×64×64 i8**
+12. `silicon/arch-and-memory/cache-policy.md` §4.3–§4.4 — 7B W8A8 193.01 MiB miss; 27B W8A8 TP=4 135.00 MiB / **6.9 MiB over**
+13. `silicon/lds-and-tiles/lds-tiles.md` recipe 9 — **64×64×64 i8**
 14. `kernels/quant/w4a16.md` — DOT2 decode/prefill geometry reused after mxfp4 unpack
-15. `silicon/hip-craft.md` — builtins, waitcnt, occupancy 0
+15. `silicon/hip-craft/hip-craft.md` — builtins, waitcnt, occupancy 0
 16. `engine/serving-stack/vllm-sglang-map.md` — no vLLM DP4A / mxfp4 / AITER on gfx1030
-17. `silicon/architecture.md` — DOT feature list, no WMMA/MFMA
+17. `silicon/arch-and-memory/architecture.md` — DOT feature list, no WMMA/MFMA
 18. OCP MX v1.0 — https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf (via cache brief)
 19. PTPC-FP8 blog — https://vllm.ai/blog/2025-02-24-ptpc-fp8-rocm (per-token A / per-channel W rationale)
 20. AMD V620 — https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html (72 CU, 128 MB IC)

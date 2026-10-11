@@ -34,7 +34,7 @@ CMake gfx1030 list: unchanged for FA/INT8 objects. Only add was `layernorm.cu` o
 
 ---
 
-Engine dispatch and quant mode: [engine/kv-cache/kv-int8.md](../../engine/kv-cache/kv-int8.md). This page is the ISA and the `fa_rdna2` load path. curvedinf/int8-vllm (gfx908 AITER): [silicon/curvedinf-int8-vllm.md](../../silicon/curvedinf-int8-vllm.md) — Take the PTH mode, Leave their UA kernel.[^f-ea78104d-fa-rdna2-cu]
+Engine dispatch and quant mode: [engine/kv-cache/kv-int8.md](../../engine/kv-cache/kv-int8.md). This page is the ISA and the `fa_rdna2` load path. curvedinf/int8-vllm (gfx908 AITER): [silicon/external-projects/curvedinf-int8-vllm.md](../../silicon/external-projects/curvedinf-int8-vllm.md) — Take the PTH mode, Leave their UA kernel.[^f-ea78104d-fa-rdna2-cu]
 
 **Win is bandwidth, not FLOPS.** Decode gather is GDDR6-bound. INT8 KV is ½ the bytes vs fp16. An unfused “dequant the whole cache to fp16, then attend” kernel throws that away.[^c-ea78104d]
 
@@ -111,7 +111,7 @@ Sage is **prefill Q and K both INT8**. KV-cache INT8 is **storage**. Q at decode
 
 ## Not their `fd_rdna2` slice
 
-leapdragon `fd_rdna2` (GPL Triton plugin) is **not** the HIP path. It keeps packed i8 as `(TILE,64)` and fires four `tl.dot` so Triton never writes a 256-wide LDS unpack. That is a compiler dodge. HIP already has `fdot2` on `half2` — load packed, cvt+scale in **VGPR**, existing tiles. See [silicon/leapdragon.md](../../silicon/leapdragon.md) §4.[^f-ea78104d-fa-rdna2-cu]
+leapdragon `fd_rdna2` (GPL Triton plugin) is **not** the HIP path. It keeps packed i8 as `(TILE,64)` and fires four `tl.dot` so Triton never writes a 256-wide LDS unpack. That is a compiler dodge. HIP already has `fdot2` on `half2` — load packed, cvt+scale in **VGPR**, existing tiles. See [silicon/external-projects/leapdragon.md](../../silicon/external-projects/leapdragon.md) §4.[^f-ea78104d-fa-rdna2-cu]
 
 Do **not**: vendor the plugin; copy the 4-way Q permute / `PAD=8` / `GQA=6` hardcode (**hits 27B 24/4; misses GQA-4 and 7B 28/4**); unpack-then-reshape to `(TILE,256)` LDS (their v0, dead).[^f-ea78104d-fa-rdna2-cu]
 
@@ -128,7 +128,7 @@ Do **not**: vendor the plugin; copy the 4-way Q permute / `PAD=8` / `GQA=6` hard
 ## Sources
 
 - Engine: [engine/kv-cache/kv-int8.md](../../engine/kv-cache/kv-int8.md), [engine/kv-cache/kv-quant-offload.md](../../engine/kv-cache/kv-quant-offload.md), [engine/run-recipes/leapdragon.md](../../engine/run-recipes/leapdragon.md)
-- Live FA: `csrc/rocm/fa_rdna2.cu` on **`rdna2_extras`** @ `4cc1fe59` — [silicon/fa-occupancy.md](../../silicon/fa-occupancy.md)
+- Live FA: `csrc/rocm/fa_rdna2.cu` on **`rdna2_extras`** @ `4cc1fe59` — [silicon/attention/fa-occupancy.md](../../silicon/attention/fa-occupancy.md)
 - vLLM INT8 KV: `KVQuantMode`, PRs [#36893](https://github.com/vllm-project/vllm/pull/36893), [#41954](https://github.com/vllm-project/vllm/pull/41954)
 - RDNA 2 ISA 70648: `V_DOT2_F32_F16`; i8 cvt; `V_DOT4_I32_I8` exists but not for this path; no FP8 unit
 

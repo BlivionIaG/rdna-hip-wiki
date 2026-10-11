@@ -95,7 +95,7 @@ Name: `nvfp4_dot2_common.cuh`, `nvfp4_gemm_rdna2`, `moe_nvfp4_gemm_rdna2`.[^c-ad
 - [ ] No tok/s claimed from this page
 
 
-Petit (CDNA NVFP4/MXFP4 reference): [silicon/petit-kernel.md](../../silicon/petit-kernel.md) — Take offline shuffle + denorm caveat; Leave MatrixCore.[^nvfp4-blog]
+Petit (CDNA NVFP4/MXFP4 reference): [silicon/external-projects/petit-kernel.md](../../silicon/external-projects/petit-kernel.md) — Take offline shuffle + denorm caveat; Leave MatrixCore.[^nvfp4-blog]
 
 ## Sources
 
@@ -103,7 +103,7 @@ Petit (CDNA NVFP4/MXFP4 reference): [silicon/petit-kernel.md](../../silicon/peti
 - Live mxfp4: `csrc/rocm/mxfp4_dot2_common.cuh` @ `add17dd7` (4× `fdot2` / 8 K)
 - Live FP8 dequant: `csrc/rocm/qdq_fp8_rdna2.cuh`
 - RDNA 2 ISA 70648: `V_DOT2_F32_F16`; no FP4 MMA; no `v_dot2_f32_bf16`
-- [engine/quant-formats/nvfp4.md](../../engine/quant-formats/nvfp4.md), [kernels/quant/w8a8-mxfp4.md](w8a8-mxfp4.md), [silicon/hip-craft.md](../../silicon/hip-craft.md)
+- [engine/quant-formats/nvfp4.md](../../engine/quant-formats/nvfp4.md), [kernels/quant/w8a8-mxfp4.md](w8a8-mxfp4.md), [silicon/hip-craft/hip-craft.md](../../silicon/hip-craft/hip-craft.md)
 
 [^nvfp4-blog]: NVIDIA, *Introducing NVFP4 for efficient and accurate low-precision inference*. <https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/>
 [^isa]: AMD, *"RDNA 2" Instruction Set Architecture Reference Guide* (doc 70648): "Feature Changes in RDNA2 Devices" dot-product list; VOP2 opcodes 2 `V_DOT2C_F32_F16` / 13 `V_DOT4C_I32_I8`; VOP3P opcodes 19–25 `V_DOT2_F32_F16` … `V_DOT8_U32_U4`; LDS "128kB memory per workgroup processor split up into 64 banks of dword-wide RAMs"; "a single workgroup may allocate up to 64kB of LDS". <https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture>

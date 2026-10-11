@@ -19,9 +19,9 @@ No FP4 unit. E2M1 nibble → fp16 (inline bit-trick, no LUT — as of `add17dd7`
 
 NVFP4 is the same DOT with **E4M3** scales (mul, not exp add): [nvfp4.md](nvfp4.md). Spec W8A8 `sdot4` is unrelated: [w8a8-mxfp4.md](w8a8-mxfp4.md).[^f-290715e6-mxfp4-dot2-common-cuh][^ocp-mx]
 
-DSv4 Flash leftover attn/shared/indexer is **MXFP8** (E4M3 + E8M0 / 128×128), not this expert pack and not W8A16-FP8 group-scale. Same `fdot2` after e4m3 bit-trick + `mxfp4_apply_e8m0_bits` broadcast. Silicon: [silicon/dsv4-flash.md](../../silicon/dsv4-flash.md).[^f-290715e6-mxfp4-dot2-common-cuh][^ocp-mx]
+DSv4 Flash leftover attn/shared/indexer is **MXFP8** (E4M3 + E8M0 / 128×128), not this expert pack and not W8A16-FP8 group-scale. Same `fdot2` after e4m3 bit-trick + `mxfp4_apply_e8m0_bits` broadcast. Silicon: [silicon/formats/dsv4-flash.md](../../silicon/formats/dsv4-flash.md).[^f-290715e6-mxfp4-dot2-common-cuh][^ocp-mx]
 
-Petit (CDNA FP4 reference): silicon Take/Leave only — [silicon/petit-kernel.md](../../silicon/petit-kernel.md). Do not import MFMA grids.[^f-290715e6-mxfp4-dot2-common-cuh][^ocp-mx]
+Petit (CDNA FP4 reference): silicon Take/Leave only — [silicon/external-projects/petit-kernel.md](../../silicon/external-projects/petit-kernel.md). Do not import MFMA grids.[^f-290715e6-mxfp4-dot2-common-cuh][^ocp-mx]
 
 ## Unpack at a glance
 
