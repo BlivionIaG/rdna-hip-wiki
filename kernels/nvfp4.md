@@ -80,7 +80,7 @@ Name: `nvfp4_dot2_common.cuh`, `nvfp4_gemm_rdna2`, `moe_nvfp4_gemm_rdna2`.
 - [ ] No tok/s claimed from this page
 
 
-Petit (CDNA NVFP4/MXFP4 reference): [../silicon/petit-kernel.md](../silicon/petit-kernel.md) — Take offline shuffle + denorm caveat; Leave MatrixCore.
+Petit (CDNA NVFP4/MXFP4 reference): [../silicon/external-projects/petit-kernel.md](../silicon/external-projects/petit-kernel.md) — Take offline shuffle + denorm caveat; Leave MatrixCore.
 
 ## Sources
 
@@ -88,4 +88,4 @@ Petit (CDNA NVFP4/MXFP4 reference): [../silicon/petit-kernel.md](../silicon/peti
 - Live mxfp4: `csrc/rocm/mxfp4_dot2_common.cuh` @ `add17dd7` (4× `fdot2` / 8 K)
 - Live FP8 dequant: `csrc/rocm/qdq_fp8_rdna2.cuh`
 - RDNA 2 ISA 70648: `V_DOT2_F32_F16`; no FP4 MMA; no `v_dot2_f32_bf16`
-- [engine/quant-formats/nvfp4.md](../engine/quant-formats/nvfp4.md), [kernels/w8a8-mxfp4.md](w8a8-mxfp4.md), [silicon/hip-craft.md](../silicon/hip-craft.md)
+- [engine/quant-formats/nvfp4.md](../engine/quant-formats/nvfp4.md), [kernels/w8a8-mxfp4.md](w8a8-mxfp4.md), [silicon/hip-craft/hip-craft.md](../silicon/hip-craft/hip-craft.md)

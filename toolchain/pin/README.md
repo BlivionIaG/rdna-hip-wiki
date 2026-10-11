@@ -25,7 +25,7 @@ This wiki's live dest pin stays ROCm **7.14.0**. Tag `rocm-7.14.0` on `ROCm/ROCm
 
 ROCm **7.14.1** (release notes dated 2026-09-02) is a quality release. The notes list two changes: RCCL's InfiniBand fault-injection instrumentation, compiled in by default in 7.14.0, is disabled, and an `amdflang` `ScalarEvolution::LoopDisposition` regression that broke OpenBLAS and LAPACK builds is reverted. The notes say 7.14.1 has no other significant changes.[^rn7141] The GitHub API for `repos/ROCm/ROCm/git/ref/tags/rocm-7.14.1` returned 404 on 2026-10-11. TheRock tag `therock-7.14.1` is an annotated tag whose target commit is `f51dc6c91e0d3214f22853fd5cb3f96dbc7d2c4b`.[^tag7141]
 
-Host OS attestation for this box (Fedora 43, RHEL 10, Ubuntu footnote on V620) is [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md). This page does not restate it.
+Host OS attestation for this box (Fedora 43, RHEL 10, Ubuntu footnote on V620) is [silicon/interconnect/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md). This page does not restate it.
 
 ## Layers we build on
 
