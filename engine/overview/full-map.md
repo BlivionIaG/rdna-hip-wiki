@@ -4,7 +4,7 @@
 
 Date: 2026-08-17. Sourced only. Hardware facts from [silicon/](../../silicon/README.md).
 
-Target: 4× AMD V620 (Navi 21 / gfx1030, 32 GB), ROCm 7.2, TP=4 considered. GDDR6 512 GB/s, L2 4 MB, IC 128 MB. Wave32 native. No WMMA, no MFMA, no AGPR. Packed DOT only. `supports_fp8()` is false on gfx1030 and gfx1100.[^vllm-rocm-py]
+Target: 4× AMD V620 (Navi 21 / gfx1030, 32 GB), ROCm 7.2 at time of writing (live pin now ROCm 7.14.0 — [toolchain/matrix.md](../../toolchain/matrix.md)), TP=4 considered. GDDR6 512 GB/s, L2 4 MB, IC 128 MB. Wave32 native. No WMMA, no MFMA, no AGPR. Packed DOT only. `supports_fp8()` is false on gfx1030 and gfx1100.[^vllm-rocm-py]
 
 ## One-page verdict
 
