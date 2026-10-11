@@ -30,7 +30,7 @@ sources:
 
 [← fork/](README.md)
 
-A serve lock is a setting every gfx1030 serve keeps fixed until a dest PR moves it. This page only names the fork-side lock and its evidence at `1dc3bac4`. Depth lives elsewhere: the ROCm pin and compiler in [toolchain/](../toolchain/README.md), all-reduce and RCCL in [silicon/rdna-allreduce.md](../silicon/rdna-allreduce.md) and [silicon/rccl-p2p.md](../silicon/rccl-p2p.md), kernel formats in [kernels/](../kernels/README.md).
+A serve lock is a setting every gfx1030 serve keeps fixed until a dest PR moves it. This page only names the fork-side lock and its evidence at `1dc3bac4`. Depth lives elsewhere: the ROCm pin and compiler in [toolchain/](../toolchain/README.md), all-reduce and RCCL in [silicon/rdna-allreduce.md](../silicon/interconnect/rdna-allreduce.md) and [silicon/rccl-p2p.md](../silicon/interconnect/rccl-p2p.md), kernel formats in [kernels/](../kernels/README.md).
 
 All serves go through one launcher, `bash tools/rdna/serve_rdna.sh RECIPE=<name>`, with per-model deltas in `tools/rdna/recipes/*.env`[^launcher].
 
