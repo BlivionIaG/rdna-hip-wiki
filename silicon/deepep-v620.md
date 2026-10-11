@@ -1,6 +1,6 @@
 # DeepEP insight on 4× V620 — PCIe P2P silicon boundary
 
-Date: 2026-08-18. Engine context: [engine/deepep.md](../engine/deepep.md). **Research / Later.** This page separates the transferable idea from NVIDIA/Instinct-specific transport.
+Date: 2026-08-18. Engine context: [engine/multi-gpu/deepep.md](../engine/multi-gpu/deepep.md). **Research / Later.** This page separates the transferable idea from NVIDIA/Instinct-specific transport.
 
 ## Transferable insight
 

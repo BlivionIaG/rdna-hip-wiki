@@ -1,6 +1,6 @@
 # ROCmFPX — silicon (codebook → perm → sdot4)
 
-Engine: [engine/rocmfpx.md](../../engine/rocmfpx.md). Side project: [engine/llamacpp-rocmfpx.md](../../engine/llamacpp-rocmfpx.md). **Later.** Occupancy still first. No vLLM port.
+Engine: [engine/quant-formats/rocmfpx.md](../../engine/quant-formats/rocmfpx.md). Side project: [engine/alt-engines/llamacpp-rocmfpx.md](../../engine/alt-engines/llamacpp-rocmfpx.md). **Later.** Occupancy still first. No vLLM port.
 
 Source tree: [charlie12345/ROCmFPX](https://github.com/charlie12345/ROCmFPX) `ggml/rocmfp4/`. Opcode on gfx1030 is **not dumped yet** — this page is the expected contract. The V620 side project owns the `.s`.
 

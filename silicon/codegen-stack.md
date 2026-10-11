@@ -6,7 +6,7 @@ Date of this pass: **2026-08-17**. Companion notes on this box (not re-derived h
 
 - `silicon/architecture.md` — silicon, DOT vs WMMA/MFMA
 - `silicon/lds-tiles.md` — LDS banks, seed tiles, `sdot4`
-- `engine/vllm-sglang-map.md` — vLLM/SGLang dispatch gates
+- `engine/serving-stack/vllm-sglang-map.md` — vLLM/SGLang dispatch gates
 
 Rule: every concrete claim is attributed. If a figure was not in a page opened this pass, it is marked **unknown**.
 

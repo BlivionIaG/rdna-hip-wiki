@@ -1,6 +1,6 @@
 # FlashKDA / KDA — kernel contract (Later)
 
-Date: 2026-08-19. Silicon: [../silicon/flashkda.md](../../silicon/flashkda.md). Engine: [../engine/flashkda.md](../../engine/flashkda.md). **Not in extras.** Occupancy still first.
+Date: 2026-08-19. Silicon: [../silicon/flashkda.md](../../silicon/flashkda.md). Engine: [../engine/attention/flashkda.md](../../engine/attention/flashkda.md). **Not in extras.** Occupancy still first.
 
 Dead as a CUTLASS/SM90/bf16 port. If we serve Kimi Linear or Qwen3.5 GDN:
 

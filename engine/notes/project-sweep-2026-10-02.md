@@ -18,3 +18,18 @@ Weekday sweep vs 2026-10-01. No dest tip/UNC bump from this pass. Dest produce s
 ## Dest tip (confirm only — not mutated here)
 
 `opengfx1030/vllm-rdna` `rdna_extras` tip [`bb40498c`](https://github.com/opengfx1030/vllm-rdna/commit/bb40498cc00255281be56973ce61b743885f37a9) (PR#34 GQA prefill HEAD_DIM + EXL3 MTP=2 + serve recipes). Any dest/UNC call → **VLLM_FORK_Manager**.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/tuandat3019/rdna2-llamacpp-optimizations>
+- <https://github.com/tuandat3019/rdna2-llamacpp-optimizations/commit/f94e8f38c2efc4b0f968abc658ed25caaac9527a>
+- <https://github.com/leapdragon/vllm-rdna2-qwen>
+- <https://github.com/leapdragon/vllm-rdna2-qwen/commit/2a3ae3c2f7e5e72629d3e065cc8a1118fe301eb4>
+- <https://github.com/triton-lang/triton/pull/12042>
+- <https://github.com/manuelbaez/v620-inference-engine>
+- <https://github.com/manuelbaez/v620-inference-engine/commit/e575e7e07cdcd174d9b6b5a3ab52439de0900eb1>
+- <https://github.com/idragonfly-ai/rocm-patches>
+- <https://github.com/opengfx1030/vllm-rdna/commit/bb40498cc00255281be56973ce61b743885f37a9>
+

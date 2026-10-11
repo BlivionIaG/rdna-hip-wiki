@@ -16,7 +16,7 @@ Decode contract unchanged. Prefill is no longer “still Triton” on this dest 
 
 ---
 
-Live: `sparse_mla_rdna2.cu` @ `9a344444`. Engine: [engine/fork-delta.md](../../engine/fork-delta.md). **Incomplete.** Env `VLLM_USE_RDNA2_MLA=1`. Prefill still Triton.
+Live: `sparse_mla_rdna2.cu` @ `9a344444`. Engine: [engine/serving-stack/fork-delta.md](../../engine/serving-stack/fork-delta.md). **Incomplete.** Env `VLLM_USE_RDNA2_MLA=1`. Prefill still Triton.
 
 ## ISA (confirmed)
 

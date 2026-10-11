@@ -17,3 +17,29 @@ Window ≈ 2026-09-16 16:14 → 2026-09-17 ~16:06 Europe/Paris. `gh search prs -
 ## Leave
 
 - Custom ROCm AR barrier [#57182](https://github.com/vllm-project/vllm/pull/57182); EPD image batching / CPU×NIXL affinity; HiCache/Mooncake/NIXL/`nixl_rocm` product; Ascend/NPU/AITER/FlyDSL; DeepGEMM/NVFP4/Blackwell/FlashMLA; gfx950 `vattn_asm` [#39513](https://github.com/sgl-project/sglang/pull/39513); ExL sc_measure [#364](https://github.com/turboderp-org/exllamav3/pull/364); claimed tok/s.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/vllm-project/vllm/pull/57182>
+- <https://github.com/sgl-project/sglang/pull/37810>
+- <https://github.com/vllm-project/vllm/pull/57229>
+- <https://github.com/vllm-project/vllm/pull/57355>
+- <https://github.com/vllm-project/vllm/pull/56869>
+- <https://github.com/vllm-project/vllm/pull/57145>
+- <https://github.com/vllm-project/vllm/pull/57269>
+- <https://github.com/vllm-project/vllm/pull/51081>
+- <https://github.com/vllm-project/vllm/pull/56799>
+- <https://github.com/sgl-project/sglang/pull/39115>
+- <https://github.com/sgl-project/sglang/pull/34012>
+- <https://github.com/sgl-project/sglang/pull/30775>
+- <https://github.com/vllm-project/vllm/pull/57356>
+- <https://github.com/vllm-project/vllm/pull/56848>
+- <https://github.com/ggml-org/llama.cpp/pull/29019>
+- <https://github.com/vllm-project/vllm/pull/57000>
+- <https://github.com/vllm-project/vllm/pull/57050>
+- <https://github.com/sgl-project/sglang/pull/39587>
+- <https://github.com/sgl-project/sglang/pull/39513>
+- <https://github.com/turboderp-org/exllamav3/pull/364>
+

@@ -10,7 +10,7 @@ Companions (already on disk; not re-derived):
 - `silicon/hip-craft.md` — `sdot4` / `sdot8` / `fdot2` builtins, waitcnt, occupancy
 - `silicon/cache-policy.md` — IC fit: 7B W8A8 misses unsharded; 27B W8A8 ~7 MiB over at TP=4
 - `silicon/lds-tiles.md` — recipe 9: **64×64×64 i8**
-- `engine/vllm-sglang-map.md` — vLLM has **no** DP4A dispatch on gfx1030; AITER gated CDNA3+
+- `engine/serving-stack/vllm-sglang-map.md` — vLLM has **no** DP4A dispatch on gfx1030; AITER gated CDNA3+
 
 Date of this pass: **2026-08-17**. How to read status words: **keep** / **drop** / **rewrite** / **unknown** — same meanings as the W4A16 brief.
 
@@ -642,7 +642,7 @@ If you need a reference implementation of **sdot4** GEMM, llama.cpp `ggml_cuda_d
 13. `silicon/lds-tiles.md` recipe 9 — **64×64×64 i8**
 14. `kernels/quant/w4a16.md` — DOT2 decode/prefill geometry reused after mxfp4 unpack
 15. `silicon/hip-craft.md` — builtins, waitcnt, occupancy 0
-16. `engine/vllm-sglang-map.md` — no vLLM DP4A / mxfp4 / AITER on gfx1030
+16. `engine/serving-stack/vllm-sglang-map.md` — no vLLM DP4A / mxfp4 / AITER on gfx1030
 17. `silicon/architecture.md` — DOT feature list, no WMMA/MFMA
 18. OCP MX v1.0 — https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf (via cache brief)
 19. PTPC-FP8 blog — https://vllm.ai/blog/2025-02-24-ptpc-fp8-rocm (per-token A / per-channel W rationale)

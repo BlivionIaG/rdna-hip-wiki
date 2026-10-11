@@ -22,5 +22,5 @@ Date: 2026-09-28. gfx1030 dest = HIP harvest; no framework runtime in vllm-rdna 
 
 ## Related
 
-- [engine/triton-rocm.md](../../engine/triton-rocm.md)
+- [engine/stock-baseline/triton-rocm.md](../../engine/stock-baseline/triton-rocm.md)
 - [mojo-max/README.md](../mojo-max/README.md)
