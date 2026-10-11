@@ -18,7 +18,7 @@ Weight/activation format contracts: pack, dequant, which DOT. Back to the [kerne
 | [w4a16.md](w4a16.md) | nibble dequant → `fdot2` | **Most complete** (dense). MoE GPTQ in-tree + resident skinny opt-in @ `e1315629`; MoE AWQ Not done. Modes: [engine/overview/coverage.md](../../engine/overview/coverage.md) (W4A16 row; no separate engine W4A16 page exists). K_STEP split repair @ `3a0786ea` [^c-e1315629][^c-3a0786ea] |
 | [w4a8.md](w4a8.md) | int4 W × int8 A → `sdot4` | **Live / opt-in** @ `3a0786ea`; MoE epilogue CAS default / fp32 scratch opt-in @ `30b0bd4e`. Default = W4A16 [^c-3a0786ea][^c-30b0bd4e] |
 | [w8a16.md](w8a16.md) | i8 → fp16 → `fdot2` | Incomplete. MoE in-tree; dense `.cu` absent at tip |
-| [w8a16-fp8.md](w8a16-fp8.md) | E4M3 LUT/bit-trick → `fdot2` | Incomplete |
+| [w8a16-fp8.md](w8a16-fp8.md) | E4M3 bit-trick → `fdot2` (LUT historical) | Dense built; MoE `.cu` excluded from build at `1dc3bac4` |
 | [w8a8-fp8.md](w8a8-fp8.md) | both sides E4M3 → fp16 → `fdot2` | Incomplete. **Not** `sdot4` |
 | [w8a8.md](w8a8.md) | extras vs contract: live FP8-`fdot2` / W8A16-`fdot2`; INT8 `sdot4` **absent** | **Spec / not on branch** @ `83de31cf` [^c-83de31cf] |
 | [mxfp4.md](mxfp4.md) | E2M1 + E8M0 → `fdot2` | Incomplete [^ocp-mx] |
@@ -26,9 +26,9 @@ Weight/activation format contracts: pack, dequant, which DOT. Back to the [kerne
 | [w4a4.md](w4a4.md) | i4×i4 `sdot8` | Explore. After W8A8. Not E2M1 |
 | [sdot4-explore.md](sdot4-explore.md) | when `sdot4` is legal | Explore: W8A8 INT8, Sage QK; W4A8 → [w4a8.md](w4a8.md) Live opt-in |
 | [w8a8-mxfp4.md](w8a8-mxfp4.md) | W8A8 INT8 = `sdot4` | **Spec / not added** |
-| [nvfp4.md](nvfp4.md) | E2M1 + E4M3 mul → `fdot2` | Spec |
+| [nvfp4.md](nvfp4.md) | E2M1 + E4M3 mul → `fdot2` | Spec (no RDNA NVFP4 kernel at `1dc3bac4`) |
 | [rocmfpx.md](rocmfpx.md) | codebook10 `perm` → i8 → `sdot4` | Later. llama.cpp GGUF, not a vLLM port |
-| [exl3.md](exl3.md) | trellis state → 3-inst → `fdot2` | Later. mul1 + K=1..8 + `exl3_project_rdna2` @ `30b0bd4e`. Occupancy + W4 first [^c-30b0bd4e][^f-30b0bd4e-exl3-dot2-dense-cu][^qtip] |
+| [exl3.md](exl3.md) | trellis state → 3-inst → `fdot2` | Later. mul1 + K=1..8 + `exl3_project_rdna2` @ `30b0bd4e`; cb 0/1/2 all dispatch at `1dc3bac4`. Occupancy + W4 first [^c-30b0bd4e][^f-30b0bd4e-exl3-dot2-dense-cu][^qtip] |
 
 Do not conflate W8A16 / W8A16-FP8 / W8A8-FP8 (`fdot2`) with spec W8A8 INT8 (`sdot4`).
 

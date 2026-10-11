@@ -9,7 +9,7 @@ Model-specific HIP glue (one page per model family). Back to the [kernels index]
 
 | Page | Inner loop | Completeness |
 |---|---|---|
-| [qwen4exp-flash-next-hip.md](qwen4exp-flash-next-hip.md) | T46 fdot2 glue; T47–T49 HC/QSA/PLE scalar | HC compute-correct @ `8960a3bc`; gates still default off (MoE PIECEWISE capture) [^c-8960a3bc] |
+| [qwen4exp-flash-next-hip.md](qwen4exp-flash-next-hip.md) | T46 fdot2 glue; T47–T49 HC/QSA/PLE scalar | HC compute-correct @ `8960a3bc`. At `1dc3bac4`: `VLLM_RDNA_FUSED_HC` default **on**; fused HC prefill (`hc_prefill_rdna2.cu`) default mode 2; HC_PREFILL_HIP / QSA / PLE default off [^c-8960a3bc] |
 
 ## Sources
 
