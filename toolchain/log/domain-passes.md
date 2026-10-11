@@ -1,6 +1,74 @@
+---
+owner: ROCM_specialist
+kind: scan-log
+sources:
+  - "https://github.com/ROCm/rocm-systems/tree/develop/emulation/rocjitsu"
+  - "https://github.com/ROCm/rocm-systems/pull/9470"
+  - "https://github.com/warpfront/hipfire"
+  - "https://github.com/carlosfundora/gfxGRAPH"
+  - "https://github.com/sar/v620"
+  - "https://github.com/drwolfen/radiance-vllm-r9700"
+  - "https://github.com/ggml-org/llama.cpp/pull/29353"
+  - "https://github.com/ggml-org/llama.cpp/pull/28447"
+  - "https://github.com/ggml-org/llama.cpp/pull/29427"
+  - "https://github.com/warpfront/hipfire/pull/788"
+  - "https://github.com/ROCm/aiter/pull/4493"
+  - "https://github.com/triton-lang/triton/pull/11922"
+  - "https://github.com/triton-lang/triton/pull/11911"
+  - "https://github.com/triton-lang/triton/pull/11992"
+  - "https://github.com/ggml-org/llama.cpp/pull/29559"
+  - "https://github.com/phoenixhaxor/exllamav3-rocm"
+  - "https://github.com/warpfront/hipfire/pull/794"
+  - "https://github.com/ROCm/aiter/pull/5917"
+  - "https://github.com/ggml-org/llama.cpp/pull/29478"
+  - "https://github.com/triton-lang/triton/pull/11910"
+  - "https://github.com/ggml-org/llama.cpp/pull/29572"
+  - "https://github.com/warpfront/hipfire/pull/774"
+  - "https://github.com/tuandat3019/rdna2-llamacpp-optimizations"
+  - "https://github.com/vallicgrr/rx6800-comfyui"
+  - "https://github.com/ggml-org/llama.cpp/pull/29927"
+  - "https://github.com/jollyroger1480/rapier"
+  - "https://github.com/Niko1221/Strata"
+  - "https://github.com/markb-1/rx6700xt-local-ai"
+  - "https://github.com/ggml-org/llama.cpp/pull/29910"
+  - "https://github.com/ggml-org/llama.cpp/blob/master/.github/workflows/hip-quality-check.yml"
+  - "https://github.com/ggml-org/llama.cpp/pull/30021"
+  - "https://github.com/ggml-org/llama.cpp/pull/30022"
+  - "https://github.com/ggml-org/llama.cpp/pull/29720"
+  - "https://github.com/vllm-project/vllm/pull/59132"
+  - "https://github.com/vllm-project/vllm/pull/60084"
+  - "https://github.com/vllm-project/vllm/pull/59774"
+  - "https://github.com/RYZENNAVI/comfyui-zluda-rdna2"
+  - "https://github.com/Niko1221/Strata/pull/1123"
+  - "https://github.com/Niko1221/Strata/pull/1167"
+  - "https://github.com/ROCm/rocm-systems/issues/9820"
+  - "https://github.com/ROCm/rocm-systems/pull/9821"
+  - "https://github.com/ROCm/rocm-systems/pull/11618"
+  - "https://github.com/Niko1221/Strata/issues/1103"
+  - "https://github.com/ROCm/rocm-systems/pull/10701"
+  - "https://github.com/ROCm/rocm-libraries/pull/12889"
+  - "https://github.com/Niko1221/Strata/issues/1180"
+  - "https://github.com/ROCm/rocm-libraries/pull/10720"
+  - "https://github.com/ROCm/rocm-libraries/pull/6996"
+  - "https://github.com/ROCm/rocm-libraries/pull/13150"
+  - "https://github.com/ROCm/rocm-libraries/pull/13129"
+  - "https://github.com/vllm-project/vllm/pull/60400"
+  - "https://github.com/vllm-project/vllm/pull/60413"
+  - "https://github.com/vllm-project/vllm/pull/60418"
+  - "https://github.com/ROCm/rocm-systems/issues/10943"
+  - "https://github.com/OpenNMT/CTranslate2/issues/2090"
+  - "https://github.com/bitsandbytes-foundation/bitsandbytes/pull/2089"
+  - "https://github.com/ROCm/llvm-project/pull/4873"
+  - "https://github.com/ROCm/TheRock/issues/8729"
+  - "https://github.com/ROCm/rocm-libraries/issues/12240"
+  - "https://github.com/Niko1221/Strata/issues/1657"
+---
+
+> Historical scan record, kept intact from the flat `toolchain/` pages on branch `toolchain/gotchas-2026-10-09`. Inline links are the sources recorded on the scan date. This restructure did not re-open every SHA or open/merged status below. Those point-in-time claims are **(unsourced)** as of 2026-10-11, except where a topic page repeats the claim with a footnote.
+
 # Tooling around the RDNA HIP stack
 
-Date: **2026-10-05**. Owned by ROCM_specialist. Only tools that touch compiler / runtime / ISA plumbing. Engine and fork tooling stays in [engine/](../engine/) and [fork/](../fork/).
+Date: **2026-10-05**. Owned by ROCM_specialist. Only tools that touch compiler / runtime / ISA plumbing. Engine and fork tooling stays in [engine/](../../engine/) and [fork/](../../fork/).
 
 ## rocjitsu — AMD's own AMDGCN emulation toolkit
 
@@ -65,7 +133,7 @@ rocjitsu: tip still active on systems develop; gfx1030 **still Experimental with
 
 ## 2026-09-29 ~10:25 — domain pass QUIET (not dest)
 
-Vs Sep 28 ~10:25 community baseline. **No Take/Import/Now lever** for gfx1030/1100/900. Live dest stays **7.14.0** wave32 WGP. Pins already in [matrix.md](matrix.md) (HEAD `8b46a27d2476` / systems `0bf70ef` / libraries `efafc1c` / nightly `10.2.0a20260929` L+W).
+Vs Sep 28 ~10:25 community baseline. **No Take/Import/Now lever** for gfx1030/1100/900. Live dest stays **7.14.0** wave32 WGP. Pins already in [matrix.md](../pin/README.md) (HEAD `8b46a27d2476` / systems `0bf70ef` / libraries `efafc1c` / nightly `10.2.0a20260929` L+W).
 
 | Project | Class | Note |
 |---|---|---|
@@ -146,7 +214,7 @@ Vs Oct 2 ~10:22 community baseline. **No dest/pin lever.** Live dest stays **7.1
 
 | Project | Class | Note |
 |---|---|---|
-| llama.cpp [#29927](https://github.com/ggml-org/llama.cpp/pull/29927) | **Take (method)** | HIP `__byte_perm` → `__builtin_amdgcn_perm` (`v_perm_b32`) for Q1_0 unpack; gfx906 tg128 67→129 t/s. HIP's `__byte_perm` is a byte-array C emulation in `amd_device_functions.h`, not one instruction. See [compiler.md](compiler.md) gotcha. OPEN, review required. |
+| llama.cpp [#29927](https://github.com/ggml-org/llama.cpp/pull/29927) | **Take (method)** | HIP `__byte_perm` → `__builtin_amdgcn_perm` (`v_perm_b32`) for Q1_0 unpack; gfx906 tg128 67→129 t/s. HIP's `__byte_perm` is a byte-array C emulation in `amd_device_functions.h`, not one instruction. See [compiler.md](../compiler/README.md) gotcha. OPEN, review required. |
 | [jollyroger1480/rapier](https://github.com/jollyroger1480/rapier) | **Watch** (engine method) / Leave dest | **NEW** (2026-10-03). Single-model HIP decode for Qwen3.5-class GDN hybrids on **gfx1030** (RX 6950 XT), patches on Strata/ggml. 74 tok/s w/ exact-verify MTP. Method crumbs for Inference: residual-add + next-norm sum-of-squares folded into GEMV epilogue (−64 kernels/token), GDN step with in-kernel Q8_1 epilogue (9→3 launches/layer), one-block-per-head decode attention; float4 read ceiling ~482 GB/s on 6950 XT; pinned-buffer DMA race post-mortem. Not a vLLM transplant. |
 | [Niko1221/Strata](https://github.com/Niko1221/Strata) | **Watch** Leave dest | ggml-based Qwen3.8-Flash-Next engine (created 2026-09-24, ~12k★); RX 6800/6900 listed; rapier's base. Competing serve path. |
 | sar/v620 | Watch containers / Leave dest | Tip moved 10-03/04: **ROCm 10.0.0** base image (`rocm/dev-ubuntu-26.04:10.0.0-full`, `HSA_OVERRIDE_GFX_VERSION=10.3.0`, `AMDGPU_TARGETS=gfx1030`), Strata ROCm image, navi21 llama.cpp fork image. Packaging only. |
@@ -162,7 +230,7 @@ Artifact: `/workspace/rocm-rdna-domain-20261005-1025.md`.
 
 ## Status
 
-Nothing here is a dest or pin change. Compiler pin stays as in [compiler.md](compiler.md).
+Nothing here is a dest or pin change. Compiler pin stays as in [compiler.md](../compiler/README.md).
 
 ## 2026-10-06 ~10:20 — domain pass (one tool Take; not dest)
 
@@ -170,7 +238,7 @@ Vs Oct 5 ~10:25 community baseline. **No dest/pin lever.** Live dest stays **7.1
 
 | Project | Class | Note |
 |---|---|---|
-| llama.cpp [#29910](https://github.com/ggml-org/llama.cpp/pull/29910) + [hip-quality-check.yml](https://github.com/ggml-org/llama.cpp/blob/master/.github/workflows/hip-quality-check.yml) | **Take (tool + method)** | Q2_K MMQ spills 836 → 0 on gfx1030 and 1387 → 0 on gfx1100 by gentler unroll. Upstream spill gate (`scripts/hip/gcn-cdna-vgpr-check.py` over `-Rpass-analysis=kernel-resource-usage`) only builds gfx908, so RDNA spills slip through. Reuse the script as a fork CI gate for `gfx1030;gfx1100;gfx900`. See [compiler.md](compiler.md) gotcha. OPEN. |
+| llama.cpp [#29910](https://github.com/ggml-org/llama.cpp/pull/29910) + [hip-quality-check.yml](https://github.com/ggml-org/llama.cpp/blob/master/.github/workflows/hip-quality-check.yml) | **Take (tool + method)** | Q2_K MMQ spills 836 → 0 on gfx1030 and 1387 → 0 on gfx1100 by gentler unroll. Upstream spill gate (`scripts/hip/gcn-cdna-vgpr-check.py` over `-Rpass-analysis=kernel-resource-usage`) only builds gfx908, so RDNA spills slip through. Reuse the script as a fork CI gate for `gfx1030;gfx1100;gfx900`. See [compiler.md](../compiler/README.md) gotcha. OPEN. |
 | llama.cpp [#30021](https://github.com/ggml-org/llama.cpp/pull/30021)/[#30022](https://github.com/ggml-org/llama.cpp/pull/30022) | Watch (GFX900_manager) | NEW GCN MMQ config retune + stream_k on GCN, measured gfx906 (has `sdot4`; gfx900 does not), so gains may not carry to Vega 10. |
 | llama.cpp [#29720](https://github.com/ggml-org/llama.cpp/pull/29720) | Leave | float4 rms_norm; author reports CDNA gains, RDNA roughly neutral. |
 | vLLM [#59132](https://github.com/vllm-project/vllm/pull/59132) | Watch (engine/fork) | **Merged** 2026-10-06: opt-in `ROCM_SEGMENTED_ATTN` Triton backend for gfx11/gfx12 (decode, prefill, MTP verify). gfx1100 candidate; **not gfx1030**. |
@@ -180,7 +248,7 @@ Vs Oct 5 ~10:25 community baseline. **No dest/pin lever.** Live dest stays **7.1
 | [RYZENNAVI/comfyui-zluda-rdna2](https://github.com/RYZENNAVI/comfyui-zluda-rdna2) | Leave | ComfyUI + ZLUDA Windows RDNA2; not HIP inference toolchain. |
 | Triton AMD / aiter / Strata / rapier / sar/v620 / rocjitsu | unchanged | Triton #11922/#11911 still open, no gfx1030 PR; Strata HIP churn is gfx1151; rocjitsu still no gfx1030 topology JSON. |
 
-Heads-up for ROCm 10.1+: `rocm-smi` is no longer in the standard build, so the `rocm-smi --showtopo` lines in [silicon/rccl-p2p.md](../silicon/rccl-p2p.md) need the `amd-smi topology` equivalent when anyone runs on 10.1 (owner: RDNA2_Researcher). Not a 7.14.0 dest issue.
+Heads-up for ROCm 10.1+: `rocm-smi` is no longer in the standard build, so the `rocm-smi --showtopo` lines in [silicon/rccl-p2p.md](../../silicon/rccl-p2p.md) need the `amd-smi topology` equivalent when anyone runs on 10.1 (owner: RDNA2_Researcher). Not a 7.14.0 dest issue.
 
 Artifact: `/workspace/rocm-rdna-domain-20261006-1020.md`.
 
@@ -191,8 +259,8 @@ Vs Oct 6 ~10:20. **No dest/pin lever.** Live dest stays **7.14.0** wave32 WGP. P
 | Project | Class | Note |
 |---|---|---|
 | Strata [#1123](https://github.com/Niko1221/Strata/pull/1123) / [#1167](https://github.com/Niko1221/Strata/pull/1167) | **Take (library gotcha + tool)** | Author reports rocBLAS on **gfx1030** (10.2.0a20260930 and 10.0.0 / rocBLAS 5.6.0) has tuned kernels only for FP16→FP16, int8 and FP32→FP32; `hipblasGemmEx` with FP16/BF16 inputs and FP32 output (HS/BS) falls to ~5 TFLOPS fallback kernels. Widening to FP32 SGEMM: RX 6800 12K prompt 343 → 534 tok/s; pure FP16 route 619. #1167 adds `tools/hip/tune_rocblas`, a per-shape rocBLAS solution-index table for gfx1030 (+11–13% at 0.8–4K tokens). Lesson for our forks: on gfx1030, benchmark the GemmEx type combo you actually call, and treat HS/BS as suspect. Both PRs open. |
-| rocm-systems [#9820](https://github.com/ROCm/rocm-systems/issues/9820)/[#9821](https://github.com/ROCm/rocm-systems/pull/9821) + RCCL threads | **Take (runtime gotcha)** | Host amdgpu older than DRM 3.64 hangs HIP VMM (`expandable_segments`) and, on Ubuntu 6.8, silently corrupts RCCL; written up in [hip-runtime.md](hip-runtime.md). |
-| rocm-systems [#11618](https://github.com/ROCm/rocm-systems/pull/11618) | **Take (craft)** | `__shfl_xor` bounds-check fold; gfx1030 VALU 32 → 11. Note in [compiler.md](compiler.md). Open. |
+| rocm-systems [#9820](https://github.com/ROCm/rocm-systems/issues/9820)/[#9821](https://github.com/ROCm/rocm-systems/pull/9821) + RCCL threads | **Take (runtime gotcha)** | Host amdgpu older than DRM 3.64 hangs HIP VMM (`expandable_segments`) and, on Ubuntu 6.8, silently corrupts RCCL; written up in [hip-runtime.md](../runtime/README.md). |
+| rocm-systems [#11618](https://github.com/ROCm/rocm-systems/pull/11618) | **Take (craft)** | `__shfl_xor` bounds-check fold; gfx1030 VALU 32 → 11. Note in [compiler.md](../compiler/README.md). Open. |
 | Triton [#11922](https://github.com/triton-lang/triton/pull/11922) | Watch | **Merged** 2026-10-07: `get_dram_gbps()` now uses GDDR6 ×16 for gfx1100/1101/1102/1200/1201 and LPDDR5X ×8 for gfx1151. **gfx1030 is not mapped**, so it keeps ×2 and reads about one-eighth of the real 512 GB/s. A one-line follow-up PR is the fix if anyone relies on it. |
 | Strata [#1103](https://github.com/Niko1221/Strata/issues/1103) | Watch | RX 6800 XT intermittent GPU stalls mid-kernel on TheRock `gfx103X-all` wheels 7.14.0a20260612, clean on 7.13.0a20260515. Old nightly, host-polling engine; not reproduced on the 7.14.0 release. |
 | rocm-systems [#10701](https://github.com/ROCm/rocm-systems/pull/10701) | Watch | RCCL device-compile breaks on `gfx10-3-generic` / `gfx11-generic` targets (SGPR-limit table lookup). Only matters if a fork builds generic targets. Open. |
@@ -207,7 +275,7 @@ Vs Oct 7 ~10:30. **No dest/pin lever.** Live dest stays **7.14.0** wave32 WGP. P
 
 | Project | Class | Note |
 |---|---|---|
-| Strata [#1180](https://github.com/Niko1221/Strata/issues/1180) | **Take (compiler gotcha)** | `amdgpu_waves_per_eu(8)` miscomputes on gfx1100 with AMD clang 22 and is correct on clang 23. Written up in [compiler.md](compiler.md). Fixed in Strata 0.1.40.2. |
+| Strata [#1180](https://github.com/Niko1221/Strata/issues/1180) | **Take (compiler gotcha)** | `amdgpu_waves_per_eu(8)` miscomputes on gfx1100 with AMD clang 22 and is correct on clang 23. Written up in [compiler.md](../compiler/README.md). Fixed in Strata 0.1.40.2. |
 | hipBLASLt [rocm-libraries#10720](https://github.com/ROCm/rocm-libraries/pull/10720) | Watch (gfx1100) | TensileLite's automatic LDS pad for gfx10/gfx11 WMMA fp16/bf16 kernels is an even number of instruction widths, so it can't fix bank conflicts. gfx12 is not affected. Matters for gfx1100 hipBLASLt GEMMs; gfx1030 has no hipBLASLt path. Open, updated 2026-10-08. |
 | Tensile [rocm-libraries#6996](https://github.com/ROCm/rocm-libraries/pull/6996) | Watch (gfx1030/gfx1100) | `MaxLgkmcnt` is hard-coded to 15; the ISA allows 63 on gfx10/11/12. The fix touches Tensile asm caps that rocBLAS gfx1030 kernels use. Open since May, updated 2026-10-08. |
 | rocKE [rocm-libraries#13150](https://github.com/ROCm/rocm-libraries/pull/13150) / hipDNN [#13129](https://github.com/ROCm/rocm-libraries/pull/13129) | Watch (gfx1100) | Builds RDNA WMMA SDPA kernels once as `gfx11-generic` and lets hipDNN descriptors name generic targets (a specific id wins over the generic fallback). Covers gfx1100–gfx1153; no `gfx10-3-generic`, so nothing for gfx1030 or gfx900. Both open. |
@@ -219,9 +287,9 @@ Vs Oct 7 ~10:30. **No dest/pin lever.** Live dest stays **7.14.0** wave32 WGP. P
 
 | Item | Verdict | Note |
 |---|---|---|
-| [rocm-systems#10943](https://github.com/ROCm/rocm-systems/issues/10943) / [CTranslate2#2090](https://github.com/OpenNMT/CTranslate2/issues/2090) | **Take (runtime gotcha)** | `hipMallocAsync` default pool gives zeroed or corrupt memory on gfx1030 and now gfx1100 (ROCm 7.2). Workaround is `ReleaseThreshold = UINT64_MAX`. Written up in [hip-runtime.md](hip-runtime.md). |
-| bitsandbytes [#2089](https://github.com/bitsandbytes-foundation/bitsandbytes/pull/2089) | **Take (compiler gotcha)** | Bitcast floats around `__builtin_amdgcn_mov_dpp`; clang 19 converted numerically. In [compiler.md](compiler.md). |
+| [rocm-systems#10943](https://github.com/ROCm/rocm-systems/issues/10943) / [CTranslate2#2090](https://github.com/OpenNMT/CTranslate2/issues/2090) | **Take (runtime gotcha)** | `hipMallocAsync` default pool gives zeroed or corrupt memory on gfx1030 and now gfx1100 (ROCm 7.2). Workaround is `ReleaseThreshold = UINT64_MAX`. Written up in [hip-runtime.md](../runtime/README.md). |
+| bitsandbytes [#2089](https://github.com/bitsandbytes-foundation/bitsandbytes/pull/2089) | **Take (compiler gotcha)** | Bitcast floats around `__builtin_amdgcn_mov_dpp`; clang 19 converted numerically. In [compiler.md](../compiler/README.md). |
 | ROCm/llvm-project [#4873](https://github.com/ROCm/llvm-project/pull/4873) | Watch (merged 2026-10-09) | Comgr now accepts bare `amdgpu-amd-amdhsa--gfx900` ISA names. Only matters for tools that build target strings by hand. |
-| TheRock [#8729](https://github.com/ROCm/TheRock/issues/8729) | **Take (runtime gotcha)** | MIOpen `GemmFwdRest` routes to hipBLASLt (no gfx1030 kernels); `MIOPEN_FIND_MODE=FAST` fails. Use `MIOPEN_GEMM_ENFORCE_BACKEND=1` (rocBLAS). In [hip-runtime.md](hip-runtime.md). |
+| TheRock [#8729](https://github.com/ROCm/TheRock/issues/8729) | **Take (runtime gotcha)** | MIOpen `GemmFwdRest` routes to hipBLASLt (no gfx1030 kernels); `MIOPEN_FIND_MODE=FAST` fails. Use `MIOPEN_GEMM_ENFORCE_BACKEND=1` (rocBLAS). In [hip-runtime.md](../runtime/README.md). |
 | rocm-libraries [#12240](https://github.com/ROCm/rocm-libraries/issues/12240) | Watch | gfx103X rocBLAS nightly shards marked failed with 0 gtest failures (xml wrapper). Don't read a red gfx103X rocBLAS nightly as a regression without opening the log. |
 | Strata [#1657](https://github.com/Niko1221/Strata/issues/1657) | Leave (engine lane) | 2×RX 6900 XT gfx1030 layer-split bench on 0.1.41. |

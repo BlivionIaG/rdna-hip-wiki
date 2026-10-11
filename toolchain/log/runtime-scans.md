@@ -1,3 +1,63 @@
+---
+owner: ROCM_specialist
+kind: scan-log
+sources:
+  - "https://github.com/ROCm/legacy-rocm-build/issues/6565"
+  - "https://github.com/ROCm/rocm-systems/issues/12145"
+  - "https://github.com/ROCm/rocm-systems/issues/9820"
+  - "https://github.com/ROCm/rocm-systems/pull/9821"
+  - "https://github.com/ROCm/rocm-systems/issues/10943"
+  - "https://github.com/OpenNMT/CTranslate2/issues/2090"
+  - "https://github.com/ROCm/TheRock/issues/8729"
+  - "https://github.com/ROCm/rocm-systems/issues/12638"
+  - "https://github.com/ROCm/TheRock/pull/8588"
+  - "https://github.com/ROCm/TheRock/pull/8607"
+  - "https://github.com/ROCm/rocm-systems/pull/12269"
+  - "https://github.com/ROCm/rocm-systems/pull/12201"
+  - "https://github.com/ROCm/rocm-systems/pull/12209"
+  - "https://github.com/ROCm/rocm-systems/pull/11414"
+  - "https://github.com/ROCm/TheRock/pull/8696"
+  - "https://github.com/ROCm/TheRock/pull/8697"
+  - "https://github.com/ROCm/TheRock/pull/8569"
+  - "https://github.com/ROCm/TheRock/pull/8561"
+  - "https://github.com/ROCm/TheRock/pull/8594"
+  - "https://github.com/ROCm/TheRock/pull/8583"
+  - "https://github.com/ROCm/TheRock/pull/8567"
+  - "https://github.com/ROCm/rocm-systems/pull/11650"
+  - "https://github.com/ROCm/rocm-systems/pull/12228"
+  - "https://github.com/ROCm/TheRock/pull/8576"
+  - "https://github.com/ROCm/TheRock/pull/8533"
+  - "https://github.com/ROCm/TheRock/pull/8530"
+  - "https://github.com/ROCm/rocm-systems/pull/12250"
+  - "https://github.com/ROCm/rocm-systems/pull/10670"
+  - "https://github.com/ROCm/TheRock/pull/8557"
+  - "https://github.com/ROCm/TheRock/pull/8508"
+  - "https://github.com/ROCm/TheRock/pull/8525"
+  - "https://github.com/ROCm/TheRock/pull/8512"
+  - "https://github.com/ROCm/rocm-systems/pull/12076"
+  - "https://github.com/ROCm/rocm-systems/pull/12195"
+  - "https://github.com/ROCm/rocm-systems/pull/12161"
+  - "https://github.com/ROCm/rocm-systems/pull/12239"
+  - "https://github.com/ROCm/TheRock/pull/8542"
+  - "https://github.com/ROCm/TheRock/pull/8472"
+  - "https://github.com/ROCm/TheRock/pull/8470"
+  - "https://github.com/ROCm/rocm-systems/pull/10962"
+  - "https://github.com/ROCm/rocm-systems/pull/11025"
+  - "https://github.com/ROCm/rocm-systems/pull/11542"
+  - "https://github.com/ROCm/rocm-systems/pull/11742"
+  - "https://github.com/ROCm/rocm-systems/pull/11617"
+  - "https://github.com/ROCm/rocm-systems/pull/11954"
+  - "https://github.com/ROCm/rocm-systems/pull/12051"
+  - "https://github.com/ROCm/rocm-systems/pull/7016"
+  - "https://github.com/ROCm/TheRock/pull/8506"
+  - "https://github.com/ROCm/clr/commit/1cb204b7"
+  - "https://github.com/ROCm/TheRock/pull/8258"
+  - "https://github.com/ROCm/rocm-systems/pull/11517"
+  - "https://github.com/ROCm/rocm-systems/pull/11343"
+---
+
+> Historical scan record, kept intact from the flat `toolchain/` pages on branch `toolchain/gotchas-2026-10-09`. Inline links are the sources recorded on the scan date. This restructure did not re-open every SHA or open/merged status below. Those point-in-time claims are **(unsourced)** as of 2026-10-11, except where a topic page repeats the claim with a footnote.
+
 # HIP runtime / ROCm pin
 
 Date: **2026-10-09**.
@@ -28,14 +88,14 @@ On ROCm 7.2 (HIP 7.2.53211), memory from `hipMallocAsync` on the device's defaul
 - Workaround: set `hipMemPoolAttrReleaseThreshold = UINT64_MAX` on the default pool before first use (0/600 failures), or use a caching allocator over plain `hipMalloc`. The reporter's hunch is that the pool releases physical backing at a sync point (default threshold 0) before queued work is done.
 - Threads: [rocm-systems#10943](https://github.com/ROCm/rocm-systems/issues/10943), [CTranslate2#2090](https://github.com/OpenNMT/CTranslate2/issues/2090) (both open, no AMD fix yet).
 
-What this means for us: not yet reproduced on our **7.14.0** dest, so treat it as open there too. In our HIP code and forks, don't use `hipMallocAsync` scratch on the hot path (the W4A16 split-K partials already moved to `torch::empty`, see [silicon/fa-occupancy.md](../silicon/fa-occupancy.md)). PyTorch's default caching allocator uses plain `hipMalloc`; `PYTORCH_HIP_ALLOC_CONF=backend:cudaMallocAsync` would opt into the affected path. If a tool must use stream-ordered allocation, raise the release threshold first. No pin or dest change.
+What this means for us: not yet reproduced on our **7.14.0** dest, so treat it as open there too. In our HIP code and forks, don't use `hipMallocAsync` scratch on the hot path (the W4A16 split-K partials already moved to `torch::empty`, see [silicon/fa-occupancy.md](../../silicon/fa-occupancy.md)). PyTorch's default caching allocator uses plain `hipMalloc`; `PYTORCH_HIP_ALLOC_CONF=backend:cudaMallocAsync` would opt into the affected path. If a tool must use stream-ordered allocation, raise the release threshold first. No pin or dest change.
 
 ## Gotcha — MIOpen conv `miopenStatusInternalError` on gfx1030 comes from hipBLASLt, not CK (2026-10-09)
 
 AMD triage on [TheRock#8729](https://github.com/ROCm/TheRock/issues/8729): on **gfx1030** (V620/RDNA2), MIOpen convolution failures with `miopenStatusInternalError` are not caused by the missing CK grouped-conv library. MIOpen's `GemmFwdRest` solver sends its GEMM to **hipBLASLt**, which ships no gfx1030 kernels. Default find mode falls back to another solver and passes; `MIOPEN_FIND_MODE=FAST` fails every time.
 
 - Workaround: `MIOPEN_GEMM_ENFORCE_BACKEND=1` routes MIOpen's GEMMs to **rocBLAS**.
-- Fits the existing rule: hipBLASLt is excluded on gfx1030 (see [matrix.md](matrix.md)). No pin or dest change.
+- Fits the existing rule: hipBLASLt is excluded on gfx1030 (see [matrix.md](../pin/README.md)). No pin or dest change.
 
 ## Watch — ROCm 10.0 HIP graph hang on empty fork/join roots (2026-10-07)
 
