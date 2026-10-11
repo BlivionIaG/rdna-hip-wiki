@@ -90,7 +90,7 @@ Same capture / D2H family, Python only on the scan; HIP adds gated RMSNorm (see 
 
 | Surface | Delta |
 |---|---|
-| `vllm/compilation/cuda_graph.py` | Per-replay `isnan().any()` + `nan_to_num_` on static graph inputs is now **opt-in** via `VLLM_CG_NAN_INPUT_CHECK=1` (default off). Blocking host syncs every replay were the tax; arenas/padded rows are the rationale for default-off. [^extras-cuda-graph-py] |
+| `vllm/compilation/cuda_graph.py` | *(historical at `71a54552`; at `1dc3bac4` `vllm/compilation/cuda_graph.py` has no `isnan` / `nan_to_num_` replay check and no `VLLM_CG_NAN_INPUT_CHECK` anywhere in the tree)*[^cg-tip-nocheck] Per-replay `isnan().any()` + `nan_to_num_` on static graph inputs is now **opt-in** via `VLLM_CG_NAN_INPUT_CHECK=1` (default off). Blocking host syncs every replay were the tax; arenas/padded rows are the rationale for default-off. [^extras-cuda-graph-py] |
 | `vllm/.../layernorm.py` | Gemma `(1+w)` scale folded `.to(x.dtype)` so `vllm_c` `rms_norm` dtype-match fires (fp32 scale was a silent native fallback). |
 | `csrc/rocm/layernorm.cu` (+ ops/bindings) | New AOT `gated_rms_norm` for Qwen3.x GDN `RMSNormGated` (norm-before-gate, fp16, silu/sigmoid). [^extras-layernorm-cu] |
 
@@ -117,7 +117,7 @@ Same page-commit family on the Python side; real HIP fix in `hc_rdna2.cu`. Not F
 | Surface | Delta |
 |---|---|
 | `csrc/rocm/hc_rdna2.cu` | `GROUP_DIM`/`DIM`-bounded loops (Flash-Next width 2560); chunked `hc_combine_norm`; weight index `w_base[b]` (was OOB on unshared). See [../kernels/qwen4exp-flash-next-hip.md](../../kernels/qwen4exp-flash-next-hip.md). [^extras-hc-rdna2-cu] |
-| `hc_rdna2.py` | `_contig()` + outs `new_zeros` (page-commit; same freeze class as hc_combine / GDN / EXL3). |
+| `hc_rdna2.py` (at `1dc3bac4`: `vllm/models/qwen4_exp/amd/ops/hc_rdna2.py`) | `_contig()` + outs `new_zeros` (page-commit; same freeze class as hc_combine / GDN / EXL3). |
 
 **Capture:** HC ops pass Triton parity in isolation. Arming `VLLM_RDNA_HC_PREFILL_HIP=1` still faults PIECEWISE capture in MoE (`moe_gemm_q4_kernel_rdna2` / `moe_align_block_size_kernel`). Gate stays default-off. Do not invent numbers. Occupancy still FA-first.
 
@@ -144,4 +144,4 @@ Primary sources for this page, cited inline as footnotes:
 [^commit-3092d635]: opengfx1030/vllm-rdna commit `3092d635295a`. https://github.com/opengfx1030/vllm-rdna/commit/3092d635295aa02f714832f539fa647be95db8f7 (exists, verified via GitHub API 2026-10-11)
 [^commit-bb4cb3bd]: opengfx1030/vllm-rdna commit `bb4cb3bdaaec`. https://github.com/opengfx1030/vllm-rdna/commit/bb4cb3bdaaecaf4d7bc6788d4906181c3cc5730e (exists, verified via GitHub API 2026-10-11)
 [^extras-hc-rdna2-cu]: `csrc/rocm/hc_rdna2.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/hc_rdna2.cu
-
+[^cg-tip-nocheck]: `vllm/compilation/cuda_graph.py`, dest at 1dc3bac4 (searched for `isnan`, `nan_to_num`, `VLLM_CG_NAN_INPUT_CHECK`: no match in `vllm/`, `csrc/`, `tools/`). https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/compilation/cuda_graph.py
