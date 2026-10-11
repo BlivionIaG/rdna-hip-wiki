@@ -297,7 +297,7 @@ Two AMD “ACS Enable” contexts that look contradictory and are not:
 
 NCCL: “Virtual machines require ACS to function, hence disabling ACS is not an option.” Do not expect full P2P bandwidth inside a VM.
 
-Level1Techs RDNA 4 PCIe-switch write-up (secondary, measured, **not V620**): ACS clear **5.41 → 19.60 GB/s** RCCL (3.6×). Treat as “ACS can cost a factor of three,” not as a V620 number.
+Level1Techs forum thread on 2× R9700 (gfx1201) behind a PEX88096 switch (secondary, user-reported, **not V620**): RCCL all-reduce **5.41 → 19.60 GB/s** at 128M after clearing ACS on the switch downstream ports (3.6×).[^l1t-249623] Treat as “ACS can cost a factor of three,” not as a V620 number.
 
 ### 2.5 HIP APIs
 
@@ -387,7 +387,7 @@ https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html
 
 | Variable | Values | What it does on this box |
 |---|---|---|
-| `NCCL_P2P_DISABLE` | unset / `1` | `1` disables the P2P transport (direct access over NVLink **or PCI**). RCCL then uses SHM/host. Workaround when P2P init crashes (`hipIpcGetMemHandle`) **or** when P2P is pathologically slow (§5.6). |
+| `NCCL_P2P_DISABLE` | unset / `1` | `1` disables the P2P transport (direct access over NVLink **or PCI**). RCCL then uses SHM/host. Reported workaround when P2P init crashes in `hipIpcGetMemHandle` (rccl-tests #162)[^rccl-tests-162-disable] **or** when P2P is pathologically slow (legacy-rocm-build #6576, §5.6)[^github-issues-6576]. |
 | `NCCL_P2P_LEVEL` | `LOC`/`0` never; `NVL` NVLink/XGMI-class; `PIX`/`1` same PCI switch; `PXB`/`2` via PCI switches; `PHB`/`3` same NUMA (through CPU); `SYS`/`4` cross-NUMA | Cutoff for the **flat P2P schedule**. On V620 there is no `NVL`. Typical 4-GPU workstation is `PHB` or `SYS`. `PIX` only if a real switch sits between cards. |
 | `NCCL_SHM_DISABLE` | unset / `1` | `1` forbids the host-SHM fallback. Only useful as a forced-P2P experiment; can hang if P2P is broken. |
 | `NCCL_IB_DISABLE` | `0` use IB/RoCE verbs; `1` force TCP sockets | Single-node TP=4: IB is unused. `1` is fine and avoids a useless verbs probe. |
@@ -604,7 +604,7 @@ These are **Radeon / PCIe** failures, not Instinct XGMI failures. None of them i
 
 - ROCm/rccl-tests #162: **4× Radeon AI PRO R9700** (gfx1201) `all_reduce_perf` dies at `p2p.cc:256` with `hipIpcGetMemHandle failed : invalid argument`.[^github-issues-162]
 - ROCm/rccl #1454: same WARN across IOMMU / `CONFIG_HSA_AMD_P2P` / dmabuf matrices; “RCCL is completely broken in most configurations.”[^github-issues-1454]
-- Workaround used in those threads: `NCCL_P2P_DISABLE=1` (SHM). **Not gfx1030**, but it is the current RCCL P2P/IPC failure mode on Radeon. If TP=4 crashes in P2P setup, try disable first, then file the log.
+- Workarounds, by thread: in rccl-tests #162 an AMD engineer asked the reporter to try `NCCL_P2P_DISABLE=1`, and the reporter confirmed `all_reduce_perf` then runs (forcing the SHM path).[^rccl-tests-162-disable] In rccl #1454 the workarounds discussed are `HSA_ENABLE_IPC_MODE_LEGACY=0` (reported ineffective on ROCm 6.2.x) and a patch gist; `NCCL_P2P_DISABLE` is **not** proposed there.[^rccl-1454-ipc-legacy] The #1454 reporter's log pairs an RX 6800 XT (Navi 21) with an MI100.[^github-issues-1454] If TP=4 crashes in P2P setup, trying `NCCL_P2P_DISABLE=1` first is a reasonable check *(our advice, not a vendor recommendation)*.
 
 **B. P2P selected, 7000× slower than SHM (ROCm 7.2.3, RCCL 2.27.7)**[^github-issues-6576]
 
@@ -622,8 +622,8 @@ This is the failure that makes “P2P is on” worse than “P2P is off.” On 4
 **C. HIP API surface is uneven**
 
 - HIP #3352: `hipDeviceCanAccessPeer` returns 0; `hipMemcpy2D` D2D SIGSEGV; `hipMemcpyDtoD` ok.[^github-issues-3352]
-- gfx1201 reports: `hipDeviceCanAccessPeer` returns 0 even when some HSA dmabuf path exists; `hipMemcpyPeer` hangs (Level1Techs write-up; ROCR-Runtime #355).
-- HIP #1902: P2P sample fail (that thread’s later comment: gfx1030 **unaffected** for that particular gfx906 bug). Do not generalize a Vega bug to Navi 21.
+- ROCR-Runtime #355 (2× R9700, gfx1201, mainline 6.19, ROCm 7.2.3): `hipDeviceCanAccessPeer` returned 1 and `hipMemcpyPeer` worked only after five fixes (kernel `pci_p2pdma` whitelist patch, BAR resize, DMA mask, `NCCL_PROTO=Simple`). `hipIpcGetMemHandle` then fails in legacy mode, and with `HSA_ENABLE_IPC_MODE_LEGACY=0` `hipIpcOpenMemHandle` returns error 17, which blocks the RCCL P2P transport; forcing P2P with `NCCL_SHM_DISABLE=1` hung the node.[^rocr-355]
+- *(unsourced)* A gfx906 P2P sample failure that reportedly does not affect gfx1030. The earlier citation, HIP #1902, is a PR adding half `abs` APIs and does not support this; no replacement source was found. Do not generalize a Vega P2P bug to Navi 21.
 
 **D. MSCCL + HIP-graph capture OOM (vLLM)**
 
@@ -811,7 +811,11 @@ Footnotes:
 
 > **Boundary (2026-10-11):** RCCL release features (ROCm 10.0 / GIN) are version-specific and owned by [toolchain/comms/README.md](../../toolchain/comms/README.md) (ROCM_specialist). This section is kept until toolchain/ absorbs it; then it shrinks to a one-line summary plus that link. Silicon keeps the PCIe/P2P topology and all-reduce mechanics.
 
-[ROCm 10.0 blog](https://rocm.blogs.amd.com/ecosystems-and-partners/rocm-x-blog/README.html): RCCL merges NCCL 2.30.4, adds symmetric memory and a **GIN** device API (GPU-initiated networking over **GDA / SDMA**, not the CPU bounce). That is the DeepEP/IBGDA class. **Not** 88096 PIX BAR `hipMemcpyPeer`. Do not retip [deepep-v620.md](deepep-v620.md). Live host stays **7.14.0**. Do not invent V620 GIN bandwidth.[^rocm-rocm-x-blog-readme-html]
+[ROCm 10.0 blog](https://rocm.blogs.amd.com/ecosystems-and-partners/rocm-x-blog/README.html): RCCL merges NCCL 2.30.4, adds symmetric memory and a **GIN** device API (“lets the GPU kick off network transfers directly over GDA and SDMA paths instead of bouncing through the CPU”). The blog does not mention DeepEP or IBGDA, so no comparison to them is made here. **Not** 88096 PIX BAR `hipMemcpyPeer`. Do not retip [deepep-v620.md](deepep-v620.md). Live host stays **7.14.0**. Do not invent V620 GIN bandwidth.[^rocm-rocm-x-blog-readme-html]
 [^kfd-crat]: Linux v6.12 amdkfd kfd_crat.c, sienna_cichlid_cache_info (Navi 21: TCP 16 KB/CU, I$ 32 KB/2 CU, K$ 16 KB/2 CU, GL1 128 KB/10 CU, L2 4096 KB, L3 128 MB). https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/amd/amdkfd/kfd_crat.c#L556 (checked 2026-10-11)
 [^pcisig-pcie4]: PCI-SIG FAQ, PCI Express 4.0 (16 GT/s per lane). https://pcisig.com/faq?field_category_value%5B%5D=pci_express_4.0 (checked 2026-10-11)
 [^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)
+[^l1t-249623]: Level1Techs forum, "Does the LRLink PCIe Bridge Fix RCCL's Broken P2P on Dual R9700? (Update: Yes it does!)", opened 2026-05-01; status table "RCCL allreduce 19.60 GB/s at 128M (was 5.41)" after ACS clear. https://forum.level1techs.com/t/does-the-lrlink-pcie-bridge-fix-rccls-broken-p2p-on-dual-r9700-update-yes-it-does/249623 (checked 2026-10-11)
+[^rccl-tests-162-disable]: ROCm/rccl-tests #162, AMD reply asking to try `NCCL_P2P_DISABLE=1` and reporter's successful run. https://github.com/ROCm/rccl-tests/issues/162#issuecomment-3648839425 and https://github.com/ROCm/rccl-tests/issues/162#issuecomment-3652639807 (checked 2026-10-11)
+[^rccl-1454-ipc-legacy]: ROCm/rccl #1454 comments on `HSA_ENABLE_IPC_MODE_LEGACY=0` and its ineffectiveness on ROCm 6.2.x. https://github.com/ROCm/rccl/issues/1454#issuecomment-2544057419 and https://github.com/ROCm/rccl/issues/1454#issuecomment-2551226542 (checked 2026-10-11)
+[^rocr-355]: ROCm/ROCR-Runtime #355, "gfx1201 (RDNA 4): hipIpcOpenMemHandle returns error 17 (dmabuf path, mainline kernel)" (closed). https://github.com/ROCm/ROCR-Runtime/issues/355 (checked 2026-10-11)
