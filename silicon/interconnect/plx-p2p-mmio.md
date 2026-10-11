@@ -17,7 +17,7 @@ sources:
 
 # PEX 88096 / 8749 — silicon, ACS, MMIO (Linux P2P)
 
-Date: 2026-08-19. Register / MMIO dump for the PLX/PEX hop. Engine policy lives in [engine/plx.md](../../engine/plx.md). 4× V620 P2P facts stay in [rccl-p2p.md](rccl-p2p.md). Do **not** invent a measured `hipMemcpyPeer` GB/s. Occupancy still first.
+Date: 2026-08-19. Register / MMIO dump for the PLX/PEX hop. Engine policy lives in [engine/plx.md](../../engine/multi-gpu/plx.md). 4× V620 P2P facts stay in [rccl-p2p.md](rccl-p2p.md). Do **not** invent a measured `hipMemcpyPeer` GB/s. Occupancy still first.
 
 **Names:** PLX Technology → Broadcom. Same silicon is sold as **PEX** *or* **PLX**. `lspci` may print `PLX`, `Broadcom`, or `PCI bridge`. VID **`10b5`** (classic PLX) or **`14e4`** (Broadcom).
 
@@ -262,7 +262,7 @@ A gfx1030 kernel does not program the PEX. It issues global stores/loads. Those 
 - https://rocm.docs.amd.com/en/docs-7.2.0/how-to/Bar-Memory.html
 - https://github.com/ROCm/HIP/issues/3103 (large-BAR = first prefetchable `size=` VRAM)
 - https://docs.kernel.org/gpu/amdgpu/module-parameters.html (`pcie_p2p`, `rebar`)
-- [engine/plx.md](../../engine/plx.md), [rccl-p2p.md](rccl-p2p.md), [deepep-v620.md](deepep-v620.md), [v340l.md](../other-hardware/v340l.md)
+- [engine/plx.md](../../engine/multi-gpu/plx.md), [rccl-p2p.md](rccl-p2p.md), [deepep-v620.md](deepep-v620.md), [v340l.md](../other-hardware/v340l.md)
 - [v620_toolbox pcie_p2p](https://github.com/BlivionIaG/v620_toolbox/tree/master/pcie_p2p)
 
 Footnotes:

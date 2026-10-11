@@ -22,3 +22,28 @@ Window ≈ 2026-09-11 → 2026-09-14. `gh search` / `gh pr view` only; no clones
 - NIXL / Mooncake / Ascend / Blackwell / gfx95 / `nixl_rocm` product objects and claimed tok/s.
 - CUDA/AVX KPool, p2b fused-MoE kernels, FlashInfer/trtllm-gen, community ExL HIP ports (#365–367), SM120 GDN (#369 Dead).
 - Expert DRAM offload as a capacity plan when MoE already fits after quant (**Dead**).
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/vllm-project/vllm/pull/55027>
+- <https://github.com/vllm-project/vllm/pull/54743>
+- <https://github.com/vllm-project/vllm/pull/56404>
+- <https://github.com/vllm-project/vllm/pull/56810>
+- <https://github.com/vllm-project/vllm/pull/56312>
+- <https://github.com/sgl-project/sglang/pull/39176>
+- <https://github.com/sgl-project/sglang/pull/39177>
+- <https://github.com/sgl-project/sglang/pull/39178>
+- <https://github.com/sgl-project/sglang/pull/39180>
+- <https://github.com/sgl-project/sglang/pull/37506>
+- <https://github.com/sgl-project/sglang/pull/39417>
+- <https://github.com/sgl-project/sglang/pull/38941>
+- <https://github.com/sgl-project/sglang/pull/38851>
+- <https://github.com/sgl-project/sglang/pull/32888>
+- <https://github.com/vllm-project/vllm/pull/55133>
+- <https://github.com/ggml-org/llama.cpp/pull/28873>
+- <https://github.com/turboderp-org/exllamav3/pull/356>
+- <https://github.com/turboderp-org/exllamav3/pull/357>
+- <https://github.com/kvcache-ai/ktransformers/pull/2205>
+

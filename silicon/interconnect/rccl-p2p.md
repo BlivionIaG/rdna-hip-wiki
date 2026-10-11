@@ -56,7 +56,7 @@ Rule: every concrete number is attributed to a URL that was opened. If a figure 
 
 Companion notes already on disk (not re-derived here):
 - `silicon/arch-and-memory/architecture.md` — silicon, no MFMA
-- `engine/vllm-sglang-map.md` — vLLM/SGLang path map; custom AR gated to gfx94/95
+- `engine/serving-stack/vllm-sglang-map.md` — vLLM/SGLang path map; custom AR gated to gfx94/95
 
 ---
 
@@ -71,7 +71,7 @@ Lead with the facts that decide the kernel, not the Instinct brochure.
 |---|---|---|
 | Host interconnect | **PCIe 4.0 x16 only.** No GPU-to-GPU fabric on the card. | AMD product page: Bus Type `PCIe® 4.0 x16`. Partner datasheet: `PCI Express® Interface PCIe® Gen4 x16`. |
 | Infinity Fabric / XGMI | **Absent.** Discrete Radeon PRO add-in card. Infinity Cache (128 MB) is on-die last-level cache, not a chip-to-chip link. AMD’s XGMI table lists Instinct SKUs and marks **Radeon PRO V710 = N/A**; V620 is not even a row. | Product page (Infinity Cache 128 MB). Instinct virt-drv XGMI table. [^rocm-gpu-arch-specs] |
-| Official ROCm (V620 footnote) | **QA scope:** gfx1030 ✅, Ubuntu **24.04.x / 22.04.5 only**. RHEL is in the *general* ROCm table; the V620 footnote **excludes** it. Not a measured fail. | ROCm 7.2 / 7.14 system-requirements footnote [8]/[9]. Engine split: [../engine/rocm-host.md](../../engine/rocm-host.md). |
+| Official ROCm (V620 footnote) | **QA scope:** gfx1030 ✅, Ubuntu **24.04.x / 22.04.5 only**. RHEL is in the *general* ROCm table; the V620 footnote **excludes** it. Not a measured fail. | ROCm 7.2 / 7.14 system-requirements footnote [8]/[9]. Engine split: [../engine/rocm-host.md](../../engine/serving-stack/rocm-host.md). |
 | Attested host (this box, 2026-08-19) | ROCm **7.2.0** on **Fedora 43** works; **RHEL 10** works; live **7.14.0** works. Live target is **7.14**. Do not file AMD bugs as if Fedora/RHEL were supported SKUs. | Lab note. |
 | RCCL in ROCm 7.2.0 | **2.27.7**. Intra-node path on this box is **PCIe only** (no xGMI). | ROCm 7.2.0 release notes component table. |
 | vLLM `dist_backend` | **`"nccl"`** (RCCL under the hood). | `RocmPlatform.dist_backend = "nccl"` in `vllm/platforms/rocm.py`. [^extras-rocm-py] |
@@ -163,7 +163,7 @@ V620 is the opposite: **all** GPU–GPU traffic is PCIe.
 
 ### 1.3 ROCm support — official matrix vs this box
 
-Split lives in [../engine/rocm-host.md](../../engine/rocm-host.md). Do **not** read the Ubuntu footnote as “this box cannot run.”
+Split lives in [../engine/rocm-host.md](../../engine/serving-stack/rocm-host.md). Do **not** read the Ubuntu footnote as “this box cannot run.”
 
 **Official (AMD QA, do not erase).** https://rocm.docs.amd.com/projects/install-on-linux/en/docs-7.2.0/reference/system-requirements.html — and the same footnote on [7.14 latest](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html).[^rocm-reference-system-requirements-html][^rocm-reference-system-requirements-html-2]
 
@@ -380,7 +380,7 @@ Small messages → Tree (latency). Large → Ring (bandwidth). That is the NCCL/
 
 ### 3.2 NCCL-compat env (the ones that matter here)
 
-> **Boundary (2026-10-11):** RCCL/NCCL env knobs are version-specific and owned by [toolchain/comms/README.md](../../toolchain/comms/README.md) (ROCM_specialist). This section is kept until toolchain/ absorbs it; then it shrinks to a one-line summary plus that link. Silicon keeps the PCIe/P2P topology and all-reduce mechanics.
+> **Boundary (2026-10-11):** RCCL/NCCL env knobs are version-specific and owned by [toolchain/comms/README.md](../../toolchain/comms/README.md) (ROCM_specialist). Since #11 (merge `baaabb20`) that page holds the current knobs, bugs and ROCm 10.0 / GIN notes; this section stays as silicon-side context and defers to it on anything version-specific.
 
 RCCL accepts the NCCL names. Canonical text:[^docs-docs-env-html]
 https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html
@@ -596,7 +596,7 @@ AMD’s own V620 SR-IOV test host was a **Supermicro AS-4124GS-TNR**, EPYC 7552,
 
 ### 5.6 HIP / RCCL software bugs (the ones that kill TP)
 
-> **Boundary (2026-10-11):** HIP/RCCL release bugs and their workarounds are version-specific and owned by [toolchain/comms/README.md](../../toolchain/comms/README.md) (ROCM_specialist). This section is kept until toolchain/ absorbs it; then it shrinks to a one-line summary plus that link. Silicon keeps the PCIe/P2P topology and all-reduce mechanics.
+> **Boundary (2026-10-11):** HIP/RCCL release bugs and their workarounds are version-specific and owned by [toolchain/comms/README.md](../../toolchain/comms/README.md) (ROCM_specialist). Since #11 (merge `baaabb20`) that page holds the current knobs, bugs and ROCm 10.0 / GIN notes; this section stays as silicon-side context and defers to it on anything version-specific.
 
 These are **Radeon / PCIe** failures, not Instinct XGMI failures. None of them is a published V620 rccl-tests table. They are the failure modes that show up when RCCL tries P2P on discrete Radeon.
 
@@ -706,7 +706,7 @@ _Sources (opened this pass)_
 - https://rocm.docs.amd.com/en/docs-7.2.0/how-to/system-optimization/w6000-v620.html
 - https://rocm.docs.amd.com/projects/install-on-linux/en/docs-7.2.0/reference/system-requirements.html
 - https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html (7.14 V620 Ubuntu-only footnote)
-- [../engine/rocm-host.md](../../engine/rocm-host.md) — official vs attested (Fedora 43 / RHEL 10 / 7.14.0)
+- [../engine/rocm-host.md](../../engine/serving-stack/rocm-host.md) — official vs attested (Fedora 43 / RHEL 10 / 7.14.0)
 - https://github.com/ROCm/legacy-rocm-build/issues/1714
 
 **P2P / IOMMU / BAR / HIP / ACS**
@@ -809,7 +809,7 @@ Footnotes:
 
 ## ROCm 10.0 RCCL / GIN (2026-08-27)
 
-> **Boundary (2026-10-11):** RCCL release features (ROCm 10.0 / GIN) are version-specific and owned by [toolchain/comms/README.md](../../toolchain/comms/README.md) (ROCM_specialist). This section is kept until toolchain/ absorbs it; then it shrinks to a one-line summary plus that link. Silicon keeps the PCIe/P2P topology and all-reduce mechanics.
+> **Boundary (2026-10-11):** RCCL release features (ROCm 10.0 / GIN) are version-specific and owned by [toolchain/comms/README.md](../../toolchain/comms/README.md) (ROCM_specialist). Since #11 (merge `baaabb20`) that page holds the current knobs, bugs and ROCm 10.0 / GIN notes; this section stays as silicon-side context and defers to it on anything version-specific.
 
 [ROCm 10.0 blog](https://rocm.blogs.amd.com/ecosystems-and-partners/rocm-x-blog/README.html): RCCL merges NCCL 2.30.4, adds symmetric memory and a **GIN** device API (“lets the GPU kick off network transfers directly over GDA and SDMA paths instead of bouncing through the CPU”). The blog does not mention DeepEP or IBGDA, so no comparison to them is made here. **Not** 88096 PIX BAR `hipMemcpyPeer`. Do not retip [deepep-v620.md](deepep-v620.md). Live host stays **7.14.0**. Do not invent V620 GIN bandwidth.[^rocm-rocm-x-blog-readme-html]
 [^kfd-crat]: Linux v6.12 amdkfd kfd_crat.c, sienna_cichlid_cache_info (Navi 21: TCP 16 KB/CU, I$ 32 KB/2 CU, K$ 16 KB/2 CU, GL1 128 KB/10 CU, L2 4096 KB, L3 128 MB). https://github.com/torvalds/linux/blob/v6.12/drivers/gpu/drm/amd/amdkfd/kfd_crat.c#L556 (checked 2026-10-11)

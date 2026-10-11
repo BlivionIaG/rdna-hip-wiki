@@ -30,7 +30,7 @@ SKU fit tables and “no HIP persist bit” stay in [infinity-cache.md](../arch-
 
 Date: **2026-09-28** Europe/Paris.
 
-Companions: [infinity-cache.md](../arch-and-memory/infinity-cache.md), [architecture.md](../arch-and-memory/architecture.md) §4.5, [cache-policy.md](../arch-and-memory/cache-policy.md) §0 / §3 / §4, [l2-occupancy.md](l2-occupancy.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [occupancy-composite.md](occupancy-composite.md), [icache-occupancy.md](icache-occupancy.md), [kcache-occupancy.md](kcache-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [fa-occupancy.md](../attention/fa-occupancy.md), [hip-craft.md](../hip-craft/hip-craft.md) §1.3 / §6, [../engine/cache-aware.md](../../engine/cache-aware.md).
+Companions: [infinity-cache.md](../arch-and-memory/infinity-cache.md), [architecture.md](../arch-and-memory/architecture.md) §4.5, [cache-policy.md](../arch-and-memory/cache-policy.md) §0 / §3 / §4, [l2-occupancy.md](l2-occupancy.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [occupancy-composite.md](occupancy-composite.md), [icache-occupancy.md](icache-occupancy.md), [kcache-occupancy.md](kcache-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [fa-occupancy.md](../attention/fa-occupancy.md), [hip-craft.md](../hip-craft/hip-craft.md) §1.3 / §6, [../engine/cache-aware.md](../../engine/scheduling/cache-aware.md).
 
 ## Take / Leave
 

@@ -7,7 +7,7 @@ sources:
 
 # SGLang overlay — silicon (import extras, no second DOT tree)
 
-Date: 2026-08-20. Engine: [../engine/sglang-fork.md](../../engine/sglang-fork.md). Occupancy still first.
+Date: 2026-08-20. Engine: [../engine/sglang-fork.md](../../engine/serving-stack/sglang-fork.md). Occupancy still first.
 
 An SGLang fork does **not** get a new ISA. V620 is still gfx1030: `fdot2` / `sdot4` / `sdot8`, no WMMA, no MFMA, no hardware bf16. Serving (radix, overlap) is CPU/engine. Compute objects come from **`rdna2_extras` after occupancy**.[^isa70648]
 
@@ -34,7 +34,7 @@ No tok/s from their A100/H20 posts. No occupancy retip.
 
 ## Sources
 
-- [../engine/sglang-fork.md](../../engine/sglang-fork.md), [fa-occupancy.md](../attention/fa-occupancy.md), [fp16-rdna2.md](../arch-and-memory/fp16-rdna2.md), [valu.md](../arch-and-memory/valu.md), [codegen-stack.md](../hip-craft/codegen-stack.md)
+- [../engine/sglang-fork.md](../../engine/serving-stack/sglang-fork.md), [fa-occupancy.md](../attention/fa-occupancy.md), [fp16-rdna2.md](../arch-and-memory/fp16-rdna2.md), [valu.md](../arch-and-memory/valu.md), [codegen-stack.md](../hip-craft/codegen-stack.md)
 - Note 2026-08-20: own SGLang path
 
 [^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)

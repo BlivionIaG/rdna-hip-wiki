@@ -18,3 +18,23 @@ Window ≈ 2026-09-17 16:06 → 2026-09-18 ~16:10 Europe/Paris. `gh search prs -
 ## Leave
 
 - Custom ROCm AR [#57182](https://github.com/vllm-project/vllm/pull/57182); ROCR segfault pin [#57328](https://github.com/vllm-project/vllm/pull/57328); HiCache/Mooncake/NIXL product; Ascend/NPU/AITER/FlyDSL; DeepGEMM/NVFP4/Blackwell; ExL sc_measure; claimed tok/s.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/vllm-project/vllm/pull/57182>
+- <https://github.com/vllm-project/vllm/pull/57355>
+- <https://github.com/vllm-project/vllm/pull/57160>
+- <https://github.com/vllm-project/vllm/pull/51081>
+- <https://github.com/vllm-project/vllm/pull/57356>
+- <https://github.com/sgl-project/sglang/pull/40024>
+- <https://github.com/sgl-project/sglang/pull/39899>
+- <https://github.com/sgl-project/sglang/pull/40033>
+- <https://github.com/kvcache-ai/ktransformers/pull/2210>
+- <https://github.com/kvcache-ai/ktransformers/pull/2209>
+- <https://github.com/vllm-project/vllm/pull/56458>
+- <https://github.com/vllm-project/vllm/pull/56848>
+- <https://github.com/sgl-project/sglang/pull/39387>
+- <https://github.com/vllm-project/vllm/pull/57328>
+

@@ -10,7 +10,7 @@ sources:
 
 # leapdragon recipe — silicon review
 
-Date: 2026-08-21. Engine: [../engine/leapdragon.md](../../engine/leapdragon.md). Repo: [leapdragon/vllm-rdna2-recipe](https://github.com/leapdragon/vllm-rdna2-recipe) (GPL-3.0-or-later **recipe**, not a fork). Occupancy still first. Do **not** copy their tok/s.[^github-leapdragon-vllm-rdna2-recipe]
+Date: 2026-08-21. Engine: [../engine/leapdragon.md](../../engine/run-recipes/leapdragon.md). Repo: [leapdragon/vllm-rdna2-recipe](https://github.com/leapdragon/vllm-rdna2-recipe) (GPL-3.0-or-later **recipe**, not a fork). Occupancy still first. Do **not** copy their tok/s.[^github-leapdragon-vllm-rdna2-recipe]
 
 Their box ≠ ours: 2× V620 in **×16** slots (TP=2), ROCm 7.2.3 in-container, `Qwen3.8-27B-GPTQ-4bit` (`head_dim=256`, **24Q/4KV = GQA-6**, hybrid GDN). We are 8× V620 / two 88096s / attested **7.14** / extras HIP. Take **intent**, Leave plugins and numbers.
 
@@ -42,7 +42,7 @@ This is **grid fill**, not the extras `__launch_bounds__(N,1)` / `waves_per_eu(1
 
 ### 2. LDS tile 16 at `head_dim ≥ 256`
 
-64 KiB WG cap. Qwen3.8-27B `head_dim=256` is why their 0002 exists. Clamp Triton `TILE_*` to 16, `launch_num_stages≤2` ([qwen35.md](../../engine/qwen35.md)). `fa_rdna2` needs its **own** 256-head LDS budget — do not assume the Triton clamp covers HIP.
+64 KiB WG cap. Qwen3.8-27B `head_dim=256` is why their 0002 exists. Clamp Triton `TILE_*` to 16, `launch_num_stages≤2` ([qwen35.md](../../engine/run-recipes/qwen35.md)). `fa_rdna2` needs its **own** 256-head LDS budget — do not assume the Triton clamp covers HIP.
 
 ### 3. `BLOCK_KN` 256, after a sweep
 
@@ -92,7 +92,7 @@ Other dead ends they paid for (do not reopen): `dwordx4` KV (loads ~83% peak), 5
 - https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/00-HARDWARE.md
 - https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/01-PATCHES.md
 - https://github.com/leapdragon/vllm-rdna2-recipe/blob/main/builds/shared/plugins/fd_rdna2/fd_rdna2/fd_kernel2.py (intent only; GPL — do not vendor)
-- [../engine/leapdragon.md](../../engine/leapdragon.md), [../kernels/kv-int8.md](../../kernels/kv-int8.md), [fa-occupancy.md](../attention/fa-occupancy.md), [infinity-cache.md](../arch-and-memory/infinity-cache.md), [fp16-rdna2.md](../arch-and-memory/fp16-rdna2.md)
+- [../engine/leapdragon.md](../../engine/run-recipes/leapdragon.md), [../kernels/kv-int8.md](../../kernels/kv-int8.md), [fa-occupancy.md](../attention/fa-occupancy.md), [infinity-cache.md](../arch-and-memory/infinity-cache.md), [fp16-rdna2.md](../arch-and-memory/fp16-rdna2.md)
 
 Footnotes:
 

@@ -10,7 +10,7 @@ sources:
 
 # hipfire — silicon review
 
-Date: 2026-08-21. Engine: [../engine/hipfire.md](../../engine/hipfire.md). Repo: [warpfront/hipfire](https://github.com/warpfront/hipfire). Occupancy still first. Do **not** copy their tok/s.[^github-warpfront-hipfire]
+Date: 2026-08-21. Engine: [../engine/hipfire.md](../../engine/alt-engines/hipfire.md). Repo: [warpfront/hipfire](https://github.com/warpfront/hipfire). Occupancy still first. Do **not** copy their tok/s.[^github-warpfront-hipfire]
 
 Standalone Rust + HIP. Tuned family is **WMMA on gfx11/12**. gfx1030 is a **capability-gated portable** path.[^github-master-readme-md]
 
@@ -51,7 +51,7 @@ Redline (ROCr retained-replay / PM4) is dispatch overhead, not a CU-occupancy fi
 
 ## Numbers (sourced, not ours)
 
-`tests/speed-baselines/gfx1030.txt` is a **speed-gate floor** for *their* MQ4 stack, captured 2026-04-28. 0.8B/4B/9B = RX 6900 XT 16 GB; 27B = V620 Pro 32 GB and **not enforced** on gfx1030 CI. `docs/BENCHMARKS.md` historical row is a different fixture (“truth state: historical”). Neither is extras W4 / TP=4 / ROCm 7.14 / 88096 PIX. Do not write them into [coverage.md](../../engine/coverage.md).[^github-speed-baselines-gfx1030-txt]
+`tests/speed-baselines/gfx1030.txt` is a **speed-gate floor** for *their* MQ4 stack, captured 2026-04-28. 0.8B/4B/9B = RX 6900 XT 16 GB; 27B = V620 Pro 32 GB and **not enforced** on gfx1030 CI. `docs/BENCHMARKS.md` historical row is a different fixture (“truth state: historical”). Neither is extras W4 / TP=4 / ROCm 7.14 / 88096 PIX. Do not write them into [coverage.md](../../engine/overview/coverage.md).[^github-speed-baselines-gfx1030-txt]
 
 ## Strategy — do not pivot
 
@@ -80,7 +80,7 @@ Portable ≠ tuned. Their gfx1030 path being “correct, slower prefill” does 
 - https://github.com/warpfront/hipfire/blob/master/docs/plans/mq3_gfx10.md
 - https://github.com/warpfront/hipfire/blob/master/tests/speed-baselines/gfx1030.txt
 - https://github.com/warpfront/hipfire/blob/master/README.md (GPU support table: RDNA2 = portable)
-- [../engine/hipfire.md](../../engine/hipfire.md), [valu.md](../arch-and-memory/valu.md), [hippih.md](hippih.md), [sglang-fork.md](sglang-fork.md), [v340l.md](../other-hardware/v340l.md)
+- [../engine/hipfire.md](../../engine/alt-engines/hipfire.md), [valu.md](../arch-and-memory/valu.md), [hippih.md](hippih.md), [sglang-fork.md](sglang-fork.md), [v340l.md](../other-hardware/v340l.md)
 
 Footnotes:
 

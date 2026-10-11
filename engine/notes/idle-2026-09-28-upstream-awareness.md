@@ -1,0 +1,63 @@
+# Idle upstream awareness 2026-09-28
+
+Window ≈ 2026-09-25 15:56 → 2026-09-28 ~02:55 Europe/Paris. Prior watches + topic PRs (`gh` search API). Portable merges (QSA workspace pre-reserve, kpool×spec ring, FlashKDA fp32 state methodology, breakable×DP indexer bridge, protected-prefix floor, fused CG inputs, HiCache move-gate / layer-wait ideas, failed-restore hybrid cleanup, DCP-independent draft KV-spec); **no** extras/UNC move. No clones. No invented tok/s.
+
+## Verdict
+
+**No dest bump.** Pin stays **7.14**. UNC-26 EXL3/`-cb 3inst` untouched. APC stays **off** until Flash-Next align-state copy fixed (third APC path) — open [#57807](https://github.com/vllm-project/vllm/pull/57807) / [#55507](https://github.com/vllm-project/vllm/pull/55507) / [#57908](https://github.com/vllm-project/vllm/pull/57908) / new RecoverSSM [#58863](https://github.com/vllm-project/vllm/pull/58863) **still reinforce / watch**, do not lift. No new UNC. PD remains **Dead** for PCIe gfx1030. Expert DRAM offload remains **Dead** when MoE fits after quant. Lab all-reduce stays **PYNCCL** (`VLLM_RDNA_AR=0`) — Leave custom-AR [#57182](https://github.com/vllm-project/vllm/pull/57182). Mojo≠produce; leapdragon ideas Later only.
+
+## Take Later (portable ideas only)
+
+- QSA indexer logits workspace sized once to worst-case (no mid-serve realloc under Flash-Next) — [vLLM #57105](https://github.com/vllm-project/vllm/pull/57105) **MERGED** (**not** APC lift).
+- DSA/kpool rings budget rejected pool-completing drafts (`kpool * cdiv(kpool+num_spec, kpool)`) — [vLLM #58454](https://github.com/vllm-project/vllm/pull/58454) **MERGED** (mates [#58704](https://github.com/vllm-project/vllm/pull/58704)).
+- KDA recurrent state stays fp32 across tiles / chunked-prefill boundaries — [vLLM #58846](https://github.com/vllm-project/vllm/pull/58846) **MERGED** (**Take Later methodology** for UNC-35; **Leave** FlashKDA objects).
+- Graph replay metadata: no pageable H2D; async MLA plan without per-step D2H — [vLLM #58499](https://github.com/vllm-project/vllm/pull/58499) / [#58684](https://github.com/vllm-project/vllm/pull/58684) **MERGED**.
+- Breakable×DP pooled-indexer bridge: `logical ≤ rows ≤ padded` — [SGLang #41311](https://github.com/sgl-project/sglang/pull/41311) **MERGED**.
+- Protected prefix is a hard free floor; `insert_req` ≠ `release_kv_cache` — [SGLang #41312](https://github.com/sgl-project/sglang/pull/41312) / [#41281](https://github.com/sgl-project/sglang/pull/41281) **MERGED**.
+- Fuse small CUDA-graph input copies; HiCache move-gate covers every relocator; wait layer transfer before index-K read — [SGLang #41166](https://github.com/sgl-project/sglang/pull/41166) / [#41248](https://github.com/sgl-project/sglang/pull/41248) / [#41345](https://github.com/sgl-project/sglang/pull/41345) **MERGED** (**Leave** HiCache product / tok/s).
+- Failed restore clears written K/V + recurrent (hybrid) — [llama.cpp #27530](https://github.com/ggml-org/llama.cpp/pull/27530) **MERGED**.
+- Status: prior open watches **unchanged** (no flip). New open watches: vLLM RecoverSSM [#58863](https://github.com/vllm-project/vllm/pull/58863); metadata share [#58851](https://github.com/vllm-project/vllm/pull/58851)/[#58762](https://github.com/vllm-project/vllm/pull/58762); draft graph q_len [#58821](https://github.com/vllm-project/vllm/pull/58821); SGLang one-warmup/shape [#41484](https://github.com/sgl-project/sglang/pull/41484); HiCache demote [#41374](https://github.com/sgl-project/sglang/pull/41374); PD clamp restore [#41450](https://github.com/sgl-project/sglang/pull/41450). Still open core: vLLM #57158/#57183/#57180/#57128/#56953/#56971/#57010/#56936/#56957/#57182/#56455/#56243/#56177/#56869/#57908/#57785/#57881/#57943/#57959/#57569/#54743/#56466/#53520/#56089/#57184/#57170/#58108/#57807/#55507/#58196/#58198/#58168/#58642/#58676/#58708; SGLang #39799/#39605/#39575/#39606/#39815/#38887/#38663/#40166/#40159/#39787/#39803/#39960/#39792/#40571/#40543/#40857/#41218/#41171/#41173/#41182; llama.cpp #28873/#28927/#29019/#29191/#29208/#29353; ExL #379/#315/#392; KT #2190; NIXL #2196/#2244/#2252/#2241/#2225.
+
+## Leave
+
+- Custom ROCm AR [#57182](https://github.com/vllm-project/vllm/pull/57182); NIXL/Mooncake/MoRIIO product ([#58292](https://github.com/vllm-project/vllm/pull/58292)/[#50047](https://github.com/vllm-project/vllm/pull/50047)/[#49300](https://github.com/vllm-project/vllm/pull/49300)); PD deferred/abort product ([#41402](https://github.com/sgl-project/sglang/pull/41402)/[#41261](https://github.com/sgl-project/sglang/pull/41261)); AITER/gfx950/CSA2 ROCm ([#58867](https://github.com/vllm-project/vllm/pull/58867)/[#57407](https://github.com/vllm-project/vllm/pull/57407)/[#58045](https://github.com/vllm-project/vllm/pull/58045)); FlashKDA/TMA objects; ExL Turing sm_75 [#411](https://github.com/turboderp-org/exllamav3/pull/411); Mamba2 B200 tok/s [#41223](https://github.com/sgl-project/sglang/pull/41223); HIP ISA; claimed tok/s.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/vllm-project/vllm/pull/57807>
+- <https://github.com/vllm-project/vllm/pull/55507>
+- <https://github.com/vllm-project/vllm/pull/57908>
+- <https://github.com/vllm-project/vllm/pull/58863>
+- <https://github.com/vllm-project/vllm/pull/57182>
+- <https://github.com/vllm-project/vllm/pull/57105>
+- <https://github.com/vllm-project/vllm/pull/58454>
+- <https://github.com/vllm-project/vllm/pull/58704>
+- <https://github.com/vllm-project/vllm/pull/58846>
+- <https://github.com/vllm-project/vllm/pull/58499>
+- <https://github.com/vllm-project/vllm/pull/58684>
+- <https://github.com/sgl-project/sglang/pull/41311>
+- <https://github.com/sgl-project/sglang/pull/41312>
+- <https://github.com/sgl-project/sglang/pull/41281>
+- <https://github.com/sgl-project/sglang/pull/41166>
+- <https://github.com/sgl-project/sglang/pull/41248>
+- <https://github.com/sgl-project/sglang/pull/41345>
+- <https://github.com/ggml-org/llama.cpp/pull/27530>
+- <https://github.com/vllm-project/vllm/pull/58851>
+- <https://github.com/vllm-project/vllm/pull/58762>
+- <https://github.com/vllm-project/vllm/pull/58821>
+- <https://github.com/sgl-project/sglang/pull/41484>
+- <https://github.com/sgl-project/sglang/pull/41374>
+- <https://github.com/sgl-project/sglang/pull/41450>
+- <https://github.com/vllm-project/vllm/pull/58292>
+- <https://github.com/vllm-project/vllm/pull/50047>
+- <https://github.com/vllm-project/vllm/pull/49300>
+- <https://github.com/sgl-project/sglang/pull/41402>
+- <https://github.com/sgl-project/sglang/pull/41261>
+- <https://github.com/vllm-project/vllm/pull/58867>
+- <https://github.com/vllm-project/vllm/pull/57407>
+- <https://github.com/vllm-project/vllm/pull/58045>
+- <https://github.com/turboderp-org/exllamav3/pull/411>
+- <https://github.com/sgl-project/sglang/pull/41223>
+

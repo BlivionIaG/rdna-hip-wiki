@@ -11,7 +11,7 @@ sources:
 
 # Infinity Cache — SKU table (RDNA2 intro)
 
-Date: 2026-08-20. Policy / persist bits stay in [cache-policy.md](cache-policy.md). Engine batching: [../engine/cache-aware.md](../../engine/cache-aware.md). Occupancy still first. L2 mid-level thrash vs occupancy: [l2-occupancy.md](../occupancy/l2-occupancy.md). IC last-level thrash vs occupancy: [infinity-cache-occupancy.md](../occupancy/infinity-cache-occupancy.md).
+Date: 2026-08-20. Policy / persist bits stay in [cache-policy.md](cache-policy.md). Engine batching: [../engine/cache-aware.md](../../engine/scheduling/cache-aware.md). Occupancy still first. L2 mid-level thrash vs occupancy: [l2-occupancy.md](../occupancy/l2-occupancy.md). IC last-level thrash vs occupancy: [infinity-cache-occupancy.md](../occupancy/infinity-cache-occupancy.md).
 
 **Yes: Infinity Cache was introduced with RDNA 2** (Navi 21 / GFX10.3, 2020). RDNA 1, GCN, Vega 10 (V340L) do **not** have it. It is an **on-die last-level cache (L3 / MALL)**, after L2, before GDDR6. It is **not** Infinity Fabric / XGMI and is **not** a GPU-to-GPU path.
 
@@ -45,7 +45,7 @@ Prefill of a fat activation GEMM that already misses 128 MB does **not** get an 
 
 gfx1030 has **no** IC QoS, coloring, persist queue, or “schedule this dispatch into warm lines.” MALL is one GPU-wide **LRU**. Two HIP streams, SDMA, or a fat prefill chunk on the same V620 evict the decode shard. TP=4 does **not** share IC across cards — each V620 has its own 128 MB.
 
-What looks like “cache-aware scheduling” is therefore **engine policy**, not silicon: decode-first so the W4 shard is reread, APC for the *other* cache (paged KV prefix), one partial prefill so a miss-sized GEMM does not blow the 128 MB. Stock V1 already does that. extras has no custom scheduler. Details: [../engine/cache-aware.md](../../engine/cache-aware.md).
+What looks like “cache-aware scheduling” is therefore **engine policy**, not silicon: decode-first so the W4 shard is reread, APC for the *other* cache (paged KV prefix), one partial prefill so a miss-sized GEMM does not blow the 128 MB. Stock V1 already does that. extras has no custom scheduler. Details: [../engine/cache-aware.md](../../engine/scheduling/cache-aware.md).
 
 Leave SGLang radix/router as an IC feature. Do not write a kernel to pin lines.
 
@@ -79,7 +79,7 @@ A kernel tuned to “the layer fits in 128 MB” falls out on 96/32/16 MB parts.
 - W7800 48 GB: 96 MB IC — https://www.amd.com/en/products/graphics/workstations/radeon-pro/w7800-48gb.html
 - `kfd_crat.c` Sienna Cichlid L3 128×1024 KB, line 64 B
 - [cache-policy.md](cache-policy.md), [architecture.md](architecture.md) §4.5, [l2-occupancy.md](../occupancy/l2-occupancy.md) (L2 mid ≠ IC), [infinity-cache-occupancy.md](../occupancy/infinity-cache-occupancy.md) (IC thrash ≠ PIX MaxWaves), [rccl-p2p.md](../interconnect/rccl-p2p.md) (IC ≠ XGMI)
-- [../engine/cache-aware.md](../../engine/cache-aware.md)
+- [../engine/cache-aware.md](../../engine/scheduling/cache-aware.md)
 
 Footnotes:
 

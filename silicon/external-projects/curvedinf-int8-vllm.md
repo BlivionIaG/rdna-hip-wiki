@@ -32,7 +32,7 @@ Their own README already says RDNA2 INT8 is `v_dot4_i32_i8` / DP4A and **CK GEMM
 ## Sources
 
 - README 2026-08-27 (`pushed_at` 2026-08-27T17:15:41Z)
-- [../kernels/kv-int8.md](../../kernels/kv-int8.md), [../engine/kv-int8.md](../../engine/kv-int8.md)
+- [../kernels/kv-int8.md](../../kernels/kv-int8.md), [../engine/kv-int8.md](../../engine/kv-cache/kv-int8.md)
 - [../kernels/sdot4-explore.md](../../kernels/sdot4-explore.md) if present; W8A8 Later
 
 Footnotes:

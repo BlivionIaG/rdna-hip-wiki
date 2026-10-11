@@ -10,7 +10,7 @@ sources:
 
 # hippih — silicon contract (empty repo, three ISAs)
 
-Date: 2026-08-19. Repo: [BlivionIaG/hippih](https://github.com/BlivionIaG/hippih) @ `d1e34a7` is **LICENSE + one-line README only**. Engine page: [engine/hippih.md](../../engine/hippih.md) if present. **Do not pivot off `rdna2_extras`.** Occupancy still first.[^github-blivioniag-hippih]
+Date: 2026-08-19. Repo: [BlivionIaG/hippih](https://github.com/BlivionIaG/hippih) @ `d1e34a7` is **LICENSE + one-line README only**. Engine page: [engine/hippih.md](../../engine/alt-engines/hippih.md) if present. **Do not pivot off `rdna2_extras`.** Occupancy still first.[^github-blivioniag-hippih]
 
 Stated target: custom HIP inference engine for **gfx1030 + gfx1100 + gfx900**. That is three compile targets and three inner opcodes, not one “RDNA” kernel.
 

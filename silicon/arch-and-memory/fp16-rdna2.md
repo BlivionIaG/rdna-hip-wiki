@@ -10,7 +10,7 @@ sources:
 
 # Fastest gfx1030 FP16 path — silicon contract
 
-Date: 2026-08-18. **Study / after occupancy.** Peak math from [valu.md](valu.md). Engine: [engine/fp16-rdna2.md](../../engine/fp16-rdna2.md). Native MoE tiles: [../kernels/fp16-moe.md](../../kernels/fp16-moe.md). Stock hole: [../kernels/triton-skinny-gemm.md](../../kernels/triton-skinny-gemm.md).
+Date: 2026-08-18. **Study / after occupancy.** Peak math from [valu.md](valu.md). Engine: [engine/fp16-rdna2.md](../../engine/quant-formats/fp16-rdna2.md). Native MoE tiles: [../kernels/fp16-moe.md](../../kernels/fp16-moe.md). Stock hole: [../kernels/triton-skinny-gemm.md](../../kernels/triton-skinny-gemm.md).
 
 ## One-line verdict
 

@@ -1,6 +1,6 @@
 # Native HIP FP16 MoE on gfx1030 — silicon / kernel contract
 
-Date: 2026-08-18. **Spec / Todo.** Engine: [engine/fp16-moe.md](../engine/fp16-moe.md). Target is gfx1030 wave32, fp16 A/B, fp32 accumulation. No MFMA, WMMA, AGPR or bf16.
+Date: 2026-08-18. **Spec / Todo.** Engine: [engine/moe/fp16-moe.md](../engine/moe/fp16-moe.md). Target is gfx1030 wave32, fp16 A/B, fp32 accumulation. No MFMA, WMMA, AGPR or bf16.
 
 ## Hard ISA contract
 
