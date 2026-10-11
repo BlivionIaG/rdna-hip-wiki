@@ -26,7 +26,7 @@ flowchart LR
   end
   subgraph LATER["Later"]
     direction TB
-    sd["speculative decoding<br/>(needs q > 1 attention)"] ~~~ pp["pipeline parallel<br/>(unmeasured)"]
+    sd["speculative decoding<br/>(MTP=2 in one dest recipe; others Later)"] ~~~ pp["pipeline parallel<br/>(unmeasured)"]
   end
   subgraph CAP["Capacity, not speed"]
     direction TB
@@ -52,11 +52,11 @@ Verdicts are this page's technique table; serve locks (prefix caching, all-reduc
 | Chunked prefill | Use. Measure token budget. Instinct 8k–16k is HBM. |
 | Prefix / radix cache | Use. |
 | PD disaggregation | Skip as a win. RDMA/xGMI stacks only. PD does not raise throughput.[^vllm-disagg] |
-| Speculative decoding | Later. Verify is extend (q=k+1).[^leviathan] No sourced gfx1030 specdec. |
+| Speculative decoding | Dest serves MTP=2 in the `flashnext-mtp2` recipe, with FA-RDNA2 split decode for verify rows[^d-mtp2]. Verify is extend (q=k+1).[^leviathan] Other methods (DFlash, DSpark) stay Later on gfx1030. |
 | KV FP8 | Not a vLLM path (`supports_fp8()` false). If you write KV quant, INT8 + fused dequant. |
 | KV offload (host/SSD) | Prefix reuse and preemption only. Not per-token decode H2D. |
 | MoE expert offload | Huge MoE: CPU-resident experts + GPU attention. gfx1030 is outside AITER and the Triton MoE whitelist. |
-| Tensor parallel | Capacity, not speed. RCCL Ring/Tree over PCIe. No XGMI. Stock vLLM custom AR is gfx94/95 only; dest ships `rdna_ar`, a push one-shot all-reduce up to 64 KiB (`RDNA_AR_ONESHOT_MAX`), RCCL above; two-shot was removed; since `00fcc97f` each call returns a fresh output tensor[^dest-rdna-ar]. Mechanics: [silicon/rdna-allreduce.md](../../silicon/rdna-allreduce.md); whether it is on: [fork/serve-locks.md](../../fork/serve-locks.md). |
+| Tensor parallel | Capacity, not speed. RCCL Ring/Tree over PCIe. No XGMI. Stock vLLM custom AR is gfx94/95 only; dest ships `rdna_ar`, a push one-shot all-reduce up to a runtime gate of min(`VLLM_RDNA_AR_MAX_KB`, `VLLM_RDNA_AR_ONESHOT_KB`), both default 64 KiB (`RDNA_AR_ONESHOT_MAX` is only the compile-time default), RCCL above[^d-ar]; two-shot was removed; since `00fcc97f` each call returns a fresh output tensor[^dest-rdna-ar]. Mechanics: [silicon/rdna-allreduce.md](../../silicon/rdna-allreduce.md); whether it is on: [fork/serve-locks.md](../../fork/serve-locks.md). |
 | Pipeline parallel | AMD's hint with no high-speed interconnect. No sourced RDNA2 measurement. |
 
 ## Write order (engine, not silicon)
@@ -97,3 +97,5 @@ HIP default loads stay. No persist / IC bypass / prefetch on gfx1030. Single-GPU
 [^dest-recipes]: dest recipes at `1dc3bac4` (`tools/rdna/recipes/*.env`: all set `VLLM_RDNA_AR=1`; all but `dsv4-flash.env` list prefix caching) — <https://github.com/opengfx1030/vllm-rdna/tree/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/recipes>; code default `VLLM_RDNA_AR="0"` in <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/envs.py>
 [^drm364]: toolchain/hip-runtime.md, "Gotcha — the host kernel's amdgpu DRM version is part of the pin"; upstream threads <https://github.com/ROCm/legacy-rocm-build/issues/6565>, <https://github.com/ROCm/rocm-systems/issues/12145>, <https://github.com/ROCm/rocm-systems/issues/9820>
 [^dest-rdna-ar]: dest `csrc/rocm/rdna_allreduce.cuh` (`RDNA_AR_ONESHOT_MAX` 65536, two-shot removed) — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/rdna_allreduce.cuh#L66-L70>; `vllm/envs.py` `VLLM_RDNA_AR` comment — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/envs.py#L1470-L1476>; fresh output per call — <https://github.com/opengfx1030/vllm-rdna/commit/00fcc97ff5015158da93f52bd32f2c70757f0f8a>
+[^d-mtp2]: dest `tools/rdna/recipes/flashnext-mtp2.env` (`MTP=2`) — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/recipes/flashnext-mtp2.env>; dest PR #29 FA-RDNA2 decode for spec-decode verify (merged) — <https://github.com/opengfx1030/vllm-rdna/pull/29>
+[^d-ar]: dest `vllm/distributed/device_communicators/rdna_all_reduce.py` `resolve_gate_kb()` — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/distributed/device_communicators/rdna_all_reduce.py#L52-L80>; `csrc/rocm/rdna_allreduce.cuh` `RDNA_AR_ONESHOT_MAX` (compile-time default) — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/rdna_allreduce.cuh#L66-L70>; runtime override in `rdna_allreduce.cu` — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/rdna_allreduce.cu#L88-L91>

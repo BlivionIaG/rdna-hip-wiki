@@ -4,7 +4,7 @@ Date: 2026-08-17. Engine contract. Card: MTP on [project 4](https://github.com/u
 
 **Verdict:** MTP is **native multi-token prediction** on the target (DeepSeek D=1 heads, serial draft). Verify is **extend / short-prefill** (`q = 1+k`), not q=1 decode. On this box it does **not** fire until a **fat MLA tile (`q>1`)** exists. No new DOT kernel. Same silicon blocker as mix/spec.
 
-Fork today: DSv4 gfx10x routing keeps MTP off (`VLLM_DISABLE_DSPARK_MTP` / mix off). That is policy, not a missing GEMM.
+Dest at `1dc3bac4`: MTP is served on Flash-Next (`flashnext-mtp2` recipe, `MTP=2`; FA-RDNA2 split decode handles verify rows)[^d-mtp2]. DSv4-Flash still runs `MTP=0`; the old `VLLM_DISABLE_DSPARK_MTP` gate no longer exists[^d-dsv4env]. *(2026-08-17 text: "DSv4 gfx10x routing keeps MTP off (`VLLM_DISABLE_DSPARK_MTP` / mix off).")*
 
 ## What MTP is (engine)
 
@@ -62,7 +62,7 @@ Live sparse MLA is q=`[B,H,D]` only. Short Br=32 is the verify-shaped path once 
 
 | Piece | Spec |
 |---|---|
-| Gate | stay off on gfx10x until fat tile + occupancy. Do not flip `VLLM_DISABLE_DSPARK_MTP` early. |
+| Gate | DSv4: stays `MTP=0` in the recipe until fat tile + occupancy (the `VLLM_DISABLE_DSPARK_MTP` flag is gone at `1dc3bac4`). Flash-Next MTP=2 already serves. |
 | Draft | existing DSv4 MTP heads, fp16 workspace (already the gfx10x path). |
 | Verify attn | HIP MLA fat tile **or** fa_rdna2 short-extend. Not Triton compile-tax as the product. |
 | Scheduler | stock V1 `num_tokens_with_spec` / lookahead slots. |
@@ -91,4 +91,5 @@ Added in the 2026-10-11 sourcing pass:
 [^dspark]: DSpark paper — <https://arxiv.org/html/2607.05147v1>
 [^deepseek-v3]: DeepSeek-AI, *DeepSeek-V3 Technical Report* (MoE layout, MTP) — <https://arxiv.org/abs/2412.19437>
 [^vllm-parallel-drafting]: vLLM blog, Speculators parallel drafting (DFlash) — <https://vllm.ai/blog/2026-07-28-speculators-parallel-drafting>
-
+[^d-mtp2]: dest `tools/rdna/recipes/flashnext-mtp2.env` (`MTP=2`) — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/recipes/flashnext-mtp2.env>; dest PR #29 FA-RDNA2 decode for spec-decode verify (merged) — <https://github.com/opengfx1030/vllm-rdna/pull/29>
+[^d-dsv4env]: dest `tools/rdna/recipes/dsv4-flash.env` (`MTP=0`, `ATTN=none`) — <https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/recipes/dsv4-flash.env>; `VLLM_DISABLE_DSPARK_MTP` has no match in `vllm/`, `csrc/` or `tools/rdna/` at `1dc3bac4`
