@@ -30,3 +30,14 @@ Skim rule: **gfx1030-relevant HIP/ISA ideas only** (wave / LDS / occupancy / sof
 - LDS pad / 64 KiB clamp (Radiance methodology): [../../silicon/lds-tiles.md](../../silicon/lds-tiles.md) § Radiance A-tile
 - FA occupancy leftover: [../../silicon/fa-occupancy.md](../../silicon/fa-occupancy.md)
 - Waitcnt / waves_per_eu: [../../silicon/hip-craft.md](../../silicon/hip-craft.md)
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://modal.com/gpu-glossary>
+- <https://modal.com/blog/reverse-engineer-flash-attention-4>
+- <https://modal.com/gpu-glossary/perf/bank-conflict>
+- <https://modal.com/gpu-glossary/perf/occupancy>
+- <https://modal.com/gpu-glossary/perf/latency-hiding>
+

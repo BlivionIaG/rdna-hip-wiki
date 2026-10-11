@@ -25,5 +25,5 @@ Date: 2026-09-28. Priority target: gfx1030 (V620).
 
 ## Related
 
-- Dest Triton baseline: [engine/triton-rocm.md](../../engine/triton-rocm.md)
+- Dest Triton baseline: [engine/stock-baseline/triton-rocm.md](../../engine/stock-baseline/triton-rocm.md)
 - Portable zoo: [../portable/README.md](../portable/README.md)

@@ -1,6 +1,6 @@
 # FlashKDA — silicon (no SM90, no CUTLASS, 128×128 = fdot2 later)
 
-Date: 2026-08-19. **Later / wiki only** until extras serves a KDA or GDN model. Engine: [../engine/flashkda.md](../engine/flashkda.md). Occupancy still first.
+Date: 2026-08-19. **Later / wiki only** until extras serves a KDA or GDN model. Engine: [../engine/attention/flashkda.md](../engine/attention/flashkda.md). Occupancy still first.
 
 Repo: [MoonshotAI/FlashKDA](https://github.com/MoonshotAI/FlashKDA) (MIT, 2026-04). Deep-dive: [docs/20260420-flashkda-v1-deep-dive.md](https://github.com/MoonshotAI/FlashKDA/blob/master/docs/20260420-flashkda-v1-deep-dive.md).
 
@@ -60,7 +60,7 @@ LDS: 128×128 fp16 = **32 KiB** per state. Double-buffer + K1 scratch must stay 
 
 **Do not import:** CUTLASS, wgmma, `MOVM_T`, SM80 MMA fragments, AITER, `on_rdna()` as a gfx1030 gate. Reference is FLA Triton `chunk_kda`, then a HIP rewrite.
 
-Cousins: Qwen3.5 **GDN** is the same linear+full-attn family ([../engine/qwen35.md](../engine/qwen35.md)). One HIP later, two names. extras has **no** KDA today.
+Cousins: Qwen3.5 **GDN** is the same linear+full-attn family ([../engine/run-recipes/qwen35.md](../engine/run-recipes/qwen35.md)). One HIP later, two names. extras has **no** KDA today.
 
 ## Order
 
@@ -76,4 +76,4 @@ No tok/s from this page. No occupancy retip.
 - https://github.com/MoonshotAI/FlashKDA
 - https://github.com/MoonshotAI/FlashKDA/blob/master/docs/20260420-flashkda-v1-deep-dive.md (CHUNK=16, K1/K2, bf16 state, fp16 invert, `launch_bounds(256,8)`)
 - https://github.com/MoonshotAI/FlashKDA/blob/master/README.md (`K=V=128`, SM90+, `cu_seqlens`)
-- [../engine/flashkda.md](../engine/flashkda.md), [fp16-rdna2.md](fp16-rdna2.md), [valu.md](valu.md)
+- [../engine/attention/flashkda.md](../engine/attention/flashkda.md), [fp16-rdna2.md](fp16-rdna2.md), [valu.md](valu.md)

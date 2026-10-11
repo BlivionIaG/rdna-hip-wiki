@@ -1,6 +1,6 @@
 # FlyDSL DOT atoms for gfx1030 — silicon feasibility contract
 
-Snapshot: ROCm/FlyDSL `96af91bcab7703df1b8d5536ffbb4ff72b6dfacd` (2026-08-17), release v0.3.0. Engine order: [engine/flydsl.md](../engine/flydsl.md). **Not implemented or supported today.**
+Snapshot: ROCm/FlyDSL `96af91bcab7703df1b8d5536ffbb4ff72b6dfacd` (2026-08-17), release v0.3.0. Engine order: [engine/alt-engines/flydsl.md](../engine/alt-engines/flydsl.md). **Not implemented or supported today.**
 
 ## Verdict
 

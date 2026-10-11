@@ -6,7 +6,7 @@ Rule: every concrete number is attributed to a URL that was opened. If a figure 
 
 Companion notes already on disk (not re-derived here):
 - `silicon/architecture.md` — silicon, no MFMA
-- `engine/vllm-sglang-map.md` — vLLM/SGLang path map; custom AR gated to gfx94/95
+- `engine/serving-stack/vllm-sglang-map.md` — vLLM/SGLang path map; custom AR gated to gfx94/95
 
 ---
 
@@ -21,7 +21,7 @@ Lead with the facts that decide the kernel, not the Instinct brochure.
 |---|---|---|
 | Host interconnect | **PCIe 4.0 x16 only.** No GPU-to-GPU fabric on the card. | AMD product page: Bus Type `PCIe® 4.0 x16`. Partner datasheet: `PCI Express® Interface PCIe® Gen4 x16`. |
 | Infinity Fabric / XGMI | **Absent.** Discrete Radeon PRO add-in card. Infinity Cache (128 MB) is on-die last-level cache, not a chip-to-chip link. AMD’s XGMI table lists Instinct SKUs and marks **Radeon PRO V710 = N/A**; V620 is not even a row. | Product page (Infinity Cache 128 MB). Instinct virt-drv XGMI table. |
-| Official ROCm (V620 footnote) | **QA scope:** gfx1030 ✅, Ubuntu **24.04.x / 22.04.5 only**. RHEL is in the *general* ROCm table; the V620 footnote **excludes** it. Not a measured fail. | ROCm 7.2 / 7.14 system-requirements footnote [8]/[9]. Engine split: [../engine/rocm-host.md](../engine/rocm-host.md). |
+| Official ROCm (V620 footnote) | **QA scope:** gfx1030 ✅, Ubuntu **24.04.x / 22.04.5 only**. RHEL is in the *general* ROCm table; the V620 footnote **excludes** it. Not a measured fail. | ROCm 7.2 / 7.14 system-requirements footnote [8]/[9]. Engine split: [../engine/serving-stack/rocm-host.md](../engine/serving-stack/rocm-host.md). |
 | Attested host (this box, 2026-08-19) | ROCm **7.2.0** on **Fedora 43** works; **RHEL 10** works; live **7.14.0** works. Live target is **7.14**. Do not file AMD bugs as if Fedora/RHEL were supported SKUs. | Lab note. |
 | RCCL in ROCm 7.2.0 | **2.27.7**. Intra-node path on this box is **PCIe only** (no xGMI). | ROCm 7.2.0 release notes component table. |
 | vLLM `dist_backend` | **`"nccl"`** (RCCL under the hood). | `RocmPlatform.dist_backend = "nccl"` in `vllm/platforms/rocm.py`. |
@@ -113,7 +113,7 @@ V620 is the opposite: **all** GPU–GPU traffic is PCIe.
 
 ### 1.3 ROCm support — official matrix vs this box
 
-Split lives in [../engine/rocm-host.md](../engine/rocm-host.md). Do **not** read the Ubuntu footnote as “this box cannot run.”
+Split lives in [../engine/serving-stack/rocm-host.md](../engine/serving-stack/rocm-host.md). Do **not** read the Ubuntu footnote as “this box cannot run.”
 
 **Official (AMD QA, do not erase).** https://rocm.docs.amd.com/projects/install-on-linux/en/docs-7.2.0/reference/system-requirements.html — and the same footnote on [7.14 latest](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html).
 
@@ -649,7 +649,7 @@ vLLM: `--dtype float16` (not bf16), `--tensor-parallel-size 4`. Custom AR / Quic
 - https://rocm.docs.amd.com/en/docs-7.2.0/how-to/system-optimization/w6000-v620.html
 - https://rocm.docs.amd.com/projects/install-on-linux/en/docs-7.2.0/reference/system-requirements.html
 - https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html (7.14 V620 Ubuntu-only footnote)
-- [../engine/rocm-host.md](../engine/rocm-host.md) — official vs attested (Fedora 43 / RHEL 10 / 7.14.0)
+- [../engine/serving-stack/rocm-host.md](../engine/serving-stack/rocm-host.md) — official vs attested (Fedora 43 / RHEL 10 / 7.14.0)
 - https://github.com/ROCm/ROCm/issues/1714
 
 **P2P / IOMMU / BAR / HIP / ACS**

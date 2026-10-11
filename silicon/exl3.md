@@ -1,6 +1,6 @@
 # EXL3 / QTIP on gfx1030 — silicon
 
-Occupancy + live W4 still first. Kernel contract: [../kernels/exl3.md](../kernels/exl3.md). Engine/vLLM: [../engine/exl3.md](../engine/exl3.md).
+Occupancy + live W4 still first. Kernel contract: [../kernels/exl3.md](../kernels/exl3.md). Engine/vLLM: [../engine/quant-formats/exl3.md](../engine/quant-formats/exl3.md).
 
 Not EXL2. Not Marlin. Not a CUDA `exl3_gemv` / `mgemm` port.
 

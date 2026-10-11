@@ -1,6 +1,6 @@
 # Silicon: wafer-ai/gpu-perf-engineering-resources
 
-Engine digest: [../engine/notes/wafer-gpu-perf.md](../engine/notes/wafer-gpu-perf.md). This page is ISA only. List verified 2026-08-24 (`main`). No kernels in that repo.
+Engine digest: not written (no `engine/notes/wafer-gpu-perf.md` exists). This page is ISA only. List verified 2026-08-24 (`main`). No kernels in that repo.
 
 Their **AMD** hardware block is CDNA4 / MI350 (whitepaper, ISA, counters). That is MFMA + HBM + chiplet — **not** gfx1030. Do not copy it over [architecture.md](architecture.md) or [valu.md](valu.md).
 

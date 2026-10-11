@@ -1,6 +1,6 @@
 # DSv4 Flash 0731 on 4×V620 — silicon
 
-Engine: [../engine/dsv4-flash-run.md](../engine/dsv4-flash-run.md). Occupancy still first. Pair: [exl3.md](exl3.md).
+Engine: [../engine/run-recipes/dsv4-flash-run.md](../engine/run-recipes/dsv4-flash-run.md). Occupancy still first. Pair: [exl3.md](exl3.md).
 
 **Destination kernel is QTIP/EXL3 HIP on routed experts**, K216-class ~100 GiB so 120 GB still has KV. Producer input is **official QAT MXFP4**, not Int4-FP8. Leftover stays official **MXFP8**.
 

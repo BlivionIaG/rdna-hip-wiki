@@ -12,7 +12,7 @@ Replacement: `csrc/rocm/layernorm.cu` in `_rocm_C`. One CTA/row, `BLOCK_DIM` ∈
 
 Locks on that kernel:
 
-- Llama-style `y = x * rstd * w`, **fp16 weight**. Not Gemma `(1+w)` ([qwen35.md](../engine/qwen35.md) still Todo).
+- Llama-style `y = x * rstd * w`, **fp16 weight**. Not Gemma `(1+w)` ([qwen35.md](../engine/run-recipes/qwen35.md) still Todo).
 - `__launch_bounds__` does not shrink LDS. This kernel is not the FA occupancy leftover.
 - Not a reason to reopen FA pin, W8A8 `sdot4`, or EXL3 occupancy.
 

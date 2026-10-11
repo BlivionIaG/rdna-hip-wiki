@@ -21,3 +21,10 @@ Dest: [`opengfx1030/vllm-rdna`](https://github.com/opengfx1030/vllm-rdna) branch
 ## Occupancy
 
 Still first: FA prefill `__launch_bounds__(N, 1)` / LDS 1 WG per 64 KB. Decode pin already `(N)` + `(4, 8)`.
+
+## Sources
+
+Linked inline on this page (each URL checked 2026-10-11):
+
+- <https://github.com/opengfx1030/vllm-rdna>
+
