@@ -35,6 +35,8 @@ sources:
 
 # Serve locks (gfx1030)
 
+> **Production codebook (2026-10-12):** EXL3 production path is now **`mul1`**, replacing `-cb 3inst` (Blivion decision 2026-10-12, unsourced upstream). Dated tip locks below that say "produce `3inst`" are historical.
+
 [← fork/](README.md)
 
 A serve lock is a setting every gfx1030 serve keeps fixed until a dest PR moves it. This page only names the fork-side lock and its evidence at `64d59b89`. Depth lives elsewhere: the ROCm pin and compiler in [toolchain/](../toolchain/README.md), all-reduce and RCCL in [silicon/rdna-allreduce.md](../silicon/interconnect/rdna-allreduce.md) and [silicon/rccl-p2p.md](../silicon/interconnect/rccl-p2p.md), kernel formats in [kernels/](../kernels/README.md).

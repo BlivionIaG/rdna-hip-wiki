@@ -94,7 +94,7 @@ Same order as [../coverage.md](../overview/coverage.md) v2 write list. Do **not*
 
 1. Occupancy flip: drop min-blocks / `__launch_bounds__(N, 1)` / `amdgpu_waves_per_eu(1,1)`. Decode-class `waves_per_eu(4, 8)`. This is the real CUDA-graph / launch parity.
 2. GPU-verify live W4 / mxfp4.
-3. Finish EXL3 `3inst` → `fdot2` (EXL3 RDNA2 side project). Compile `mcg`, never produce `mul1`.
+3. Finish EXL3 `3inst` → `fdot2` (EXL3 RDNA2 side project). Production path is now `mul1` (Blivion decision 2026-10-12, unsourced upstream); compile `3inst`/`mcg`.
 
 **Next writes (after occupancy)**
 

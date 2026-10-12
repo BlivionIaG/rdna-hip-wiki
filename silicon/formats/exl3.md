@@ -26,6 +26,8 @@ sources:
 
 # EXL3 / QTIP on gfx1030 — silicon
 
+> **Production codebook (2026-10-12):** EXL3 production path is now **`mul1`**, replacing `-cb 3inst` (Blivion decision 2026-10-12, unsourced upstream). Dated tip locks below that say "produce `3inst`" are historical.
+
 Occupancy + live W4 still first. Kernel contract: [../kernels/exl3.md](../../kernels/quant/exl3.md). Engine/vLLM: [../engine/exl3.md](../../engine/quant-formats/exl3.md).
 
 Not EXL2. Not Marlin. Not a CUDA `exl3_gemv` / `mgemm` port.
@@ -78,13 +80,13 @@ HIP: cheap VALU butterfly, separate kernel or tile-edge fuse. Do **not** require
 
 16×16 + `suh`/`svh` + packed trellis are **frozen at infer**. We do not re-walk.
 
-Convert-time (producer): integer `K` per tensor (1–8), codebook id, who gets EXL3. RDNA2 pick: **experts only**, **3.0–3.5 bpw**, **`cb=0` (`3inst`)**. `-hq` on attn/shared is wrong when leftover is official MXFP8.
+Convert-time (producer): integer `K` per tensor (1–8), codebook id, who gets EXL3. RDNA2 pick: **experts only**, **3.0–3.5 bpw**, **`cb=2` (`mul1`)** (Blivion decision 2026-10-12, unsourced upstream). `-hq` on attn/shared is wrong when leftover is official MXFP8.
 
 Infer-time (our HIP):
 
 | Knob | Do |
 |---|---|
-| Codebook | Template `cb`. `0` and `1` (`mcg`) are the same VALU class (mul + LOP3-emulate + `hadd`). `2` (`mul1`) is the expensive one (byte-sum + `hfma`). Produce `3inst`; still compile `mcg` for 0xSero K216. |
+| Codebook | Template `cb`. `0` and `1` (`mcg`) are the same VALU class (mul + LOP3-emulate + `hadd`). `2` (`mul1`) is the expensive one (byte-sum + `hfma`). Produce `mul1` (Blivion decision 2026-10-12, unsourced upstream); still compile `3inst`/`mcg` for existing checkpoints (0xSero K216). |
 | `K` | One `K` per launch (template like CUDA `bits`). Do **not** mix bpw in one WG. |
 | Tile | Skinny `BLOCK_M=1/2/4/8`, A in LDS, stream packed B, `BLOCK_KN=256` seed. Pair two states → `half2` → one `fdot2`. |
 | Hadamard | Required if `suh`/`svh` exist. 128-wide Walsh is cheap vs expert GDDR. Separate kernel is fine. |

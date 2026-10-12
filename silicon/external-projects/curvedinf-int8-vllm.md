@@ -26,7 +26,7 @@ Their own README already says RDNA2 INT8 is `v_dot4_i32_i8` / DP4A and **CK GEMM
 - AITER unified attention (`TILE_SIZE=32` decode, adaptive flash-decoding split-K in `triton_unified_attention.py`). Not an `fa_rdna2` occupancy or tile lever.
 - INT8-native **activation pipeline** (keep A as i8 between ops). extras W4 is A=fp16 + dequant-into-`fdot2`. Later W8A8 `sdot4` quantizes A **at the GEMM**, not end-to-end. No `sdot4` on KV (Q is fp16).
 - Custom XGMI all-reduce. V620 hop is 88096 PIX / RCCL, not XGMI.
-- Their GS128 GPTQ INT8 produce / DFlash2 INT8 draft. DFlash stays Later, fat tile `q>1` first. Produce dest stays W4 / EXL3 `3inst`.
+- Their GS128 GPTQ INT8 produce / DFlash2 INT8 draft. DFlash stays Later, fat tile `q>1` first. Produce dest stays W4 / EXL3 `mul1` (Blivion decision 2026-10-12, unsourced upstream).
 - gfx908 Triton autotunes, `PYTORCH_ROCM_ARCH=gfx908`, `HSA_OVERRIDE`.
 
 ## Sources

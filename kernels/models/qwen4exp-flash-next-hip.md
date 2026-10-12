@@ -163,7 +163,7 @@ Leave: author tok/s and the HIP-vs-Triton gap figures. The same tip's adaptive p
 
 ## Occupancy
 
-FA prefill leftover still first (`__launch_bounds__(*, 1)`). ticket-26 EXL3 `-cb 3inst` unchanged.[^c-50120e13][^f-50120e13-CMakeLists-txt]
+FA prefill leftover still first (`__launch_bounds__(*, 1)`). ticket-26 EXL3 `-cb 3inst` unchanged at this tip (production since moved to `mul1` (Blivion decision 2026-10-12, unsourced upstream)).[^c-50120e13][^f-50120e13-CMakeLists-txt]
 
 ## Sources
 
