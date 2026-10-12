@@ -14,6 +14,7 @@ sources:
   - https://github.com/ROCm/ROCm/commit/830cc1b5e90d7da1b07e39113d7a5c95f3e687a1
   - https://github.com/opengfx1030/vllm-rdna
   - https://github.com/opengfx1030/vllm-rdna/pull/47
+  - https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106
   - https://github.com/opengfx1030/vllm-rdna/commit/fbe84e9411abcd229bd836deffe23f92176b978e
   - https://github.com/vllm-project/vllm/releases/tag/v0.31.0
   - https://github.com/users/BlivionIaG/projects/4
@@ -26,7 +27,7 @@ Notes for writing HIP kernels and serving LLMs on **gfx1030** (RDNA 2, Radeon PR
 ## Live pins
 
 - **ROCm:** the live dest pin is ROCm **7.14.0**. The tag `rocm-7.14.0` on `ROCm/ROCm` is commit `830cc1b5`.[^pin][^tag7140] Newer ROCm docs (7.14.1, 10.1.0) are tracked on that page and do not move the pin.[^pin]
-- **Fork dest:** branch `rdna_extras` on [`opengfx1030/vllm-rdna`](https://github.com/opengfx1030/vllm-rdna), the repo's default branch, on upstream vLLM **v0.31.0** since PR #47.[^branches][^repo][^pr47][^v031] The fork pages are pinned to tip [`fbe84e94`](https://github.com/opengfx1030/vllm-rdna/commit/fbe84e9411abcd229bd836deffe23f92176b978e), the merge of PR #52, which is also the live tip read on 2026-10-11.[^branches][^livetip]
+- **Fork dest:** branch `rdna_extras` on [`opengfx1030/vllm-rdna`](https://github.com/opengfx1030/vllm-rdna), the repo's default branch, on upstream vLLM **v0.31.0** since PR #47.[^branches][^repo][^pr47][^v031] The fork pages are pinned to tip [`64d59b89`](https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106), the merge of PR #84, which is also the live tip read on 2026-10-12.[^branches][^livetip]
 - **Silicon contract:** gfx1030 has packed DOT only (`fdot2` / `sdot4`), with no WMMA, MFMA or FP8. gfx1100 has WMMA, and the two ship as separate fatbins.[^engine]
 - **Tickets:** GitHub Project 4 "GFX1030 inference" (private) and the Linear project **V620 inference** in team UNC.[^prlife]
 
@@ -158,5 +159,5 @@ The arrows are reading order, not ownership: hardware facts in `silicon/` feed t
 [^repo]: Repo and default branch `rdna_extras`: <https://github.com/opengfx1030/vllm-rdna>
 [^pr47]: PR #47 "[RDNA2] Port rdna_extras onto vLLM v0.31.0": <https://github.com/opengfx1030/vllm-rdna/pull/47>
 [^v031]: Upstream release `v0.31.0`: <https://github.com/vllm-project/vllm/releases/tag/v0.31.0>
-[^livetip]: `rdna_extras` head `fbe84e94`, "Merge feat/ple-int4-disk: INT4 PLE table from disk via the CPU sidecar (#52)", committed 2026-10-11 14:05 Europe/Paris (GitHub API, read 2026-10-11): <https://github.com/opengfx1030/vllm-rdna/commit/fbe84e9411abcd229bd836deffe23f92176b978e>
+[^livetip]: `rdna_extras` head `64d59b89`, "Merge fix/rdna2-moe-asymmetric: native MoE path declines asymmetric checkpoints (#84)", committed 2026-10-12 00:44 Europe/Paris (git, read 2026-10-12): <https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106>
 [^prlife]: In-repo: [fork/pr-lifecycle.md § Tracking](fork/pr-lifecycle.md#tracking); Project 4: <https://github.com/users/BlivionIaG/projects/4>

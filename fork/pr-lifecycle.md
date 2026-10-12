@@ -1,18 +1,19 @@
 ---
 title: PR lifecycle (fork)
 owner: VLLM_FORK_Manager
-pinned_tip: fbe84e9411abcd229bd836deffe23f92176b978e
+pinned_tip: 64d59b8942d3b982f1d91f0f3e625dfda4418106
 verified: 2026-10-11
 sources:
   - https://github.com/opengfx1030/vllm-rdna/pulls?q=is%3Apr
   - https://github.com/opengfx1030/vllm-rdna/pull/47
   - https://github.com/opengfx1030/vllm-rdna/pull/49
   - https://github.com/opengfx1030/vllm-rdna/pull/52
+  - https://github.com/opengfx1030/vllm-rdna/pull/84
   - https://github.com/opengfx1030/vllm-rdna/pull/51
   - https://github.com/opengfx1030/vllm-rdna/commit/c6d99ca30580f0ce6a97a168fa53bf9c6ee6b2af
-  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/hc_rdna2.cu
-  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/moe_q_gemm_rdna2.cu
-  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/docs/rdna2/v0.31.0-port-notes.md
+  - https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/hc_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/moe_q_gemm_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/docs/rdna2/v0.31.0-port-notes.md
   - https://github.com/BlivionIaG/vllm-rdna-qa/blob/7da8bd852eb35b511172a073eca05010a03d7eb1/skills/rdna-dest-review/SKILL.md
   - https://github.com/BlivionIaG/vllm-rdna-qa/blob/7da8bd852eb35b511172a073eca05010a03d7eb1/skills/rdna-silicon-gate/SKILL.md
   - https://github.com/users/BlivionIaG/projects/4
@@ -45,7 +46,7 @@ flowchart TD
 
 ## 1. Draft PR
 
-- Work starts on a topic branch and opens as a **draft PR** against `rdna_extras`. At the time of writing (2026-10-11) #53, #51, #50, #40, #39 and #33 are open drafts on `rdna_extras`[^prs][^pr51].
+- Work starts on a topic branch and opens as a **draft PR** against `rdna_extras`. At the time of writing (2026-10-12) 35 open PRs on `rdna_extras` are drafts (#33 through #89, e.g. #40, #50, #51, #53); #80 and #85 are open and marked ready[^prs][^pr51].
 - Explore PRs (`[explore] …`, e.g. #9 and #30) stay drafts and get closed without merging. They are not dest[^prs].
 - Some PRs merged while still marked draft (#6, #7, #14, #28, #29)[^prs]. Mark the PR ready before merging (house rule, unsourced).
 
@@ -62,7 +63,7 @@ flowchart TD
 
 ## 3. Merge into `rdna_extras`
 
-- Accepted PRs land as a **merge commit** on `rdna_extras`, e.g. #47 → `7813953b`, #49 → `1dc3bac4` and #52 → `fbe84e94` (current tip)[^pr47][^pr49][^pr52].
+- Accepted PRs land as a **merge commit** on `rdna_extras`, e.g. #47 → `7813953b`, #49 → `1dc3bac4` #52 → `fbe84e94` and #84 → `64d59b89` (current tip)[^pr47][^pr49][^pr52][^pr84].
 - The PR body carries the validation evidence, as #47 does (gates passed per serving config, unit suite)[^pr47].
 - Direct pushes skip this flow. See [branches.md § Rules](branches.md#rules) for the one on record (`8abf4c97`).
 
@@ -79,7 +80,8 @@ flowchart TD
 [^pr47]: PR #47 (merge `7813953b`): <https://github.com/opengfx1030/vllm-rdna/pull/47>
 [^pr49]: PR #49 (merge `1dc3bac4`): <https://github.com/opengfx1030/vllm-rdna/pull/49>
 [^pr52]: PR #52 (merge `fbe84e94`, `PLE=int4-disk`): <https://github.com/opengfx1030/vllm-rdna/pull/52>
-[^gating]: Port notes "RDNA gating": <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/docs/rdna2/v0.31.0-port-notes.md?plain=1#L83-L101>
+[^pr84]: PR #84 (merge `64d59b89`): <https://github.com/opengfx1030/vllm-rdna/pull/84>
+[^gating]: Port notes "RDNA gating": <https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/docs/rdna2/v0.31.0-port-notes.md?plain=1#L83-L101>
 [^qa1]: QA `rdna-dest-review` §1: <https://github.com/BlivionIaG/vllm-rdna-qa/blob/7da8bd852eb35b511172a073eca05010a03d7eb1/skills/rdna-dest-review/SKILL.md?plain=1#L13-L20>
 [^qa2]: QA `rdna-dest-review` §2: <https://github.com/BlivionIaG/vllm-rdna-qa/blob/7da8bd852eb35b511172a073eca05010a03d7eb1/skills/rdna-dest-review/SKILL.md?plain=1#L21-L37>
 [^qa7]: QA `rdna-dest-review` §7 "Soak matrix": <https://github.com/BlivionIaG/vllm-rdna-qa/blob/7da8bd852eb35b511172a073eca05010a03d7eb1/skills/rdna-dest-review/SKILL.md?plain=1#L85-L104>
@@ -87,9 +89,9 @@ flowchart TD
 [^qasil2]: QA `rdna-silicon-gate` §2 "ISA on gfx1030": <https://github.com/BlivionIaG/vllm-rdna-qa/blob/7da8bd852eb35b511172a073eca05010a03d7eb1/skills/rdna-silicon-gate/SKILL.md?plain=1#L27-L49>
 [^qasil4]: QA `rdna-silicon-gate` §4 "LDS budget": <https://github.com/BlivionIaG/vllm-rdna-qa/blob/7da8bd852eb35b511172a073eca05010a03d7eb1/skills/rdna-silicon-gate/SKILL.md?plain=1#L64-L71>
 [^qasil9]: QA `rdna-silicon-gate` §9 "Reject VGPR / SGPR spills": <https://github.com/BlivionIaG/vllm-rdna-qa/blob/7da8bd852eb35b511172a073eca05010a03d7eb1/skills/rdna-silicon-gate/SKILL.md?plain=1#L119-L130>
-[^fdot2]: `q_gemm_rdna2_common.cuh`, "hipcc does not lower the obvious hfma2+cast+add pattern to v_dot2 on gfx1030": <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/q_gemm_rdna2_common.cuh#L37-L45>
+[^fdot2]: `q_gemm_rdna2_common.cuh`, "hipcc does not lower the obvious hfma2+cast+add pattern to v_dot2 on gfx1030": <https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/q_gemm_rdna2_common.cuh#L37-L45>
 [^c6d]: `c6d99ca3` "fix(rdna2): HC HIP stream correctness + MoE prefill tile" (commit body): <https://github.com/opengfx1030/vllm-rdna/commit/c6d99ca30580f0ce6a97a168fa53bf9c6ee6b2af>
-[^hcstream]: Current-stream pattern at the tip, `hc_rdna2.cu`: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/hc_rdna2.cu#L165-L171>
-[^moebf16]: `moe_q_gemm_rdna2.cu`, "gfx1030 has no v_dot2_f32_bf16 (RDNA3+)": <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/csrc/rocm/moe_q_gemm_rdna2.cu#L439-L445>
+[^hcstream]: Current-stream pattern at the tip, `hc_rdna2.cu`: <https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/hc_rdna2.cu#L165-L171>
+[^moebf16]: `moe_q_gemm_rdna2.cu`, "gfx1030 has no v_dot2_f32_bf16 (RDNA3+)": <https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/moe_q_gemm_rdna2.cu#L439-L445>
 [^p4]: `gh project view 4 --owner BlivionIaG` → title "GFX1030 inference", private: <https://github.com/users/BlivionIaG/projects/4>
 [^lin]: Linear project "V620 inference", team UNC: <https://linear.app/uncoolred/project/v620-inference-c347dcd6d967>
