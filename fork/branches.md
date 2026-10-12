@@ -1,19 +1,25 @@
 ---
 title: Fork branches
 owner: VLLM_FORK_Manager
-pinned_tip: fbe84e9411abcd229bd836deffe23f92176b978e
+pinned_tip: 64d59b8942d3b982f1d91f0f3e625dfda4418106
 verified: 2026-10-11
 sources:
   - https://github.com/opengfx1030/vllm-rdna
   - https://github.com/opengfx1030/vllm-rdna/pull/47
   - https://github.com/opengfx1030/vllm-rdna/commit/7813953b6f1c7c111ea9080bed08c21d1d703206
+  - https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106
+  - https://github.com/opengfx1030/vllm-rdna/pull/79
+  - https://github.com/opengfx1030/vllm-rdna/pull/65
+  - https://github.com/opengfx1030/vllm-rdna/pull/81
+  - https://github.com/opengfx1030/vllm-rdna/pull/83
+  - https://github.com/opengfx1030/vllm-rdna/pull/84
   - https://github.com/opengfx1030/vllm-rdna/commit/fbe84e9411abcd229bd836deffe23f92176b978e
   - https://github.com/opengfx1030/vllm-rdna/commit/1dc3bac4cda3201a1b4fb345e044578e84a272cf
   - https://github.com/opengfx1030/vllm-rdna/pull/52
-  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/tools/rdna/serve_rdna.sh
+  - https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/tools/rdna/serve_rdna.sh
   - https://github.com/opengfx1030/vllm-rdna/commit/8abf4c9719d588349b6ed5afc75e9d0133a43984
   - https://github.com/opengfx1030/vllm-rdna/commit/c6d99ca30580f0ce6a97a168fa53bf9c6ee6b2af
-  - https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/docs/rdna2/v0.31.0-port-notes.md
+  - https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/docs/rdna2/v0.31.0-port-notes.md
   - https://github.com/opengfx1030/vllm-rdna/tree/rdna_extra/v0.28.0
   - https://github.com/vllm-project/vllm/releases/tag/v0.31.0
   - https://github.com/BlivionIaG/vllm-rdna-qa/blob/7da8bd852eb35b511172a073eca05010a03d7eb1/skills/rdna-dest-review/SKILL.md
@@ -28,12 +34,18 @@ sources:
 
 - `rdna_extras` on `opengfx1030/vllm-rdna` is the dest branch and the repo's default branch[^repo].
 - Since 2026-10-11 it is the **v0.31 RDNA line**. PR #47 first reset `rdna_extras` to upstream `v0.31.0` (`db9527a4`), then merged `rdna_extra/v0.31.0` on top. That branch is `v0.31.0` plus 170 topic commits[^pr47]. The merge commit is `7813953b`, parents `db9527a4` and `20edef53`[^m47]. `db9527a4` is the upstream `v0.31.0` tag[^v031].
-- Tip **`fbe84e94`** (2026-10-11 14:05 Europe/Paris) is the merge of PR #52, the INT4 PLE table served from disk through the CPU sidecar. The launcher knob is `PLE=bf16|int4|int4-disk`; `int4-disk` exports `VLLM_PLE_QUANT_DIR` and `VLLM_PLE_CPU_OFFLOAD=1`[^tip][^pr52][^plelaunch]. #52 changed only Python, `tools/` and tests (no `csrc/`, no `CMakeLists.txt`)[^pr52].
-- Tip history since the port (first-parent, `git log --first-parent 7813953b..fbe84e94`):
+- Tip **`64d59b89`** (2026-10-12 00:44 Europe/Paris) is the merge of PR #84: the native RDNA2 MoE path declines asymmetric compressed-tensors checkpoints and falls back to the generic WNA16 MoE method[^tip][^pr84].
+- Previous tip `fbe84e94` (2026-10-11 14:05 Europe/Paris) is the merge of PR #52, the INT4 PLE table served from disk through the CPU sidecar. The launcher knob is `PLE=bf16|int4|int4-disk`; `int4-disk` exports `VLLM_PLE_QUANT_DIR` and `VLLM_PLE_CPU_OFFLOAD=1`[^tip][^pr52][^plelaunch]. #52 changed only Python, `tools/` and tests (no `csrc/`, no `CMakeLists.txt`)[^pr52].
+- Tip history since the port (first-parent, `git log --first-parent 7813953b..64d59b89`):
   - `7813953b`: PR #47, v0.31.0 port[^m47].
   - `8abf4c97`: direct push, no PR (see [Rules](#rules))[^8abf].
   - `1dc3bac4` (2026-10-11 08:55 Europe/Paris): PR #49, INT4 PLE table read from `VLLM_PLE_QUANT_DIR`[^tip49].
-  - `fbe84e94` (2026-10-11 14:05 Europe/Paris): PR #52, `PLE=int4-disk`[^tip][^pr52].
+  - `fbe84e94` (2026-10-11 14:05 Europe/Paris): PR #52, `PLE=int4-disk`[^tipprev][^pr52].
+  - `69a166dc` (2026-10-11 17:46): PR #79, `docs/rdna2/tuning.md` tuning guide plus doc and comment edits: `AGENTS.md`, the PLE comment in the three `flashnext*.env` recipes, and the `tunableop/README.md` row count (783 → 1601) (`git diff --stat fbe84e94 69a166dc`)[^pr79].
+  - `efe9cf5d` (2026-10-11 23:19): PR #65, W4A8 MoE prefill opt-in (`VLLM_RDNA2_W4A8_SDOT4=1`, MoE GEMMs with ≥ 512 tokens); touches `csrc/rocm/moe_w4a8_rdna2.cu`[^pr65].
+  - `c057ee54` (2026-10-11 23:19): PR #81, TunableOp rows for 8192-token prefill chunks, 1601 → 1766 rows per rank[^pr81].
+  - `6956c105` (2026-10-12 00:22): PR #83, `P2P=0` launcher knob and `LD_LIBRARY_PATH` fix[^pr83].
+  - `64d59b89` (2026-10-12 00:44): PR #84, native MoE declines asymmetric checkpoints[^tip][^pr84].
 - Policy: on CUDA, CDNA, CPU and every other platform the branch behaves like upstream v0.31. Fork behavior in shared code runs only on ROCm RDNA, behind `on_rdna_family()` (see [dispatch.md](dispatch.md))[^gating].
 
 ## The 0.28 line: `rdna_extra/v0.28.0`
@@ -67,7 +79,9 @@ flowchart LR
   r31 -->|PR #47, merge 7813953b| dest
   dest -->|8abf4c97 direct push| d2["8abf4c97"]
   d2 -->|PR #49, merge 1dc3bac4| d3["1dc3bac4"]
-  d3 -->|PR #52, merge fbe84e94| tip["tip fbe84e94<br/>PLE=int4-disk"]
+  d3 -->|PR #52, merge fbe84e94| d4["fbe84e94<br/>PLE=int4-disk"]
+  d4 -->|"#79, #65, #81, #83"| d5["6956c105"]
+  d5 -->|PR #84, merge 64d59b89| tip["tip 64d59b89"]
   topic["topic branches<br/>cursor/*, claude/*, feat/*, fix/*"] -.->|draft PR| dest
   dest -. never .-> vllm["vllm-project/vllm"]
 ```
@@ -81,15 +95,21 @@ flowchart LR
 ## Sources
 
 [^repo]: Repo, default branch and branch list: <https://github.com/opengfx1030/vllm-rdna>
-[^tip]: Tip `fbe84e94`, "Merge feat/ple-int4-disk: INT4 PLE table from disk via the CPU sidecar (#52)": <https://github.com/opengfx1030/vllm-rdna/commit/fbe84e9411abcd229bd836deffe23f92176b978e>
+[^tip]: Tip `64d59b89`, "Merge fix/rdna2-moe-asymmetric: native MoE path declines asymmetric checkpoints (#84)": <https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106>
+[^pr79]: PR #79 "docs(rdna): tuning guide for fork knobs, modes and TunableOp", merge `69a166dc`: <https://github.com/opengfx1030/vllm-rdna/pull/79>
+[^pr65]: PR #65 "perf(rdna2): W4A8 MoE prefill on Flash-Next (opt-in)", merge `efe9cf5d`: <https://github.com/opengfx1030/vllm-rdna/pull/65>
+[^pr81]: PR #81 "tunableop: rows for 8192-token prefill chunks" ("1601 → 1766 rows per rank"), merge `c057ee54`: <https://github.com/opengfx1030/vllm-rdna/pull/81>
+[^pr83]: PR #83 "tools(rdna): P2P=0 launcher knob + LD_LIBRARY_PATH fix", merge `6956c105`: <https://github.com/opengfx1030/vllm-rdna/pull/83>
+[^pr84]: PR #84 "fix(rdna2): native MoE path declines asymmetric checkpoints", `rocm_moe_rdna.is_supported` returns False when `weight_quant.symmetric` is false: <https://github.com/opengfx1030/vllm-rdna/pull/84> · <https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/rocm_moe_rdna.py#L20-L31>
+[^tipprev]: Previous tip `fbe84e94`, "Merge feat/ple-int4-disk: INT4 PLE table from disk via the CPU sidecar (#52)": <https://github.com/opengfx1030/vllm-rdna/commit/fbe84e9411abcd229bd836deffe23f92176b978e>
 [^tip49]: Previous tip `1dc3bac4`, merge of PR #49: <https://github.com/opengfx1030/vllm-rdna/commit/1dc3bac4cda3201a1b4fb345e044578e84a272cf>
 [^pr52]: PR #52 "[RDNA2] INT4 PLE table from disk via the CPU sidecar (PLE=int4-disk)"; file list matches `git diff --stat 1dc3bac4 fbe84e94` (8 files: tests, `tools/rdna/`, `vllm/` Python): <https://github.com/opengfx1030/vllm-rdna/pull/52>
-[^plelaunch]: `serve_rdna.sh` `PLE` default and `case $PLE`: <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/tools/rdna/serve_rdna.sh#L146-L161> and <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/tools/rdna/serve_rdna.sh#L185-L202>
+[^plelaunch]: `serve_rdna.sh` `PLE` default and `case $PLE`: <https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/tools/rdna/serve_rdna.sh#L146-L161> and <https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/tools/rdna/serve_rdna.sh#L185-L202>
 [^pr47]: PR #47 body, "Branch layout (2026-10-11)": <https://github.com/opengfx1030/vllm-rdna/pull/47>
 [^m47]: Merge `7813953b`: <https://github.com/opengfx1030/vllm-rdna/commit/7813953b6f1c7c111ea9080bed08c21d1d703206>
 [^v031]: Upstream release `v0.31.0` (tag → `db9527a4`): <https://github.com/vllm-project/vllm/releases/tag/v0.31.0>
-[^portnotes]: Port notes at the pinned tip, header and "How the port was built": <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/docs/rdna2/v0.31.0-port-notes.md?plain=1#L1-L33>
-[^gating]: Port notes, "RDNA gating": <https://github.com/opengfx1030/vllm-rdna/blob/fbe84e9411abcd229bd836deffe23f92176b978e/docs/rdna2/v0.31.0-port-notes.md?plain=1#L83-L101>
+[^portnotes]: Port notes at the pinned tip, header and "How the port was built": <https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/docs/rdna2/v0.31.0-port-notes.md?plain=1#L1-L33>
+[^gating]: Port notes, "RDNA gating": <https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/docs/rdna2/v0.31.0-port-notes.md?plain=1#L83-L101>
 [^c6d]: `c6d99ca3` "fix(rdna2): HC HIP stream correctness + MoE prefill tile", head of `rdna_extra/v0.28.0`: <https://github.com/opengfx1030/vllm-rdna/commit/c6d99ca30580f0ce6a97a168fa53bf9c6ee6b2af> · branch <https://github.com/opengfx1030/vllm-rdna/tree/rdna_extra/v0.28.0>
 [^prs]: PR list (all states), with base branches: <https://github.com/opengfx1030/vllm-rdna/pulls?q=is%3Apr>
 [^qa]: Maintainer QA skill `rdna-dest-review` §2, "Never PR to `vllm-project/vllm`": <https://github.com/BlivionIaG/vllm-rdna-qa/blob/7da8bd852eb35b511172a073eca05010a03d7eb1/skills/rdna-dest-review/SKILL.md#L35-L36>

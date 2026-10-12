@@ -1,10 +1,16 @@
 ---
 title: Fork — opengfx1030/vllm-rdna
 owner: VLLM_FORK_Manager
-pinned_tip: fbe84e9411abcd229bd836deffe23f92176b978e
+pinned_tip: 64d59b8942d3b982f1d91f0f3e625dfda4418106
 verified: 2026-10-11
 sources:
   - https://github.com/opengfx1030/vllm-rdna
+  - https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106
+  - https://github.com/opengfx1030/vllm-rdna/pull/79
+  - https://github.com/opengfx1030/vllm-rdna/pull/65
+  - https://github.com/opengfx1030/vllm-rdna/pull/81
+  - https://github.com/opengfx1030/vllm-rdna/pull/83
+  - https://github.com/opengfx1030/vllm-rdna/pull/84
   - https://github.com/opengfx1030/vllm-rdna/commit/fbe84e9411abcd229bd836deffe23f92176b978e
   - https://github.com/opengfx1030/vllm-rdna/commit/1dc3bac4cda3201a1b4fb345e044578e84a272cf
   - https://github.com/opengfx1030/vllm-rdna/pull/52
@@ -18,7 +24,7 @@ sources:
 
 Owned by VLLM_FORK_Manager. This folder covers the gfx1030 vLLM fork **[opengfx1030/vllm-rdna](https://github.com/opengfx1030/vllm-rdna)**: its branches, the serve locks, how a change lands, and how a gfx1030 layer picks its kernel. Kernel internals live in [kernels/](../kernels/README.md) and [silicon/](../silicon/README.md), the ROCm pin and compiler in [toolchain/](../toolchain/README.md), and per-feature engine status in [engine/fork-delta.md](../engine/serving-stack/fork-delta.md).
 
-**Snapshot (2026-10-11).** The dest branch is `rdna_extras`, the repo's default branch[^repo]. It is now on vLLM **v0.31.0** through PR #47, merge `7813953b`[^pr47][^m47]. The tip is **`fbe84e94`**, the merge of PR #52 (INT4 PLE table from disk via the CPU sidecar, `PLE=int4-disk`)[^tip][^pr52]. #52 touched only Python, `tools/` and tests, no `csrc/` or `CMakeLists.txt`, so the kernel side is the same as at the previous tip `1dc3bac4` (PR #49)[^pr52][^tip49]. Every claim in these pages is pinned to `fbe84e94` unless a different SHA is named. Tip history: [branches.md § Dest](branches.md#dest-rdna_extras).
+**Snapshot (2026-10-12).** The dest branch is `rdna_extras`, the repo's default branch[^repo]. It is now on vLLM **v0.31.0** through PR #47, merge `7813953b`[^pr47][^m47]. The tip is **`64d59b89`**, the merge of PR #84 (native RDNA2 MoE declines asymmetric compressed-tensors checkpoints)[^tip]. Since `fbe84e94` (PR #52, `PLE=int4-disk`)[^tipprev][^pr52], which followed `1dc3bac4` (PR #49)[^tip49], the line took #79 (tuning guide, doc and comment edits), #65 (W4A8 MoE prefill opt-in), #81 (TunableOp rows), #83 (`P2P=0` launcher knob) and #84. Only #65 touched `csrc/`: `csrc/rocm/moe_w4a8_rdna2.cu` (per-call activation workspace); no `CMakeLists.txt` change[^pr65]. Every claim in these pages is pinned to `64d59b89` unless a different SHA is named. Tip history: [branches.md § Dest](branches.md#dest-rdna_extras). Tip history: [branches.md § Dest](branches.md#dest-rdna_extras).
 
 ## Pages
 
@@ -31,7 +37,7 @@ Owned by VLLM_FORK_Manager. This folder covers the gfx1030 vLLM fork **[opengfx1
 
 ## Quick facts
 
-- Dest: `rdna_extras` on `opengfx1030/vllm-rdna`[^repo]. Tip `fbe84e94`[^tip].
+- Dest: `rdna_extras` on `opengfx1030/vllm-rdna`[^repo]. Tip `64d59b89`[^tip].
 - Base: upstream tag `v0.31.0` = `db9527a4`[^m47].
 - Tickets: [GitHub Project 4 "GFX1030 inference"](https://github.com/users/BlivionIaG/projects/4) (private) and the Linear project **V620 inference** in team UNC. See [pr-lifecycle.md](pr-lifecycle.md#tracking).
 
@@ -42,7 +48,9 @@ The old one-page README had a "Gates (stock vLLM)" list. It is now [dispatch.md 
 ## Sources
 
 [^repo]: Repo and default branch `rdna_extras`: <https://github.com/opengfx1030/vllm-rdna>
-[^tip]: Tip commit `fbe84e94`, "Merge feat/ple-int4-disk: INT4 PLE table from disk via the CPU sidecar (#52)", committed 2026-10-11 14:05 Europe/Paris, parents `1dc3bac4` and `67ef7272`: <https://github.com/opengfx1030/vllm-rdna/commit/fbe84e9411abcd229bd836deffe23f92176b978e>
+[^tip]: Tip commit `64d59b89`, "Merge fix/rdna2-moe-asymmetric: native MoE path declines asymmetric checkpoints (#84)", committed 2026-10-12 00:44 Europe/Paris: <https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106>
+[^pr65]: PR #65 "perf(rdna2): W4A8 MoE prefill on Flash-Next (opt-in)", merge `efe9cf5d`; `git diff --name-only fbe84e94 64d59b89 -- csrc CMakeLists.txt cmake` lists only `csrc/rocm/moe_w4a8_rdna2.cu`: <https://github.com/opengfx1030/vllm-rdna/pull/65>
+[^tipprev]: Previous tip commit `fbe84e94`, "Merge feat/ple-int4-disk: INT4 PLE table from disk via the CPU sidecar (#52)", committed 2026-10-11 14:05 Europe/Paris, parents `1dc3bac4` and `67ef7272`: <https://github.com/opengfx1030/vllm-rdna/commit/fbe84e9411abcd229bd836deffe23f92176b978e>
 [^pr52]: PR #52 "[RDNA2] INT4 PLE table from disk via the CPU sidecar (PLE=int4-disk)", merged into `rdna_extras`; changed files are `tests/v1/ple_offload/`, `tools/rdna/serve_rdna.sh`, `tools/rdna/port_v031/serve_validate.sh` and five `vllm/` Python files (`git diff --stat 1dc3bac4 fbe84e94`): <https://github.com/opengfx1030/vllm-rdna/pull/52>
 [^tip49]: Previous tip `1dc3bac4`, "Merge feat/ple-int4: INT4 PLE table on the upstream PLE path (#49)": <https://github.com/opengfx1030/vllm-rdna/commit/1dc3bac4cda3201a1b4fb345e044578e84a272cf>
 [^pr47]: PR #47 "[RDNA2] Port rdna_extras onto vLLM v0.31.0", merged 2026-10-11: <https://github.com/opengfx1030/vllm-rdna/pull/47>
