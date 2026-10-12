@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-11
+updated: 2026-10-12
 sources:
   - https://github.com/ROCm/TheRock/issues/8729
   - https://github.com/Niko1221/Strata/pull/1123
@@ -11,11 +11,13 @@ sources:
   - https://github.com/ROCm/rocm-libraries/pull/13129
   - https://github.com/ROCm/rocm-libraries/issues/12240
   - https://rocm.docs.amd.com/en/docs-10.1.0/about/release-notes.html
+  - https://github.com/ROCm/rocPRIM/issues/778
+  - https://github.com/openxla/xla/issues/50464
 ---
 
 # Libraries
 
-Date: **2026-10-11**. Which GEMM or convolution library runs on gfx1030 versus gfx1100. Live dest stays ROCm **7.14.0** ([pin](../pin/README.md)). Nightly library-pin scans are [../log/pin-scans.md](../log/pin-scans.md).
+Date: **2026-10-12**. Which GEMM or convolution library runs on gfx1030 versus gfx1100. Live dest stays ROCm **7.14.0** ([pin](../pin/README.md)). Nightly library-pin scans are [../log/pin-scans.md](../log/pin-scans.md).
 
 ## Who serves the GEMM
 
@@ -66,6 +68,14 @@ hipBLASLt is the Linux MIOpen GEMM backend in the gfx1030 triage above, and the 
 
 [rocm-libraries#12240](https://github.com/ROCm/rocm-libraries/issues/12240) (open) says Linux gfx103X rocBLAS nightly shards can be marked failed with zero gtest failures because of the xml wrapper. Open the log before treating a red gfx103X rocBLAS nightly as a kernel regression.[^xml12240]
 
+### hipCUB scan temp-storage alignment
+
+[rocPRIM#778](https://github.com/ROCm/rocPRIM/issues/778) (open) reports that `hipcub::DeviceScan::ExclusiveScan` returns `hipSuccess` and silently wrong sums when `d_temp_storage` is misaligned. On a Radeon Pro W7800 (gfx1100) with ROCm 7.2.0, a pointer offset by 4 bytes failed 14 to 18 of 200 iterations; the same storage rounded up to 256 bytes failed 0 of 200. Every wrong region started on a 1024-element tile boundary, with a whole tile lost or counted twice. The issue notes that CUB on CUDA does not require an aligned temp pointer.[^prim778] If a kernel carves scan scratch out of a larger arena, round the offset to 256 bytes. gfx1030 was not tested in the report.
+
+### XLA on gfx1030
+
+[openxla/xla#50464](https://github.com/openxla/xla/issues/50464) (open) says `gfx1030` is in XLA's supported list but `has_hipblaslt()` is false for it, and the GEMM rewriter no longer falls back to rocBLAS. The reporter measured on MI100 (gfx908): fp64 dots fail to compile, and fp16/fp32 dots run as Triton fusions at about 16% of rocBLAS speed. The gfx1030 claim comes from the same code path, not a gfx1030 run.[^xla50464] This matches the gfx1030 hipBLASLt gap above; JAX matmuls on V620 need a measurement before anyone relies on them.
+
 ## Sources
 
 [^tr8729]: TheRock#8729, open, issue body (wheel contents, gfx1030 vs gfx1100). https://github.com/ROCm/TheRock/issues/8729
@@ -78,3 +88,5 @@ hipBLASLt is the Linux MIOpen GEMM backend in the gfx1030 triage above, and the 
 [^ke13150]: rocm-libraries#13150, open. https://github.com/ROCm/rocm-libraries/pull/13150
 [^dnn13129]: rocm-libraries#13129, open. https://github.com/ROCm/rocm-libraries/pull/13129
 [^xml12240]: rocm-libraries#12240, open. https://github.com/ROCm/rocm-libraries/issues/12240
+[^prim778]: rocPRIM#778, open. https://github.com/ROCm/rocPRIM/issues/778
+[^xla50464]: openxla/xla#50464, open. https://github.com/openxla/xla/issues/50464

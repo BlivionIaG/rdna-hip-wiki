@@ -293,3 +293,17 @@ Vs Oct 7 ~10:30. **No dest/pin lever.** Live dest stays **7.14.0** wave32 WGP. P
 | TheRock [#8729](https://github.com/ROCm/TheRock/issues/8729) | **Take (runtime gotcha)** | MIOpen `GemmFwdRest` routes to hipBLASLt (no gfx1030 kernels); `MIOPEN_FIND_MODE=FAST` fails. Use `MIOPEN_GEMM_ENFORCE_BACKEND=1` (rocBLAS). In [hip-runtime.md](../runtime/README.md). |
 | rocm-libraries [#12240](https://github.com/ROCm/rocm-libraries/issues/12240) | Watch | gfx103X rocBLAS nightly shards marked failed with 0 gtest failures (xml wrapper). Don't read a red gfx103X rocBLAS nightly as a regression without opening the log. |
 | Strata [#1657](https://github.com/Niko1221/Strata/issues/1657) | Leave (engine lane) | 2×RX 6900 XT gfx1030 layer-split bench on 0.1.41. |
+
+## 2026-10-12 ~10:30 — domain pass (two runtime gotchas, one library gotcha; not dest)
+
+Vs Oct 9 ~10:25 (weekend gap). **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly 09:57 (TheRock `4d1b9e560fa2`).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [rocm-systems#12528](https://github.com/ROCm/rocm-systems/issues/12528) / [#12670](https://github.com/ROCm/rocm-systems/pull/12670) / Strata [#1705](https://github.com/Niko1221/Strata/issues/1705) | **Take (runtime gotcha)** | Pageable `hipMemcpy` under host reclaim: userptr pinning leads to KFD queue eviction and minute-long stalls. AMD reproduced on gfx1100. Workarounds `GPU_PINNED_MIN_XFER_SIZE` (staging) or `HSA_USERPTR_FOR_PAGED_MEM=0`. Fix PR open. In [runtime/](../runtime/README.md). |
+| [rocm-systems#13234](https://github.com/ROCm/rocm-systems/issues/13234) | **Take (runtime gotcha)** | `hipGraphLaunch` livelock at ≥ 2 × `ROC_AQL_QUEUE_SIZE` packets in one segment (gfx1151, 7.2.1 and 10.0.0). In [runtime/](../runtime/README.md). |
+| [rocPRIM#778](https://github.com/ROCm/rocPRIM/issues/778) | **Take (library gotcha)** | hipCUB `ExclusiveScan` silently wrong with misaligned temp storage on W7800 gfx1100, ROCm 7.2.0. In [libraries/](../libraries/README.md). |
+| [openxla/xla#50464](https://github.com/openxla/xla/issues/50464) | Watch (frameworks) | XLA has no library GEMM path on gfx908/gfx1030 (no hipBLASLt, rocBLAS fallback removed). Measured on MI100 only. In [libraries/](../libraries/README.md). |
+| [legacy-rocm-build#6685](https://github.com/ROCm/legacy-rocm-build/issues/6685) | Leave | `hipStreamWaitEvent` adds ~17 µs per small kernel on gfx1201; title says not on gfx1030. |
+| Strata [#2055](https://github.com/Niko1221/Strata/issues/2055) / [#1272](https://github.com/Niko1221/Strata/issues/1272), vLLM [#50264](https://github.com/vllm-project/vllm/issues/50264), hipfire [#739](https://github.com/warpfront/hipfire/issues/739) | Leave (engine lane) | gfx1030 Windows prompt regression, 2×6900 XT shared-expert stream, RDNA hybrid-Mamba Triton fallback, gfx1100 model-load hang. |
+
