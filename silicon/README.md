@@ -1,3 +1,13 @@
+---
+title: "Silicon"
+updated: 2026-10-12
+sources:
+  - https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106
+  - https://github.com/opengfx1030/vllm-rdna/commit/1dc3bac4cda3201a1b4fb345e044578e84a272cf
+  - https://github.com/opengfx1030/vllm-rdna/commit/f2cc25ca927d0f3c6b0754d6f3982b3608746716
+  - https://github.com/opengfx1030/vllm-rdna/commit/611063c62a400ba96e15e8168e2b2418494fdfdd
+  - https://github.com/opengfx1030/vllm-rdna/commit/3e9ca702a10da840d29cbbc0f20872980e99c4a8
+---
 # Silicon
 
 How gfx1030 (RDNA 2, Navi 21, V620) actually works, and what HIP can control. Every page carries a `## Sources` section with footnotes; claims that could not be sourced are marked `(unsourced)`.
@@ -28,6 +38,10 @@ flowchart LR
 | [external-projects/](external-projects/README.md) | Third-party kernels, forks and recipes read against gfx1030: what we Take, what we Leave. (8 pages) |
 | [other-hardware/](other-hardware/README.md) | V340L (Vega10 gfx900) notes. Vega routing belongs to GFX900_manager; these pages only record why it is not a V620 drop-in. (2 pages) |
 
+## Silicon tip watermark
+
+Silicon pages are read through dest `rdna_extras` tip **`64d59b89`** (`64d59b8942d3b982f1d91f0f3e625dfda4418106`, read 2026-10-12).[^c-64d59b89] The per-page "current state" locks cite `1dc3bac4`. From `1dc3bac4` to `64d59b89` the only `csrc/` change is the host-only W4A8 MoE workspace fix `f2cc25ca`: no kernel body, LDS, `__launch_bounds__` or DOT change, so those locks still hold at the tip.[^c-1dc3bac4][^c-f2cc25ca] New this pass: the two-shot removal commit on [interconnect/rdna-allreduce.md](interconnect/rdna-allreduce.md) and the `rdna/common` arch traits on [hip-craft/hip-craft.md](hip-craft/hip-craft.md) §5.5.[^c-611063c6][^c-3e9ca702]
+
 ## Start here
 
 1. [arch-and-memory/architecture.md](arch-and-memory/architecture.md): CU / WGP / caches
@@ -50,4 +64,10 @@ flowchart LR
 
 ## Sources
 
-This is an index page; it makes no technical claims of its own. Primary sources are cited with footnotes and a `## Sources` section on each linked page.
+Apart from the tip watermark (footnoted below), this is an index page. Primary sources are cited with footnotes and a `## Sources` section on each linked page.
+
+[^c-64d59b89]: opengfx1030/vllm-rdna commit [`64d59b89`](https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106) — merge of PR #84, dest `rdna_extras` tip read 2026-10-12. `git diff --stat 1dc3bac4cda3201a1b4fb345e044578e84a272cf 64d59b8942d3b982f1d91f0f3e625dfda4418106 -- csrc CMakeLists.txt` lists only `csrc/rocm/moe_w4a8_rdna2.cu`.
+[^c-1dc3bac4]: opengfx1030/vllm-rdna commit [`1dc3bac4`](https://github.com/opengfx1030/vllm-rdna/commit/1dc3bac4cda3201a1b4fb345e044578e84a272cf) (2026-10-11) — "Merge feat/ple-int4: INT4 PLE table on the upstream PLE path (#49)".
+[^c-f2cc25ca]: opengfx1030/vllm-rdna commit [`f2cc25ca`](https://github.com/opengfx1030/vllm-rdna/commit/f2cc25ca927d0f3c6b0754d6f3982b3608746716) (2026-10-11) — "fix(rdna2): W4A8 MoE per-call workspace, 512-token threshold, microbench". The `.cu` change replaces the per-shape cached workspace with a per-call `at::empty` in the host launcher; the kernels are unchanged.
+[^c-611063c6]: opengfx1030/vllm-rdna commit [`611063c6`](https://github.com/opengfx1030/vllm-rdna/commit/611063c62a400ba96e15e8168e2b2418494fdfdd) (2026-10-09) — "fix(rdna): remove the two-shot all-reduce from rdna_ar".
+[^c-3e9ca702]: opengfx1030/vllm-rdna commit [`3e9ca702`](https://github.com/opengfx1030/vllm-rdna/commit/3e9ca702a10da840d29cbbc0f20872980e99c4a8) (2026-10-08) — "refactor(rdna): csrc/rocm/rdna layout skeleton, move DSV4 kernels to rdna/dsv4".

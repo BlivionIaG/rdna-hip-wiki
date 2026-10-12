@@ -25,6 +25,11 @@ sources:
   - https://gpuopen.com/learn/wmma_on_rdna3/
   - https://rocm.docs.amd.com/projects/ai-ecosystem/en/latest/optimization/vllm-v1-optimization.html
   - https://gpuopen.com/learn/amd-lab-notes/amd-lab-notes-finite-difference-docs-laplacian_part3/
+  - https://github.com/opengfx1030/vllm-rdna/commit/3e9ca702a10da840d29cbbc0f20872980e99c4a8
+  - https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/rdna/common/arch.cuh
+  - https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/rdna/common/convert.cuh
+  - https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/rdna/dsv4/kv_insert.cu
+  - https://github.com/opengfx1030/vllm-rdna/commit/01b439bfd21ee9e7bb5c4113efd457a4d140e06c
 ---
 
 # gfx1030 HIP kernel-craft brief (RDNA 2)
@@ -459,6 +464,44 @@ ISA peak wording is “32 × 32-bit or `read2`/`write2` 64-bit.” A 128-bit op 
 | `__builtin_amdgcn_s_buffer_load_*` | Scalar buffer load. “Should generally be avoided” (Clang): separate cache, not coherent with vector stores. Legal for **read-only** descriptors / scales if you accept that contract. |
 | `__builtin_amdgcn_global_load_b128` | gfx9+ global 128-bit. Not LDS. |
 
+### 5.5 Dest arch traits: `rdna/common/arch.cuh` + `convert.cuh` (`3e9ca702`)
+
+`3e9ca702` added two shared headers under `csrc/rocm/rdna/common/`. Neither changed after that, through tip `64d59b89`.[^c-3e9ca702][^f-arch-64d]
+
+**`arch.cuh`: compile-time RDNA generation.** Each device pass defines exactly one `__gfxNNNN__` macro, and the header folds it into `VLLM_RDNA_DEVICE_GEN`:[^f-arch-gen]
+
+| `VLLM_RDNA_DEVICE_GEN` | Device macros |
+|---|---|
+| 2 | `__gfx1030__` … `__gfx1036__` |
+| 3 | `__gfx1100__` … `__gfx1103__` |
+| 35 | `__gfx1150__` … `__gfx1153__` |
+| 4 | `__gfx1200__`, `__gfx1201__` |
+| 0 | anything else, including the host pass |
+
+There is no RDNA 1 entry: `__gfx101x__` targets (gfx1013 too) map to 0 / `RdnaGen::kNone`.[^f-arch-gen]
+
+`RdnaArch` is `RdnaArchTraits<RdnaGen::…>`, chosen from that macro. Kernels branch on its constexpr flags with `if constexpr` instead of scattering `#if defined(__gfx…)` blocks.[^f-arch-head][^f-arch-traits]
+
+| Flag | Value |
+|---|---|
+| `kWaveSize` | 32 for every generation. The header says all `rdna/**` kernels are written for wave32 (hipcc's gfx10+ default). |
+| `kHasDot2F16` | true on every RDNA generation (`V_DOT2_F32_F16`) |
+| `kHasDot2Bf16` | false on RDNA 2 ("gfx1030 lacks it"), true on RDNA 3+ |
+| `kHasWmma` | false on RDNA 2, true on RDNA 3 / 3.5 / 4 |
+| `kHasFp8Wmma` | RDNA 4 only |
+| `kLdsBytes` | 64 KiB, LDS per workgroup (WGP mode) |
+
+On the host, `rdna_gen_from_arch(gcnArchName)` maps the prefixes `gfx103` / `gfx115` / `gfx110` / `gfx120` to the same enum.[^f-arch-host] The gfx1030 row agrees with §7.1 (bf16 is emulated) and §7.4 (no WMMA) on this page.
+
+**`convert.cuh`: fixed-rounding scalar conversions.** The header says gfx1030 has no bf16 or fp8 hardware conversions, and that the software paths in `<hip/hip_fp8.h>` differ between ROCm releases. So it provides explicit bit-level conversions, all `__host__ __device__`, so that cache rows written on RDNA match a torch reference byte for byte:[^f-convert]
+
+- fp16 ↔ fp32, RNE
+- bf16 ↔ fp32, RNE with quiet NaN
+- OCP e4m3fn ← fp32: bias 7, saturating at 448, RNE; and e4m3fn → fp32
+- UE8M0 ↔ fp32 (bias 127, `0xFF` = NaN), with an exact `ceil_log2_exact`
+
+**Who uses them at `64d59b89`.** `rdna/dsv4/kv_insert.cu` (added in `01b439bf`) includes both headers and sets `kLanes = RdnaArch::kWaveSize`. `mhc.cu`, `sparse_mla_decode.cu` and `indexer_mqa_logits.cu` in the same folder include neither; the indexer still uses `../../qdq_fp8_rdna2.cuh`. Older top-level `csrc/rocm/*_rdna2.cu` files were not checked for these includes (unsourced).[^f-kvinsert][^c-01b439bf]
+
 ---
 
 ## 6. Occupancy workflow
@@ -664,6 +707,9 @@ _Sources actually opened_
 27. lemonade-sdk/vllm-rocm #24 — gfx1151 WMMA garbage
 28. vLLM `q_gemm_rdna3.cu` — hipcc does not peephole DOT2
 
+**Dest tree (read 2026-10-12)**
+29. opengfx1030/vllm-rdna `csrc/rocm/rdna/common/arch.cuh`, `convert.cuh`, `rdna/dsv4/kv_insert.cu` @ `64d59b89`; commits `3e9ca702`, `01b439bf` — §5.5
+
 Footnotes:
 
 [^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)
@@ -691,3 +737,12 @@ Footnotes:
 [^rocm-optimization-vllm-v1-optimization-html]: vLLM V1 performance optimization — AMD ROCm AI Ecosystem. https://rocm.docs.amd.com/projects/ai-ecosystem/en/latest/optimization/vllm-v1-optimization.html (checked 2026-10-11)
 [^gpuopen-amd-lab-notes-amd-lab-notes-finite-diffe]: Finite Difference Method – Laplacian part 3 - AMD GPUOpen. https://gpuopen.com/learn/amd-lab-notes/amd-lab-notes-finite-difference-docs-laplacian_part3/ (checked 2026-10-11)
 [^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)
+[^c-3e9ca702]: opengfx1030/vllm-rdna commit [`3e9ca702`](https://github.com/opengfx1030/vllm-rdna/commit/3e9ca702a10da840d29cbbc0f20872980e99c4a8) (2026-10-08) — "refactor(rdna): csrc/rocm/rdna layout skeleton, move DSV4 kernels to rdna/dsv4". Adds `csrc/rocm/rdna/common/arch.cuh` (92 lines) and `convert.cuh` (143 lines). `git log 64d59b8942d3b982f1d91f0f3e625dfda4418106 -- csrc/rocm/rdna/common/` lists only this commit.
+[^f-arch-64d]: `csrc/rocm/rdna/common/arch.cuh` at dest tip 64d59b89. https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/rdna/common/arch.cuh
+[^f-arch-head]: `csrc/rocm/rdna/common/arch.cuh` L4-L21, header comment and generation table, dest at 64d59b89. https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/rdna/common/arch.cuh#L4-L21
+[^f-arch-gen]: `csrc/rocm/rdna/common/arch.cuh` L30-L46, `RdnaGen` enum and `VLLM_RDNA_DEVICE_GEN` from `__gfx103[0-6]__` / `__gfx115[0-3]__` / `__gfx110[0-3]__` / `__gfx120[01]__`, dest at 64d59b89. https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/rdna/common/arch.cuh#L30-L46
+[^f-arch-traits]: `csrc/rocm/rdna/common/arch.cuh` L48-L75, `RdnaArchTraits` flags and the `RdnaArch` alias, dest at 64d59b89. https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/rdna/common/arch.cuh#L48-L75
+[^f-arch-host]: `csrc/rocm/rdna/common/arch.cuh` L77-L89, `rdna_gen_from_arch`, dest at 64d59b89. https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/rdna/common/arch.cuh#L77-L89
+[^f-convert]: `csrc/rocm/rdna/common/convert.cuh` L4-L18 (header comment) and L29-L138 (conversions), dest at 64d59b89. https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/rdna/common/convert.cuh#L4-L18 ; https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/rdna/common/convert.cuh#L29-L138
+[^f-kvinsert]: `csrc/rocm/rdna/dsv4/kv_insert.cu` L52-L53 (includes) and L66 (`kLanes = RdnaArch::kWaveSize`), dest at 64d59b89. https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/rdna/dsv4/kv_insert.cu#L52-L66
+[^c-01b439bf]: opengfx1030/vllm-rdna commit [`01b439bf`](https://github.com/opengfx1030/vllm-rdna/commit/01b439bfd21ee9e7bb5c4113efd457a4d140e06c) (2026-10-08) — "feat(rdna): DSV4 q-norm + RoPE + fp8_ds_mla KV insert HIP kernel (fp16/bf16)".

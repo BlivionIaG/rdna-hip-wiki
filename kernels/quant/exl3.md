@@ -35,6 +35,12 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/30b0bd4e3604a6ea678244a0df74e452ac05fee6/vllm/model_executor/layers/quantization/exl3.py
   - https://github.com/opengfx1030/vllm-rdna/pull/30
   - https://github.com/turboderp-org/exllamav3
+  - https://github.com/opengfx1030/vllm-rdna/commit/c2cbf004772c2fa10f71e9858f98080e102107af
+  - https://github.com/opengfx1030/vllm-rdna/commit/0835e3cbf57de062b09fbf6a4a804abaf6db71cb
+  - https://github.com/opengfx1030/vllm-rdna/commit/f419d8d6c037003cc21c64e9a105f3fe9d06abe2
+  - https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/exl3_dot2_dense.cu
+  - https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106
+  - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
 ---
 # EXL3 — silicon / HIP contract
 
@@ -47,11 +53,34 @@ sources:
 | Build | `exl3_dot2_{moe,dense,dequant}.cu` + `exl3_hadamard.cu` are on the unconditional ROCm list (the device-pass gate inside each `.cu` picks gfx1030/gfx1100).[^exl3-tip-build] |
 | Ops | `exl3_gemm_rdna2`, `exl3_project_rdna2`, `exl3_hadamard_128`, `exl3_dequant_bits6_mul1`, `exl3_decode_trellis_rdna2`.[^exl3-tip-bind] |
 | Codebooks | `cb` 0 (3inst), 1 (mcg), 2 (mul1) all dispatch. Python `exl3_codebook_id` maps mul1/mcg markers to 2/1.[^exl3-tip-cb] |
-| Occupancy | Dense v3 GEMM: `__launch_bounds__(V3_THREADS)`; Hadamard `__launch_bounds__(32)`. No `waves_per_eu` on EXL3 kernels.[^exl3-tip-lb] |
+| Occupancy | Dense v3 GEMM: `__launch_bounds__(V3_THREADS)` with `V3_THREADS` = 128; Hadamard `__launch_bounds__(32)`. No `waves_per_eu` on EXL3 kernels.[^exl3-tip-lb][^f-64d59b89-v3-geom] Detail: the decode-once v3 section below. |
 
 Occupancy + live W4 still first. Silicon: [silicon/formats/exl3.md](../../silicon/formats/exl3.md).[^exl3-cb][^exl3-dq][^f-30b0bd4e-exl3-dot2-common-cuh]
 
 Take the math only: unpack trellis → fp16 → `fdot2`. Same job as mxfp4, fatter decode. **No** Marlin / MMA / WMMA port.[^qtip]
+
+## Decode-once v3 GEMM (`c2cbf004` → `0835e3cb` → `f419d8d6`; unchanged through `64d59b89`)
+
+Rechecked 2026-10-12 at dest tip `64d59b89`: `csrc/rocm/exl3_dot2_dense.cu` has no change after `f419d8d6`, so `1dc3bac4` and `64d59b89` carry the same v3 kernel.[^c-f419d8d6][^c-64d59b89]
+
+| Item | State at `64d59b89` |
+|---|---|
+| Kernel | `gemm_exl3_v3_kernel_rdna<M_PER, bits, cb>`, added in `c2cbf004` for decode and MTP-verify batches.[^c-c2cbf004][^f-64d59b89-v3-kernel] |
+| Block | `__launch_bounds__(V3_THREADS)`, `V3_THREADS` = 128 (4 wave32 waves); `V3_TILES_PER_BLOCK` = 32, one 16-wide N-tile per lane; `V3_MAX_BLOCK_K` = 256. No second `__launch_bounds__` argument and no `waves_per_eu`.[^f-64d59b89-v3-geom][^f-64d59b89-v3-kernel] |
+| Wave split | Each wave owns one 4-column quarter of the lane's N-tile; the quarter index is `__builtin_amdgcn_readfirstlane(t >> 5)` and selects a `Q`-templated body, so window positions and tile-word indices are compile-time constants (source comment: "registers, no scratch").[^f-64d59b89-v3-kernel][^f-64d59b89-v3-doc] |
+| LDS | `__shared__ half s_a[M_PER][V3_MAX_BLOCK_K + 8]`, 16-B aligned: A rows only, padded by 8 halves. That is 4224 / 8448 / 16896 B for `M_PER` 8 / 16 / 32 (arithmetic from the declaration). One `__syncthreads()` after the A stage.[^f-64d59b89-v3-kernel] |
+| Decode once | Per k-tile a thread decodes 4 cols × 16 K = 32 `half2` once and dots them against up to `M_PER` A rows read from LDS as 2 × 128-bit loads per row. Rows past `size_m` are skipped with a wave-uniform `continue`, not a `break`, so the unroll and `acc[][]` stay in registers.[^f-64d59b89-v3-doc][^f-64d59b89-v3-body] |
+| DOT | `__builtin_amdgcn_fdot2(wv[j][h], a2[h], acc, false)`: fp16 × fp16 → fp32 (`V_DOT2_F32_F16`).[^f-64d59b89-v3-body][^isa] |
+| mul1 decode | `cb == 2` on `__gfx1030__` / `__gfx1031__` / `__gfx1032__` does the byte sum with `__builtin_amdgcn_udot4(x * 0x83DCD12D, 0x01010101, 0x6400)` plus one packed `__hfma2`. Other device targets, and `cb` 0/1, call `decode_3inst<cb>` per state. The commit says this is bit-identical to `decode_3inst<2>`.[^f-64d59b89-v3-pair][^c-c2cbf004] |
+| Epilogue | 4 contiguous output columns per thread: split-K (`gridDim.y > 1`) uses one 64-bit CAS per row (`atomic_add_pk4_f16`); otherwise a plain 64-bit store.[^f-64d59b89-v3-body][^f-64d59b89-v3-doc] |
+| Prefetch | Since `f419d8d6` the tile words of k-tile `kt+1` are loaded into `uint4 next[NW/4]` while `kt` is decoded: one tile of register lookahead, `NW` = 8 × `bits` words.[^c-f419d8d6][^f-64d59b89-v3-body] |
+| VGPR | `f419d8d6` reports "+NW VGPRs; no spills, max 196 VGPRs at M_PER=32 bits 6" (commit message, not re-measured here). On the wave32 ladder (1024 VGPRs, granule 16) 196 rounds to 208, i.e. 4 waves/SIMD32 by VGPR for that variant. Other `M_PER` / `bits` variants: unmeasured.[^c-f419d8d6][^llvm-baseinfo] |
+
+**Dispatch (host `launch_tile`).** v3 runs when `bits ∈ {3, 4, 6}`, `M ≤ 64` and `exl3_v3_enabled()`. `M ≤ 8` → `M_PER` 8, `≤ 16` → 16, else 32, and the grid z-splits M by `M_PER` (`divide_up(sm, M_PER)`), so `M` 33..64 runs two z-blocks.[^f-64d59b89-v3-launch] `exl3_v3_enabled()` is `VLLM_EXL3_GEMM_V3` (default 1; 0 restores the old dispatch) **and** a device `gcnArchName` starting `gfx103`. Other RDNA targets keep the v2 / generic kernels.[^f-64d59b89-v3-gate][^c-c2cbf004] Split-K `block_k` is 256 when `ceil(N/16/32) × ceil(K/256) ≥ 160`, else 128, unless `VLLM_EXL3_V3_BLOCK_K` (multiple of 16, 16..256) overrides it.[^f-64d59b89-v3-gate] Larger M goes through decode + rocBLAS in Python (source comment).[^f-64d59b89-v3-launch]
+
+**Bit widths.** `c2cbf004` launched bits 3/4. `0835e3cb` added bits 6, the EXL3 6 bpw `mul1` lm_head; its windows are in stream order like bits 3 (the `dq4` reader), so the body is unchanged. Before `0835e3cb` the head went to the generic kernel.[^c-0835e3cb][^f-64d59b89-v3-launch] The source comment labels bits 3 as the body, 4 as the MTP draft layer and 6 as the lm_head.[^f-64d59b89-v3-launch]
+
+Do not copy the commit messages' ms / tok/s tables onto this page.[^c-c2cbf004][^c-0835e3cb][^c-f419d8d6]
 
 ## Live extras (2026-08-28)
 
@@ -87,7 +116,7 @@ CMake + `torch_bindings` + `Exl3Config` wired (`d3fe4c98` / `a2c8d5cf`). Still n
 | `csrc/rocm/exl3_dot2_moe.cu` | `moe_exl3_gemm_rdna2` — 256 thr / 1024 N; `BLOCK_SIZE_M` 1/2/4/8; CAS epilogue [^f-a2c8d5cf-exl3-dot2-moe-cu][^f-a2c8d5cf-exl3-dot2-dense-cu] |
 | `csrc/rocm/exl3_hadamard.cu` | `exl3_hadamard_128` — `__launch_bounds__(32)`, not in the K-dot [^f-a2c8d5cf-exl3-hadamard-cu] |
 
-Inner: real 16×16 window → `decode_3inst<cb>` → `half2` → `V_DOT2_F32_F16`. Launch (pre-`8c23f0bd`): `bits` ∈ {2,3,4}, `cb` ∈ {0,1} (rejected `mul1`). At `8c23f0bd`: dense also launches `bits=6` and `cb=2`; 6bpw lm_head uses load-time dequant. Dense/MoE GEMM have **no** `__launch_bounds__` / `waves_per_eu` — do not ship on `(1,1)`. Dense LDS is A only (`M×264` half). MoE LDS is A `M×16` half + `s_tile[64][8*bits]` u32. Occupancy risk is VGPR (`w0`+`w1` 4×16 halves on dense), not LDS. `suh`/`svh` stay caller-side / Hadamard kernel.[^c-8c23f0bd][^f-8c23f0bd-exl3-dot2-common-cuh][^isa][^qtip][^exl3-cb]
+Inner: real 16×16 window → `decode_3inst<cb>` → `half2` → `V_DOT2_F32_F16`. Launch (pre-`8c23f0bd`): `bits` ∈ {2,3,4}, `cb` ∈ {0,1} (rejected `mul1`). At `8c23f0bd`: dense also launches `bits=6` and `cb=2`; 6bpw lm_head uses load-time dequant. Dense/MoE GEMM have **no** `__launch_bounds__` / `waves_per_eu` — do not ship on `(1,1)` *(historical at `8c23f0bd`; the dense v3 kernel has `__launch_bounds__(128)` since `c2cbf004`)*[^c-c2cbf004][^f-64d59b89-v3-geom]. Dense LDS is A only (`M×264` half). MoE LDS is A `M×16` half + `s_tile[64][8*bits]` u32. Occupancy risk is VGPR (`w0`+`w1` 4×16 halves on dense), not LDS. `suh`/`svh` stay caller-side / Hadamard kernel.[^c-8c23f0bd][^f-8c23f0bd-exl3-dot2-common-cuh][^isa][^qtip][^exl3-cb]
 
 Do not copy tok/s. Do not treat as Live until occupancy dump + named 3inst checkpoint.[^exl3-cb]
 
@@ -103,7 +132,7 @@ Do not copy tok/s. Do not treat as Live until occupancy dump + named 3inst check
 
 Decode kernels (`cb==0/1`): integer mul + bit-force + `hadd` of the two forced halves. `cb==2`: mul + byte-sum (`sdot4` vs `0x01010101` + `0x6400`) + `hfma`. That `sdot4` is **not** the GEMM.[^exl3-cb][^exl3-dq][^f-30b0bd4e-exl3-dot2-common-cuh]
 
-Tile seed after unpack: same as W4A16 (`64×64×32` fp16) for prefill; decode skinny like `q_gemm_rdna2`. Do not copy CUDA `16×16×128` MMA shapes.[^f-30b0bd4e-q-gemm-rdna2-cu]
+Tile seed after unpack: same as W4A16 (`64×64×32` fp16) for prefill; decode skinny like `q_gemm_rdna2`. Do not copy CUDA `16×16×128` MMA shapes.[^f-30b0bd4e-q-gemm-rdna2-cu] *(The "decode skinny like `q_gemm_rdna2`" seed is historical at `30b0bd4e` for gfx103x bits 3/4/6 with M ≤ 64: that path now runs the decode-once v3 kernel above.)*[^c-c2cbf004][^c-0835e3cb][^f-64d59b89-v3-launch]
 
 ## vs other unpack-then-DOT
 
@@ -206,6 +235,8 @@ EXL3 is a QTIP-style trellis code: a weight group is a walk on a bitshift trelli
 
 - [turboderp-org/exllamav3](https://github.com/turboderp-org/exllamav3) `codebook.cuh`, `exl3_dq.cuh` (2026-08-21)
 - [kernels/quant/mxfp4.md](mxfp4.md), [kernels/quant/w4a16.md](w4a16.md)
+- opengfx1030/vllm-rdna `csrc/rocm/exl3_dot2_dense.cu` @ `64d59b89` and commits `c2cbf004`, `0835e3cb`, `f419d8d6` (read 2026-10-12)
+- [silicon/hip-craft/hip-craft.md](../../silicon/hip-craft/hip-craft.md) §1.3 wave32 VGPR ladder
 
 [^exl3-cb]: exllamav3 `exllamav3_ext/quant/codebook.cuh` @ `abf49117ab` (2026-08-21): `decode_3inst`, `decode_mcg_product_2` (cb 1), `decode_mul1_product_2` (cb 2). <https://github.com/turboderp-org/exllamav3/blob/abf49117abfb2d328e1fe6d51f9cdc8a2889f5bf/exllamav3/exllamav3_ext/quant/codebook.cuh>
 [^exl3-dq]: exllamav3 `exllamav3_ext/quant/exl3_dq.cuh` @ `abf49117ab` — trellis bit-extract paths. <https://github.com/turboderp-org/exllamav3/blob/abf49117abfb2d328e1fe6d51f9cdc8a2889f5bf/exllamav3/exllamav3_ext/quant/exl3_dq.cuh>
@@ -244,3 +275,15 @@ EXL3 is a QTIP-style trellis code: a weight group is a walk on a bitshift trelli
 [^exl3-tip-bind]: `csrc/rocm/torch_bindings.cpp` L536-L560 (EXL3 op schemas), dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/torch_bindings.cpp#L536-L560
 [^exl3-tip-cb]: `cb == 2` dispatch in `csrc/rocm/exl3_dot2_dense.cu` L553-L580 and `csrc/rocm/exl3_dot2_moe.cu` L245; `_CB` / `exl3_codebook_id` in `vllm/model_executor/layers/quantization/exl3.py` L132-L155, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/exl3_dot2_dense.cu#L553-L580 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/exl3_dot2_moe.cu#L245 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/quantization/exl3.py#L132-L155
 [^exl3-tip-lb]: `gemm_exl3_v3_kernel_rdna` `__launch_bounds__(V3_THREADS)` at `csrc/rocm/exl3_dot2_dense.cu` L479; `had_*_r_128_kernel` `__launch_bounds__(32)` at `csrc/rocm/exl3_hadamard.cu` L183/L193, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/exl3_dot2_dense.cu#L479 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/exl3_hadamard.cu#L183-L193
+[^c-c2cbf004]: opengfx1030/vllm-rdna commit [`c2cbf004`](https://github.com/opengfx1030/vllm-rdna/commit/c2cbf004772c2fa10f71e9858f98080e102107af) (2026-10-09) — "perf(rdna2): EXL3 decode-once GEMM for decode and MTP verify batches". Adds `gemm_exl3_v3_kernel_rdna`, `VLLM_EXL3_GEMM_V3`, the gfx103 gate and the `udot4` mul1 byte sum.
+[^c-0835e3cb]: opengfx1030/vllm-rdna commit [`0835e3cb`](https://github.com/opengfx1030/vllm-rdna/commit/0835e3cbf57de062b09fbf6a4a804abaf6db71cb) (2026-10-09) — "perf(rdna2): run the EXL3 6 bpw lm_head on the decode-once GEMM". Adds the `bits == 6` v3 launch.
+[^c-f419d8d6]: opengfx1030/vllm-rdna commit [`f419d8d6`](https://github.com/opengfx1030/vllm-rdna/commit/f419d8d6c037003cc21c64e9a105f3fe9d06abe2) (2026-10-09) — "perf(rdna2): prefetch the next tile words in the EXL3 v3 GEMM". Message: "+NW VGPRs; no spills, max 196 VGPRs at M_PER=32 bits 6". Last commit to touch `exl3_dot2_dense.cu` before `64d59b89`.
+[^c-64d59b89]: opengfx1030/vllm-rdna commit [`64d59b89`](https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106) (2026-10-12 tip read) — merge of PR #84; `git diff 1dc3bac4cda3201a1b4fb345e044578e84a272cf 64d59b8942d3b982f1d91f0f3e625dfda4418106 -- csrc/rocm/exl3_dot2_dense.cu` is empty.
+[^f-64d59b89-v3-geom]: `csrc/rocm/exl3_dot2_dense.cu` L62-L65 (`V3_THREADS` 128, `V3_TILES_PER_BLOCK` 32, `V3_MAX_BLOCK_K` 256) and L478-L479 (`__launch_bounds__(V3_THREADS)`), dest at 64d59b89. https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/exl3_dot2_dense.cu#L62-L65 ; https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/exl3_dot2_dense.cu#L478-L479
+[^f-64d59b89-v3-doc]: `csrc/rocm/exl3_dot2_dense.cu` L300-L317, v3 design comment, dest at 64d59b89. https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/exl3_dot2_dense.cu#L300-L317
+[^f-64d59b89-v3-pair]: `csrc/rocm/exl3_dot2_dense.cu` L348-L370, `exl3_decode_pair<cb>` (`udot4` on gfx1030/1031/1032), dest at 64d59b89. https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/exl3_dot2_dense.cu#L348-L370
+[^f-64d59b89-v3-body]: `csrc/rocm/exl3_dot2_dense.cu` L393-L476, `gemm_exl3_v3_body` (prefetch, decode, `fdot2`, epilogue), dest at 64d59b89. https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/exl3_dot2_dense.cu#L393-L476
+[^f-64d59b89-v3-kernel]: `csrc/rocm/exl3_dot2_dense.cu` L478-L523, `gemm_exl3_v3_kernel_rdna` (`s_a` LDS, `readfirstlane` quarter switch), dest at 64d59b89. https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/exl3_dot2_dense.cu#L478-L523
+[^f-64d59b89-v3-launch]: `csrc/rocm/exl3_dot2_dense.cu` L617-L645 (`launch_v3_mb` / `launch_v3_m`) and L679-L693 (`launch_tile` v3 branch), dest at 64d59b89. https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/exl3_dot2_dense.cu#L617-L645 ; https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/exl3_dot2_dense.cu#L679-L693
+[^f-64d59b89-v3-gate]: `csrc/rocm/exl3_dot2_dense.cu` L647-L677, `exl3_v3_enabled` (`VLLM_EXL3_GEMM_V3`, `gfx103` prefix) and `exl3_v3_block_k` (`VLLM_EXL3_V3_BLOCK_K`), dest at 64d59b89. https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/exl3_dot2_dense.cu#L647-L677
+[^llvm-baseinfo]: LLVM `AMDGPUBaseInfo.cpp` (IsaInfo: VGPR file and allocation granule) @ `eb61ef62df`, as summarised in [silicon/hip-craft/hip-craft.md](../../silicon/hip-craft/hip-craft.md) §1.3. https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
