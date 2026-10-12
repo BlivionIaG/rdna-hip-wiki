@@ -3,6 +3,13 @@ title: "Kernels"
 sources:
   - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
   - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td#L2278-L2292
+  - https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106
+  - https://github.com/opengfx1030/vllm-rdna/commit/1dc3bac4cda3201a1b4fb345e044578e84a272cf
+  - https://github.com/opengfx1030/vllm-rdna/commit/f2cc25ca927d0f3c6b0754d6f3982b3608746716
+  - https://github.com/opengfx1030/vllm-rdna/commit/c6d99ca30580f0ce6a97a168fa53bf9c6ee6b2af
+  - https://github.com/opengfx1030/vllm-rdna/pull/47
+  - https://github.com/opengfx1030/vllm-rdna/commit/c2cbf004772c2fa10f71e9858f98080e102107af
+  - https://github.com/opengfx1030/vllm-rdna/commit/0f596e6e0e9b2683ef7a4ec3eb6ef93eac9e1fd9
 ---
 # Kernels
 
@@ -19,10 +26,16 @@ Pages are grouped by topic. Each folder has its own README index; this page is t
 | [attention/](attention/README.md) | Attention-side kernels: stock Triton baseline, KV INT8, Sage QK, sparse MLA, indexer. | 5 |
 | [linear-attn/](linear-attn/README.md) | Linear-attention / recurrent kernels: GDN decode + prefill, causal conv1d, FlashKDA. | 4 |
 | [aot-glue/](aot-glue/README.md) | Small HIP glue that replaces Triton JIT: RMSNorm, AOT list. | 2 |
-| [models/](models/README.md) | Model-specific HIP glue (one page per model family). | 1 |
+| [models/](models/README.md) | Model-specific HIP glue (one page per model family). | 2 |
 | [overlays/](overlays/README.md) | Reviews of other gfx1030 trees we harvest from (read-only). | 2 |
 
 Figures: [img/](img/) holds primary-source figures (each with caption, source and licence on the page that uses it).
+
+## Silicon tip watermark
+
+Kernel pages are read through dest `rdna_extras` tip **`64d59b89`** (`64d59b8942d3b982f1d91f0f3e625dfda4418106`, merge of PR #84, read 2026-10-12).[^c-64d59b89] The silicon watch's previous recorded tip was `c6d99ca3` on the 0.28 line (still cited by dated locks on [gemm-moe/README.md](gemm-moe/README.md), [quant/w4a16.md](quant/w4a16.md) and [models/qwen4exp-flash-next-hip.md](models/qwen4exp-flash-next-hip.md)). That commit is not an ancestor of `64d59b89`: the branch was replaced by the v0.31 port (PR #47), and the ported kernels are locked at `1dc3bac4` on the pages above.[^c-c6d99ca3][^pr47][^c-1dc3bac4]
+
+From `1dc3bac4` to `64d59b89` there is **no kernel-body silicon delta**. The only `csrc/` change in that range is `f2cc25ca` in `csrc/rocm/moe_w4a8_rdna2.cu`, and it is host-only: the per-shape cached activation workspace became a per-call `at::empty`. The `__global__` kernels, `CMakeLists.txt` and the bindings are unchanged.[^c-f2cc25ca][^c-64d59b89] Pages that cite `1dc3bac4` therefore still describe the `64d59b89` kernels.[^c-64d59b89]
 
 ## Which DOT does a format use?
 
@@ -63,7 +76,7 @@ flowchart TD
 | [quant/w8a8-mxfp4.md](quant/w8a8-mxfp4.md) | W8A8 INT8 = `sdot4` | **Spec / not added** |
 | [quant/nvfp4.md](quant/nvfp4.md) | E2M1 + E4M3 mul → `fdot2` | Spec (no RDNA NVFP4 kernel at `1dc3bac4`) |
 | [quant/rocmfpx.md](quant/rocmfpx.md) | codebook10 `perm` → i8 → `sdot4` | Later. llama.cpp GGUF, not a vLLM port |
-| [quant/exl3.md](quant/exl3.md) | trellis state → 3-inst → `fdot2` | Later. mul1 + K=1..8 + `exl3_project_rdna2` @ `30b0bd4e`; cb 0/1/2 all dispatch at `1dc3bac4`. Occupancy + W4 first |
+| [quant/exl3.md](quant/exl3.md) | trellis state → 3-inst → `fdot2` | Later. mul1 + K=1..8 + `exl3_project_rdna2` @ `30b0bd4e`; cb 0/1/2 all dispatch at `1dc3bac4`; decode-once v3 GEMM (`__launch_bounds__(128)`, gfx103x, bits 3/4/6, M ≤ 64) @ `c2cbf004` / `0835e3cb` / `f419d8d6`, unchanged at `64d59b89`. Occupancy + W4 first [^c-c2cbf004] |
 
 Do not conflate W8A16 / W8A16-FP8 / W8A8-FP8 (`fdot2`) with spec W8A8 INT8 (`sdot4`).
 
@@ -107,6 +120,7 @@ Do not conflate W8A16 / W8A16-FP8 / W8A8-FP8 (`fdot2`) with spec W8A8 INT8 (`sdo
 | Page | Inner loop | Completeness |
 |---|---|---|
 | [models/qwen4exp-flash-next-hip.md](models/qwen4exp-flash-next-hip.md) | T46 fdot2 glue; T47–T49 HC/QSA/PLE scalar | HC compute-correct @ `8960a3bc`. At `1dc3bac4`: `VLLM_RDNA_FUSED_HC` default **on**; fused HC prefill (`hc_prefill_rdna2.cu`) default mode 2; HC_PREFILL_HIP / QSA / PLE default off |
+| [models/dsv4-mhc-hip.md](models/dsv4-mhc-hip.md) | scalar fp32 (no DOT); 16-lane xor-shuffle Sinkhorn | DSv4 mHC pre/post HIP (`rdna/dsv4/mhc.cu`, `ec349e90` + `0f596e6e`, unchanged at `64d59b89`); decode pre GEMM split over 32 blocks; ≤16 tokens fused GEMM, else rocBLAS. Selected after AITER / TileLang for 4 streams fp16/bf16 [^c-0f596e6e] |
 
 ### Overlays — [overlays/](overlays/README.md)
 
@@ -121,3 +135,10 @@ Index rows summarise the linked pages; each page carries its own footnoted prima
 
 [^isa]: AMD, *"RDNA 2" Instruction Set Architecture Reference Guide* (doc 70648): "Feature Changes in RDNA2 Devices" dot-product list; VOP2 opcodes 2 `V_DOT2C_F32_F16` / 13 `V_DOT4C_I32_I8`; VOP3P opcodes 19–25 `V_DOT2_F32_F16` … `V_DOT8_U32_U4`; LDS "128kB memory per workgroup processor split up into 64 banks of dword-wide RAMs"; "a single workgroup may allocate up to 64kB of LDS". <https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture>
 [^llvm-gfx1030]: LLVM `AMDGPU.td` @ `eb61ef62df` L2278–L2292, `FeatureISAVersion10_3_0` (gfx1030): `FeatureDot1/2/5/6/7/10Insts`, no `Dot8`/`Dot12`, `FeatureMaxWavesPerEU16`. <https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td#L2278-L2292>
+[^c-c2cbf004]: opengfx1030/vllm-rdna commit [`c2cbf004`](https://github.com/opengfx1030/vllm-rdna/commit/c2cbf004772c2fa10f71e9858f98080e102107af) (2026-10-09) — "perf(rdna2): EXL3 decode-once GEMM for decode and MTP verify batches"; bits 6 added in [`0835e3cb`](https://github.com/opengfx1030/vllm-rdna/commit/0835e3cbf57de062b09fbf6a4a804abaf6db71cb), tile-word prefetch in [`f419d8d6`](https://github.com/opengfx1030/vllm-rdna/commit/f419d8d6c037003cc21c64e9a105f3fe9d06abe2).
+[^c-0f596e6e]: opengfx1030/vllm-rdna commit [`0f596e6e`](https://github.com/opengfx1030/vllm-rdna/commit/0f596e6e0e9b2683ef7a4ec3eb6ef93eac9e1fd9) (2026-10-09) — "perf(rdna): split the decode mHC pre GEMM across blocks, parallel Sinkhorn" (file first added in [`ec349e90`](https://github.com/opengfx1030/vllm-rdna/commit/ec349e9079f6d19865362010bebcd36bfbbe0f8d)).
+[^c-64d59b89]: opengfx1030/vllm-rdna commit [`64d59b89`](https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106) — "Merge fix/rdna2-moe-asymmetric: native MoE path declines asymmetric checkpoints (#84)". `git diff --stat 1dc3bac4cda3201a1b4fb345e044578e84a272cf 64d59b8942d3b982f1d91f0f3e625dfda4418106 -- csrc CMakeLists.txt` lists only `csrc/rocm/moe_w4a8_rdna2.cu` (11+ / 37−).
+[^c-1dc3bac4]: opengfx1030/vllm-rdna commit [`1dc3bac4`](https://github.com/opengfx1030/vllm-rdna/commit/1dc3bac4cda3201a1b4fb345e044578e84a272cf) (2026-10-11) — "Merge feat/ple-int4: INT4 PLE table on the upstream PLE path (#49)"; the silicon lock the kernel pages cite.
+[^c-f2cc25ca]: opengfx1030/vllm-rdna commit [`f2cc25ca`](https://github.com/opengfx1030/vllm-rdna/commit/f2cc25ca927d0f3c6b0754d6f3982b3608746716) (2026-10-11) — "fix(rdna2): W4A8 MoE per-call workspace, 512-token threshold, microbench". The `.cu` diff removes `struct Workspace` / `get_workspace` and allocates `a_i8` / `a_scale` / `a_sum` per call in `moe_w4a8_gemm_rdna2`; the threshold change is in Python (`rdna2_w4a16_moe.py`).
+[^c-c6d99ca3]: opengfx1030/vllm-rdna commit [`c6d99ca3`](https://github.com/opengfx1030/vllm-rdna/commit/c6d99ca30580f0ce6a97a168fa53bf9c6ee6b2af) (2026-10-06) — "fix(rdna2): HC HIP stream correctness + MoE prefill tile"; `git merge-base --is-ancestor` with `64d59b89` is false.
+[^pr47]: opengfx1030/vllm-rdna PR #47 — v0.31 port of `rdna_extras`. <https://github.com/opengfx1030/vllm-rdna/pull/47>
