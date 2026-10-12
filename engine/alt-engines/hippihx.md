@@ -10,7 +10,7 @@ Date: 2026-09-08. Repo: [BlivionIaG/hippihx](https://github.com/BlivionIaG/hippi
 |---|---|
 | **hippihx** | Tile contracts, HIP, fatbins, plan/bind/run, LDS/`__launch_bounds__` |
 | **`rdna_extras`** | Thin V1/V2 wiring (`torch.ops`, `RDNA_ATTN`, envs, graphs) |
-| **Produce** | EXL3 `-cb 3inst`, AWQ packs — outside the zoo |
+| **Produce** | EXL3 `-cb mul1` (Blivion decision 2026-10-12, unsourced upstream), AWQ packs — outside the zoo |
 
 Leave: fork of local-inference-lab/b12x CuTe/CE/NVFP4. Take: layering only.
 

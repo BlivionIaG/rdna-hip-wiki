@@ -38,6 +38,8 @@ sources:
 ---
 # EXL3 — silicon / HIP contract
 
+> **Production codebook (2026-10-12):** EXL3 production path is now **`mul1`**, replacing `-cb 3inst` (Blivion decision 2026-10-12, unsourced upstream). Dated tip locks below that say "produce `3inst`" are historical.
+
 ## Current state at dest `rdna_extras` @ `1dc3bac4` (checked 2026-10-11)
 
 | Item | State |
@@ -141,7 +143,7 @@ HIP: 6bpw `mul1` load-time dequant + dense launch of `bits∈{2,3,4,6}`, `cb∈{
 | `exl3_dot2_common.cuh` | `bits==6` → `dq4<6>` window extract [^f-8c23f0bd-exl3-dot2-common-cuh] |
 | `exl3_dot2_dense.cu` | launches `bits=6` and `cb=2`; sizes from tensors [^f-8c23f0bd-exl3-dot2-dense-cu] |
 
-Inner GEMM still 16×16 → `decode_3inst` → `half2` → `fdot2`. Dequant is not a K-dot path (no Hadamard in kernel). Occupancy hygiene still missing on GEMMs. Produce experts as `3inst`; do not treat `mul1` launch as produce flip. FA pin closed. No tok/s.[^f-8c23f0bd-exl3-dot2-common-cuh][^qtip][^exl3-cb]
+Inner GEMM still 16×16 → `decode_3inst` → `half2` → `fdot2`. Dequant is not a K-dot path (no Hadamard in kernel). Occupancy hygiene still missing on GEMMs. Produce experts as `3inst` at this lock (superseded: production is `mul1` (Blivion decision 2026-10-12, unsourced upstream)). FA pin closed. No tok/s.[^f-8c23f0bd-exl3-dot2-common-cuh][^qtip][^exl3-cb]
 
 
 ## extras tip `aac1fcd6` (2026-09-04)
@@ -186,7 +188,7 @@ flowchart LR
 - `Exl3MoEMethod` / `Exl3NgramTable` (PLE gather) — Python; n-gram gather inert on `rdna_extras` until PLE offload rewrite.[^c-30b0bd4e]
 - PR #30 W4A16 compile-dispatch explore — opt-in, default off; not EXL3 DOT.[^fpr-30]
 
-Produce policy unchanged: experts **`-cb 3inst`**. `mul1` / mixed-codebook is load+decode support, not a produce flip. FA pin stays closed. No tok/s.[^exl3-cb]
+Produce policy at this lock: experts **`-cb 3inst`** (superseded: production is now **`mul1`** (Blivion decision 2026-10-12, unsourced upstream)). FA pin stays closed. No tok/s.[^exl3-cb]
 
 ## Figures (QTIP paper, CC BY 4.0)
 

@@ -2,7 +2,7 @@
 
 Date: 2026-08-22 (live extras retip 2026-08-28). Engine contract. Silicon: [silicon/formats/exl3.md](../../silicon/formats/exl3.md) + [kernels/quant/exl3.md](../../kernels/quant/exl3.md). DSv4 apply: [dsv4-flash-run.md](../run-recipes/dsv4-flash-run.md). Occupancy still first.
 
-**Verdict:** QTIP quality-for-size, native HIP. One kernel, codebook id + 16×16 pack. Infer does **not** retune the trellis. Produce `-cb 3inst`. Still compile `mcg` (`cb=1`) for 0xSero K216 — same VALU (mul + LOP3-emulate). **Don’t produce `mul1`.** Pair two states → `half2` → one `fdot2`.
+**Verdict:** QTIP quality-for-size, native HIP. One kernel, codebook id + 16×16 pack. Infer does **not** retune the trellis. Produce `mul1` (`-cb mul1`, replaces `-cb 3inst`) (Blivion decision 2026-10-12, unsourced upstream). Still compile `3inst`/`mcg` (`cb=0/1`) for existing checkpoints such as 0xSero K216. Pair two states → `half2` → one `fdot2`.
 
 ## Live extras (2026-08-28)
 
@@ -20,10 +20,10 @@ Convert knobs:
 |---|---|
 | `-b` | Average bpw 1–8. We launch one integer `K` at a time. |
 | `-hb` | lm_head bits 1–8 or 16 (default 6). |
-| `-cb` | Produce **`3inst`**. Compile **`mcg`**. Never produce **`mul1`**. |
+| `-cb` | Produce **`mul1`** (Blivion decision 2026-10-12, unsourced upstream). Compile **`3inst`** and **`mcg`** for existing checkpoints. |
 | `-hq` | **Off for DSv4** — leftover stays official MXFP8. |
 
-RDNA2-optimal convert: REAP official MXFP4 experts → Viterbi keepers only at **3.0–3.5 bpw**, `-cb 3inst`, no `-hq`. 2 bpw is decode-bound on 512 GB/s.
+RDNA2-optimal convert: REAP official MXFP4 experts → Viterbi keepers only at **3.0–3.5 bpw**, `-cb mul1` (Blivion decision 2026-10-12, unsourced upstream), no `-hq`. 2 bpw is decode-bound on 512 GB/s.
 
 ## Infer (native HIP)
 

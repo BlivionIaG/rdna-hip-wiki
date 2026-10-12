@@ -46,7 +46,7 @@ Silicon contracts: [kernels/](../../kernels/README.md). `sdot4` explore: [kernel
 | bitsandbytes | CUDA | **Dead** on this box | Official AMD column is ❌ |
 | GGUF (stock Q4_0 / K / IQ*) | vLLM loader / plugin | Live loader | Not ggml MMVQ. Custom ROCmFPX types are not this. [rocmfpx.md](../quant-formats/rocmfpx.md) |
 | ROCmFPX (`Q4_0_ROCMFP4` …) | codebook → `perm` → `sdot4` | **No vLLM port** | llama.cpp side project only. [llamacpp-rocmfpx.md](../alt-engines/llamacpp-rocmfpx.md) |
-| **EXL3** (QTIP trellis) | 3-inst codebook → `fdot2` | **Live** @ `1dc3bac4` (kernels built RDNA-generic, gfx1030 + gfx1100; `27b-exl3` recipe); history `a2c8d5cf` / `e268c7d3` | Produce `3inst`, compile `mcg`, no `mul1`. HIP kernel for unmarked 2/3/4-bit; marked mul1/mcg fold fp16. Occupancy still first. [exl3.md](../quant-formats/exl3.md). |
+| **EXL3** (QTIP trellis) | 3-inst codebook → `fdot2` | **Live** @ `1dc3bac4` (kernels built RDNA-generic, gfx1030 + gfx1100; `27b-exl3` recipe); history `a2c8d5cf` / `e268c7d3` | Produce `mul1` (Blivion decision 2026-10-12, unsourced upstream); compile `3inst`/`mcg`. HIP kernel for unmarked 2/3/4-bit; marked mul1/mcg fold fp16. Occupancy still first. [exl3.md](../quant-formats/exl3.md). |
 | Ternary / BitNet 1.58 | LUT or pack + `V_DOT8`? | Later | No ternary unit. Research after DOT kernels exist. Not a first ticket. |
 
 ## Attention
