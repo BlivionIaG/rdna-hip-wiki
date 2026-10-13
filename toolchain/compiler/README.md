@@ -114,6 +114,6 @@ For our forks: if a kernel calls through a function pointer, read `.uses_dynamic
 [^llama29927]: llama.cpp#29927, open. https://github.com/ggml-org/llama.cpp/pull/29927
 [^tr7751]: TheRock#7751, closed. https://github.com/ROCm/TheRock/issues/7751
 [^tr7909]: TheRock#7909, open. https://github.com/ROCm/TheRock/issues/7909
-[^rccl10701]: rocm-systems#10701, closed without merge 2026-10-12, so the parser bug stands. https://github.com/ROCm/rocm-systems/pull/10701
+[^rccl10701]: rocm-systems#10701, closed without merge 2026-10-12; whether a fix landed elsewhere was not checked. https://github.com/ROCm/rocm-systems/pull/10701
 [^ht12473]: rocm-libraries#12473, closed, issue body (metadata excerpts, 1024-byte default, MI350 field report). https://github.com/ROCm/rocm-libraries/issues/12473
 [^ht12638]: rocm-libraries#12638, merged 2026-10-12, docs only. https://github.com/ROCm/rocm-libraries/pull/12638
