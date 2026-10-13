@@ -16,6 +16,8 @@ sources:
   - https://github.com/ROCm/llvm-project/blob/amd-staging/amd/device-libs/ockl/src/cg.cl
   - https://github.com/opengfx1030/vllm-rdna/blob/e245a4697a139fe8d3bbec4b9c837c37279674e9/csrc/rocm/rdna_allreduce.cuh
   - https://github.com/opengfx1030/vllm-rdna/blob/e245a4697a139fe8d3bbec4b9c837c37279674e9/csrc/rocm/rdna_allreduce.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/e245a4697a139fe8d3bbec4b9c837c37279674e9/csrc/rocm/rdna_fused_glue.cu
+  - https://github.com/opengfx1030/vllm-rdna/tree/e245a4697a139fe8d3bbec4b9c837c37279674e9/bench_results/2026-09-29_tunableop-rows/curated
 ---
 # MonoKernel on gfx1030: silicon plan
 
@@ -90,7 +92,7 @@ Derivation **[unsourced arithmetic]**: waves/SIMD = min(16, ⌊1024/VGPR⌋); a 
 
 The RFC's FFN layer: vLLM runs attention with its output all-reduce turned off; the kernel sums the partials and runs the rest.[^rfc] #60397 does this on 10 of 40 layers.[^60397] We split it:
 
-- **2a — compute only.** The kernel runs residual add + norm → router → shared expert (dense BF16) → routed experts (W4A16/W4A8) → combine. vLLM's existing all-reduce runs **before and after** it, unchanged; the `VLLM_RDNA_AR` lock is untouched. The only flag waits are between workgroups on the **same GPU** (agent scope, §1). In = reduced hidden + residual; out = `(hidden, residual)` unreduced for vLLM's AR. Attention, GDN, conv and QSA stay on dest kernels. FULL graphs only; PIECEWISE refused.[^rfc]
+- **2a — compute only.** The kernel runs residual add + norm → router → shared expert (dense fp16 on dest) → routed experts (W4A16/W4A8) → combine. vLLM's existing all-reduce runs **before and after** it, unchanged; the `VLLM_RDNA_AR` lock is untouched. The only flag waits are between workgroups on the **same GPU** (agent scope, §1). In = reduced hidden + residual; out = `(hidden, residual)` unreduced for vLLM's AR. Attention, GDN, conv and QSA stay on dest kernels. FULL graphs only; PIECEWISE refused.[^rfc]
 - **2b — in-kernel all-reduce, conditional.** Only if 2a gains on time per output token **and** profiling shows the AR launches are worth removing. 2b moves both ARs inside (§5) and brings the cross-GPU safety layer: bounded waits, sticky error word, phase-ID logging of every timeout.[^rfc][^ar-abort]
 
 ## 5. All-reduce over PCIe
@@ -107,19 +109,27 @@ Risks:
 
 ## Flash-Next arch contract (LLM_Arch_specialist, room 2026-10-13)
 
-- **FFN-only:** only routed experts use W4A16/W4A8 layouts. Router, shared expert and gated residual stay **dense BF16**, not quantized; router runs once and the combine uses its output unchanged. This replaces the §3 rows that put the shared expert on `moe_resident_decode.cu` fdot2 (that loop is fp16).[^res]
+- **FFN-only:** only routed experts use W4A16/W4A8 layouts. Router, shared expert and gated residual stay **dense** (not quantized). The official Flash-Next checkpoint stores those tensors as BF16 on disk, but **dest serves them in fp16**: `rdna_fused_glue.cu` accepts `at::kHalf` only on x, weights, scales and activations,[^glue-half] and the #81 TunableOp CSVs are `GemmTunableOp_Half_*` with no BFloat16 rows.[^tunable-half] So the §3 shared-expert `moe_resident_decode.cu` fdot2 loop already matches dest's serving dtype.[^res] Router runs once; combine reuses its ids/weights.
 - **Whole layer:** pattern GDN, GDN, GDN, QSA → one spec per layer type (`gdn_layer`, `qsa_layer`). GDN state fp32. QSA KV, compressed keys and indexer share one heap, separate from GDN state. **MTP drafter layers get no mono spec in P1–P3**: they run vLLM's path, as #60397 does for its DSpark draft layers.[^60397]
 
-### Dense BF16 GEMV without a bf16 dot
+### Dense GEMV: dest fp16 path vs true bf16
 
-`V_DOT2_F32_BF16` needs `HasDot12Insts` and has only gfx11/gfx12 encodings;[^v3p-bf16] gfx1030 carries Dot1/2/5/6/7/10 only, not Dot12.[^td-1030] The dest tree's `__builtin_amdgcn_fdot2_f32_bf16` branch[^skinny-bf16] must stay unreachable on gfx1030.
+Dest's serving path for the dense router, shared expert and gated residual is **fp16**, not bf16:
 
-| Path | Ops per bf16 pair | VGPR | Exact? |
-|---|---|---|---|
-| A: widen (`v_lshlrev_b32 16` lo, `v_and_b32 0xffff0000` hi) + 2× `v_fma_f32` | 2 ALU + 2 FMA | 2 fp32 regs per pair vs 1 packed | Yes: bf16→fp32 is a bit-exact shift, fp32 accumulate |
-| B: bf16→fp16 + `v_dot2_f32_f16` | convert (~3+ ops via fp32) + 1 dot | 1 | **No**: fp16 range ±65504 and 10-bit mantissa vs bf16 8-bit exponent; overflow/underflow on weights or activations |
+- `rdna_fused_glue.cu` checks `at::kHalf` on activations and weights (and fp16 scales for the int8 shadow); there is no bf16 entry point.[^glue-half]
+- #81 TunableOp results under `bench_results/2026-09-29_tunableop-rows/curated/tunableop_results{0..3}.csv` (gfx1030, HIP 714): 2,876 `GemmTunableOp_Half_*` rows, **zero** BFloat16 rows; every row selects `Gemm_Rocblas`. Decode-size shapes are present — token counts 1–9, 12, 16 and 24 (covers MTP widths 3/6/12/24).[^tunable-half]
 
-`V_PK_FMA_F32` needs `HasPackedFP32Ops`,[^v3p-pk] which gfx1030's feature set does not include.[^td-1030] **Recommendation: path A.** ALU cost is ~4 VALU per 2 MACs vs 1 for fdot2 on fp16, but decode-width (≤24 rows) dense GEMVs here are weight-bandwidth bound, so the extra VALU should hide under the BF16 loads (2 B/weight vs 0.5 B for W4) **[unsourced: confirm with a V620 microbench]**. VGPR: keep the widened weights transient (unpack 8 elements, FMA, discard) so the peak stays ~+8 VGPRs per lane per row-tile; activations can be pre-widened to fp32 in LDS once per phase (x for ≤24 rows × hidden fp32 must fit 64 KiB — tile K if not).
+| Deployment | Dense GEMV ISA | Exact vs serving cast? |
+|---|---|---|
+| **Dest today (fp16)** | `v_dot2_f32_f16` / `__builtin_amdgcn_fdot2` (fdot2), fp32 accumulate | **Yes** — same dtype as dest's rocBLAS fp16 GEMMs and `rdna_fused_glue`[^glue-half][^tunable-half] |
+| True bf16 (not dest) | Path A: widen (`v_lshlrev_b32 16` / `v_and_b32 0xffff0000`) + 2× `v_fma_f32` | Yes vs bf16→fp32 bit-exact widen |
+| True bf16 via cast (avoid) | bf16→fp16 + `v_dot2_f32_f16` | **No** — fp16 range ±65504 / 10-bit mantissa vs bf16 exponent |
+
+`V_DOT2_F32_BF16` needs `HasDot12Insts` (gfx11/gfx12 encodings only);[^v3p-bf16] gfx1030 has Dot1/2/5/6/7/10, not Dot12.[^td-1030] The dest `__builtin_amdgcn_fdot2_f32_bf16` branch[^skinny-bf16] must stay unreachable on gfx1030. `V_PK_FMA_F32` needs `HasPackedFP32Ops`,[^v3p-pk] absent on gfx1030.[^td-1030]
+
+**Recommendation for MonoKernel on current dest: fdot2 on the fp16 tensors.** Decode-size rocBLAS shapes are already tuned,[^tunable-half] so a custom dense GEMV is a fusion/dispatch win over stock library launches, not a missing-tune gap. Keep the bf16 shift-widen + `v_fma_f32` route only for a true bf16 deployment.
+
+**Numerics on the fp16 path:** fdot2 keeps **fp32 accumulation**, so router logits stay fp32 and the sigmoid/softmax, bias and top-k run once in fp32; combine reuses those ids/weights. Residual and gated-residual activations can exceed the fp16 max (±65504), so the KL check needs long-context runs. GDN state stays fp32. **[unsourced: overflow magnitude on Flash-Next gated residual / residual at long context — confirm with KL on V620]**
 
 ## Model Runner V2 dependency
 
@@ -167,3 +177,5 @@ Risks: LDS overflow vs #61325's K2 (68 KB);[^61325] spills (#61325 already spill
 [^fa]: [fa_rdna2.cu:776](https://github.com/opengfx1030/vllm-rdna/blob/e245a4697a139fe8d3bbec4b9c837c37279674e9/csrc/rocm/fa_rdna2.cu#L776) @ e245a469.
 [^res]: [moe_resident_decode.cu:83–114](https://github.com/opengfx1030/vllm-rdna/blob/e245a4697a139fe8d3bbec4b9c837c37279674e9/csrc/rocm/moe_resident_decode.cu#L83-L114) @ e245a469.
 [^moe-a8]: [moe_w4a8_rdna2.cu:130–131, 222–223](https://github.com/opengfx1030/vllm-rdna/blob/e245a4697a139fe8d3bbec4b9c837c37279674e9/csrc/rocm/moe_w4a8_rdna2.cu#L130-L223) @ e245a469.
+[^glue-half]: [rdna_fused_glue.cu:366–373](https://github.com/opengfx1030/vllm-rdna/blob/e245a4697a139fe8d3bbec4b9c837c37279674e9/csrc/rocm/rdna_fused_glue.cu#L366-L373) (`check_weight`: `at::kHalf` or int8+fp16 scale); host entry points [L447–449](https://github.com/opengfx1030/vllm-rdna/blob/e245a4697a139fe8d3bbec4b9c837c37279674e9/csrc/rocm/rdna_fused_glue.cu#L447-L449), [L475–478](https://github.com/opengfx1030/vllm-rdna/blob/e245a4697a139fe8d3bbec4b9c837c37279674e9/csrc/rocm/rdna_fused_glue.cu#L475-L478), [L504–505](https://github.com/opengfx1030/vllm-rdna/blob/e245a4697a139fe8d3bbec4b9c837c37279674e9/csrc/rocm/rdna_fused_glue.cu#L504-L505), [L527–533](https://github.com/opengfx1030/vllm-rdna/blob/e245a4697a139fe8d3bbec4b9c837c37279674e9/csrc/rocm/rdna_fused_glue.cu#L527-L533) — all `at::kHalf`; device dots use `__builtin_amdgcn_fdot2` on `half2` @ e245a4697a139fe8d3bbec4b9c837c37279674e9.
+[^tunable-half]: [tunableop_results0.csv](https://github.com/opengfx1030/vllm-rdna/blob/e245a4697a139fe8d3bbec4b9c837c37279674e9/bench_results/2026-09-29_tunableop-rows/curated/tunableop_results0.csv) (identical [1](https://github.com/opengfx1030/vllm-rdna/blob/e245a4697a139fe8d3bbec4b9c837c37279674e9/bench_results/2026-09-29_tunableop-rows/curated/tunableop_results1.csv)/[2](https://github.com/opengfx1030/vllm-rdna/blob/e245a4697a139fe8d3bbec4b9c837c37279674e9/bench_results/2026-09-29_tunableop-rows/curated/tunableop_results2.csv)/[3](https://github.com/opengfx1030/vllm-rdna/blob/e245a4697a139fe8d3bbec4b9c837c37279674e9/bench_results/2026-09-29_tunableop-rows/curated/tunableop_results3.csv)); validators `GCN_ARCH_NAME=gfx1030`, `HIP_VERSION=714`; 4×719 = 2,876 `GemmTunableOp_Half_*` rows, 0 BFloat16, all `Gemm_Rocblas`; shape field `tn_*_*_*` / `nn_*_*_*` includes decode token counts 1–9, 12, 16, 24 @ e245a4697a139fe8d3bbec4b9c837c37279674e9.
