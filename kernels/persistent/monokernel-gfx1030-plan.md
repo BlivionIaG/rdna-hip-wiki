@@ -8,6 +8,9 @@ sources:
   - https://github.com/vllm-project/vllm/pull/60397
   - https://github.com/vllm-project/vllm/pull/60889
   - https://llvm.org/docs/AMDGPUUsage.html
+  - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td
+  - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
+  - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/VOP3PInstructions.td
   - https://github.com/ROCm/legacy-rocm-build/issues/6698
   - https://github.com/ROCm/rocm-systems/issues/13234
   - https://github.com/ROCm/llvm-project/blob/amd-staging/amd/device-libs/ockl/src/cg.cl
@@ -33,9 +36,9 @@ Status: **plan, nothing built.** Step 0 of Project 4 card `PVTI_lAHOAOnQn84BgjK3
 
 **HIP cooperative groups on gfx1030:** `grid.sync()` lowers to `__ockl_grid_sync`, which is a workgroup release fence + `s_barrier`, then (one lane) an agent-scope release, an atomic counter barrier over `num_wg`, agent-scope acquire, `s_barrier`.[^ockl] It is plain global atomics, so nothing gfx1030-specific blocks it; but it needs `hipLaunchCooperativeKernel` (grid capped at co-resident size) and is a full-grid barrier per phase. **Recommendation:** use our own epoch-tagged flags (producer→consumer), not `grid.sync` — same choice as AMD, and graph-capturable without cooperative launch. **[unsourced: cooperative launch under hipGraph capture on our ROCm not tested]**
 
-**Room proposal (cooperative launch + `this_grid().sync()`):** workable on gfx1030 in principle, since `__ockl_grid_sync` is the same agent-scope fence + atomic-counter pattern a hand-rolled barrier would use; the difference is a full-grid barrier per phase versus point-to-point flags.[^ockl] Grid sizing via `hipOccupancyMaxActiveBlocksPerMultiprocessor` × 72, cross-checked against VGPR/LDS from `llvm-readelf --notes`, is the right check. **[unverified: whether `hipLaunchCooperativeKernel` can be stream-captured into a hipGraph on ROCm 7.14 — no source found; must be tested on the V620 before choosing it.]** If it can't be captured, flags are mandatory for FULL graphs.
+**Room proposal (cooperative launch + `this_grid().sync()`):** workable on gfx1030 in principle, since `__ockl_grid_sync` is the same agent-scope fence + atomic-counter pattern a hand-rolled barrier would use; the difference is a full-grid barrier per phase versus point-to-point flags.[^ockl] Grid sizing via `hipOccupancyMaxActiveBlocksPerMultiprocessor` × 72, cross-checked against VGPR/LDS from `llvm-readelf --notes`, is the right check. **(untested P0 item, no source: whether `hipLaunchCooperativeKernel` can be stream-captured into a hipGraph on ROCm 7.14 — no source found; must be tested on the V620 before choosing it.)** If it can't be captured, flags are mandatory for FULL graphs.
 
-**Hang triage:** ROCm/legacy-rocm-build#6698 (2× V620, compute queues stop being serviced) reports **no waves resident** at the hang (`umr --waves` empty, `SPI_CSQ_WF_ACTIVE_STATUS` = 0) and pending AQL packets on idle MEC pipes.[^6698] A grid-sync deadlock would leave spinning waves, so #6698 is a CP/queue-scheduling stall, not a barrier deadlock; it is still a risk because a persistent kernel cannot time out of a dispatch that never starts. rocm-systems#13234 (hipGraphLaunch hangs at ≥ 2 × `ROC_AQL_QUEUE_SIZE` packets in one segment) is not a blocker at the ~210 launches per step the RFC quotes for GLM-5.2.[^13234][^rfc] Design rule: every wait bounded, sticky error word, and each timeout logs its phase ID (dest's AR report already encodes a phase code).[^ar-abort]
+**Hang triage:** ROCm/legacy-rocm-build#6698 (2× V620, compute queues stop being serviced) reports **no waves resident** at the hang (`umr --waves` empty, `SPI_CSQ_WF_ACTIVE_STATUS` = 0) and pending AQL packets on idle MEC pipes.[^6698] A grid-sync deadlock would leave spinning waves, so #6698 is a CP/queue-scheduling stall, not a barrier deadlock; it is still a risk because a persistent kernel cannot time out of a dispatch that never starts. rocm-systems#13234 (hipGraphLaunch hangs at ≥ 2 × `ROC_AQL_QUEUE_SIZE` packets in one segment) is not a blocker at the ~210 launches per step the RFC quotes for GLM-5.2.[^13234][^rfc] Design rule: every wait bounded. Sticky error word and per-timeout phase-ID logging land with 2b (cross-GPU waits); dest's AR report already encodes a phase code.[^ar-abort]
 
 **Scopes on RDNA2 (GFX10 memory model):**[^llvm]
 - One L0 per CU; `buffer_gl0_inv` needed for coherence between waves of different work-groups (and same WG in WGP mode).
@@ -46,7 +49,7 @@ Status: **plan, nothing built.** Step 0 of Project 4 card `PVTI_lAHOAOnQn84BgjK3
 
 ## 2. Resident grid on a 72-CU V620
 
-Inputs: wave32; VGPR file 1024 VGPRs per lane per SIMD in wave32 **[unsourced here — cite RDNA2 ISA §register file before merge]**; 2 SIMDs per CU, 72 CUs = 36 WGPs = 144 SIMDs **[unsourced]**; LDS 64 KiB per workgroup / 128 KiB per WGP (wiki silicon pages); max waves per SIMD 16 **[unsourced, verify in LLVM AMDGPUBaseInfo]**.
+Inputs: wave32; max 16 waves per SIMD on gfx1030 (`FeatureMaxWavesPerEU16`);[^td-1030] at most 256 VGPRs addressable per wave (no `Feature1024AddressableVGPRs` on gfx10.3);[^bi-vgpr] occupancy = min(max waves, total VGPRs / rounded VGPRs).[^bi-occ] Total VGPR file of 1024 per lane per SIMD in wave32 **(unsourced: the per-GPU total comes from a table I did not locate; the AMD RDNA2 ISA PDF URL returned an HTML page)**. 2 SIMDs per CU, 72 CUs = 36 WGPs = 144 SIMDs **(unsourced)**. LDS 64 KiB per workgroup / 128 KiB per WGP (wiki silicon pages).
 
 | Block | Waves/WG | VGPR/wave | waves/SIMD by VGPR | LDS/WG | WGs resident (CU mode, by LDS) | Bound |
 |---|---|---|---|---|---|---|
@@ -83,11 +86,12 @@ Derivation **[unsourced arithmetic]**: waves/SIMD = min(16, ⌊1024/VGPR⌋); a 
 
 **ISA-blocked on gfx1030:** anything reading AMD's MXFP4/MXFP8 via MFMA or scaled FP8 MFMA (#61325 reads `amd/Qwen3.8-Flash-Next-Quark-MXFP4` with AITER layouts).[^61325] No MFMA, WMMA, FP8 dot, or bf16 dot2 path to use — **[source: wiki silicon/ISA pages]**. We reuse only the contract, not their kernels. Note `skinny_gemms_int4.cu` contains a `__builtin_amdgcn_fdot2_f32_bf16` branch[^skinny-bf16]; that branch must stay unreachable on gfx1030.
 
-## 4. FFN-only first
+## 4. FFN-only first (2a, then 2b)
 
-The RFC's FFN layer: vLLM runs attention with its output all-reduce turned off; the kernel sums the partials and runs the rest.[^rfc] #60397 does this on 10 of 40 layers.[^60397]
+The RFC's FFN layer: vLLM runs attention with its output all-reduce turned off; the kernel sums the partials and runs the rest.[^rfc] #60397 does this on 10 of 40 layers.[^60397] We split it:
 
-gfx1030 boundary: **in** = o_proj's unreduced fp16 partial + residual (same tensors vLLM's layer returns); kernel does AR (in-kernel, §5) → residual add + norm → router → shared + routed experts → MoE AR → **out** `(hidden, residual)`. Attention, GDN, conv and QSA stay on dest kernels and vLLM metadata. Graph capture: FULL widths only; PIECEWISE refused.[^rfc]
+- **2a — compute only.** The kernel runs residual add + norm → router → shared expert (dense BF16) → routed experts (W4A16/W4A8) → combine. vLLM's existing all-reduce runs **before and after** it, unchanged; the `VLLM_RDNA_AR` lock is untouched. The only flag waits are between workgroups on the **same GPU** (agent scope, §1). In = reduced hidden + residual; out = `(hidden, residual)` unreduced for vLLM's AR. Attention, GDN, conv and QSA stay on dest kernels. FULL graphs only; PIECEWISE refused.[^rfc]
+- **2b — in-kernel all-reduce, conditional.** Only if 2a gains on time per output token **and** profiling shows the AR launches are worth removing. 2b moves both ARs inside (§5) and brings the cross-GPU safety layer: bounded waits, sticky error word, phase-ID logging of every timeout.[^rfc][^ar-abort]
 
 ## 5. All-reduce over PCIe
 
@@ -99,7 +103,7 @@ Risks:
 - **Bus stress:** host-page polling previously coincided with cards dropping off the bus; keep local polling.[^ar-uc]
 - **Residency:** AR blocks spin while other WGs work; the grid must leave them resident (§2).
 
-**Recommendation:** reuse the `rdna_allreduce.cuh` device function as the in-kernel AR stage for FFN-only, unchanged protocol, behind a startup check; full-layer mode only after it passes a fault-injection test.
+**Recommendation (2b only):** reuse the `rdna_allreduce.cuh` device function as the in-kernel AR stage, unchanged protocol, behind a startup check; full-layer mode only after it passes a fault-injection test.
 
 ## Flash-Next arch contract (LLM_Arch_specialist, room 2026-10-13)
 
@@ -108,30 +112,36 @@ Risks:
 
 ### Dense BF16 GEMV without a bf16 dot
 
-`v_dot2_f32_bf16` is gfx11+/gfx950-class; the dest tree's `__builtin_amdgcn_fdot2_f32_bf16` branch[^skinny-bf16] must not be reached on gfx1030 **[ISA availability: verify against RDNA2 ISA guide before merge]**.
+`V_DOT2_F32_BF16` needs `HasDot12Insts` and has only gfx11/gfx12 encodings;[^v3p-bf16] gfx1030 carries Dot1/2/5/6/7/10 only, not Dot12.[^td-1030] The dest tree's `__builtin_amdgcn_fdot2_f32_bf16` branch[^skinny-bf16] must stay unreachable on gfx1030.
 
 | Path | Ops per bf16 pair | VGPR | Exact? |
 |---|---|---|---|
 | A: widen (`v_lshlrev_b32 16` lo, `v_and_b32 0xffff0000` hi) + 2× `v_fma_f32` | 2 ALU + 2 FMA | 2 fp32 regs per pair vs 1 packed | Yes: bf16→fp32 is a bit-exact shift, fp32 accumulate |
 | B: bf16→fp16 + `v_dot2_f32_f16` | convert (~3+ ops via fp32) + 1 dot | 1 | **No**: fp16 range ±65504 and 10-bit mantissa vs bf16 8-bit exponent; overflow/underflow on weights or activations |
 
-`v_pk_fma_f32` exists only on gfx90a/gfx940-class, not gfx1030 **[unsourced; verify in LLVM AMDGPU ISA tables]**. **Recommendation: path A.** ALU cost is ~4 VALU per 2 MACs vs 1 for fdot2 on fp16, but decode-width (≤24 rows) dense GEMVs here are weight-bandwidth bound, so the extra VALU should hide under the BF16 loads (2 B/weight vs 0.5 B for W4) **[unsourced: confirm with a V620 microbench]**. VGPR: keep the widened weights transient (unpack 8 elements, FMA, discard) so the peak stays ~+8 VGPRs per lane per row-tile; activations can be pre-widened to fp32 in LDS once per phase (x for ≤24 rows × hidden fp32 must fit 64 KiB — tile K if not).
+`V_PK_FMA_F32` needs `HasPackedFP32Ops`,[^v3p-pk] which gfx1030's feature set does not include.[^td-1030] **Recommendation: path A.** ALU cost is ~4 VALU per 2 MACs vs 1 for fdot2 on fp16, but decode-width (≤24 rows) dense GEMVs here are weight-bandwidth bound, so the extra VALU should hide under the BF16 loads (2 B/weight vs 0.5 B for W4) **[unsourced: confirm with a V620 microbench]**. VGPR: keep the widened weights transient (unpack 8 elements, FMA, discard) so the peak stays ~+8 VGPRs per lane per row-tile; activations can be pre-widened to fp32 in LDS once per phase (x for ≤24 rows × hidden fp32 must fit 64 KiB — tile K if not).
 
 ## Model Runner V2 dependency
 
-The Flash-Next MonoKernel requires Model Runner V2 (room report); MRV2 on dest is **unproven**. Silicon assumptions that depend on it: FULL-graph capture at the mono widths (capture sizes forced to widths),[^rfc] rank-uniform per-step decision from attention metadata,[^rfc] and MTP row layout (3 rows/request contiguous). If dest stays on V1, P1 must hook the V1 runner's graph capture instead. **[unsourced: MRV2 requirement taken from the room, not verified in #61325's diff]**
+The Flash-Next MonoKernel requires Model Runner V2 (room report); MRV2 on dest is **unproven**. Silicon assumptions that depend on it: FULL-graph capture at the mono widths (capture sizes forced to widths),[^rfc] rank-uniform per-step decision from attention metadata,[^rfc] and MTP row layout (3 rows/request contiguous). If dest stays on V1, P1 must hook the V1 runner's graph capture instead. **(unsourced: the room's MRV2 requirement does not appear in #61325's diff — no `model_runner`/V2 reference in the 14,679-line diff read 2026-10-13. #61325 picks the path in the uncompiled outer `forward`.[^61325] Treat MRV2 as unverified.)**
 
 ## 6. Risks and phases
 
 Risks: LDS overflow vs #61325's K2 (68 KB);[^61325] spills (#61325 already spills SGPRs at 8 rows on gfx950);[^61325] co-tenant starvation;[^rfc] PCIe ordering.
 
 1. **P0** — Test cooperative-launch graph capture on ROCm 7.14 and MRV2 on dest; spec + refusals only (MonoSpec for gfx1030, widths 1–8, FULL graphs). No kernel.
-2. **P1** — FFN-only persistent kernel on MoE layers at TP4: AR → norm → router → shared → routed, fdot2/sdot4 loops reused. Gate: stage numerics vs vLLM ops, graph replay bit-identical ×300, GSM8K parity (RFC CI).[^rfc]
+2. **P2a** — FFN compute-only kernel at TP4 between vLLM's two ARs; same-GPU flags only; fdot2/sdot4 loops reused.
+   **P2b** — in-kernel ARs + sticky error + phase-ID logs, only if P2a gains on TPOT and the profile justifies it. Gate: stage numerics vs vLLM ops, graph replay bit-identical ×300, GSM8K parity (RFC CI).[^rfc]
 3. **P2** — K1 (HC + QKV + GDN/QSA front), re-tiled to ≤64 KiB LDS.
 4. **P3** — K2 full layer; spec-decode widths later.
 
 ## Sources
 
+[^td-1030]: LLVM [AMDGPU.td:2278–2292](https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td#L2278-L2292) `FeatureISAVersion10_3_0` @ eb61ef62; [AMDGPU.td:451](https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td#L451).
+[^bi-vgpr]: LLVM [AMDGPUBaseInfo.cpp:1325–1330](https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp#L1325-L1330) @ eb61ef62.
+[^bi-occ]: LLVM [AMDGPUBaseInfo.cpp:1356–1363](https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp#L1356-L1363) @ eb61ef62.
+[^v3p-bf16]: LLVM [VOP3PInstructions.td:832–839, 2960](https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/VOP3PInstructions.td#L832-L839) @ eb61ef62.
+[^v3p-pk]: LLVM [VOP3PInstructions.td:1549–1550](https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/VOP3PInstructions.td#L1549-L1550) @ eb61ef62.
 [^rfc]: vLLM RFC [#60904](https://github.com/vllm-project/vllm/issues/60904) (open; read 2026-10-13).
 [^61001]: vLLM PR [#61001](https://github.com/vllm-project/vllm/pull/61001) "[ROCm] MonoSpec + abstractions" (WIP, open).
 [^61325]: vLLM PR [#61325](https://github.com/vllm-project/vllm/pull/61325) Qwen3.8-Flash-Next mono decode, MI355X TP2 (open).
