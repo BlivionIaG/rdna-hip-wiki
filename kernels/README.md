@@ -27,6 +27,7 @@ Pages are grouped by topic. Each folder has its own README index; this page is t
 | [linear-attn/](linear-attn/README.md) | Linear-attention / recurrent kernels: GDN decode + prefill, causal conv1d, FlashKDA. | 4 |
 | [aot-glue/](aot-glue/README.md) | Small HIP glue that replaces Triton JIT: RMSNorm, AOT list. | 2 |
 | [models/](models/README.md) | Model-specific HIP glue (one page per model family). | 2 |
+| [persistent/](persistent/README.md) | Persistent single-launch decode kernels (MonoKernel class): gfx1030 port plan. | 1 |
 | [overlays/](overlays/README.md) | Reviews of other gfx1030 trees we harvest from (read-only). | 2 |
 
 Figures: [img/](img/) holds primary-source figures (each with caption, source and licence on the page that uses it).
