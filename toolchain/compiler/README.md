@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-11
+updated: 2026-10-13
 sources:
   - https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.14.0/reference/rocmcc.html
   - https://rocm.docs.amd.com/projects/HIP/en/docs-7.14.0/how-to/hip_cpp_language_extensions.html
@@ -15,11 +15,13 @@ sources:
   - https://github.com/ROCm/TheRock/issues/7751
   - https://github.com/ROCm/TheRock/issues/7909
   - https://github.com/ROCm/rocm-systems/pull/10701
+  - https://github.com/ROCm/rocm-libraries/issues/12473
+  - https://github.com/ROCm/rocm-libraries/pull/12638
 ---
 
 # Compiler
 
-Date: **2026-10-11**. Audience: someone compiling HIP for **gfx1030** (live dest), with later **gfx1100** and **gfx900** translation units.
+Date: **2026-10-13**. Audience: someone compiling HIP for **gfx1030** (live dest), with later **gfx1100** and **gfx900** translation units.
 
 What DPP, `ds_bpermute`, and `amdgpu_waves_per_eu` do on the gfx1030 ISA is in [silicon/occupancy/dpp-crosslane-occupancy.md](../../silicon/occupancy/dpp-crosslane-occupancy.md), [silicon/occupancy/vgpr-occupancy.md](../../silicon/occupancy/vgpr-occupancy.md), and [silicon/hip-craft/hip-craft.md](../../silicon/hip-craft/hip-craft.md). This page keeps flags and compiler-version bugs. The nightly SHA log is [../log/compiler-scans.md](../log/compiler-scans.md).
 
@@ -85,6 +87,12 @@ At rocm-systems `65575fbbe6f73b9d9d96bfbcb523c856709e664c`, HIP `__byte_perm` in
 
 llama.cpp [#29927](https://github.com/ggml-org/llama.cpp/pull/29927) (open) replaces `__byte_perm` with `__builtin_amdgcn_perm` on the Q1_0 unpack path. On Instinct MI50 (gfx906) the PR reports tg128 66.99 → 128.96 t/s.[^llama29927] How the builtin's selector bytes differ from HIP's nibble index was not re-opened this pass (unsourced). Check the ISA with `--save-temps` before treating the two as the same operation. No pin change.
 
+## Gotcha — a dynamic stack gets 1 KB per thread
+
+[rocm-libraries#12473](https://github.com/ROCm/rocm-libraries/issues/12473) (closed 2026-10-12 by the docs-only PR [#12638](https://github.com/ROCm/rocm-libraries/pull/12638)): hipThreads calls user code through a function pointer, so the compiler cannot size the callee's frame and marks the kernel `.uses_dynamic_stack: true`. The runtime then gives each thread only `hipLimitStackSize`, 1024 bytes by default. Overflow gave no diagnostic: either `HSA_STATUS_ERROR_EXCEPTION` or silent corruption of a neighbouring wave's scratch and an intermittent hang. In the same report, an ordinary kernel with a 4096-byte local compiled to `.private_segment_fixed_size: 4112` and `.uses_dynamic_stack: false` and ran fine under the same 1 KB limit. The field report was on MI350 (gfx950), ROCm 10.1 RC1.[^ht12473][^ht12638]
+
+For our forks: if a kernel calls through a function pointer, read `.uses_dynamic_stack` in its code-object metadata (the dump in [silicon/occupancy/occupancy-dump.md](../../silicon/occupancy/occupancy-dump.md) shows it). If it is true, make the call direct or raise `hipLimitStackSize` to a size you have worked out. This page has no gfx1030 repro.
+
 ## `-O0` integer divide, and wave64
 
 [TheRock#7751](https://github.com/ROCm/TheRock/issues/7751) is **closed**. The issue body reports that ROCm 7.2.4 and 7.14 miscompile i32 `udiv` / `urem` at `-O0` on gfx1034 (float reciprocal instead of the integer path). The same kernels were correct at `-O1`/`-O2`/`-O3`, and correct at `-O0` on ROCm 6.4.3. `schung-amd` commented that they reproduced it on gfx1100, and later that it should be fixed in current nightlies via llvm-project#201186 and llvm-project#202753.[^tr7751] Live extras stay `-O3` on 7.14.0.
@@ -106,4 +114,6 @@ llama.cpp [#29927](https://github.com/ggml-org/llama.cpp/pull/29927) (open) repl
 [^llama29927]: llama.cpp#29927, open. https://github.com/ggml-org/llama.cpp/pull/29927
 [^tr7751]: TheRock#7751, closed. https://github.com/ROCm/TheRock/issues/7751
 [^tr7909]: TheRock#7909, open. https://github.com/ROCm/TheRock/issues/7909
-[^rccl10701]: rocm-systems#10701, open. https://github.com/ROCm/rocm-systems/pull/10701
+[^rccl10701]: rocm-systems#10701, closed without merge 2026-10-12, so the parser bug stands. https://github.com/ROCm/rocm-systems/pull/10701
+[^ht12473]: rocm-libraries#12473, closed, issue body (metadata excerpts, 1024-byte default, MI350 field report). https://github.com/ROCm/rocm-libraries/issues/12473
+[^ht12638]: rocm-libraries#12638, merged 2026-10-12, docs only. https://github.com/ROCm/rocm-libraries/pull/12638

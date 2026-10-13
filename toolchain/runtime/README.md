@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-12
+updated: 2026-10-13
 sources:
   - https://github.com/ROCm/rocm-systems/issues/10943
   - https://github.com/OpenNMT/CTranslate2/issues/2090
@@ -13,11 +13,16 @@ sources:
   - https://github.com/Niko1221/Strata/issues/1705
   - https://github.com/ROCm/rocm-systems/blob/2d8b4d61b89499019698982be71926a4f9c4907e/projects/rocr-runtime/libhsakmt/src/fmm.c
   - https://github.com/ROCm/rocm-systems/issues/13234
+  - https://github.com/invoke-ai/InvokeAI/issues/9487
+  - https://github.com/ROCm/rocm-systems/issues/4817
+  - https://github.com/torvalds/linux/commit/b89d58b6595d79dc3fe75e213e1f4c5efd0251d4
+  - https://github.com/ROCm/legacy-rocm-build/issues/6003
+  - https://github.com/ROCm/rocm-systems/blob/2d8b4d61b89499019698982be71926a4f9c4907e/projects/rocr-runtime/libhsakmt/src/openclose.c
 ---
 
 # HIP runtime
 
-Date: **2026-10-12**. Live dest stays ROCm **7.14.0** ([pin](../pin/README.md)). TheRock systems-pin chronology is [../log/runtime-scans.md](../log/runtime-scans.md). MIOpen's GEMM backend is a library routing fact: [libraries/](../libraries/README.md).
+Date: **2026-10-13**. Live dest stays ROCm **7.14.0** ([pin](../pin/README.md)). TheRock systems-pin chronology is [../log/runtime-scans.md](../log/runtime-scans.md). MIOpen's GEMM backend is a library routing fact: [libraries/](../libraries/README.md).
 
 ## Allocator paths
 
@@ -61,7 +66,17 @@ The reports are on HIP 7.2.53211. This page has no 7.14.0 repro. Treat the bug a
 
 Strata [#1705](https://github.com/Niko1221/Strata/issues/1705) (open) is an engine-side gfx1100 report (RX 7900 XTX, Linux, ROCm wheels `7.10.0a20251120`): nine verify-timeout and prompt-watchdog deaths in one day during long-context serving under host reclaim, already with `GPU_PINNED_MIN_XFER_SIZE=1048576` set. Adding `HSA_USERPTR_FOR_PAGED_MEM=0` stopped them in the next run (283 requests over 4 h 54 m, up to 245 625 tokens). The issue ties it to the same mechanism as the gfx1030 verify timeouts in Strata #649, and names Pop!_OS's default `vm.swappiness=180` zram setup as the trigger on that box.[^st1705] In libhsakmt, userptr for paged memory is on unless `HSA_USERPTR_FOR_PAGED_MEM` is set to `0`; with it off, paged memory is backed by SVM unless `HSA_SVM_FOR_PAGED_MEM=0`.[^fmm]
 
+[InvokeAI#9487](https://github.com/invoke-ai/InvokeAI/issues/9487) (open) is a framework-side data point on gfx1100 (RX 7900 XTX, ROCm torch wheels): `.to('cuda')` on tensors that are still views into an mmap'd safetensors file ran at about 2 MB/s, against about 7 GB/s after a `clone()` into ordinary RAM. The stall sat in `c10::hip::memcpy_and_sync` → HSA runtime → ioctl with one CPU core at 100% and the GPU and disk idle. A 2026-10-13 comment confirms it on an R9700 with ROCm 7.2 and says the clone-first patch fixes it. The issue names no mechanism below the ioctl, so tying it to the userptr eviction above is our reading, not the report's.[^inv9487]
+
 For our HIP code: when an engine streams mmap'd weights or keeps a large page-locked expert set while the host is short on RAM, a stall with an idle GPU and one spinning CPU core is this failure first, not a kernel hang. Try `GPU_PINNED_MIN_XFER_SIZE` (staging) or `HSA_USERPTR_FOR_PAGED_MEM=0`, and measure copy throughput without pressure before making either a default. No 7.14.0 repro on this page; no pin change.
+
+### mmap'd sources: SVM split fault before Linux 7.2
+
+[rocm-systems#4817](https://github.com/ROCm/rocm-systems/issues/4817) (open) reports `hipMemcpyAsync` failing with `Memory access fault ... Page not present` on valid parameters, first through llama.cpp checkpoint restore (MI100 and RX 7900 XTX, ROCm 7.2.0).[^svm4817] An AMD engineer (`harkgill-amd`, 2026-10-06) wrote that the cause is a KFD bug in how pinned SVM ranges are split, which left the head or tail of a valid range unmapped while SDMA was still reading it. With the fix, the same restore flow went from crashing in under 10 restores to passing more than 250, and they named amdgpu-dkms 7.1.9 as carrying it.[^svm4817c] The upstream commit is `b89d58b6595d` ("drm/amdkfd: Use exclusive bounds for SVM split alignment checks"): `ALIGN_DOWN(prange->last, 512)` treated a range ending one page before a 2 MB boundary as if its last 2 MB block did not exist, so a split there could drop the head or tail from the remap list.[^kfdsvm] GitHub's compare view puts the commit in Linux `v7.2-rc1` and `v7.2-rc2`, and not in `v7.1`.[^kfdsvm]
+
+[legacy-rocm-build#6003](https://github.com/ROCm/legacy-rocm-build/issues/6003) (open) is the RDNA2 thread: random `hipErrorIllegalAddress` in ComfyUI and PyTorch on an RX 6700 XT (gfx1031 run as `HSA_OVERRIDE_GFX_VERSION=10.3.0`), reported again on ROCm 10.1.0 on 2026-10-12. One commenter traced their llama.cpp crashes to copying mmap'd model files under host memory pressure and avoided them with llama.cpp `--load-mode none`; AMD answered that this matches the #4817 fix. Another commenter, on 3× RX 6800 (gfx1030) with a 6.18 LTS kernel, reports that `HSA_USE_SVM=0` avoided the fault (about 300 restores, 0 faults, no measurable cost on their host).[^lrb6003] In libhsakmt, `HSA_USE_SVM=0` turns off SVM API support for the process.[^oc]
+
+For the V620 host: check whether the amdgpu module in use is Linux 7.2 or later, or a DKMS build that carries `b89d58b6595d`. If it is neither, load weights from non-mmap'd buffers, or try `HSA_USE_SVM=0` and measure. Our reading, untested: `HSA_USERPTR_FOR_PAGED_MEM=0` from the section above backs paged memory with SVM, so on an unfixed kernel it may trade the eviction stall for this fault. This is a host-kernel floor, like the DRM 3.64 note above, not a 7.14.0 userspace pin change.
 
 ## Graphs
 
@@ -83,3 +98,9 @@ For our HIP code: when an engine streams mmap'd weights or keeps a large page-lo
 [^st1705]: Strata#1705, open. https://github.com/Niko1221/Strata/issues/1705
 [^fmm]: libhsakmt `fmm.c` at rocm-systems `2d8b4d61`, `HSA_USERPTR_FOR_PAGED_MEM` and `HSA_SVM_FOR_PAGED_MEM` handling. https://github.com/ROCm/rocm-systems/blob/2d8b4d61b89499019698982be71926a4f9c4907e/projects/rocr-runtime/libhsakmt/src/fmm.c
 [^graph13234]: rocm-systems#13234, open. https://github.com/ROCm/rocm-systems/issues/13234
+[^inv9487]: InvokeAI#9487, open, issue body (gfx1100, ~2 MB/s vs ~7 GB/s, py-spy stack) and `axxelh` comment 2026-10-13 (R9700, ROCm 7.2). https://github.com/invoke-ai/InvokeAI/issues/9487
+[^svm4817]: rocm-systems#4817, open, issue body by `IMbackK`. https://github.com/ROCm/rocm-systems/issues/4817
+[^svm4817c]: rocm-systems#4817 comment by `harkgill-amd`, 2026-10-06 (root cause, >250 restores, amdgpu-dkms 7.1.9). https://github.com/ROCm/rocm-systems/issues/4817#issuecomment-6023275073
+[^kfdsvm]: Linux commit `b89d58b6595d` "drm/amdkfd: Use exclusive bounds for SVM split alignment checks", authored 2026-06-16; GitHub compare read 2026-10-13: `v7.2-rc1` and `v7.2-rc2` contain it, `v7.1` does not. https://github.com/torvalds/linux/commit/b89d58b6595d79dc3fe75e213e1f4c5efd0251d4
+[^lrb6003]: legacy-rocm-build#6003, open, comments by `Jollym` (2026-10-03), `harkgill-amd` (2026-10-06), `Rhynri` (2026-10-07), `pkrasicki` (2026-10-12, ROCm 10.1.0). https://github.com/ROCm/legacy-rocm-build/issues/6003
+[^oc]: libhsakmt `openclose.c` at rocm-systems `2d8b4d61`, `HSA_USE_SVM` handling. https://github.com/ROCm/rocm-systems/blob/2d8b4d61b89499019698982be71926a4f9c4907e/projects/rocr-runtime/libhsakmt/src/openclose.c
