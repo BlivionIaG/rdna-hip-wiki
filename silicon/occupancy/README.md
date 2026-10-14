@@ -30,6 +30,7 @@ Up: [silicon/](../README.md)
 | [atomic-occupancy.md](atomic-occupancy.md) | Atomics: gfx1030 has **no** global/flat FP add atomic — fp32 `atomicAdd` is a `global_atomic_cmpswap` retry loop (even with `-munsafe-fp-atomics`); LDS `ds_add_f32` native; global fmin/fmax native only with no-fine-grained md; not a PIX MaxWaves row (vmcnt parks + EXEC shrink inside a held slot) |
 | [dpp-crosslane-occupancy.md](dpp-crosslane-occupancy.md) | Cross-lane ops: DPP `row_shr`/`row_xmask` + `v_permlanex16` are VALU; `__shfl*` = `ds_bpermute` (LDS pipe, 0 LDS bytes, `lgkmcnt` park); `wave_reduce_*` = serial readlane loop on clang 22; `row_bcast`/`wave_*` gone in GFX10; extras `REDUCE_SUM_DPP_WAVE32` (`0x118…0x111`) verified correct; not a PIX MaxWaves row |
 | [hazard-occupancy.md](hazard-occupancy.md) | Software hazard waitstates: gfx1030 has HW interlocks and none of the gfx101x hazard features, so clang emits 0 `s_nop`/`s_waitcnt_depctr`/`vscnt null` (probe); gfx1013/gfx101x builds of the same source get them, so gfx1030 objects are unsafe on BC-250; don't copy NOP padding; not a PIX MaxWaves row |
+| [lds-dma-occupancy.md](lds-dma-occupancy.md) | VMEM-to-LDS direct loads: gfx1030 **has** MUBUF/GLOBAL `lds`-bit loads (dword and narrower; LLVM `vmem-to-lds-load-insts` in GFX10, not GFX11/12); drops prefetch destination VGPRs (probe 36→27) at one `M0` write per load; no `dwordx4`; LDS bytes unchanged; clang 19 front end rejects the builtin, re-probe the ROCm pin; not a PIX MaxWaves row |
 
 ## Sources
 
