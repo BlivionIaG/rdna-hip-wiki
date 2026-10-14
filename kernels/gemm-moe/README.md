@@ -8,6 +8,7 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/c6d99ca30580f0ce6a97a168fa53bf9c6ee6b2af
   - https://github.com/opengfx1030/vllm-rdna/commit/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0
   - https://github.com/opengfx1030/vllm-rdna/commit/30b0bd4e3604a6ea678244a0df74e452ac05fee6
+  - https://github.com/opengfx1030/vllm-rdna/commit/8bb8ff36cdb2e885553a151a824706d2d920fe3a
 ---
 # GEMM and MoE
 
@@ -30,14 +31,14 @@ flowchart TD
   W8 -- yes --> MW8["moe_w4a8_gemm_rdna2 · sdot4<br/>BLOCK_M ∈ {1,2,4,8}, 2 KiB LDS A stage<br/>internal Fallback → moe_gptq_gemm_rdna2"]
   W8 -- no --> BSM["_resolve_block_size_m (c6d99ca3)<br/>≤ 4 tokens → 1<br/>≥ VLLM_RDNA2_MOE_BSM_MIN_TOKENS (512) → min(VLLM_RDNA2_MOE_BSM_LARGE, 8)<br/>else 4"]
   BSM --> AL["moe_align_block_size<br/>pads to block_size_m"]
-  AL --> MQ["moe_gptq_gemm_rdna2<br/>nibble → signed INT4 → × group scale → fdot2"]
+  AL --> MQ["moe_gptq_gemm_rdna2<br/>nibble → (zp + zero_offset) → signed INT4 → × group scale → fdot2<br/>zero_offset 1 GPTQv1 synth · 0 asym 4-bit ckpt zeros (8bb8ff36)"]
   MQ --> ACC{"VLLM_RDNA2_MOE_FP32_ACCUM?"}
   MW8 --> ACC
   ACC -- "off (default)" --> CAS["packed-fp16 CAS-64 into pre-zeroed c"]
   ACC -- "=1 or fp32_accum=True" --> F32["atomicAdd fp32 into persistent scratch + one fp32→fp16 cast<br/>gfx1030: CAS-32 loops, not a native fp32 atomic"]
 ```
 
-*Built only from the pages: resident decode and dequant order from [quant/w4a16.md](../quant/w4a16.md) (`e1315629`), `block_size_m` resolve from the `c6d99ca3` lock, W4A8 MoE from [quant/w4a8.md](../quant/w4a8.md) (`3a0786ea`), and the accum switch from the "MoE epilogue accum" section of w4a8 (`30b0bd4e`). Diagram does not imply a tile size beyond what those pages state.*[^c-e1315629][^c-c6d99ca3][^c-3a0786ea][^c-30b0bd4e]
+*Built only from the pages: resident decode and dequant order from [quant/w4a16.md](../quant/w4a16.md) (`e1315629`), `block_size_m` resolve from the `c6d99ca3` lock, W4A8 MoE from [quant/w4a8.md](../quant/w4a8.md) (`3a0786ea`), and the accum switch from the "MoE epilogue accum" section of w4a8 (`30b0bd4e`); the runtime `zero_offset` from the `8bb8ff36` lock in quant/w4a16.md. Diagram does not imply a tile size beyond what those pages state.*[^c-e1315629][^c-c6d99ca3][^c-3a0786ea][^c-30b0bd4e][^c-8bb8ff36]
 
 ## Sources
 
@@ -50,3 +51,4 @@ Index rows summarise the linked pages; each page carries its own footnoted prima
 [^c-c6d99ca3]: opengfx1030/vllm-rdna commit [`c6d99ca3`](https://github.com/opengfx1030/vllm-rdna/commit/c6d99ca30580f0ce6a97a168fa53bf9c6ee6b2af) (2026-10-06) — "fix(rdna2): HC HIP stream correctness + MoE prefill tile".
 [^c-3a0786ea]: opengfx1030/vllm-rdna commit [`3a0786ea`](https://github.com/opengfx1030/vllm-rdna/commit/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0) (2026-09-30) — "merge(rdna2): land w4a8-wiring onto rdna_extras (W4A8 opt-in; W4A16 default unchanged)".
 [^c-30b0bd4e]: opengfx1030/vllm-rdna commit [`30b0bd4e`](https://github.com/opengfx1030/vllm-rdna/commit/30b0bd4e3604a6ea678244a0df74e452ac05fee6) (2026-10-01) — "test(exl3): backport loader unit tests + mul1 tile reformat".
+[^c-8bb8ff36]: opengfx1030/vllm-rdna commit [`8bb8ff36`](https://github.com/opengfx1030/vllm-rdna/commit/8bb8ff36cdb2e885553a151a824706d2d920fe3a) (2026-10-14 11:45 Europe/Paris) — "Merge pull request #98 from opengfx1030/feat/rdna2-moe-asym-zp", merging [`6f5edc41`](https://github.com/opengfx1030/vllm-rdna/commit/6f5edc41a1d7eef6451d3a7b758284bbe7e2c23f) "feat(rdna2): native W4A16 MoE for asymmetric compressed-tensors checkpoints". `compare 15e9e7ad...8bb8ff36` touches `csrc/rocm/moe_q_gemm_rdna2.cu` (+18/−14), `moe_w4a8_rdna2.cu` (+1/−1), `ops.h`, `torch_bindings.cpp`, two compressed-tensors MoE Python files, `_custom_ops.py` and one test; no `CMakeLists.txt` change.

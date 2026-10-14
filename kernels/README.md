@@ -10,6 +10,8 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/pull/47
   - https://github.com/opengfx1030/vllm-rdna/commit/c2cbf004772c2fa10f71e9858f98080e102107af
   - https://github.com/opengfx1030/vllm-rdna/commit/0f596e6e0e9b2683ef7a4ec3eb6ef93eac9e1fd9
+  - https://github.com/opengfx1030/vllm-rdna/commit/8bb8ff36cdb2e885553a151a824706d2d920fe3a
+  - https://github.com/opengfx1030/vllm-rdna/compare/64d59b8942d3b982f1d91f0f3e625dfda4418106...15e9e7adbd0de5c56bda1b4644ddf10bcbdfc17c
 ---
 # Kernels
 
@@ -34,7 +36,9 @@ Figures: [img/](img/) holds primary-source figures (each with caption, source an
 
 ## Silicon tip watermark
 
-Kernel pages are read through dest `rdna_extras` tip **`64d59b89`** (`64d59b8942d3b982f1d91f0f3e625dfda4418106`, merge of PR #84, read 2026-10-12).[^c-64d59b89] The silicon watch's previous recorded tip was `c6d99ca3` on the 0.28 line (still cited by dated locks on [gemm-moe/README.md](gemm-moe/README.md), [quant/w4a16.md](quant/w4a16.md) and [models/qwen4exp-flash-next-hip.md](models/qwen4exp-flash-next-hip.md)). That commit is not an ancestor of `64d59b89`: the branch was replaced by the v0.31 port (PR #47), and the ported kernels are locked at `1dc3bac4` on the pages above.[^c-c6d99ca3][^pr47][^c-1dc3bac4]
+Kernel pages are read through dest `rdna_extras` tip **`8bb8ff36`** (`8bb8ff36cdb2e885553a151a824706d2d920fe3a`, merge of PR #98, read 2026-10-14).[^c-8bb8ff36] From `64d59b89` to `15e9e7ad` there is no `csrc/` or `CMakeLists.txt` change; `15e9e7ad` → `8bb8ff36` changes only the MoE W4A16 zero-point plumbing (`zero_offset` runtime argument, asymmetric 4-bit compressed-tensors MoE stays native). Lock: [quant/w4a16.md](quant/w4a16.md#extras-lock-2026-10-14-tip-8bb8ff36-pr-98--moe-w4a16-asymmetric-zero-points).[^c-15e9e7ad][^c-8bb8ff36]
+
+*(Historical, `64d59b89`, read 2026-10-12)* Kernel pages are read through dest `rdna_extras` tip **`64d59b89`** (`64d59b8942d3b982f1d91f0f3e625dfda4418106`, merge of PR #84, read 2026-10-12).[^c-64d59b89] The silicon watch's previous recorded tip was `c6d99ca3` on the 0.28 line (still cited by dated locks on [gemm-moe/README.md](gemm-moe/README.md), [quant/w4a16.md](quant/w4a16.md) and [models/qwen4exp-flash-next-hip.md](models/qwen4exp-flash-next-hip.md)). That commit is not an ancestor of `64d59b89`: the branch was replaced by the v0.31 port (PR #47), and the ported kernels are locked at `1dc3bac4` on the pages above.[^c-c6d99ca3][^pr47][^c-1dc3bac4]
 
 From `1dc3bac4` to `64d59b89` there is **no kernel-body silicon delta**. The only `csrc/` change in that range is `f2cc25ca` in `csrc/rocm/moe_w4a8_rdna2.cu`, and it is host-only: the per-shape cached activation workspace became a per-call `at::empty`. The `__global__` kernels, `CMakeLists.txt` and the bindings are unchanged.[^c-f2cc25ca][^c-64d59b89] Pages that cite `1dc3bac4` therefore still describe the `64d59b89` kernels.[^c-64d59b89]
 
@@ -143,3 +147,5 @@ Index rows summarise the linked pages; each page carries its own footnoted prima
 [^c-f2cc25ca]: opengfx1030/vllm-rdna commit [`f2cc25ca`](https://github.com/opengfx1030/vllm-rdna/commit/f2cc25ca927d0f3c6b0754d6f3982b3608746716) (2026-10-11) — "fix(rdna2): W4A8 MoE per-call workspace, 512-token threshold, microbench". The `.cu` diff removes `struct Workspace` / `get_workspace` and allocates `a_i8` / `a_scale` / `a_sum` per call in `moe_w4a8_gemm_rdna2`; the threshold change is in Python (`rdna2_w4a16_moe.py`).
 [^c-c6d99ca3]: opengfx1030/vllm-rdna commit [`c6d99ca3`](https://github.com/opengfx1030/vllm-rdna/commit/c6d99ca30580f0ce6a97a168fa53bf9c6ee6b2af) (2026-10-06) — "fix(rdna2): HC HIP stream correctness + MoE prefill tile"; `git merge-base --is-ancestor` with `64d59b89` is false.
 [^pr47]: opengfx1030/vllm-rdna PR #47 — v0.31 port of `rdna_extras`. <https://github.com/opengfx1030/vllm-rdna/pull/47>
+[^c-8bb8ff36]: opengfx1030/vllm-rdna commit [`8bb8ff36`](https://github.com/opengfx1030/vllm-rdna/commit/8bb8ff36cdb2e885553a151a824706d2d920fe3a) (2026-10-14 11:45 Europe/Paris) — "Merge pull request #98 from opengfx1030/feat/rdna2-moe-asym-zp", merging [`6f5edc41`](https://github.com/opengfx1030/vllm-rdna/commit/6f5edc41a1d7eef6451d3a7b758284bbe7e2c23f) "feat(rdna2): native W4A16 MoE for asymmetric compressed-tensors checkpoints". `compare 15e9e7ad...8bb8ff36` touches `csrc/rocm/moe_q_gemm_rdna2.cu` (+18/−14), `moe_w4a8_rdna2.cu` (+1/−1), `ops.h`, `torch_bindings.cpp`, two compressed-tensors MoE Python files, `_custom_ops.py` and one test; no `CMakeLists.txt` change.
+[^c-15e9e7ad]: `gh api repos/opengfx1030/vllm-rdna/compare/64d59b89...15e9e7ad` (read 2026-10-14): 23 commits ahead, 24 files, none under `csrc/` or `CMakeLists.txt`. <https://github.com/opengfx1030/vllm-rdna/compare/64d59b8942d3b982f1d91f0f3e625dfda4418106...15e9e7adbd0de5c56bda1b4644ddf10bcbdfc17c>
