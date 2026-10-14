@@ -28,6 +28,8 @@ sources:
   - https://github.com/vllm-project/vllm/blob/db9527a46873454610df6dbedf79a36d6bf1a7f6/csrc/rocm/skinny_gemms_int4.cu
   - https://github.com/vllm-project/vllm/blob/db9527a46873454610df6dbedf79a36d6bf1a7f6/CMakeLists.txt
   - https://github.com/vllm-project/vllm/pull/52391
+  - https://github.com/opengfx1030/vllm-rdna/blob/8bb8ff36cdb2e885553a151a824706d2d920fe3a/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_wna16_rdna2.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/8bb8ff36cdb2e885553a151a824706d2d920fe3a/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/rocm_moe_rdna.py
 ---
 
 # Kernel dispatch on gfx1030
@@ -81,7 +83,7 @@ Sources for the tree: [^linprio][^w4can][^w4a8][^moeprio][^moeincompat][^mxfp4][
 
 - WNA16 oracle: on ROCm with `on_gfx10x()` and `_rocm_C.moe_gptq_gemm_rdna2` built, `RDNA2_W4A16` goes **first**, then `RDNA3` (device-gated to gfx1100), FlashInfer-TRTLLM, Marlin, Batched-Marlin, Triton, Humming, Emulation[^moeprio].
 - `RDNA2_W4A16` is rejected for asymmetric (zero-point) checkpoints, expert bias, non-4-bit weights, and GPTQ `desc_act`[^moeincompat].
-- Compressed-tensors MoE on gfx10x goes through `rocm_moe_rdna.make_method`: 4-bit → `CompressedTensorsWNA16RDNA2MoEMethod` (`moe_gptq_gemm_rdna2`); 8-bit → W8A16 RDNA2 when `moe_w8a16_gemm_rdna2` is built. Since PR #84, `is_supported` returns False for asymmetric checkpoints (e.g. AWQ with per-group zero points), so they fall back to the generic `CompressedTensorsWNA16MoEMethod`[^ctmoe].
+- Compressed-tensors MoE on gfx10x goes through `rocm_moe_rdna.make_method`: 4-bit → `CompressedTensorsWNA16RDNA2MoEMethod` (`moe_gptq_gemm_rdna2`); 8-bit → W8A16 RDNA2 when `moe_w8a16_gemm_rdna2` is built. *(Historical, `64d59b89`)* Since PR #84, `is_supported` returns False for asymmetric checkpoints (e.g. AWQ with per-group zero points), so they fall back to the generic `CompressedTensorsWNA16MoEMethod`[^ctmoe]. **At `8bb8ff36` (PR #98):** only asymmetric checkpoints that are not 4-bit fall back; asymmetric 4-bit loads its own zero points and calls `moe_gptq_gemm_rdna2` with `use_v2_format=True`[^f-8bb8ff36-rocm-moe-rdna-py][^f-8bb8ff36-ct-wna16-rdna2-py].
 - `moe_q_gemm_rdna2.cu`: fp16 uses `v_dot2_f32_f16` (`__builtin_amdgcn_fdot2`); there is no bf16 dot on gfx1030[^moefdot2][^moebf16].
 - MXFP4 MoE with DeepSeek-V4 routing on ROCm: `MXF4_RDNA2` → `AITER_MXFP4_BF16` → `TRITON_UNFUSED`[^mxfp4].
 
@@ -140,3 +142,5 @@ Moved from the old `fork/README.md` "Gates (stock vLLM)" and re-checked against 
 [^upfp8]: v0.31.0 `supports_mx` / `supports_fp8`: <https://github.com/vllm-project/vllm/blob/db9527a46873454610df6dbedf79a36d6bf1a7f6/vllm/platforms/rocm.py#L1076-L1082>
 [^upcar]: v0.31.0 `use_custom_allreduce`: <https://github.com/vllm-project/vllm/blob/db9527a46873454610df6dbedf79a36d6bf1a7f6/vllm/platforms/rocm.py#L1096-L1099>
 [^forkcar]: Fork `use_custom_allreduce`: <https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/vllm/platforms/rocm.py#L1257-L1263>
+[^f-8bb8ff36-rocm-moe-rdna-py]: `rocm_moe_rdna.is_supported` @ `8bb8ff36`: `if not weight_quant.symmetric and weight_quant.num_bits != 4` → fall back (L16–L30). <https://github.com/opengfx1030/vllm-rdna/blob/8bb8ff36cdb2e885553a151a824706d2d920fe3a/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/rocm_moe_rdna.py#L16-L30>
+[^f-8bb8ff36-ct-wna16-rdna2-py]: `compressed_tensors_moe_wna16_rdna2.py` @ `8bb8ff36`: asymmetric checkpoints also transpose `w13/w2_weight_zero_point` to K-first (L81–L82); `_zero_v2 = not symmetric` keeps the checkpoint zeros as `w13/w2_qzeros`, else synthesizes (L123–L145); `zero_v2` reaches both W4A16 and W4A8 calls (L304, L320, L351, L368). <https://github.com/opengfx1030/vllm-rdna/blob/8bb8ff36cdb2e885553a151a824706d2d920fe3a/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_wna16_rdna2.py>
