@@ -62,6 +62,15 @@ sources:
   - "https://github.com/ROCm/TheRock/issues/8729"
   - "https://github.com/ROCm/rocm-libraries/issues/12240"
   - "https://github.com/Niko1221/Strata/issues/1657"
+  - "https://github.com/ROCm/legacy-rocm-build/issues/6698"
+  - "https://github.com/Niko1221/Strata/issues/2245"
+  - "https://github.com/Niko1221/Strata/issues/2305"
+  - "https://github.com/ROCm/rocm-systems/pull/8485"
+  - "https://github.com/ROCm/legacy-rocm-build/issues/6407"
+  - "https://github.com/ROCm/AMDMIGraphX/issues/5396"
+  - "https://github.com/ROCm/rocm-libraries/issues/12102"
+  - "https://github.com/ROCm/rocm-libraries/issues/13606"
+  - "https://github.com/Niko1221/Strata/releases/tag/v0.1.44"
 ---
 
 > Historical scan record, kept intact from the flat `toolchain/` pages on branch `toolchain/gotchas-2026-10-09`. Inline links are the sources recorded on the scan date. This restructure did not re-open every SHA or open/merged status below. Those point-in-time claims are **(unsourced)** as of 2026-10-11, except where a topic page repeats the claim with a footnote.
@@ -326,3 +335,21 @@ Vs Oct 12 ~10:30. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per ho
 | llama.cpp [#29910](https://github.com/ggml-org/llama.cpp/pull/29910), Tensile [#6996](https://github.com/ROCm/rocm-libraries/pull/6996), hipBLASLt [#10720](https://github.com/ROCm/rocm-libraries/pull/10720), clr [#11618](https://github.com/ROCm/rocm-systems/pull/11618), [#9821](https://github.com/ROCm/rocm-systems/pull/9821) | unchanged | Still open. |
 
 Artifact: `/workspace/rocm-rdna-domain-20261013-1035.md`.
+
+
+## 2026-10-14 ~10:40 — domain pass (HIP queue mapping, gfx1030 stall workaround, WGP count; not dest)
+
+Vs Oct 13 ~10:35. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly 09:55 (TheRock `60eed59f18a6`).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [legacy-rocm-build#6698](https://github.com/ROCm/legacy-rocm-build/issues/6698) / Strata [#2245](https://github.com/Niko1221/Strata/issues/2245) / [#2305](https://github.com/Niko1221/Strata/issues/2305) | **Take (runtime gotcha, V620)** | Silent multi-queue stall on 2× V620; `GPU_MAX_HW_QUEUES=2` avoided it (116/116), 4 and 6 stall, 8 and 16 cost decode. In [runtime/](../runtime/README.md). |
+| clr `getQueueFromPool` / `flags.hpp`, [rocm-systems#8485](https://github.com/ROCm/rocm-systems/pull/8485) | **Take (runtime behavior)** | Streams share up to `GPU_MAX_HW_QUEUES` queues per priority, reuse by load. `DEBUG_HIP_IGNORE_STREAM_PRIORITY` default flips to `true` in `therock-10.1` (false in 7.14.1 and 10.0). In [runtime/](../runtime/README.md). |
+| [legacy-rocm-build#6407](https://github.com/ROCm/legacy-rocm-build/issues/6407) + clr WGP mode | **Take (runtime gotcha)** | `multiProcessorCount` returns WGPs on RDNA (V620 reports 36, by our arithmetic from the code). Grid sizing note in [runtime/](../runtime/README.md). |
+| [AMDMIGraphX#5396](https://github.com/ROCm/AMDMIGraphX/issues/5396) | Watch (gfx1100) | MLIR attention fusion is on by default only for gfx94/gfx95; `MIGRAPHX_MLIR_USE_SPECIFIC_OPS=attention` on RX 7900 XTX is faster at every measured length and 2-3× faster than the default from 4k tokens. Request to enable for gfx11. |
+| [rocm-libraries#12102](https://github.com/ROCm/rocm-libraries/issues/12102) / [#13606](https://github.com/ROCm/rocm-libraries/issues/13606) | Watch (CK_TILE on RDNA) | CK_TILE dispatcher JIT sets `CK_TILE_FMHA_FWD_FAST_EXP2=0` on non-gfx9, which the logits-soft-cap `static_assert` rejects; #13606 reaches the same assert through the CMake knob. gfx1100/gfx1201 only, not gfx1030. |
+| Strata [v0.1.44](https://github.com/Niko1221/Strata/releases/tag/v0.1.44) | Leave (engine lane) | Draft stream at high priority on gfx1200/gfx1201; on a `therock-10.1` runtime that hint is ignored by default (see runtime/). |
+| [TheRock#8939](https://github.com/ROCm/TheRock/issues/8939), [TheRock#8968](https://github.com/ROCm/TheRock/issues/8968), [rocm-systems#13338](https://github.com/ROCm/rocm-systems/issues/13338) | unchanged | Tracked by the hourly scan. |
+
+Artifact: `/workspace/rocm-rdna-domain-20261014-1040.md`.
+
