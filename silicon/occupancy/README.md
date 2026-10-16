@@ -19,6 +19,7 @@ Up: [silicon/](../README.md)
 | [icache-occupancy.md](icache-occupancy.md) | I$/SQC 32 KB/WGP: not a PIX MaxWaves row; fetch-stall vs effective occupancy |
 | [kcache-occupancy.md](kcache-occupancy.md) | K$/SQC DCache 16 KB/WGP: not a PIX MaxWaves row; scalar/kernarg miss vs effective occupancy |
 | [l0-gl1-occupancy.md](l0-gl1-occupancy.md) | Vector L0/TCP 16 KB/CU + GL1 128 KB/SA: not a PIX MaxWaves row; thrash vs effective occupancy |
+| [l0-acquire-barrier-occupancy.md](l0-acquire-barrier-occupancy.md) | WGP per-CU L0 acquire race after grid/lookback barriers (pytorch#198208): not a PIX MaxWaves row; all-wave agent inv vs single-lane; MonoKernel Live |
 | [l2-occupancy.md](l2-occupancy.md) | L2 4 MiB GPU-wide (mid vs IC): not a PIX MaxWaves row; thrash vs effective occupancy |
 | [infinity-cache-occupancy.md](infinity-cache-occupancy.md) | IC/MALL 128 MiB GPU-wide (last-level vs L2): not a PIX MaxWaves row; thrash vs effective occupancy |
 | [hard-clause-occupancy.md](hard-clause-occupancy.md) | gfx10+ `S_CLAUSE` hard clauses: not a PIX MaxWaves row; arbiter lock / burst vs effective interleave |
