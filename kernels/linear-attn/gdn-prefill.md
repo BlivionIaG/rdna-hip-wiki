@@ -1,6 +1,9 @@
 ---
 title: "GDN chunked prefill — extras HIP (`aac1fcd6`)"
 sources:
+  - https://github.com/opengfx1030/vllm-rdna/commit/7a6d6757ad5916f5ef3fa6648c77da7f885be045
+  - https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/docs/rdna2/v0.31.0-port-notes.md
+  - https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/tests/kernels/quantization/test_gdn_prefill_kkt_rdna2.py
   - https://github.com/BlivionIaG/vllm/commit/b53a7a2c2bdf0739daa459ffff169c53a9a0f49e
   - https://github.com/BlivionIaG/vllm/commit/e054854f239b139b8bec5991345056b49315735d
   - https://github.com/BlivionIaG/vllm/commit/77d6fdf801f8618a66dee12e6df14d983b530b33
@@ -84,6 +87,15 @@ Engine note (not ISA): `5ce7d86e` defaulted the HIP prefill chain **off** (`VLLM
 
 Engine only (no `csrc/rocm` tile change): `VLLM_GDN_HIP_PREFILL` defaults to **off** again. Must set `VLLM_GDN_HIP_PREFILL=1` to use the RDNA2 HIP 5-kernel chain; default path is Triton/FLA. Reverses the `aac1fcd6`-era default-on. Decode HIP path unchanged. Occupancy leftover still FA prefill `(N,1)`. Do not invent numbers. Do not copy tok/s.[^c-aac1fcd6]
 
+## extras lock 2026-10-16 (tip `a01f2637`)
+
+Tests only, no `csrc/rocm` change. `test_gdn_prefill_kkt_rdna2.py` is now skipped at module level and the HIP chain test in `test_gdn_prefill_rdna2.py` is marked skip, both citing a recorded GPU hang: the kkt test fails, then the process aborts in `hsa_signal_wait`.[^c-7a6d6757][^f-a01f-kkt-test][^f-a01f-chain-test]
+
+- The port notes call this pre-existing on 0.28 and v0.31, and list `test_gdn_prefill_delta_h_rdna2` (29/30 fail) and `test_gdn_prefill_o_rdna2` (30/42 fail on v0.31) as failing on both trees too.[^f-a01f-port-notes]
+- Serving is not affected by default: the HIP prefill chain is opt-in (`VLLM_GDN_HIP_PREFILL=1`, off by default), so default prefill stays Triton/FLA.[^f-a01f-port-notes][^gdnp-tip-gate]
+- **Take:** keep `VLLM_GDN_HIP_PREFILL` off. Treat the HIP kkt / delta_h / o kernels as not correct until those tests pass again.[^f-a01f-port-notes]
+- **Leave:** running the kkt test next to other GPU jobs. Run it alone (`ONLY=gdn_prefill_kkt`); the port notes record two unit runs hanging in it while another model was profiling, before a host crash.[^f-a01f-port-notes]
+
 ## Sources
 
 [^c-b53a7a2]: BlivionIaG/vllm commit [`b53a7a2`](https://github.com/BlivionIaG/vllm/commit/b53a7a2c2bdf0739daa459ffff169c53a9a0f49e) (2026-08-23) — "feat: hand-port GDN chunked prefill to HIP RDNA2 (5 kernels)".
@@ -107,3 +119,7 @@ Engine only (no `csrc/rocm` tile change): `VLLM_GDN_HIP_PREFILL` defaults to **o
 [^f-aac1fcd6-test-gdn-prefill-rdna2-py]: opengfx1030/vllm-rdna `tests/kernels/test_gdn_prefill_rdna2.py` @ [`aac1fcd6`](https://github.com/opengfx1030/vllm-rdna/blob/aac1fcd6ce0b3ab66875d05d17c8087003524cda/tests/kernels/test_gdn_prefill_rdna2.py).
 [^gdnp-tip-k]: `GDN_BV` / `GDN_THREADS` in `csrc/rocm/gdn_prefill_delta_h_rdna2.cu` L46-L47 and `csrc/rocm/gdn_prefill_o_rdna2.cu` L51-L77 (BV 32, LDS 16384+16384+8192+4096+256 B); `amdgpu_waves_per_eu(2, 4)` on all six GDN kernels, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/gdn_prefill_delta_h_rdna2.cu#L46-L68 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/gdn_prefill_o_rdna2.cu#L51-L77
 [^gdnp-tip-gate]: `_gdn_prefill_dispatch_available()` in `vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py` L168-L175 (opt-in `VLLM_GDN_HIP_PREFILL=1`; comment: HIP chain 8.7% slower than Triton/FLA on a 16k prefill); flashnext recipes set `VLLM_GDN_HIP_PREFILL=0` (`tools/rdna/recipes/flashnext.env` L45), dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py#L168-L175 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/recipes/flashnext.env#L45
+[^c-7a6d6757]: opengfx1030/vllm-rdna commit `7a6d6757` "test: drop stale fork tests and skip the recorded GDN GPU hang" (PR #106). https://github.com/opengfx1030/vllm-rdna/commit/7a6d6757ad5916f5ef3fa6648c77da7f885be045
+[^f-a01f-kkt-test]: `tests/kernels/quantization/test_gdn_prefill_kkt_rdna2.py` L32-L39 (module-level `pytest.skip`, "Recorded GPU hang ... aborts in hsa_signal_wait"), dest at a01f2637. https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/tests/kernels/quantization/test_gdn_prefill_kkt_rdna2.py#L32-L39
+[^f-a01f-chain-test]: `tests/kernels/test_gdn_prefill_rdna2.py` L39-L45 (`@pytest.mark.skip`, chain calls `gdn_prefill_kkt_rdna2`), dest at a01f2637. https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/tests/kernels/test_gdn_prefill_rdna2.py#L39-L45
+[^f-a01f-port-notes]: `docs/rdna2/v0.31.0-port-notes.md` L469-L476 (kkt hang pre-existing on 0.28; run in isolation; concurrent hang before host crash) and L540-L553 (failure table; opt-in `VLLM_GDN_HIP_PREFILL=1`, serving uses Triton FLA), dest at a01f2637. https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/docs/rdna2/v0.31.0-port-notes.md#L469-L553
