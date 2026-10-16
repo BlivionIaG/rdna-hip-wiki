@@ -1,6 +1,7 @@
 ---
 title: "WGP vs CU mode occupancy (gfx1030)"
 sources:
+  - https://github.com/opengfx1030/vllm-rdna/blob/1c1426d585c9b2653265947734225721cfc7ea6e/docs/rdna/monokernel/p0-results.md
   - https://llvm.org/docs/AMDGPUUsage.html
   - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
   - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
@@ -107,6 +108,7 @@ llvm-calc-occupancy -mcpu=gfx1030 -mattr=+wavefrontsize32,+cumode    --wg-size=2
 
 1. Keep `--offload-arch=gfx1030` **without** `-mcumode`. Default WGP + wave32.[^llvm-amdgpuusage]
 2. Size with `llvm-calc-occupancy … -mattr=+wavefrontsize32` (no `+cumode`) and gate with `hipOccupancyMaxActiveBlocksPerMultiprocessor`.[^llvm-calc-occupancy][^llvm-amdgpuusage]
+   - **Update @ `1c1426d5`:** on a V620 WGP build the occupancy API counts 36 units at 64 KiB, but 72 × 64 KiB × 256-thread WGs were co-resident, so it under-reports 2×; `hipLaunchCooperativeKernel` is refused for that grid unless built with `-mcumode`. Persistent kernels on dest derive the cap from the code object instead (see [monokernel-gfx1030-dest.md](../../kernels/persistent/monokernel-gfx1030-dest.md)).[^mono-p0]
 3. Prefer lowering LDS / VGPR / WG size when measured occupancy is short — same ladder as [occupancy-composite.md](occupancy-composite.md).
 4. **When (if ever) to measure `-mcumode`:** LDS-bandwidth-bound kernel, WG fits on 2 SIMD32s, second CU’s ALUs idle (softmax / small-scratch attention candidate per [hip-craft.md](../hip-craft/hip-craft.md) §1.2). Compare A/B with identical VGPR/LDS/WG; do **not** ship the CU object unless the microbench wins.[^llvm-amdgpuusage]
 5. VALU-bound 8-wave GEMM / DOT tiles that want 4 SIMD stay in WGP.
@@ -134,3 +136,4 @@ Footnotes:
 [^llvm-calc-occupancy]: LLVM llvm-calc-occupancy command guide. https://llvm.org/docs/CommandGuide/llvm-calc-occupancy.html (checked 2026-10-11)
 [^hip-hw-impl]: ROCm HIP docs, "Hardware implementation". https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html (checked 2026-10-11)
 [^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)
+[^mono-p0]: dest `docs/rdna/monokernel/p0-results.md` [L46–76](https://github.com/opengfx1030/vllm-rdna/blob/1c1426d585c9b2653265947734225721cfc7ea6e/docs/rdna/monokernel/p0-results.md#L46-L76) and `mono_k2_rdna2.cu` [L2089–2115](https://github.com/opengfx1030/vllm-rdna/blob/1c1426d585c9b2653265947734225721cfc7ea6e/csrc/rocm/mono_k2_rdna2.cu#L2089-L2115) @ 1c1426d585c9b2653265947734225721cfc7ea6e.
