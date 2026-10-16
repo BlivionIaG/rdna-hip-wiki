@@ -1,6 +1,7 @@
 ---
 title: "MonoKernel on gfx1030: silicon plan"
 sources:
+  - https://github.com/opengfx1030/vllm-rdna/commit/1c1426d585c9b2653265947734225721cfc7ea6e
   - https://github.com/vllm-project/vllm/issues/60904
   - https://github.com/vllm-project/vllm/pull/61001
   - https://github.com/vllm-project/vllm/pull/61325
@@ -21,7 +22,9 @@ sources:
 ---
 # MonoKernel on gfx1030: silicon plan
 
-Status: **plan, nothing built.** Step 0 of Project 4 card `PVTI_lAHOAOnQn84BgjK3zhAaHOk`. Read against dest `rdna_extras` tip `e245a469` (`e245a4697a139fe8d3bbec4b9c837c37279674e9`) and the upstream PRs as of 2026-10-13. No tok/s here. Lines marked **[unsourced]** are my derivations and need a V620 check.
+> **Historical (plan read at `e245a469`).** Dest built K1/K2, the fused GDN core and QSA decode in PR #94 at `1c1426d5`; see [monokernel-gfx1030-dest.md](monokernel-gfx1030-dest.md) for the current silicon locks. Claims below marked *(historical @ e245a469)* are superseded there.[^built]
+
+Status at `e245a469`: **plan, nothing built** *(historical @ e245a469)*. Step 0 of Project 4 card `PVTI_lAHOAOnQn84BgjK3zhAaHOk`. Read against dest `rdna_extras` tip `e245a469` (`e245a4697a139fe8d3bbec4b9c837c37279674e9`) and the upstream PRs as of 2026-10-13. No tok/s here. Lines marked **[unsourced]** are my derivations and need a V620 check.
 
 ## What AMD built
 
@@ -36,11 +39,11 @@ Status: **plan, nothing built.** Step 0 of Project 4 card `PVTI_lAHOAOnQn84BgjK3
 
 **AMD:** not cooperative launch. Cross-CTA hand-offs are tagged mailboxes with a device epoch bumped once per step.[^60397][^61325] The RFC requires every cross-CTA / cross-rank wait to be bounded, a sticky device error word on expiry, and a release fence before further data; it admits the cross-rank flag relies on a release fence ordering remote stores, "not formally guaranteed".[^rfc] The grid must fit the CUs actually present, or a partly resident grid deadlocks on its own barriers.[^rfc]
 
-**HIP cooperative groups on gfx1030:** `grid.sync()` lowers to `__ockl_grid_sync`, which is a workgroup release fence + `s_barrier`, then (one lane) an agent-scope release, an atomic counter barrier over `num_wg`, agent-scope acquire, `s_barrier`.[^ockl] It is plain global atomics, so nothing gfx1030-specific blocks it; but it needs `hipLaunchCooperativeKernel` (grid capped at co-resident size) and is a full-grid barrier per phase. **Recommendation:** use our own epoch-tagged flags (producer→consumer), not `grid.sync` — same choice as AMD, and graph-capturable without cooperative launch. **[unsourced: cooperative launch under hipGraph capture on our ROCm not tested]**
+**HIP cooperative groups on gfx1030:** `grid.sync()` lowers to `__ockl_grid_sync`, which is a workgroup release fence + `s_barrier`, then (one lane) an agent-scope release, an atomic counter barrier over `num_wg`, agent-scope acquire, `s_barrier`.[^ockl] It is plain global atomics, so nothing gfx1030-specific blocks it; but it needs `hipLaunchCooperativeKernel` (grid capped at co-resident size) and is a full-grid barrier per phase. **Recommendation:** use our own epoch-tagged flags (producer→consumer), not `grid.sync` — same choice as AMD, and graph-capturable without cooperative launch. **[unsourced: cooperative launch under hipGraph capture on our ROCm not tested]** *(historical @ e245a469: P0 answered it, cooperative launch is refused in the WGP build and only captures with `-mcumode`; dest uses a plain launch with bounded barriers)*[^built]
 
-**Room proposal (cooperative launch + `this_grid().sync()`):** workable on gfx1030 in principle, since `__ockl_grid_sync` is the same agent-scope fence + atomic-counter pattern a hand-rolled barrier would use; the difference is a full-grid barrier per phase versus point-to-point flags.[^ockl] Grid sizing via `hipOccupancyMaxActiveBlocksPerMultiprocessor` × 72, cross-checked against VGPR/LDS from `llvm-readelf --notes`, is the right check. **(untested P0 item, no source: whether `hipLaunchCooperativeKernel` can be stream-captured into a hipGraph on ROCm 7.14 — no source found; must be tested on the V620 before choosing it.)** If it can't be captured, flags are mandatory for FULL graphs.
+**Room proposal (cooperative launch + `this_grid().sync()`):** workable on gfx1030 in principle, since `__ockl_grid_sync` is the same agent-scope fence + atomic-counter pattern a hand-rolled barrier would use; the difference is a full-grid barrier per phase versus point-to-point flags.[^ockl] Grid sizing via `hipOccupancyMaxActiveBlocksPerMultiprocessor` × 72, cross-checked against VGPR/LDS from `llvm-readelf --notes`, is the right check. *(historical @ e245a469: the occupancy API under-reports 2× in WGP mode; dest derives the cap from the code object)*[^built] **(untested P0 item, no source: whether `hipLaunchCooperativeKernel` can be stream-captured into a hipGraph on ROCm 7.14 — no source found; must be tested on the V620 before choosing it.)** If it can't be captured, flags are mandatory for FULL graphs.
 
-**Hang triage:** ROCm/legacy-rocm-build#6698 (2× V620, compute queues stop being serviced) reports **no waves resident** at the hang (`umr --waves` empty, `SPI_CSQ_WF_ACTIVE_STATUS` = 0) and pending AQL packets on idle MEC pipes.[^6698] A grid-sync deadlock would leave spinning waves, so #6698 is a CP/queue-scheduling stall, not a barrier deadlock; it is still a risk because a persistent kernel cannot time out of a dispatch that never starts. rocm-systems#13234 (hipGraphLaunch hangs at ≥ 2 × `ROC_AQL_QUEUE_SIZE` packets in one segment) is not a blocker at the ~210 launches per step the RFC quotes for GLM-5.2.[^13234][^rfc] Design rule: every wait bounded. Sticky error word and per-timeout phase-ID logging land with 2b (cross-GPU waits); dest's AR report already encodes a phase code.[^ar-abort]
+**Hang triage:** ROCm/legacy-rocm-build#6698 (2× V620, compute queues stop being serviced) reports **no waves resident** at the hang (`umr --waves` empty, `SPI_CSQ_WF_ACTIVE_STATUS` = 0) and pending AQL packets on idle MEC pipes.[^6698] A grid-sync deadlock would leave spinning waves, so #6698 is a CP/queue-scheduling stall, not a barrier deadlock; it is still a risk because a persistent kernel cannot time out of a dispatch that never starts. rocm-systems#13234 (hipGraphLaunch hangs at ≥ 2 × `ROC_AQL_QUEUE_SIZE` packets in one segment) is not a blocker at the ~210 launches per step the RFC quotes for GLM-5.2.[^13234][^rfc] Design rule: every wait bounded. Sticky error word and per-timeout phase-ID logging land with 2b (cross-GPU waits) *(historical @ e245a469: K2's same-GPU barrier already writes a sticky {code, phase, wg} record)*[^built]; dest's AR report already encodes a phase code.[^ar-abort]
 
 **Scopes on RDNA2 (GFX10 memory model):**[^llvm]
 - One L0 per CU; `buffer_gl0_inv` needed for coherence between waves of different work-groups (and same WG in WGP mode).
@@ -60,7 +63,7 @@ Inputs: wave32; max 16 waves per SIMD on gfx1030 (`FeatureMaxWavesPerEU16`);[^td
 | 256 | 8 | 256 | 4 | ≤32 KiB | 144 (4 waves/SIMD = 1 WG/CU by VGPR → 72) | VGPR → **72** |
 | 256 | 8 | any | — | 64 KiB | **72** (1/CU, 2/WGP) | LDS |
 
-Derivation **[unsourced arithmetic]**: waves/SIMD = min(16, ⌊1024/VGPR⌋); a 256-thread WG puts 4 waves on each of a CU's 2 SIMDs. **Safe persistent grid = 72 WGs × 256 threads** (one per CU), which leaves no room for a co-stream (RFC rule).[^rfc]
+Derivation **[unsourced arithmetic]**: waves/SIMD = min(16, ⌊1024/VGPR⌋); a 256-thread WG puts 4 waves on each of a CU's 2 SIMDs. **Safe persistent grid = 72 WGs × 256 threads** (one per CU), which leaves no room for a co-stream (RFC rule).[^rfc] *(historical @ e245a469: K2 targets ≤ 128 VGPRs, 2 WGs / 16 waves per CU, 144 WGs)*[^built]
 
 **Row cap:** gfx1030 has the same 64 KiB per-WG LDS as gfx942, so by #60731's reasoning a GEMV pass holds ~6 rows, not 16.[^60731] #61325's K2 needs up to 68 KB LDS at gfx950 — **over** gfx1030's 64 KiB, so K2 must be re-tiled.[^61325] **With MTP (production recipe `flashnext-mtp2`, k=2):** each request carries 3 query rows, so batch 1/4/8 = 3/12/24 rows and widths must be multiples of 3. #61325 refuses spec decode, so this is beyond AMD's template.[^61325] **[unsourced]** At ~6 rows per 64 KiB GEMV pass, 24 rows = 4 passes per GEMV.
 
@@ -147,6 +150,7 @@ Risks: LDS overflow vs #61325's K2 (68 KB);[^61325] spills (#61325 already spill
 
 ## Sources
 
+[^built]: Superseded by dest `rdna_extras` PR #94 merge [`1c1426d585c9b2653265947734225721cfc7ea6e`](https://github.com/opengfx1030/vllm-rdna/commit/1c1426d585c9b2653265947734225721cfc7ea6e); details and line-pinned sources in [monokernel-gfx1030-dest.md](monokernel-gfx1030-dest.md).
 [^td-1030]: LLVM [AMDGPU.td:2278–2292](https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td#L2278-L2292) `FeatureISAVersion10_3_0` @ eb61ef62; [AMDGPU.td:451](https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td#L451).
 [^bi-vgpr]: LLVM [AMDGPUBaseInfo.cpp:1325–1330](https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp#L1325-L1330) @ eb61ef62.
 [^bi-occ]: LLVM [AMDGPUBaseInfo.cpp:1356–1363](https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp#L1356-L1363) @ eb61ef62.
