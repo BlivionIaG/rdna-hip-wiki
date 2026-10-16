@@ -307,3 +307,22 @@ Vs Oct 9 ~10:25 (weekend gap). **No dest/pin lever.** Live dest stays **7.14.0**
 | [legacy-rocm-build#6685](https://github.com/ROCm/legacy-rocm-build/issues/6685) | Leave | `hipStreamWaitEvent` adds ~17 µs per small kernel on gfx1201; title says not on gfx1030. |
 | Strata [#2055](https://github.com/Niko1221/Strata/issues/2055) / [#1272](https://github.com/Niko1221/Strata/issues/1272), vLLM [#50264](https://github.com/vllm-project/vllm/issues/50264), hipfire [#739](https://github.com/warpfront/hipfire/issues/739) | Leave (engine lane) | gfx1030 Windows prompt regression, 2×6900 XT shared-expert stream, RDNA hybrid-Mamba Triton fallback, gfx1100 model-load hang. |
 
+
+## 2026-10-13 ~10:35 — domain pass (one host-kernel floor, one framework gotcha, two smaller notes; not dest)
+
+Vs Oct 12 ~10:30. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly 10:05 (TheRock `defe4c25479f`).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [rocm-systems#4817](https://github.com/ROCm/rocm-systems/issues/4817) / [legacy-rocm-build#6003](https://github.com/ROCm/legacy-rocm-build/issues/6003) / Linux [`b89d58b6595d`](https://github.com/torvalds/linux/commit/b89d58b6595d79dc3fe75e213e1f4c5efd0251d4) | **Take (host-kernel floor)** | KFD SVM split bug leaves head or tail of a pinned range unmapped while SDMA reads it, so copies from mmap'd files fault with `hipErrorIllegalAddress`. Fix in Linux 7.2-rc1+ and, per AMD, amdgpu-dkms 7.1.9. RX 6800 (gfx1030) report: `HSA_USE_SVM=0` avoids it. In [runtime/](../runtime/README.md). |
+| [InvokeAI#9487](https://github.com/invoke-ai/InvokeAI/issues/9487) | **Take (data point)** | gfx1100: host→device from mmap'd safetensors at ~2 MB/s vs ~7 GB/s after `clone()`. Added next to the userptr eviction section in [runtime/](../runtime/README.md). |
+| [ComfyUI-WanVideoWrapper#2053](https://github.com/kijai/ComfyUI-WanVideoWrapper/issues/2053) / [aotriton#168](https://github.com/ROCm/aotriton/issues/168) | **Take (library gotcha, gfx1100)** | Torch SDPA at head_dim > 256 on gfx11: silently wrong on aotriton 0.13.x, `hipErrorProfilerNotInitialized` on 0.14.50 (ROCm 10.1.0 wheel). Guard to `SDPBackend.MATH`. In [libraries/](../libraries/README.md). |
+| [rocm-libraries#12473](https://github.com/ROCm/rocm-libraries/issues/12473) / [#12638](https://github.com/ROCm/rocm-libraries/pull/12638) | **Take (compiler gotcha)** | `.uses_dynamic_stack: true` kernels get `hipLimitStackSize` (1 KB/thread default); overflow is silent. Docs-only close. In [compiler/](../compiler/README.md). |
+| [hip-python#111](https://github.com/ROCm/hip-python/issues/111) | Take (tools, small) | numba-hip atomics have wrong signatures on 10.0; AMD says fix in next patch or 10.1.0 bindings. In [tools/](../tools/README.md). |
+| [legacy-rocm-build#6386](https://github.com/ROCm/legacy-rocm-build/issues/6386) | Watch | gfx1103 MES `REMOVE_QUEUE` failure on SVM invalidation, fixed by updated `gc_11_0_1` firmware per two reporters. That is gfx1103 firmware; no gfx1100 report in the thread. |
+| Sarek [#503](https://github.com/mathiasbourgoin/Sarek/issues/503) | Watch | gfx1100, amdgpu 3.64.0, Linux 7.1.2: kernel oops in `amdgpu_hmm_invalidate_gfx` after Vulkan host-memory import (userptr BO). Vulkan, not HIP; same userptr notifier code path in amdgpu. |
+| [pytorch#177834](https://github.com/pytorch/pytorch/issues/177834) | Leave | LSTM wrong results traced to MIOpen `Op2dTensorLite` grid Y > 65535 (reported on gfx1201); test added in pytorch#195738. |
+| [rocm-libraries#13530](https://github.com/ROCm/rocm-libraries/pull/13530), [rocm-systems#10701](https://github.com/ROCm/rocm-systems/pull/10701) | Leave | rocKE gfx1101 → `gfx11-generic` normalization (closed); RCCL generic-target parse PR closed unmerged. |
+| llama.cpp [#29910](https://github.com/ggml-org/llama.cpp/pull/29910), Tensile [#6996](https://github.com/ROCm/rocm-libraries/pull/6996), hipBLASLt [#10720](https://github.com/ROCm/rocm-libraries/pull/10720), clr [#11618](https://github.com/ROCm/rocm-systems/pull/11618), [#9821](https://github.com/ROCm/rocm-systems/pull/9821) | unchanged | Still open. |
+
+Artifact: `/workspace/rocm-rdna-domain-20261013-1035.md`.

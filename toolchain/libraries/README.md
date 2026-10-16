@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-12
+updated: 2026-10-13
 sources:
   - https://github.com/ROCm/TheRock/issues/8729
   - https://github.com/Niko1221/Strata/pull/1123
@@ -13,11 +13,13 @@ sources:
   - https://rocm.docs.amd.com/en/docs-10.1.0/about/release-notes.html
   - https://github.com/ROCm/rocPRIM/issues/778
   - https://github.com/openxla/xla/issues/50464
+  - https://github.com/kijai/ComfyUI-WanVideoWrapper/issues/2053
+  - https://github.com/ROCm/aotriton/issues/168
 ---
 
 # Libraries
 
-Date: **2026-10-12**. Which GEMM or convolution library runs on gfx1030 versus gfx1100. Live dest stays ROCm **7.14.0** ([pin](../pin/README.md)). Nightly library-pin scans are [../log/pin-scans.md](../log/pin-scans.md).
+Date: **2026-10-13**. Which GEMM or convolution library runs on gfx1030 versus gfx1100. Live dest stays ROCm **7.14.0** ([pin](../pin/README.md)). Nightly library-pin scans are [../log/pin-scans.md](../log/pin-scans.md).
 
 ## Who serves the GEMM
 
@@ -76,6 +78,12 @@ hipBLASLt is the Linux MIOpen GEMM backend in the gfx1030 triage above, and the 
 
 [openxla/xla#50464](https://github.com/openxla/xla/issues/50464) (open) says `gfx1030` is in XLA's supported list but `has_hipblaslt()` is false for it, and the GEMM rewriter no longer falls back to rocBLAS. The reporter measured on MI100 (gfx908): fp64 dots fail to compile, and fp16/fp32 dots run as Triton fusions at about 16% of rocBLAS speed. The gfx1030 claim comes from the same code path, not a gfx1030 run.[^xla50464] This matches the gfx1030 hipBLASLt gap above; JAX matmuls on V620 need a measurement before anyone relies on them.
 
+### PyTorch SDPA at head_dim > 256 on gfx11
+
+[ComfyUI-WanVideoWrapper#2053](https://github.com/kijai/ComfyUI-WanVideoWrapper/issues/2053) (open): on gfx1100 (RX 7900 XTX, torch 2.13.0), `F.scaled_dot_product_attention` with head_dim 384 still dispatches to AOTriton's fused kernels. With aotriton 0.13.x (the ROCm 10.0.0 stable wheel and 10.1/10.2 nightlies) the result is silently wrong: relative error about 1.1 against the MATH backend, all values finite, so NaN or Inf checks miss it. With aotriton 0.14.50 in the ROCm 10.1.0 stable wheel the call fails with `hipErrorProfilerNotInitialized`. head_dim 64, 128, 192 and 256 were correct on every build. The working guard routes head_dim > 256 to `SDPBackend.MATH`.[^wan2053] An AOTriton maintainer wrote in April that head_dim > 256 is disabled on purpose on all gfx11, because of LDS and register-file limits and Triton codegen trouble at `BLOCK_DMODEL=512`, and would be revisited later.[^aot168]
+
+For gfx1100 code that calls torch SDPA, add that guard for head_dim > 256 rather than trusting the dispatcher. Which SDPA backend gfx1030 gets at that size was not checked this pass (unsourced).
+
 ## Sources
 
 [^tr8729]: TheRock#8729, open, issue body (wheel contents, gfx1030 vs gfx1100). https://github.com/ROCm/TheRock/issues/8729
@@ -90,3 +98,5 @@ hipBLASLt is the Linux MIOpen GEMM backend in the gfx1030 triage above, and the 
 [^xml12240]: rocm-libraries#12240, open. https://github.com/ROCm/rocm-libraries/issues/12240
 [^prim778]: rocPRIM#778, open. https://github.com/ROCm/rocPRIM/issues/778
 [^xla50464]: openxla/xla#50464, open. https://github.com/openxla/xla/issues/50464
+[^wan2053]: ComfyUI-WanVideoWrapper#2053, open, issue body and build table. https://github.com/kijai/ComfyUI-WanVideoWrapper/issues/2053
+[^aot168]: ROCm/aotriton#168, open, `xinyazhang` comments 2026-04-25 and 2026-04-28. https://github.com/ROCm/aotriton/issues/168
