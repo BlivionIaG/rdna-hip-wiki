@@ -29,7 +29,7 @@ Craft of *which* wait / when lives in [hip-craft.md](../hip-craft/hip-craft.md) 
 
 Date: **2026-09-30** Europe/Paris.
 
-Companions: [occupancy-composite.md](occupancy-composite.md), [hip-craft.md](../hip-craft/hip-craft.md) §2, [hard-clause-occupancy.md](hard-clause-occupancy.md), [exec-divergence-occupancy.md](exec-divergence-occupancy.md), [trans-occupancy.md](trans-occupancy.md), [kcache-occupancy.md](kcache-occupancy.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [l2-occupancy.md](l2-occupancy.md), [infinity-cache-occupancy.md](infinity-cache-occupancy.md), [lds-bank-occupancy.md](../lds-and-tiles/lds-bank-occupancy.md), [spi-ace-occupancy.md](spi-ace-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [architecture.md](../arch-and-memory/architecture.md).
+Companions: [occupancy-composite.md](occupancy-composite.md), [l0-acquire-barrier-occupancy.md](l0-acquire-barrier-occupancy.md) (fence inv + following loads), [hip-craft.md](../hip-craft/hip-craft.md) §2, [hard-clause-occupancy.md](hard-clause-occupancy.md), [exec-divergence-occupancy.md](exec-divergence-occupancy.md), [trans-occupancy.md](trans-occupancy.md), [kcache-occupancy.md](kcache-occupancy.md), [l0-gl1-occupancy.md](l0-gl1-occupancy.md), [l2-occupancy.md](l2-occupancy.md), [infinity-cache-occupancy.md](infinity-cache-occupancy.md), [lds-bank-occupancy.md](../lds-and-tiles/lds-bank-occupancy.md), [spi-ace-occupancy.md](spi-ace-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [architecture.md](../arch-and-memory/architecture.md).
 
 ## Take / Leave
 

@@ -32,7 +32,7 @@ All three sources are in the gfx1030 HIP list in `CMakeLists.txt`.[^cmake] Off b
 
 ## Grid sync and residency (occupancy first)
 
-- **Plain launch, own barrier, not cooperative launch.** K2 separates phases with a grid barrier on a generation counter in global memory (agent-scope atomics, bounded wait, no `grid.sync()`); a timeout writes a sticky `{code, phase, wg}` record, every WG leaves, and a later launch that sees the record writes NaN and exits.[^k2hdr][^barrier]
+- **Plain launch, own barrier, not cooperative launch.** L0 acquire craft after that barrier: [l0-acquire-barrier-occupancy.md](../../silicon/occupancy/l0-acquire-barrier-occupancy.md). K2 separates phases with a grid barrier on a generation counter in global memory (agent-scope atomics, bounded wait, no `grid.sync()`); a timeout writes a sticky `{code, phase, wg}` record, every WG leaves, and a later launch that sees the record writes NaN and exits.[^k2hdr][^barrier]
 - **Why:** the P0 probe found HIP refuses `hipLaunchCooperativeKernel` for 72 × 64 KiB WGs in the default WGP build (`hipErrorCooperativeLaunchTooLarge`, also at capture) although 72 are co-resident; it works only with `-mcumode`. `grid.sync()` is unbounded and hung when one WG bailed.[^p0coop][^p0bound]
 - **Occupancy API under-reports 2× in WGP mode.** `hipOccupancy*` reports 36 units ("CUs" = WGPs) at 64 KiB each; the V620 held 72 × 64 KiB × 256-thread WGs co-resident in both WGP and CU mode.[^p0res]
 - **So dest computes the cap from the code object:** waves per SIMD = min(16, 1024 / VGPRs) (wave32), 2 SIMDs per CU, 64 KiB LDS per CU, CUs = 2 × the reported WGP count; grid = min(by-waves, by-LDS) WGs per CU × CUs.[^cap]

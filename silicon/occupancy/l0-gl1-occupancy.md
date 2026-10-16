@@ -23,7 +23,7 @@ Does **not** change extras HIP or UNC tickets. No tok/s. Do not restate the FA p
 
 Date: **2026-09-22** Europe/Paris.
 
-Companions: [architecture.md](../arch-and-memory/architecture.md) §4.3, [cache-policy.md](../arch-and-memory/cache-policy.md) §1 / §3, [infinity-cache.md](../arch-and-memory/infinity-cache.md), [l2-occupancy.md](l2-occupancy.md), [occupancy-composite.md](occupancy-composite.md), [icache-occupancy.md](icache-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [fa-occupancy.md](../attention/fa-occupancy.md), [hip-craft.md](../hip-craft/hip-craft.md) §1.3 / §6.
+Companions: [architecture.md](../arch-and-memory/architecture.md) §4.3, [l0-acquire-barrier-occupancy.md](l0-acquire-barrier-occupancy.md) (acquire inv vs thrash), [cache-policy.md](../arch-and-memory/cache-policy.md) §1 / §3, [infinity-cache.md](../arch-and-memory/infinity-cache.md), [l2-occupancy.md](l2-occupancy.md), [occupancy-composite.md](occupancy-composite.md), [icache-occupancy.md](icache-occupancy.md), [vgpr-occupancy.md](vgpr-occupancy.md), [fa-occupancy.md](../attention/fa-occupancy.md), [hip-craft.md](../hip-craft/hip-craft.md) §1.3 / §6.
 
 ## Take / Leave
 
