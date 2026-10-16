@@ -1,6 +1,8 @@
 ---
 title: "Qwen3.8-Flash-Next / Qwen4Exp HIP — tip `8960a3bc`"
 sources:
+  - https://github.com/opengfx1030/vllm-rdna/commit/ddb69e64f4941085dc2fb76bacd86096511c8fdf
+  - https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/csrc/rocm/hc_prefill_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/commit/50120e13b46895fc5d074e88fc493f1eef69da9f
   - https://github.com/opengfx1030/vllm-rdna/commit/8960a3bcbb175e8e74efd2f6c6b37b597972debc
   - https://github.com/opengfx1030/vllm-rdna/blob/8960a3bcbb175e8e74efd2f6c6b37b597972debc/csrc/rocm/rdna_fused_glue.cu
@@ -54,6 +56,7 @@ sources:
 |---|---|---|
 | `VLLM_RDNA_FUSED_HC` | **on** (`"1"`) | `rdna_fused_glue.cu` decode HC mix (M ≤ 8), `__launch_bounds__(WAVES * 32)`.[^q4-tip-envs][^q4-tip-hcpy] |
 | `VLLM_RDNA_HC_PREFILL_FUSED` | **2** | New `csrc/rocm/hc_prefill_rdna2.cu` (`rdna_hc_mix_prefill`): split-K HIP down-GEMM + fused silu/up-GEMM/sigmoid/mix for prefill (M > 8). 1 = rocBLAS down + fused kernel; 0 = torch/Triton. Falls back to 0 when the op is not built (gfx1030 only).[^q4-tip-rdnaops][^q4-tip-hcprefill] |
+| *(dest `a01f2637`)* HC prefill tile / split | not overridable | The undocumented `VLLM_RDNA_HC_PREFILL_TILE` / `_SPLIT` getenv overrides in `hc_prefill_rdna2.cu` are deleted. Tile is M-based (`M ≤ 64` → 0, `M ≤ 384` → 1, else 2) and the down-GEMM split is the block-count rule clamped to 1..16.[^f-a01f-hcprefill][^c-ddb69e64] |
 | `VLLM_RDNA_HC_PREFILL_HIP` | off | Older `hc_rdna2.cu` elementwise prefill kernels (sections below).[^q4-tip-envs] |
 | `VLLM_RDNA_QSA_HIP` | off | `qsa_rdna2.cu`.[^q4-tip-envs] |
 | `VLLM_RDNA_PLE_CONV_HIP` | off | `ple_short_conv_rdna2.cu`.[^q4-tip-envs] |
@@ -215,3 +218,5 @@ FA prefill leftover still first (`__launch_bounds__(*, 1)`). ticket-26 EXL3 `-cb
 [^q4-tip-hcpy]: `_rdna_fused_ok()` in `vllm/models/qwen4_exp/amd/hyperconnection.py` L66-L72, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/models/qwen4_exp/amd/hyperconnection.py#L66-L72
 [^q4-tip-rdnaops]: `_HC_PREFILL_FUSED` modes in `vllm/model_executor/layers/rdna_ops.py` L118-L125, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/rdna_ops.py#L118-L125
 [^q4-tip-hcprefill]: `csrc/rocm/hc_prefill_rdna2.cu` (header L1-L20; kernels L66, L250 `__launch_bounds__(TY * 16)`) and binding `rdna_hc_mix_prefill` at `csrc/rocm/torch_bindings.cpp` L85-L87, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/hc_prefill_rdna2.cu ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/torch_bindings.cpp#L85-L87
+[^c-ddb69e64]: opengfx1030/vllm-rdna commit `ddb69e64` "cleanup(rocm): drop W4A16 prefill experiment hooks" (PR #104). https://github.com/opengfx1030/vllm-rdna/commit/ddb69e64f4941085dc2fb76bacd86096511c8fdf
+[^f-a01f-hcprefill]: `csrc/rocm/hc_prefill_rdna2.cu` `dispatch_up_mix` tile select L380 and `launch_down` split L402-L403, dest at a01f2637. https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/csrc/rocm/hc_prefill_rdna2.cu#L376-L404

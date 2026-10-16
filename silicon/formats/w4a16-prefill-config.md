@@ -1,6 +1,9 @@
 ---
 title: "W4A16 prefill config lock (gfx1030)"
 sources:
+  - https://github.com/opengfx1030/vllm-rdna/compare/aff5c736688b7ed6206f63ea03b3b58477c591b1...a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a
+  - https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/csrc/rocm/q_gemm_rdna2_prefill.cu
+  - https://github.com/opengfx1030/vllm-rdna/commit/ddb69e64f4941085dc2fb76bacd86096511c8fdf
   - https://github.com/opengfx1030/vllm-rdna/commit/56f67111dd87847c5e92e14a7076fec2c9ab6f22
   - https://github.com/opengfx1030/vllm-rdna/commit/1046782fb8c4c3dde6607a98434d624c59fab015
   - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/q_gemm_rdna2_prefill.cu
@@ -24,9 +27,17 @@ Dest: `opengfx1030/vllm-rdna` `rdna_extras` tip **`56f67111`**.[^commit-56f67111
 - Resurrect AWQ prefill object, tok/s claims, EXL3 DOT changes (ticket-26 production is now `mul1` (Blivion decision 2026-10-12, unsourced upstream)).
 
 ## Infra (`56f67111`)
-- `VLLM_RDNA2_PREFILL_FORCE_CONFIG` (`0=V1`, `1=A`, `3=C`) for kernel bisection; default unset → natural dispatch. Slot `4` (A_Large) is gone.
-- `VLLM_RDNA2_PREFILL_FORCE_SPLIT_K` debug override kept; natural `split_k` stays. Commit notes natural split_k=4 sits near the measured curve — fp16 CAS-loop atomic epilogue is not the bottleneck for a redesign.
+- *(Historical, `56f67111`; deleted at `a01f2637`)* `VLLM_RDNA2_PREFILL_FORCE_CONFIG` (`0=V1`, `1=A`, `3=C`) for kernel bisection; default unset → natural dispatch. Slot `4` (A_Large) is gone.
+- *(Historical, `56f67111`; deleted at `a01f2637`)* `VLLM_RDNA2_PREFILL_FORCE_SPLIT_K` debug override kept; natural `split_k` stays. Commit notes natural split_k=4 sits near the measured curve — fp16 CAS-loop atomic epilogue is not the bottleneck for a redesign.
 - Persist zeros keepalive unchanged. Occupancy still FA-first.
+
+## Debug-hook cleanup (`a01f2637`)
+
+Dest: `opengfx1030/vllm-rdna` `rdna_extras` @ **`a01f2637`**.[^a01f-cmp]
+
+- Both force hooks are gone. `select_config` always picks V1 / A / C from shape, and `launch_dispatch` always uses the computed `split_k`. The config table, `K_STEP`, tiles and the split-K repair above are unchanged.[^extras-a01f-prefill][^c-ddb69e64]
+- `VLLM_RDNA2_PREFILL_DEBUG` still prints the chosen split.[^extras-a01f-prefill]
+- To bisect a config now, you have to edit `select_config` and rebuild; there is no runtime knob.[^c-ddb69e64]
 
 Companion: [kernels/quant/w4a16.md](../../kernels/quant/w4a16.md).
 
@@ -39,7 +50,7 @@ Dest: `opengfx1030/vllm-rdna` `rdna_extras` @ **`3a0786ea`**. Object: `csrc/rocm
 - Kernel walks K in `K_STEP`-wide chunks and does **not** clamp the last chunk to `k_per_split`. A split with `(size_k / split) % K_STEP != 0` over-reads the split’s LDS row / global K (NaN/garbage; e.g. `k=4352`, legacy `split=16` → `k_per_split=272` at ConfigV1).
 - **Keep** the pre-W4A8 powers-of-two search (`legacy`) whenever usable: `size_k % legacy == 0 && (size_k / legacy) % K_STEP == 0`.
 - **Else only:** enumerate every usable split `s ∈ [1..16]` with `size_k % s == 0 && (size_k / s) % K_STEP == 0`, then apply the same LDS-budget / grid-growth heuristics. `size_k % K_STEP == 0` at entry ⇒ `split=1` always usable.
-- Debug: `VLLM_RDNA2_PREFILL_DEBUG` prints chosen split; force override still `VLLM_RDNA2_PREFILL_FORCE_SPLIT_K`.
+- Debug: `VLLM_RDNA2_PREFILL_DEBUG` prints chosen split; the force override `VLLM_RDNA2_PREFILL_FORCE_SPLIT_K` was still there at `3a0786ea` (historical; deleted at `a01f2637`).
 
 ### Audit counts (grounded; no tok/s)
 From `bench_results/2026-09-29_w4a16-regression-audit/SUMMARY.md` + `split_table.txt` over 60 production shapes:
@@ -65,4 +76,6 @@ Primary sources for this page, cited inline as footnotes:
 [^commit-1046782]: opengfx1030/vllm-rdna commit `1046782fb8c4`. https://github.com/opengfx1030/vllm-rdna/commit/1046782fb8c4c3dde6607a98434d624c59fab015 (exists, verified via GitHub API 2026-10-11)
 [^extras-q-gemm-rdna2-prefill-cu]: `csrc/rocm/q_gemm_rdna2_prefill.cu`, opengfx1030/vllm-rdna rdna_extras at 1dc3bac4 (2026-10-11 tip); the page may describe an older commit named inline. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/q_gemm_rdna2_prefill.cu
 [^commit-3a0786ea]: opengfx1030/vllm-rdna commit `3a0786eaa70f`. https://github.com/opengfx1030/vllm-rdna/commit/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0 (exists, verified via GitHub API 2026-10-11)
-
+[^extras-a01f-prefill]: `csrc/rocm/q_gemm_rdna2_prefill.cu` L505-L563 (`VLLM_RDNA2_PREFILL_DEBUG` L509, `select_config` L517, `launch_dispatch` L537), dest at a01f2637. https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/csrc/rocm/q_gemm_rdna2_prefill.cu#L505-L563
+[^c-ddb69e64]: opengfx1030/vllm-rdna commit `ddb69e64` "cleanup(rocm): drop W4A16 prefill experiment hooks" (PR #104). https://github.com/opengfx1030/vllm-rdna/commit/ddb69e64f4941085dc2fb76bacd86096511c8fdf
+[^a01f-cmp]: opengfx1030/vllm-rdna compare `aff5c736`…`a01f2637` (PRs #100–#106, merged 2026-10-16, tip read 17:41 Paris): https://github.com/opengfx1030/vllm-rdna/compare/aff5c736688b7ed6206f63ea03b3b58477c591b1...a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a
