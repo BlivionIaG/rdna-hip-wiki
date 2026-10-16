@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-13
+updated: 2026-10-16
 sources:
   - https://github.com/ROCm/TheRock/issues/8729
   - https://github.com/Niko1221/Strata/pull/1123
@@ -15,6 +15,9 @@ sources:
   - https://github.com/openxla/xla/issues/50464
   - https://github.com/kijai/ComfyUI-WanVideoWrapper/issues/2053
   - https://github.com/ROCm/aotriton/issues/168
+  - https://github.com/pytorch/pytorch/issues/200999
+  - https://github.com/pytorch/pytorch/commit/fba88a5dd7c53d679cb82fd33cbe084c3d6b3f31
+  - https://github.com/ROCm/TheRock/issues/9066
 ---
 
 # Libraries
@@ -64,7 +67,7 @@ hipBLASLt is the Linux MIOpen GEMM backend in the gfx1030 triage above, and the 
 
 ### rocKE / hipDNN generic targets
 
-[rocm-libraries#13150](https://github.com/ROCm/rocm-libraries/pull/13150) (open) builds RDNA WMMA SDPA once as `gfx11-generic` (gfx1100, gfx1101, gfx1102, gfx1103, gfx1150, gfx1151, gfx1152, gfx1153) and `gfx12-generic` (gfx1200, gfx1201). The PR does not list gfx1030 or gfx900.[^ke13150] [rocm-libraries#13129](https://github.com/ROCm/rocm-libraries/pull/13129) (open) lets hipDNN kernel descriptors name those generic targets.[^dnn13129] A specific processor id still wins when the caller sets one; the PR says `base_arch_from_target_id()` is unchanged.[^ke13150]
+[rocm-libraries#13150](https://github.com/ROCm/rocm-libraries/pull/13150) (merged 2026-10-16 00:05 UTC; not yet in a TheRock pin as of this pass) builds RDNA WMMA SDPA once as `gfx11-generic` (gfx1100, gfx1101, gfx1102, gfx1103, gfx1150, gfx1151, gfx1152, gfx1153) and `gfx12-generic` (gfx1200, gfx1201). The PR does not list gfx1030 or gfx900.[^ke13150] [rocm-libraries#13129](https://github.com/ROCm/rocm-libraries/pull/13129) (open) lets hipDNN kernel descriptors name those generic targets.[^dnn13129] A specific processor id still wins when the caller sets one; the PR says `base_arch_from_target_id()` is unchanged.[^ke13150]
 
 ### Nightly rocBLAS xml wrapper
 
@@ -82,7 +85,13 @@ hipBLASLt is the Linux MIOpen GEMM backend in the gfx1030 triage above, and the 
 
 [ComfyUI-WanVideoWrapper#2053](https://github.com/kijai/ComfyUI-WanVideoWrapper/issues/2053) (open): on gfx1100 (RX 7900 XTX, torch 2.13.0), `F.scaled_dot_product_attention` with head_dim 384 still dispatches to AOTriton's fused kernels. With aotriton 0.13.x (the ROCm 10.0.0 stable wheel and 10.1/10.2 nightlies) the result is silently wrong: relative error about 1.1 against the MATH backend, all values finite, so NaN or Inf checks miss it. With aotriton 0.14.50 in the ROCm 10.1.0 stable wheel the call fails with `hipErrorProfilerNotInitialized`. head_dim 64, 128, 192 and 256 were correct on every build. The working guard routes head_dim > 256 to `SDPBackend.MATH`.[^wan2053] An AOTriton maintainer wrote in April that head_dim > 256 is disabled on purpose on all gfx11, because of LDS and register-file limits and Triton codegen trouble at `BLOCK_DMODEL=512`, and would be revisited later.[^aot168]
 
-For gfx1100 code that calls torch SDPA, add that guard for head_dim > 256 rather than trusting the dispatcher. Which SDPA backend gfx1030 gets at that size was not checked this pass (unsourced).
+[pytorch#200999](https://github.com/pytorch/pytorch/issues/200999) (closed 2026-10-15) reproduced the same silent error on an RX 7900 XT with plain `F.scaled_dot_product_attention`. A PyTorch maintainer wrote that mainline already has the fix, commit `fba88a5dd7c5` ("Cap SDPA head dim at 256 on gfx11xx for AOTriton 0.11 and later"), that 2.14.1 missed it, and that it will ship in PyTorch 2.15.[^pt200999][^ptfba88a5]
+
+For gfx1100 code that calls torch SDPA on 2.14.x or older, add that guard for head_dim > 256 rather than trusting the dispatcher. Which SDPA backend gfx1030 gets at that size was not checked this pass (unsourced).
+
+### PyTorch nightly wheels and gfx900
+
+[TheRock#9066](https://github.com/ROCm/TheRock/issues/9066) (open, filed 2026-10-16) says the multi-arch PyTorch nightly wheel builds fail, so no nightly wheels are produced. PyTorch commit `31a88272c8` (pytorch#200307, a CK-Tile group GEMM backend) compiles `ck_tile_group_gemm.hip` for every arch in `PYTORCH_ROCM_ARCH`, including gfx900, gfx906, gfx90c and gfx1010-1012, and CK-Tile's `get_compiler_target()` returns void for those.[^tr9066] This is a build break on the nightly line, not a 7.14.0 dest change. Anyone building PyTorch from source for gfx900 after that commit should expect the same failure until it is gated.
 
 ## Sources
 
@@ -99,4 +108,7 @@ For gfx1100 code that calls torch SDPA, add that guard for head_dim > 256 rather
 [^prim778]: rocPRIM#778, open. https://github.com/ROCm/rocPRIM/issues/778
 [^xla50464]: openxla/xla#50464, open. https://github.com/openxla/xla/issues/50464
 [^wan2053]: ComfyUI-WanVideoWrapper#2053, open, issue body and build table. https://github.com/kijai/ComfyUI-WanVideoWrapper/issues/2053
+[^pt200999]: pytorch#200999, closed 2026-10-15; `xinyazhang` and `naromero77amd` comments. https://github.com/pytorch/pytorch/issues/200999
+[^ptfba88a5]: pytorch commit `fba88a5dd7c5`, committed 2026-08-28 (#194280). https://github.com/pytorch/pytorch/commit/fba88a5dd7c53d679cb82fd33cbe084c3d6b3f31
+[^tr9066]: TheRock#9066, open. https://github.com/ROCm/TheRock/issues/9066
 [^aot168]: ROCm/aotriton#168, open, `xinyazhang` comments 2026-04-25 and 2026-04-28. https://github.com/ROCm/aotriton/issues/168

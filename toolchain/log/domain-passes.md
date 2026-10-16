@@ -353,3 +353,21 @@ Vs Oct 13 ~10:35. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per ho
 
 Artifact: `/workspace/rocm-rdna-domain-20261014-1040.md`.
 
+
+## 2026-10-16 ~10:45 — domain pass (hostcall flip and revert, mixed-arch hosts, WGP L0 race, three updates; not dest)
+
+Vs Oct 14 ~10:40 (the Oct 15 run failed). **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly 09:55 (TheRock `4d992b34d67c`).
+
+| Item | Verdict | Note |
+|---|---|---|
+| TheRock [#8259](https://github.com/ROCm/TheRock/pull/8259) / [#9021](https://github.com/ROCm/TheRock/pull/9021) / [#8833](https://github.com/ROCm/TheRock/pull/8833), [rocm-systems#11277](https://github.com/ROCm/rocm-systems/pull/11277) | **Take (runtime)** | New hostcall default on 10-02, reverted 10-15 (HSA, ROCgdb; 110X and gfx90a). `printf`/`assert` kernels need PCIe AtomicOps. In [runtime/](../runtime/README.md). |
+| [rocm-libraries#13639](https://github.com/ROCm/rocm-libraries/pull/13639), [rocm-systems#5792](https://github.com/ROCm/rocm-systems/pull/5792) | **Take (mixed-arch hosts)** | hipBLASLt loads one arch per process; `hipGetFuncBySymbol` fails on all devices if one lacks a code object. One process per arch. In [runtime/](../runtime/README.md). |
+| [pytorch#198208](https://github.com/pytorch/pytorch/pull/198208) / [triton#10906](https://github.com/triton-lang/triton/pull/10906) | **Take (compiler gotcha)** | WGP mode: acquire's `buffer_gl0_inv` on one lane leaves the other CU's L0 stale; silent split-scan errors on RDNA. Triton 3.9+. In [compiler/](../compiler/README.md). |
+| [rocm-systems#10639](https://github.com/ROCm/rocm-systems/pull/10639) | **Take (runtime gotcha, gfx11)** | Small pageable H2D `hipMemcpyAsync` can be dropped on gfx11 (64 B slots vs 128 B L2 lines). In [runtime/](../runtime/README.md). |
+| [pytorch#200608](https://github.com/pytorch/pytorch/issues/200608) / [#200774](https://github.com/pytorch/pytorch/pull/200774) | **Take (framework gotcha)** | `expandable_segments` on gfx1100 bare metal: silent corruption and page faults; fix PR open. In [runtime/](../runtime/README.md). |
+| Strata [#2729](https://github.com/Niko1221/Strata/issues/2729) | Take (data point) | `HSA_USERPTR_FOR_PAGED_MEM=0` removes the amdkfd hang but not reclaim pressure on a 31 GiB gfx1100 host. In [runtime/](../runtime/README.md). |
+| [pytorch#200999](https://github.com/pytorch/pytorch/issues/200999), rocm-systems [#11618](https://github.com/ROCm/rocm-systems/pull/11618) → [llvm#232066](https://github.com/llvm/llvm-project/pull/232066), rocm-libraries [#13150](https://github.com/ROCm/rocm-libraries/pull/13150) | update | SDPA hdim>256 fixed for PyTorch 2.15 (not 2.14.1); `__shfl_xor` fix moved upstream to LLVM; gfx11-generic SDPA merged. |
+| [TheRock#9066](https://github.com/ROCm/TheRock/issues/9066) | Take (gfx900 note) | PyTorch nightly wheels fail: CK-Tile group GEMM compiled for gfx900/906/90c/1010-1012. In [libraries/](../libraries/README.md). For GFX900_manager. |
+| [legacy-rocm-build#6685](https://github.com/ROCm/legacy-rocm-build/issues/6685), vLLM [#60658](https://github.com/vllm-project/vllm/pull/60658) / [#59628](https://github.com/vllm-project/vllm/pull/59628), Strata [#2457](https://github.com/Niko1221/Strata/issues/2457), [llama.cpp#27275](https://github.com/ggml-org/llama.cpp/issues/27275) | Leave | gfx1201-only wait-event penalty; engine-lane gfx11 tuning and IQ3_S regression; Fedora ROCm 7.1.1 comgr segfault closed stale (an 8× gfx1030 user on Ubuntu 7.2.1 did not see it). |
+
+Artifact: `/workspace/rocm-rdna-domain-20261016-1045.md`.
