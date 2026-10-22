@@ -111,7 +111,7 @@ Do not conflate W8A16 / W8A16-FP8 / W8A8-FP8 (`fdot2`) with spec W8A8 INT8 (`sdo
 | [linear-attn/flashkda.md](linear-attn/flashkda.md) | 128×128 `S` → `fdot2` | Later. Not extras; no CUTLASS/SM90 |
 | [linear-attn/causal-conv1d.md](linear-attn/causal-conv1d.md) | scalar fp32 FMA (depthwise FIR) | Live HIP (still default on at `1dc3bac4`). UPDATE wire order fixed at `1dc3bac4` (HIP before Triton) |
 | [linear-attn/gdn-decode.md](linear-attn/gdn-decode.md) | fp32 FMA + shfl K-reduce | Decode HIP Live (`69d2efe`); default on at `1dc3bac4` |
-| [linear-attn/gdn-prefill.md](linear-attn/gdn-prefill.md) | kkt scalar FMA; wy/delta_h/o `fdot2` | Prefill HIP opt-in at `1dc3bac4` (`VLLM_GDN_HIP_PREFILL=1`). o BV 32 / 45312 B at the tip (`77d6fdf8` BV 64 is historical). All `(2,4)` |
+| [linear-attn/gdn-prefill.md](linear-attn/gdn-prefill.md) | kkt `v_dot2c_f32_f16` (fp16-rounded beta*k); wy/delta_h/o `fdot2` | Prefill HIP **default on** at `30d6e82d` (`VLLM_GDN_HIP_PREFILL` default 1). delta_h `(4, 8)` = 2 WG/CU @ 37120 B LDS; o BV 64. *(`1dc3bac4`: opt-in, all `(2,4)`, o BV 32 — historical)* |
 
 ### AOT glue — [aot-glue/](aot-glue/README.md)
 
