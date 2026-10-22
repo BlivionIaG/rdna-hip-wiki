@@ -23,17 +23,37 @@ sources:
   - https://github.com/BlivionIaG/vllm/blob/5d2cf49f32486b53db4058d9532c82d8668361ae/csrc/rocm/gdn_prefill_delta_h_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/commit/5ce7d86eaf759c40d83de0973e9318e193ffe28a
   - https://github.com/opengfx1030/vllm-rdna/blob/aac1fcd6ce0b3ab66875d05d17c8087003524cda/tests/kernels/test_gdn_prefill_rdna2.py
+  - https://github.com/opengfx1030/vllm-rdna/compare/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a...30d6e82dcd6e649d0421c2c20fb6813454efbdb1
+  - https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/csrc/rocm/gdn_prefill_delta_h_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/csrc/rocm/gdn_prefill_kkt_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/csrc/rocm/gdn_prefill_o_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/tools/rdna/recipes/flashnext.env
+  - https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/vllm/envs.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/CMakeLists.txt
 ---
 # GDN chunked prefill — extras HIP (`aac1fcd6`)
 
-## Current state at dest `rdna_extras` @ `1dc3bac4` (checked 2026-10-11)
+## Current state at dest `rdna_extras` @ `30d6e82d` (checked 2026-10-22)
 
 | Item | State |
 |---|---|
-| Gate | `VLLM_GDN_HIP_PREFILL` is opt-in (default off); the flashnext recipes pin it to `0`. The default prefill is Triton/FLA.[^gdnp-tip-gate] |
-| Occupancy | All GDN kernels: `__launch_bounds__(N)` + `amdgpu_waves_per_eu(2, 4)`.[^gdnp-tip-k] |
+| Gate | `VLLM_GDN_HIP_PREFILL` now defaults **on** (`"1"`), and the flashnext recipe sets it to `1`. The HIP chain is the default prefill on RDNA2 when the ops are built.[^gdnp-30d6-gate] |
+| `delta_h` occupancy | `amdgpu_waves_per_eu(4, 8)`: 4 waves per SIMD32, 2 workgroups per CU, the most its 37120 B LDS footprint allows. `#pragma unroll 2` keeps it inside the 128-VGPR budget (source comment: 193 -> 113 VGPRs, no spill). 256 threads, `GDN_BV = 32`.[^gdnp-30d6-dh] |
+| `delta_h` LDS | Each chunk's k/w `[64,128]`, u `[64,32]` and g `[64]` are staged in LDS (64*128*2*2 + 64*32*2 + 64*4 = 37120 B). v-correction, gating and h-update are fused in one pass over t (source comment: the old `float v_corr[GDN_BT]` form hit 256 VGPRs with spills; the fused form needs 55).[^gdnp-30d6-dh] |
+| `kkt` precision | gfx1030 now matches the reference's `_CAST_DOT_TO_K_DTYPE = on_gfx1x() or on_gfx10x()` (True): `beta*k` is rounded to fp16, then an fp16 x fp16 dot with fp32 accumulate via inline `v_dot2c_f32_f16`. The earlier "kkt stays pure fp32 FMA, do NOT use V_DOT2" rule is wrong at this tip.[^gdnp-30d6-kkt] |
+| `kkt` LDS | Row stride padded to `KKT_KP = K + 2` (the source says this turns a 16-way column bank conflict into 2-way). Global loads are 16 B; LDS stores stay 16-bit because 16 B stores would bring the conflict back. Still `waves_per_eu(2, 4)`, `#pragma unroll 8`.[^gdnp-30d6-kkt] |
+| `o` | `GDN_BV = 64`, 256 threads, `waves_per_eu(2, 4)`. LDS rows padded to K+2 / BT+2 halves; `s_bA` (fp16) reuses `s_k`'s slot and must not alias `s_q`. Total LDS = 16640*3 + 8448 + 256 = 58624 B (computed from the constants).[^gdnp-30d6-o] |
+| `prep`, `solve_wy`, decode | `solve_wy` and `gdn_decode` keep `waves_per_eu(2, 4)`; `prep` now has only `__launch_bounds__(PREP_THREADS)`, no `waves_per_eu`.[^gdnp-30d6-dh] |
+
+## Historical: dest `rdna_extras` @ `1dc3bac4` (checked 2026-10-11, superseded at `30d6e82d`)
+
+| Item | State |
+|---|---|
+| Gate | *(historical @ `1dc3bac4`)* `VLLM_GDN_HIP_PREFILL` is opt-in (default off); the flashnext recipes pin it to `0`. The default prefill is Triton/FLA.[^gdnp-tip-gate] |
+| Occupancy | *(historical @ `1dc3bac4`; delta_h is `(4, 8)` at `30d6e82d`)* All GDN kernels: `__launch_bounds__(N)` + `amdgpu_waves_per_eu(2, 4)`.[^gdnp-tip-k] |
 | `delta_h` | **256 threads, `GDN_BV = 32`.** That is not the `e054854f`/`5d2cf49f` 128 / BV 16 values in the table below; those are BlivionIaG history.[^gdnp-tip-k] |
-| `o` | **`GDN_BV = 32`, LDS 45312 B.** That is not the `77d6fdf8` BV 64 / ~56 KB value below, which is historical.[^gdnp-tip-k] |
+| `o` | *(historical @ `1dc3bac4`; BV 64 at `30d6e82d`)* **`GDN_BV = 32`, LDS 45312 B.** That is not the `77d6fdf8` BV 64 / ~56 KB value below, which is historical.[^gdnp-tip-k] |
 
 
 `b53a7a2` landed the 5 kernels. Two later fixes make multi-chunk **correct**. `e054854f` is spill/LDS on **delta_h only**. `77d6fdf8` is o-kernel BV. `5d2cf49f` is delta_h unroll (not a tok/s close). `aac1fcd6` is the multi-chunk **correctness** close for delta_h indexing:[^c-b53a7a2][^c-e054854f][^c-77d6fdf8][^c-5d2cf49f][^c-aac1fcd6]
@@ -123,3 +143,8 @@ Tests only, no `csrc/rocm` change. `test_gdn_prefill_kkt_rdna2.py` is now skippe
 [^f-a01f-kkt-test]: `tests/kernels/quantization/test_gdn_prefill_kkt_rdna2.py` L32-L39 (module-level `pytest.skip`, "Recorded GPU hang ... aborts in hsa_signal_wait"), dest at a01f2637. https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/tests/kernels/quantization/test_gdn_prefill_kkt_rdna2.py#L32-L39
 [^f-a01f-chain-test]: `tests/kernels/test_gdn_prefill_rdna2.py` L39-L45 (`@pytest.mark.skip`, chain calls `gdn_prefill_kkt_rdna2`), dest at a01f2637. https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/tests/kernels/test_gdn_prefill_rdna2.py#L39-L45
 [^f-a01f-port-notes]: `docs/rdna2/v0.31.0-port-notes.md` L469-L476 (kkt hang pre-existing on 0.28; run in isolation; concurrent hang before host crash) and L540-L553 (failure table; opt-in `VLLM_GDN_HIP_PREFILL=1`, serving uses Triton FLA), dest at a01f2637. https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/docs/rdna2/v0.31.0-port-notes.md#L469-L553
+
+[^gdnp-30d6-gate]: `_gdn_prefill_dispatch_available()` reads `VLLM_GDN_HIP_PREFILL` with default `"1"` (`qwen_gdn_linear_attn.py` L300-L308); `tools/rdna/recipes/flashnext.env` L43 sets `VLLM_GDN_HIP_PREFILL=1`; dest at 30d6e82dcd6e649d0421c2c20fb6813454efbdb1. https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py#L300-L308 ; https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/tools/rdna/recipes/flashnext.env#L43
+[^gdnp-30d6-dh]: `csrc/rocm/gdn_prefill_delta_h_rdna2.cu` L46-L47 (BV 32, 256 thr), L67-L74 (`waves_per_eu(4, 8)` + comment), L100-L102 (37120 B LDS stage), L208-L214 (fused loop, VGPR comment), L222-L223 (`unroll 2`); `gdn_prefill_prep_rdna2.cu` L133, `gdn_prefill_solve_wy_rdna2.cu` L151-L152, `gdn_decode_rdna2.cu` L53-L54 and L323-L324; dest at 30d6e82dcd6e649d0421c2c20fb6813454efbdb1. https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/csrc/rocm/gdn_prefill_delta_h_rdna2.cu#L46-L223 ; https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/csrc/rocm/gdn_prefill_prep_rdna2.cu#L133 ; https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/csrc/rocm/gdn_prefill_solve_wy_rdna2.cu#L151-L152 ; https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/csrc/rocm/gdn_decode_rdna2.cu#L53-L54
+[^gdnp-30d6-kkt]: `csrc/rocm/gdn_prefill_kkt_rdna2.cu` L16-L36 (parity rule, 0.07 abs failure of the old fp32 form, `v_dot2c_f32_f16`), L50-L56 (`KKT_KP`), L78 (inline asm), L82-L83 (`waves_per_eu(2, 4)`), L167 (`unroll 8`); introduced by commit 34cc3c21 in the a01f2637...30d6e82d range; dest at 30d6e82dcd6e649d0421c2c20fb6813454efbdb1. https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/csrc/rocm/gdn_prefill_kkt_rdna2.cu#L16-L83
+[^gdnp-30d6-o]: `csrc/rocm/gdn_prefill_o_rdna2.cu` L53-L56 (BV 64, 256 thr), L69-L95 (padded strides, LDS byte constants, `s_bA` reuse rule), L213-L214 (`waves_per_eu(2, 4)`); dest at 30d6e82dcd6e649d0421c2c20fb6813454efbdb1. https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/csrc/rocm/gdn_prefill_o_rdna2.cu#L53-L214
