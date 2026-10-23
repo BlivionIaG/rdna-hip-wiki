@@ -12,7 +12,7 @@ sources:
   - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td
   - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp
   - https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/VOP3PInstructions.td
-  - https://github.com/ROCm/legacy-rocm-build/issues/6698
+  - https://github.com/ROCm/TheRock/issues/9306
   - https://github.com/ROCm/rocm-systems/issues/13234
   - https://github.com/ROCm/llvm-project/blob/amd-staging/amd/device-libs/ockl/src/cg.cl
   - https://github.com/opengfx1030/vllm-rdna/blob/e245a4697a139fe8d3bbec4b9c837c37279674e9/csrc/rocm/rdna_allreduce.cuh
@@ -161,7 +161,7 @@ Risks: LDS overflow vs #61325's K2 (68 KB);[^61325] spills (#61325 already spill
 [^61325]: vLLM PR [#61325](https://github.com/vllm-project/vllm/pull/61325) Qwen3.8-Flash-Next mono decode, MI355X TP2 (open).
 [^60731]: vLLM PR [#60731](https://github.com/vllm-project/vllm/pull/60731) DSv4.1 mono on gfx942, "Limits on gfx942".
 [^60397]: vLLM PR [#60397](https://github.com/vllm-project/vllm/pull/60397) DSv4.1 mono decode, MI355X (merged 2026-10-10 01:53 UTC).
-[^6698]: [ROCm/legacy-rocm-build#6698](https://github.com/ROCm/legacy-rocm-build/issues/6698) (open, read 2026-10-13).
+[^6698]: [ROCm/legacy-rocm-build#6698](https://github.com/ROCm/TheRock/issues/9306) (open, read 2026-10-13; moved to TheRock#9306, link updated 2026-10-23).
 [^13234]: [ROCm/rocm-systems#13234](https://github.com/ROCm/rocm-systems/issues/13234) (open, read 2026-10-13).
 [^60889]: vLLM PR [#60889](https://github.com/vllm-project/vllm/pull/60889) GLM-5.2 MonoKernel (open, empty description).
 [^ockl]: ROCm device-libs [ockl/src/cg.cl](https://github.com/ROCm/llvm-project/blob/amd-staging/amd/device-libs/ockl/src/cg.cl) `__ockl_grid_sync` (~L143–154, amd-staging, read 2026-10-13).
