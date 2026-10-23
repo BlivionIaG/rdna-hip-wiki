@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-16
+updated: 2026-10-23
 sources:
   - https://github.com/ROCm/rocm-systems/issues/10943
   - https://github.com/OpenNMT/CTranslate2/issues/2090
@@ -18,7 +18,9 @@ sources:
   - https://github.com/torvalds/linux/commit/b89d58b6595d79dc3fe75e213e1f4c5efd0251d4
   - https://github.com/ROCm/legacy-rocm-build/issues/6003
   - https://github.com/ROCm/rocm-systems/blob/2d8b4d61b89499019698982be71926a4f9c4907e/projects/rocr-runtime/libhsakmt/src/openclose.c
-  - https://github.com/ROCm/legacy-rocm-build/issues/6698
+  - https://github.com/ROCm/TheRock/issues/9306
+  - https://github.com/ROCm/TheRock/pull/9432
+  - https://github.com/ROCm/TheRock/pull/9440
   - https://github.com/Niko1221/Strata/issues/2245
   - https://github.com/Niko1221/Strata/issues/2305
   - https://github.com/ROCm/rocm-systems/blob/e6527207c5057d6d5c992203e7970b3170e581b7/projects/clr/rocclr/device/rocm/rocdevice.cpp
@@ -113,7 +115,7 @@ Stream priority changed between releases. In `therock-7.14.1` and `therock-10.0`
 
 ### gfx1030 cross-queue stall (V620)
 
-[legacy-rocm-build#6698](https://github.com/ROCm/legacy-rocm-build/issues/6698) (open, filed 2026-10-13) reports a silent hang on 2× Radeon Pro V620 (gfx1030, Linux 7.0 in-tree amdgpu, TheRock wheels 7.14.0a20260612 and 7.13.0a20260515). Two hardware queues hold valid pending AQL packets, the MEC pipes that own them are idle, no waves exist, and no error is raised anywhere; the process has to be killed. `amdgpu.cwsr_enable=0` did not help.[^q-6698] The workload is Strata's two-GPU layer split with an MTP drafter and two overlapped verify windows.[^q-2245]
+[TheRock#9306](https://github.com/ROCm/TheRock/issues/9306) (open, filed 2026-10-13 as legacy-rocm-build#6698, whose URL now redirects here; labelled `status: triage` and assigned to an AMD engineer, no AMD reply yet as of 2026-10-23) reports a silent hang on 2× Radeon Pro V620 (gfx1030, Linux 7.0 in-tree amdgpu, TheRock wheels 7.14.0a20260612 and 7.13.0a20260515). Two hardware queues hold valid pending AQL packets, the MEC pipes that own them are idle, no waves exist, and no error is raised anywhere; the process has to be killed. `amdgpu.cwsr_enable=0` did not help.[^q-6698] The workload is Strata's two-GPU layer split with an MTP drafter and two overlapped verify windows.[^q-2245]
 
 The reporter's 2026-10-13 update: `GPU_MAX_HW_QUEUES=2` avoided the stall in 116 of 116 requests, while 4 (default) and 6 stalled. 8 did not stall but decoded about 40% slower, and 16 about 95% slower. With 2 queues, the drafter stream and the stage-1 verify stream share one hardware queue, so their per-window event hand-off never crosses queues or pipes. The reporter reads the trigger as that cross-queue hand-off; AMD had not replied when we read it.[^q-6698] In the Strata thread, one specific drafter attention kernel (8 cells per step with DPP lane exchanges) made the hang near-certain, and every variant without it ran clean; the reporter calls it a timing trigger, not a math bug. A gfx1100 user on Windows reported the same hang where that kernel does not run.[^q-2245] A separate R9700 (gfx1201) report found the drafter fast or slow depending on the engine start, and `GPU_MAX_HW_QUEUES=2` made every start fast. That is a throughput effect, not a hang.[^q-2305]
 
@@ -128,6 +130,8 @@ clr reads the agent's CU count and halves it when WGP mode is on. `GPU_ENABLE_WG
 Device `printf` and `assert` reach the host through a hostcall buffer. The device side (ockl in device-libs) and the host side (clr) must speak the same protocol. TheRock [#8259](https://github.com/ROCm/TheRock/pull/8259) (merged 2026-10-02) turned the new hostcall implementation on by default by setting `THEROCK_USE_NEW_HOSTCALL_IMPL` to ON, which TheRock passes to both device-libs and clr; the old path stayed selectable with `=OFF`.[^tr8259] [#9021](https://github.com/ROCm/TheRock/pull/9021) (merged 2026-10-15 20:07 UTC) reverts it because it "breaks HSA and ROCGDB" (two internal P1 tickets). A reviewer wrote that it broke things on 110X and gfx90a, and that `rocgdb-gpu` tests were clean on 110X, gfx90a and gfx1151 with the revert.[^tr9021] A related TheRock PR, [#8833](https://github.com/ROCm/TheRock/pull/8833) (closed 2026-10-15 without merge), was about Triton wheels shipping an OCKL that did not match the SDK, so device-side hostcalls in Triton kernels hung.[^tr8833]
 
 Our reading, not checked against nightly contents: TheRock nightlies built between those two merges carry the new hostcall default. If device `printf`, `assert`, or rocgdb misbehaves on a gfx1100 box with such a nightly, that is the first suspect, not the kernel. The 7.14.0 dest predates #8259.
+
+[#9432](https://github.com/ROCm/TheRock/pull/9432) (merged 2026-10-22 22:31 UTC) relands it: it reverts #9021 and sets `THEROCK_USE_NEW_HOSTCALL_IMPL` back to ON for device-libs and clr. Its description says "Land this after 10.2 snaps" and does not say what fixed the HSA and ROCgdb breakage.[^tr9432] About two and a half hours earlier, [#9440](https://github.com/ROCm/TheRock/pull/9440) raised the main-branch version to 10.3.0.[^tr9440] Our reading: TheRock main nightlies from 2026-10-23 on carry the new hostcall again, and a 10.2 release cut from before #9432 would not. The same triage as above applies to those nightlies, and `-DTHEROCK_USE_NEW_HOSTCALL_IMPL=OFF` is the switch for a source build. The 7.14.0 dest is unaffected.
 
 [rocm-systems#11277](https://github.com/ROCm/rocm-systems/pull/11277) (open) covers a separate hostcall failure. A kernel whose metadata declares `hidden_hostcall_buffer` cannot be dispatched on a device without PCIe AtomicOps to the host, and today clr refuses at dispatch with `hipErrorIllegalState` and only a debug-level log line. The PR says any kernel that links `printf` or `assert` declares the buffer whether or not it runs a hostcall, and that RCCL 2.30.4 declares it on thirteen kernels; it cites RCCL reports on gfx1100 and gfx1201 that reach this failure. The PR names the refused kernel and adds an opt-in to proceed.[^clr11277] For our kernels: keep `printf` and `assert` out of release builds, so a host without PCIe atomics can still launch them. Whether the V620 host's PCIe path exposes AtomicOps was not checked here.
 
@@ -170,7 +174,7 @@ Until both land: build every binary for every arch in the box, and run one proce
 [^q-flags714]: clr `flags.hpp` at tag `therock-7.14.1`: `GPU_MAX_HW_QUEUES` 4, `DEBUG_HIP_IGNORE_STREAM_PRIORITY` false ("Ignore priority streams"); `therock-10.0` also false (read 2026-10-14). https://github.com/ROCm/rocm-systems/blob/therock-7.14.1/projects/clr/rocclr/utils/flags.hpp
 [^q-pool]: clr `rocdevice.cpp` at `e6527207`, `Device::getQueueFromPool` and `Device::acquireQueue` (reuse only at the limit; unshared first; mode 1+ load metric, mode 0 refCount). Same functions present at tag `therock-7.14`. https://github.com/ROCm/rocm-systems/blob/e6527207c5057d6d5c992203e7970b3170e581b7/projects/clr/rocclr/device/rocm/rocdevice.cpp
 [^q-8485]: rocm-systems#8485, "Disable Stream priorities in HIP to reflect KFD functionality", merged 2026-08-06. https://github.com/ROCm/rocm-systems/pull/8485
-[^q-6698]: legacy-rocm-build#6698, open, issue body and `metzenwest` comment 2026-10-13 22:04 UTC (`GPU_MAX_HW_QUEUES` table). https://github.com/ROCm/legacy-rocm-build/issues/6698
+[^q-6698]: TheRock#9306 (formerly legacy-rocm-build#6698), open, issue body and `metzenwest` comment 2026-10-13 22:04 UTC (`GPU_MAX_HW_QUEUES` table); labels and assignee read 2026-10-23. https://github.com/ROCm/TheRock/issues/9306
 [^q-2245]: Strata#2245, open, issue body (bisect to 6126f8d, kernel variant table) `bcrawford-cpm` comment 2026-10-13 16:17 UTC (gfx1100), and `metzenwest` comment 2026-10-13 17:46 UTC. https://github.com/Niko1221/Strata/issues/2245
 [^q-2305]: Strata#2305, open (R9700 gfx1201, `GPU_MAX_HW_QUEUES` table). https://github.com/Niko1221/Strata/issues/2305
 [^q-wgp]: clr `rocdevice.cpp` at `e6527207` (`maxComputeUnits_ / 2` when `enableWgpMode_`) and `rocsettings.cpp` at `1ec2a772` (WGP mode for gfx10+, off for gfx1250+). https://github.com/ROCm/rocm-systems/blob/1ec2a772e4febc55079ad51ddb2398cf4e4ed230/projects/clr/rocclr/device/rocm/rocsettings.cpp
@@ -182,6 +186,8 @@ Until both land: build every binary for every arch in the box, and run one proce
 [^tr8259]: TheRock#8259, merged 2026-10-02 20:22 UTC. https://github.com/ROCm/TheRock/pull/8259
 [^tr9021]: TheRock#9021, merged 2026-10-15 20:07 UTC; description, and `lumachad` comments 2026-10-15 07:42 and 15:03 UTC. https://github.com/ROCm/TheRock/pull/9021
 [^tr8833]: TheRock#8833, "Fix Triton hostcalls by packaging SDK-matched OCKL", closed 2026-10-15 without merge. https://github.com/ROCm/TheRock/pull/8833
+[^tr9432]: TheRock#9432, "feat(hostcall): Reland: enable the new hostcall implementation by default", merged 2026-10-22 22:31 UTC; description read 2026-10-23. https://github.com/ROCm/TheRock/pull/9432
+[^tr9440]: TheRock#9440, "Raise version to 10.3.0", merged 2026-10-22 20:02 UTC. https://github.com/ROCm/TheRock/pull/9440
 [^clr11277]: rocm-systems#11277, open. https://github.com/ROCm/rocm-systems/pull/11277
 [^lt13639]: rocm-libraries#13639, open, "fix(hipblaslt): load kernels per GPU architecture on mixed-architecture systems". https://github.com/ROCm/rocm-libraries/pull/13639
 [^clr5792]: rocm-systems#5792, open, "[clr] Fix hipGetFuncBySymbol failure in heterogeneous multi-GPU systems". https://github.com/ROCm/rocm-systems/pull/5792

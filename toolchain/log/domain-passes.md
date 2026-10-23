@@ -371,3 +371,20 @@ Vs Oct 14 ~10:40 (the Oct 15 run failed). **No dest/pin lever.** Live dest stays
 | [legacy-rocm-build#6685](https://github.com/ROCm/legacy-rocm-build/issues/6685), vLLM [#60658](https://github.com/vllm-project/vllm/pull/60658) / [#59628](https://github.com/vllm-project/vllm/pull/59628), Strata [#2457](https://github.com/Niko1221/Strata/issues/2457), [llama.cpp#27275](https://github.com/ggml-org/llama.cpp/issues/27275) | Leave | gfx1201-only wait-event penalty; engine-lane gfx11 tuning and IQ3_S regression; Fedora ROCm 7.1.1 comgr segfault closed stale (an 8× gfx1030 user on Ubuntu 7.2.1 did not see it). |
 
 Artifact: `/workspace/rocm-rdna-domain-20261016-1045.md`.
+
+## 2026-10-23 ~10:30 — domain pass (hostcall reland, V620 queue-stall issue moved, `-g` codegen; not dest)
+
+Vs Oct 16 ~10:45 (the Oct 19-22 runs did not complete). **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly 09:56 (TheRock `eaf8a96175b9`, main version 10.3.0).
+
+| Item | Verdict | Note |
+|---|---|---|
+| TheRock [#9432](https://github.com/ROCm/TheRock/pull/9432), [#9440](https://github.com/ROCm/TheRock/pull/9440) | **Take (runtime)** | New hostcall default relanded 2026-10-22 22:31 UTC on main ("after 10.2 snaps"); no stated fix for the HSA/ROCgdb breakage. In [runtime/](../runtime/README.md). |
+| [TheRock#9306](https://github.com/ROCm/TheRock/issues/9306) | **Take (link fix)** | The 2× V620 queue-stall report (was legacy-rocm-build#6698) now lives in TheRock, `status: triage`, AMD assignee, no reply. Links updated in [runtime/](../runtime/README.md) and the MonoKernel plan. |
+| [TheRock#9294](https://github.com/ROCm/TheRock/issues/9294) | **Take (compiler gotcha)** | `-g` changes codegen (AMD LLVM dev confirms); gfx1100 kernel crashes only with `-g`. In [compiler/](../compiler/README.md). |
+| [vLLM#62697](https://github.com/vllm-project/vllm/issues/62697) | Leave (engine lane, heads-up) | `ROCM_ATTN` Triton fallback gives wrong output or faults on RDNA for head ≥ 96 with block ≠ 16 and MHA head 192/256 (gfx1201 repro). For LLM_Inference_specialist / VLLM_FORK_Manager. |
+| [triton#12348](https://github.com/triton-lang/triton/issues/12348) | Watch | `acc -= tl.sum(...)` in a loop adds instead (`OptimizeThreadLocality`); NVIDIA repro, AMD pipeline not checked. |
+| [TheRock#6771](https://github.com/ROCm/TheRock/issues/6771) → [rocm-libraries#12363](https://github.com/ROCm/rocm-libraries/pull/12363) | Leave (gfx1100 hipBLASLt) | TensileLite gfx11 occupancy model fix merged 2026-10-22. |
+| [rocm-libraries#14141](https://github.com/ROCm/rocm-libraries/issues/14141), [rocm-systems#14022](https://github.com/ROCm/rocm-systems/issues/14022) / [#13795](https://github.com/ROCm/rocm-systems/issues/13795), [pytorch#193668](https://github.com/pytorch/pytorch/issues/193668) | Watch | hipBLASLt gfx1101 slower than rocBLAS; rocjitsu wave32 liveness and RDNA target qualification; gfx1031 HIP-graph teardown crash (needs repro, `HSA_OVERRIDE_GFX_VERSION`). |
+| [TheRock#9260](https://github.com/ROCm/TheRock/issues/9260), [TheRock#9291](https://github.com/ROCm/TheRock/issues/9291) | Leave | gfx1100 address-zero SQC fault closed unreproduced; gfx1030 comgr segfault on ROCm 7.1 (same family as legacy-rocm-build#6685). |
+
+Artifact: `/workspace/rocm-rdna-domain-20261023-1030.md`.
