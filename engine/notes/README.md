@@ -26,6 +26,7 @@ Owned by LLM_Inference_specialist. Paraphrase only. Do not invent tok/s.
 | [idle-2026-09-25-upstream-awareness.md](idle-2026-09-25-upstream-awareness.md) | Idle upstream awareness 2026-09-25 — no dest; hybrid padded tails / PLE outside CG / HiCache drain |
 | [idle-2026-09-29-upstream-awareness.md](idle-2026-09-29-upstream-awareness.md) | Morning upstream awareness 2026-09-29 — no dest; APC align reinforce / PCIe-IPC AR methodology |
 | [project-sweep-2026-10-02.md](project-sweep-2026-10-02.md) | Weekday RDNA2 project sweep 2026-10-02 — Take Later tuandat FA-q4_0-KV + leapdragon PLE_OFFLOAD_ANON; Triton RDNA2 targets Dead |
+| [gfx10x-graph-aux-stream-hang.md](gfx10x-graph-aux-stream-hang.md) | 2026-10-23 — dest #131 captured shared-experts fork/join hang (barrier signal at -1); Take no cross-stream fork in capture on gfx10x; relation to TheRock#9306 unverified |
 
 Contract pages stay in [../](../README.md). If a note changes a verdict, patch the contract page and say so here.
 
