@@ -14,6 +14,7 @@ Up: [silicon/](../README.md)
 | [flydsl-dot-atoms.md](flydsl-dot-atoms.md) | FlyDSL gfx1030 feasibility; formal `fdot2`/`sdot4` atoms and proof gates |
 | [petit-kernel.md](petit-kernel.md) | causalflow petit FP4: Take shuffle/LDS/denorm caveats; Leave MFMA/CDNA |
 | [wafer-gpu-perf.md](wafer-gpu-perf.md) | wafer-ai list: ISA is 70648 + valu, not their MI350/CDNA4 |
+| [hipkittens-patterns.md](hipkittens-patterns.md) | HipKittens patterns on wave32 `fdot2`: Take register double-buffer + cheap addressing (Live in EXL3 v3); Later sched hints / 4-wave / prefill LDS DMA; Leave ping-pong, wave-spec, AGPR, XCD |
 
 ## Sources
 
