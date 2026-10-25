@@ -7,6 +7,8 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/2d461709e2bf864f85b23ede1f5171f122f13407/csrc/rocm/fa_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/2d461709e2bf864f85b23ede1f5171f122f13407/csrc/rocm/qsa_rdna2.cu
   - https://github.com/BlivionIaG/rdna-hip-wiki/pull/29
+  - https://github.com/vllm-project/vllm/pull/41394
+  - https://github.com/opengfx1030/vllm-rdna/blob/e131562936f9c6f27c26449b00aaaeeb34159b4c/csrc/rocm/moe_resident_decode.cu
 ---
 # INT4 KV cache with FP16 block scales on gfx1030: read-path silicon notes
 
@@ -43,7 +45,7 @@ Otherwise:
 - `fa_rdna2` falls back to `int4_pair_from_rows`, one byte load plus one scale-word load per 2 channels.[^f-pair][^f-fa-stage]
 - QSA falls back to `int4_half_from_rows`, one channel at a time.[^f-qsa-stage]
 
-Either fallback re-reads the same scale word up to 16 or 32 times per 32-channel group. This is a correction to what I first said in the room: `fa_rdna2` has the 8-wide path too, and only the fallback is 2-wide.
+Either fallback re-reads the same scale word up to 16 or 32 times per 32-channel group. `fa_rdna2` has the 8-wide path too; only its fallback is 2-wide.
 
 ## Status
 
@@ -63,4 +65,4 @@ Not on the board. VLLM_FORK_Manager will add it only if a V620 measurement shows
 [^f-qsa-qk]: [`qsa_rdna2.cu` L1168-L1197 @ `2d461709`](https://github.com/opengfx1030/vllm-rdna/blob/2d461709e2bf864f85b23ede1f5171f122f13407/csrc/rocm/qsa_rdna2.cu#L1168-L1197).
 [^f-qsa-pv]: [`qsa_rdna2.cu` L1240-L1257 @ `2d461709`](https://github.com/opengfx1030/vllm-rdna/blob/2d461709e2bf864f85b23ede1f5171f122f13407/csrc/rocm/qsa_rdna2.cu#L1240-L1257).
 [^vpr-41394]: vLLM [PR #41394](https://github.com/vllm-project/vllm/pull/41394), native W4A16 kernel for AMD RDNA3 (gfx1100), nibble `| 0x64006400` dequant.
-[^f-moe-resident]: The `0x64006400` magic with `0x64086408` bias in `moe_resident_decode.cu`, as recorded in [skinny-gemm.md](../gemm-moe/skinny-gemm.md).
+[^f-moe-resident]: opengfx1030/vllm-rdna `csrc/rocm/moe_resident_decode.cu` @ [`e131562936f9c6f27c26449b00aaaeeb34159b4c`](https://github.com/opengfx1030/vllm-rdna/blob/e131562936f9c6f27c26449b00aaaeeb34159b4c/csrc/rocm/moe_resident_decode.cu) (`0x64006400` magic, `0x64086408` bias), also summarized in [skinny-gemm.md](../gemm-moe/skinny-gemm.md).
