@@ -1,7 +1,11 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-23
+updated: 2026-10-26
 sources:
+  - https://github.com/ROCm/TheRock/issues/9484
+  - https://github.com/ROCm/TheRock/issues/9141
+  - https://github.com/ROCm/TheRock/issues/9475
+  - https://github.com/ROCm/rocm-systems/issues/14234
   - https://github.com/ROCm/rocm-systems/issues/10943
   - https://github.com/OpenNMT/CTranslate2/issues/2090
   - https://github.com/ROCm/rocm-systems/issues/9820
@@ -121,6 +125,12 @@ The reporter's 2026-10-13 update: `GPU_MAX_HW_QUEUES=2` avoided the stall in 116
 
 For our HIP code: if two streams hand work back and forth through events every step, assume their queue placement can differ from run to run. When a multi-stream engine on gfx1030 hangs with an idle GPU and no fault, try `GPU_MAX_HW_QUEUES=2` before blaming a kernel, then measure decode against the default. Putting both stages on one stream does not depend on clr's mapping. No 7.14.0 pin change.
 
+### gfx1100 idle power with a pending barrier (MES)
+
+[TheRock#9484](https://github.com/ROCm/TheRock/issues/9484) (open, filed 2026-10-26 01:39 UTC, no AMD reply yet) reports that on an RX 7900 XTX (gfx1100, MES firmware 0x80), a single HSA queue holding one unsatisfied AQL `BARRIER_AND` packet raises idle board power from 9–10 W to 92–94 W at 100% GFX activity, with no compute wave resident. Drained queues idle normally. The reporter reproduced it on ROCm 7.2.4, 7.14 and 10.1, and says `sched_policy=2` and the August gfx11 MES timer correction did not fix it.[^q-9484] The reporter links it to [TheRock#9141](https://github.com/ROCm/TheRock/issues/9141), an older 100%-utilisation report where an AMD contributor reproduced stuck 100% GPU use on gfx1100 with three or more llama.cpp instances and suggested `GPU_MAX_HW_QUEUES=1` as a partial workaround.[^q-9141]
+
+Our reading, not tested here: a HIP stream that waits on an event that is not yet recorded (`hipStreamWaitEvent` ahead of the producer) leaves exactly this kind of barrier packet in the queue, so a server that parks streams on cross-stream events between requests may burn power on gfx1100 while idle. Check board power on the W7800 and 7900 XTX boxes with an idle engine before treating it as a load problem. No gfx1030 report so far. No 7.14.0 pin change.
+
 ### `multiProcessorCount` counts WGPs on RDNA
 
 clr reads the agent's CU count and halves it when WGP mode is on. `GPU_ENABLE_WGP_MODE` defaults to `true`, and WGP mode is used on every gfx10+ target except gfx1250 and later.[^q-wgp][^q-flags] So `hipDeviceProp_t.multiProcessorCount` and `hipDeviceAttributeMultiprocessorCount` return the WGP count. [legacy-rocm-build#6407](https://github.com/ROCm/legacy-rocm-build/issues/6407) (open, docs) reports `16` on an RX 7600 with 32 CUs.[^q-6407] Our arithmetic from the code: a 72-CU V620 reports 36. A grid sized "one block per CU" from this value gets half the CUs. Size persistent or resident grids from the CU count (`rocminfo`, or 2× this value in WGP mode), and say which one a kernel note uses.
@@ -132,6 +142,8 @@ Device `printf` and `assert` reach the host through a hostcall buffer. The devic
 Our reading, not checked against nightly contents: TheRock nightlies built between those two merges carry the new hostcall default. If device `printf`, `assert`, or rocgdb misbehaves on a gfx1100 box with such a nightly, that is the first suspect, not the kernel. The 7.14.0 dest predates #8259.
 
 [#9432](https://github.com/ROCm/TheRock/pull/9432) (merged 2026-10-22 22:31 UTC) relands it: it reverts #9021 and sets `THEROCK_USE_NEW_HOSTCALL_IMPL` back to ON for device-libs and clr. Its description says "Land this after 10.2 snaps" and does not say what fixed the HSA and ROCgdb breakage.[^tr9432] About two and a half hours earlier, [#9440](https://github.com/ROCm/TheRock/pull/9440) raised the main-branch version to 10.3.0.[^tr9440] Our reading: TheRock main nightlies from 2026-10-23 on carry the new hostcall again, and a 10.2 release cut from before #9432 would not. The same triage as above applies to those nightlies, and `-DTHEROCK_USE_NEW_HOSTCALL_IMPL=OFF` is the switch for a source build. The 7.14.0 dest is unaffected.
+
+[TheRock#9475](https://github.com/ROCm/TheRock/issues/9475) (open, filed 2026-10-25) is a Windows report on an RX 6800 (gfx1030, TheRock `rocm-sdk` 10.1.0 wheels): each hostcall takes seconds because the device's mailbox interrupt never seems to reach the host listener, which only wakes on its 4–16 s timeout under the default `USE_NEW_HOSTCALL_IMPL=OFF` in that build. One `printf` per thread takes 12–16 s; two per thread get the kernel killed after about 20 s, `hipDeviceSynchronize` still returns success, and the next `hipMemcpy` fails with `hipErrorLaunchFailure`. Building with `-mprintf-kind=buffered` avoids it.[^hc9475] It is Windows-only so far; on Linux gfx1030 this page has no such report. `-mprintf-kind=buffered` is also the low-risk choice for debug builds of our own kernels.
 
 [rocm-systems#11277](https://github.com/ROCm/rocm-systems/pull/11277) (open) covers a separate hostcall failure. A kernel whose metadata declares `hidden_hostcall_buffer` cannot be dispatched on a device without PCIe AtomicOps to the host, and today clr refuses at dispatch with `hipErrorIllegalState` and only a debug-level log line. The PR says any kernel that links `printf` or `assert` declares the buffer whether or not it runs a hostcall, and that RCCL 2.30.4 declares it on thirteen kernels; it cites RCCL reports on gfx1100 and gfx1201 that reach this failure. The PR names the refused kernel and adds an opt-in to proceed.[^clr11277] For our kernels: keep `printf` and `assert` out of release builds, so a host without PCIe atomics can still launch them. Whether the V620 host's PCIe path exposes AtomicOps was not checked here.
 
@@ -149,6 +161,8 @@ Until both land: build every binary for every arch in the box, and run one proce
 [rocm-systems#12638](https://github.com/ROCm/rocm-systems/issues/12638) (open) reports that on Core SDK **10.0.0**, a retained fork/join graph whose root segment holds only empty nodes can hang on first replay. `GraphExecSegmented::BuildSyncPlan()` allocates a completion signal for that segment and never attaches a producer, so the successor's barrier waits. The issue names released source commit `6b0e43f341195e203754e08f850e437ff2fc09f9` (`therock-10.0`).[^graph12638] The 7.14.0 release notes are dated 2026-07-15, before that 10.0.0 report.[^rn7140] Check this before any 10.x move if a capture uses empty join roots. No 7.14.0 pin change.
 
 [rocm-systems#13234](https://github.com/ROCm/rocm-systems/issues/13234) (open, filed 2026-10-10) reports that `hipGraphLaunch` never returns when one graph segment holds at least `2 * ROC_AQL_QUEUE_SIZE` AQL packets: the host spins at 100% CPU and the GPU sits idle. The issue traces it to `VirtualGPU::ReserveAqlSlots` in clr publishing the whole packet count before writing bodies, with no cap at the ring size. With a 16384-slot ring, 32767 launches completed and 32768 hung; the report notes that a batch just above one ring passes. Reproduced on gfx1151 with ROCm 7.2.1 and 10.0.0.[^graph13234] The code it names is in clr's ROCm device path, not arch-specific code, but this page has no gfx1030 or gfx1100 repro. Keep captured decode graphs well under two rings per segment, or raise `ROC_AQL_QUEUE_SIZE`.
+
+[rocm-systems#14234](https://github.com/ROCm/rocm-systems/issues/14234) (open, filed 2026-10-26) reports a SIGSEGV inside `libamdhip64` 7.2.4 (`hip-runtime-amd 7.2.53211.70204`) on an RX 7900 XTX (gfx1100): an internal kernarg arena allocator returns NULL and the caller writes to address 0 with no check. The backtrace runs through llama.cpp's CUDA-graph capture path during MTP speculative decoding. The reporter's core analysis shows the arena alive with a fresh, never-used 4 MiB chunk and a zero cursor, and does not name a root cause.[^graph14234] Watch it if a captured decode graph crashes in `libamdhip64` with a NULL destination; it is not reported on 7.14.0.
 
 ## Sources
 
@@ -191,3 +205,7 @@ Until both land: build every binary for every arch in the box, and run one proce
 [^clr11277]: rocm-systems#11277, open. https://github.com/ROCm/rocm-systems/pull/11277
 [^lt13639]: rocm-libraries#13639, open, "fix(hipblaslt): load kernels per GPU architecture on mixed-architecture systems". https://github.com/ROCm/rocm-libraries/pull/13639
 [^clr5792]: rocm-systems#5792, open, "[clr] Fix hipGetFuncBySymbol failure in heterogeneous multi-GPU systems". https://github.com/ROCm/rocm-systems/pull/5792
+[^q-9484]: TheRock#9484, "[gfx1100][MES] Pending AQL BARRIER_AND forces 100% GFX / ~95W idle power on RX 7900 XTX", open, read 2026-10-26. https://github.com/ROCm/TheRock/issues/9484
+[^q-9141]: TheRock#9141, "100% GPU usage for multiple models with pipeline parallel", open; comments by zichguan-amd 2025-08-14 to 2025-12-10. https://github.com/ROCm/TheRock/issues/9141
+[^hc9475]: TheRock#9475, "gfx1030 on Windows: each hostcall takes seconds, so a kernel calling printf twice times out", open, read 2026-10-26. https://github.com/ROCm/TheRock/issues/9475
+[^graph14234]: rocm-systems#14234, open, read 2026-10-26 with two reporter follow-ups. https://github.com/ROCm/rocm-systems/issues/14234
