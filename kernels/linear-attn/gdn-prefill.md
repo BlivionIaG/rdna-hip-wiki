@@ -31,10 +31,20 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/tools/rdna/recipes/flashnext.env
   - https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/vllm/envs.py
   - https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/CMakeLists.txt
+  - https://github.com/opengfx1030/vllm-rdna/compare/005db0325d5bfdff3fc7f8a7843893a48158f5bd...8015ea485b7f6c0298d8f98ce6e824ce1c444c45
+  - https://github.com/opengfx1030/vllm-rdna/blob/8015ea485b7f6c0298d8f98ce6e824ce1c444c45/csrc/rocm/gdn_prefill_delta_h_rdna2.cu
 ---
 # GDN chunked prefill — extras HIP (`aac1fcd6`)
 
-## Current state at dest `rdna_extras` @ `30d6e82d` (checked 2026-10-22)
+## Update at dest `rdna_extras` @ `8015ea48` (checked 2026-10-26)
+
+| Item | State |
+|---|---|
+| `delta_h` SSM state dtype | `gdn_prefill_delta_h_packed_kernel` is now templated on the state dtype `ST` (`float` or `__half`). The `h0` (initial state) and `ht` (final state) slots may be fp32 (default cache) or fp16 (`--mamba-ssm-cache-dtype float16`). Only the `h0` load (`__half2float`) and the final-state store (`__float2half_rn`, round-to-nearest-even) convert; the recurrence still runs in fp32 registers (`hreg[16]`). This mirrors `gdn_decode_rdna2.cu`, which the source says already accepted an fp16 state.[^gdnp-8015-st] |
+| Host contract | The wrapper accepts fp32 or fp16 for each slot, but when both are passed they must have the same dtype (`TORCH_CHECK`). The launch picks the `__half` instantiation from `initial_state` (else `final_state`, else fp32), and now ends with `C10_CUDA_KERNEL_LAUNCH_CHECK()`.[^gdnp-8015-st] |
+| Occupancy / LDS | Unchanged from `30d6e82d`: `__launch_bounds__(GDN_THREADS)` + `amdgpu_waves_per_eu(4, 8)`, same `kSmem` expression (37120 B). The fp16 state only changes the `h0`/`ht` global traffic, not LDS or the VGPR-resident recurrence.[^gdnp-8015-st] |
+
+## State at dest `rdna_extras` @ `30d6e82d` (checked 2026-10-22; still current except the state-dtype rows above)
 
 | Item | State |
 |---|---|
@@ -148,3 +158,4 @@ Tests only, no `csrc/rocm` change. `test_gdn_prefill_kkt_rdna2.py` is now skippe
 [^gdnp-30d6-dh]: `csrc/rocm/gdn_prefill_delta_h_rdna2.cu` L46-L47 (BV 32, 256 thr), L67-L74 (`waves_per_eu(4, 8)` + comment), L100-L102 (37120 B LDS stage), L208-L214 (fused loop, VGPR comment), L222-L223 (`unroll 2`); `gdn_prefill_prep_rdna2.cu` L133, `gdn_prefill_solve_wy_rdna2.cu` L151-L152, `gdn_decode_rdna2.cu` L53-L54 and L323-L324; dest at 30d6e82dcd6e649d0421c2c20fb6813454efbdb1. https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/csrc/rocm/gdn_prefill_delta_h_rdna2.cu#L46-L223 ; https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/csrc/rocm/gdn_prefill_prep_rdna2.cu#L133 ; https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/csrc/rocm/gdn_prefill_solve_wy_rdna2.cu#L151-L152 ; https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/csrc/rocm/gdn_decode_rdna2.cu#L53-L54
 [^gdnp-30d6-kkt]: `csrc/rocm/gdn_prefill_kkt_rdna2.cu` L16-L36 (parity rule, 0.07 abs failure of the old fp32 form, `v_dot2c_f32_f16`), L50-L56 (`KKT_KP`), L78 (inline asm), L82-L83 (`waves_per_eu(2, 4)`), L167 (`unroll 8`); introduced by commit 34cc3c21 in the a01f2637...30d6e82d range; dest at 30d6e82dcd6e649d0421c2c20fb6813454efbdb1. https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/csrc/rocm/gdn_prefill_kkt_rdna2.cu#L16-L83
 [^gdnp-30d6-o]: `csrc/rocm/gdn_prefill_o_rdna2.cu` L53-L56 (BV 64, 256 thr), L69-L95 (padded strides, LDS byte constants, `s_bA` reuse rule), L213-L214 (`waves_per_eu(2, 4)`); dest at 30d6e82dcd6e649d0421c2c20fb6813454efbdb1. https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/csrc/rocm/gdn_prefill_o_rdna2.cu#L53-L214
+[^gdnp-8015-st]: `csrc/rocm/gdn_prefill_delta_h_rdna2.cu` L61-L77 (state dtype conversions), L95-L97 (`template <typename ST>`, `__launch_bounds__`, `waves_per_eu(4, 8)`), L164 (`h0` load), L328 (final-state store), L396-L423 (dtype checks), L442-L473 (`kSmem`, dtype dispatch, launch check); landed by commit 8303cd26 via PR #140; dest at 8015ea485b7f6c0298d8f98ce6e824ce1c444c45. https://github.com/opengfx1030/vllm-rdna/blob/8015ea485b7f6c0298d8f98ce6e824ce1c444c45/csrc/rocm/gdn_prefill_delta_h_rdna2.cu#L61-L473 ; https://github.com/opengfx1030/vllm-rdna/compare/005db0325d5bfdff3fc7f8a7843893a48158f5bd...8015ea485b7f6c0298d8f98ce6e824ce1c444c45
