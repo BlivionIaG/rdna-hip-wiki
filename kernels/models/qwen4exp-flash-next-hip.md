@@ -47,8 +47,20 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/50120e13b46895fc5d074e88fc493f1eef69da9f/csrc/rocm/mrope_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/c6d99ca30580f0ce6a97a168fa53bf9c6ee6b2af/csrc/rocm/layernorm.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/50120e13b46895fc5d074e88fc493f1eef69da9f/CMakeLists.txt
+  - https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/qsa_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/ops/qsa.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/ops/qsa_rdna2.py
 ---
 # Qwen3.8-Flash-Next / Qwen4Exp HIP — tip `8960a3bc`
+
+## Update at dest `rdna_extras` @ `b7402893` (checked 2026-10-29)
+
+| Item | State at `b7402893` |
+|---|---|
+| `qsa_expand_indices_kernel` canonical order | New `canonical_order` argument. When set, the kernel loads the row's selected block IDs (padding = `INT_MAX`) into a static `__shared__ int ordered[512]` (2048 B) and bitonic-sorts them (`width` 2..512, `__syncthreads()` per pass) before expanding; the radix top-k returns an unordered set from atomic append positions, so sorting only the ≤ 512 selected IDs makes identical inputs reach attention in identical reduction order. Invalid blocks now expand to token −1.[^qsa-b740-k] |
+| Launch / occupancy | Still 256 threads per block (`kColumnBlock`), grid (rows, column blocks), no `__launch_bounds__`. The 2 KiB `ordered` array is declared at kernel scope, so it is static LDS on every launch of this kernel, sorted or not.[^qsa-b740-k][^qsa-b740-host] |
+| Gate | The host requires `1 ≤ block_topk ≤ 512` when `canonical_order` is set; the Python caller sets it when `qsa_use_rdna2()` (the fp16 HIP QSA decode path) is on and `0 < block_topk ≤ 512`.[^qsa-b740-host][^qsa-b740-py] |
+| MonoKernel | K2 offload stages and the GDN FP32 norm fix: [../persistent/monokernel-gfx1030-dest.md](../persistent/monokernel-gfx1030-dest.md).[^qsa-b740-cmp] |
 
 ## Current state at dest `rdna_extras` @ `1dc3bac4` (checked 2026-10-11)
 
@@ -220,3 +232,7 @@ FA prefill leftover still first (`__launch_bounds__(*, 1)`). ticket-26 EXL3 `-cb
 [^q4-tip-hcprefill]: `csrc/rocm/hc_prefill_rdna2.cu` (header L1-L20; kernels L66, L250 `__launch_bounds__(TY * 16)`) and binding `rdna_hc_mix_prefill` at `csrc/rocm/torch_bindings.cpp` L85-L87, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/hc_prefill_rdna2.cu ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/torch_bindings.cpp#L85-L87
 [^c-ddb69e64]: opengfx1030/vllm-rdna commit `ddb69e64` "cleanup(rocm): drop W4A16 prefill experiment hooks" (PR #104). https://github.com/opengfx1030/vllm-rdna/commit/ddb69e64f4941085dc2fb76bacd86096511c8fdf
 [^f-a01f-hcprefill]: `csrc/rocm/hc_prefill_rdna2.cu` `dispatch_up_mix` tile select L380 and `launch_down` split L402-L403, dest at a01f2637. https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/csrc/rocm/hc_prefill_rdna2.cu#L376-L404
+[^qsa-b740-k]: [qsa_rdna2.cu:703–750, 783–790](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/qsa_rdna2.cu#L703-L750) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^qsa-b740-host]: [qsa_rdna2.cu:860–884](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/qsa_rdna2.cu#L860-L884) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^qsa-b740-py]: [ops/qsa.py:930–940](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/ops/qsa.py#L930-L940) and [ops/qsa_rdna2.py:52–66](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/ops/qsa_rdna2.py#L52-L66) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^qsa-b740-cmp]: Compare [`8015ea48...b7402893`](https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af); `qsa_rdna2.cu` +45/−6 lines, from commit [`2436df23`](https://github.com/opengfx1030/vllm-rdna/commit/2436df23358ef8b9397076c0663707ec3dce69bf).

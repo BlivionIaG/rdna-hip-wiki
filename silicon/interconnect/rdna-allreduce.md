@@ -11,9 +11,23 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/611063c62a400ba96e15e8168e2b2418494fdfdd
   - https://github.com/opengfx1030/vllm-rdna/commit/a43be93b10f921bae65e047b23d4ba1d33d6aa44
   - https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106
+  - https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/rdna_allreduce.cu
+  - https://github.com/opengfx1030/vllm-rdna/commit/b54e626104e248be16eb59ffe916116170a069f9
+  - https://github.com/opengfx1030/vllm-rdna/commit/9aa08d40a66b180ca61ee1133e464618a0b0a463
+  - https://github.com/opengfx1030/vllm-rdna/commit/03287a53f0b895be66adef219c1e8ed97035ed81
 ---
 
 # gfx1030 push one-shot all-reduce (`rdna_ar`) — silicon lock
+
+## Update at dest tip `b7402893` (checked 2026-10-29)
+
+The only `rdna_allreduce.cu` change from `8015ea48` to `b7402893` is the peer-access error order in native init (PR #142). Protocol, gate, dtypes, buffers and wait bound in the next section are unchanged.[^ar-b740-cmp]
+
+| Item | State at `b7402893` |
+|---|---|
+| Failed peer access | `hipGetLastError()` is now called right after `hipDeviceEnablePeerAccess` and **before** the `TORCH_CHECK` that can throw, "so the RCCL fallback does not inherit a failed peer-access probe". *(Historical @ `1dc3bac4`…`8015ea48`: the clear ran after the check, so it only covered "already enabled"; a real failure threw with the error still in HIP's sticky last-error slot.)*[^ar-b740-cu] |
+| How it landed | `b54e6261` first consumed the error from Python via `ctypes` (`libamdhip64.so.7`), with the comment that it "would surface at torch's next launch as `invalid device ordinal` and kill worker init after the graceful disable"; `9aa08d40` moved the fix into the `.cu` and removed the Python workaround (net Python change zero).[^ar-b54e][^ar-9aa0] |
+| Silicon impact | None on the kernel: no launch, LDS, Uncached-staging or flag-page change. It only matters when peer access is refused and the backend falls back to RCCL.[^ar-b740-cu] |
 
 ## Current state at dest tip `1dc3bac4` (checked 2026-10-11; unchanged at `64d59b89`, rechecked 2026-10-12)
 
@@ -131,3 +145,7 @@ Primary sources for this page, cited inline as footnotes:
 [^c-611063c6]: opengfx1030/vllm-rdna commit [`611063c6`](https://github.com/opengfx1030/vllm-rdna/commit/611063c62a400ba96e15e8168e2b2418494fdfdd) (2026-10-09) — "fix(rdna): remove the two-shot all-reduce from rdna_ar". Deletes `rdna_ar_twoshot`, `VLLM_RDNA_AR_ALGO` twoshot selection and `RDNA_AR_SPIN_CAP` / `VLLM_RDNA_AR_SPIN_CAP`; message: two-shot "returned zeros above the one-shot gate", `twoshot` / larger `MAX_KB` "ignored with one warning", `rdna_ar_can()` caps at the one-shot gate.
 [^c-a43be93b]: opengfx1030/vllm-rdna commit [`a43be93b`](https://github.com/opengfx1030/vllm-rdna/commit/a43be93b10f921bae65e047b23d4ba1d33d6aa44) (2026-10-09) — "fix(rdna): rdna_ar one-shot waits tolerate late peers (wall-clock bound)". Message: root cause is rank skew; the 2e6-poll cap "on gfx1030 is only ~0.8 s"; waits use `wall_clock64` at `hipDeviceAttributeWallClockRate`; `VLLM_RDNA_AR_WAIT_MS` default 120 s; "Two-shot is untouched (still VLLM_RDNA_AR_SPIN_CAP polls)". An ancestor of `611063c6`.
 [^c-64d59b89-ar]: opengfx1030/vllm-rdna tip [`64d59b89`](https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106); `git diff --stat 1dc3bac4cda3201a1b4fb345e044578e84a272cf 64d59b8942d3b982f1d91f0f3e625dfda4418106 -- csrc` lists only `csrc/rocm/moe_w4a8_rdna2.cu`.
+[^ar-b740-cmp]: Compare [`8015ea48...b7402893`](https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af): `csrc/rocm/rdna_allreduce.cu` +3/−4 lines, `.cuh` unchanged; PR #142 merged as [`03287a53`](https://github.com/opengfx1030/vllm-rdna/commit/03287a53f0b895be66adef219c1e8ed97035ed81).
+[^ar-b740-cu]: [rdna_allreduce.cu:114–125](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/rdna_allreduce.cu#L114-L125) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^ar-b54e]: Commit [`b54e6261`](https://github.com/opengfx1030/vllm-rdna/commit/b54e626104e248be16eb59ffe916116170a069f9) "fix(rdna2): consume HIP sticky error after failed peer-access enable" (`vllm/distributed/device_communicators/rdna_all_reduce.py` +10).
+[^ar-9aa0]: Commit [`9aa08d40`](https://github.com/opengfx1030/vllm-rdna/commit/9aa08d40a66b180ca61ee1133e464618a0b0a463) "fix(rdna2): clear peer-access error before native init throws" (`rdna_allreduce.cu` +3/−4, `rdna_all_reduce.py` −10).

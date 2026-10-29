@@ -1,12 +1,14 @@
 ---
 title: "Silicon"
-updated: 2026-10-12
+updated: 2026-10-29
 sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106
   - https://github.com/opengfx1030/vllm-rdna/commit/1dc3bac4cda3201a1b4fb345e044578e84a272cf
   - https://github.com/opengfx1030/vllm-rdna/commit/f2cc25ca927d0f3c6b0754d6f3982b3608746716
   - https://github.com/opengfx1030/vllm-rdna/commit/611063c62a400ba96e15e8168e2b2418494fdfdd
   - https://github.com/opengfx1030/vllm-rdna/commit/3e9ca702a10da840d29cbbc0f20872980e99c4a8
+  - https://github.com/opengfx1030/vllm-rdna/commit/b74028935393d1e21f73f80f65f506c9ea4639af
+  - https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af
 ---
 # Silicon
 
@@ -40,7 +42,9 @@ flowchart LR
 
 ## Silicon tip watermark
 
-Silicon pages are read through dest `rdna_extras` tip **`64d59b89`** (`64d59b8942d3b982f1d91f0f3e625dfda4418106`, read 2026-10-12).[^c-64d59b89] The per-page "current state" locks cite `1dc3bac4`. From `1dc3bac4` to `64d59b89` the only `csrc/` change is the host-only W4A8 MoE workspace fix `f2cc25ca`: no kernel body, LDS, `__launch_bounds__` or DOT change, so those locks still hold at the tip.[^c-1dc3bac4][^c-f2cc25ca] New this pass: the two-shot removal commit on [interconnect/rdna-allreduce.md](interconnect/rdna-allreduce.md) and the `rdna/common` arch traits on [hip-craft/hip-craft.md](hip-craft/hip-craft.md) §5.5.[^c-611063c6][^c-3e9ca702]
+Silicon pages are read through dest `rdna_extras` tip **`b7402893`** (`b74028935393d1e21f73f80f65f506c9ea4639af`, read 2026-10-29).[^c-b7402893] Silicon delta from `8015ea48`: new gfx1030 kernels for the `rdna_hint_flex` per-row INT2/4/8 format (`fdot2` F16 mode, `sdot4` I8 mode; [../kernels/quant/rdna-hint-flex.md](../kernels/quant/rdna-hint-flex.md)); a Q32 int64 epilogue on the W4A16 kernels for MoE expert offload ([../kernels/gemm-moe/rdna2-moe-offload-q32.md](../kernels/gemm-moe/rdna2-moe-offload-q32.md)); GDN FP32 norm partials and K2 offload stages ([../kernels/persistent/monokernel-gfx1030-dest.md](../kernels/persistent/monokernel-gfx1030-dest.md)); a 2 KiB static-LDS bitonic sort in QSA index expansion; and the `rdna_ar` peer-access sticky-error order ([interconnect/rdna-allreduce.md](interconnect/rdna-allreduce.md)).[^c-b7402893-cmp]
+
+*(Historical, `64d59b89`, read 2026-10-12)* Silicon pages are read through dest `rdna_extras` tip **`64d59b89`** (`64d59b8942d3b982f1d91f0f3e625dfda4418106`, read 2026-10-12).[^c-64d59b89] The per-page "current state" locks cite `1dc3bac4`. From `1dc3bac4` to `64d59b89` the only `csrc/` change is the host-only W4A8 MoE workspace fix `f2cc25ca`: no kernel body, LDS, `__launch_bounds__` or DOT change, so those locks still hold at the tip.[^c-1dc3bac4][^c-f2cc25ca] New this pass: the two-shot removal commit on [interconnect/rdna-allreduce.md](interconnect/rdna-allreduce.md) and the `rdna/common` arch traits on [hip-craft/hip-craft.md](hip-craft/hip-craft.md) §5.5.[^c-611063c6][^c-3e9ca702]
 
 ## Start here
 
@@ -71,3 +75,5 @@ Apart from the tip watermark (footnoted below), this is an index page. Primary s
 [^c-f2cc25ca]: opengfx1030/vllm-rdna commit [`f2cc25ca`](https://github.com/opengfx1030/vllm-rdna/commit/f2cc25ca927d0f3c6b0754d6f3982b3608746716) (2026-10-11) — "fix(rdna2): W4A8 MoE per-call workspace, 512-token threshold, microbench". The `.cu` change replaces the per-shape cached workspace with a per-call `at::empty` in the host launcher; the kernels are unchanged.
 [^c-611063c6]: opengfx1030/vllm-rdna commit [`611063c6`](https://github.com/opengfx1030/vllm-rdna/commit/611063c62a400ba96e15e8168e2b2418494fdfdd) (2026-10-09) — "fix(rdna): remove the two-shot all-reduce from rdna_ar".
 [^c-3e9ca702]: opengfx1030/vllm-rdna commit [`3e9ca702`](https://github.com/opengfx1030/vllm-rdna/commit/3e9ca702a10da840d29cbbc0f20872980e99c4a8) (2026-10-08) — "refactor(rdna): csrc/rocm/rdna layout skeleton, move DSV4 kernels to rdna/dsv4".
+[^c-b7402893]: opengfx1030/vllm-rdna commit [`b7402893`](https://github.com/opengfx1030/vllm-rdna/commit/b74028935393d1e21f73f80f65f506c9ea4639af) — merge of PR #147, dest `rdna_extras` tip read 2026-10-29.
+[^c-b7402893-cmp]: Compare [`8015ea48...b7402893`](https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af) (59 commits). `csrc/rocm` files changed: `moe_accum_rdna2.cuh`, `moe_q_gemm_rdna2.cu`, `mono_gdn_rdna2.cu`, `mono_k2_rdna2.cu`, `ops.h`, `q_gemm_rdna2.cu`, `q_gemm_rdna2_common.cuh`, `q_gemm_rdna2_prefill.cu`, `qsa_rdna2.cu`, `rdna_allreduce.cu`, `torch_bindings.cpp`, `w4a8_sdot4_rdna2.cu`; added `rdna_expert_cache.cu`, `rdna_hint_flex_rdna2.cu`.
