@@ -12,6 +12,8 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/0f596e6e0e9b2683ef7a4ec3eb6ef93eac9e1fd9
   - https://github.com/opengfx1030/vllm-rdna/commit/8bb8ff36cdb2e885553a151a824706d2d920fe3a
   - https://github.com/opengfx1030/vllm-rdna/compare/64d59b8942d3b982f1d91f0f3e625dfda4418106...15e9e7adbd0de5c56bda1b4644ddf10bcbdfc17c
+  - https://github.com/opengfx1030/vllm-rdna/commit/b74028935393d1e21f73f80f65f506c9ea4639af
+  - https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af
 ---
 # Kernels
 
@@ -23,8 +25,8 @@ Pages are grouped by topic. Each folder has its own README index; this page is t
 
 | Folder | What lives there | Pages |
 |---|---|---|
-| [quant/](quant/README.md) | Weight/activation format contracts: pack, dequant, which DOT. | 14 |
-| [gemm-moe/](gemm-moe/README.md) | Dense skinny GEMM / GEMV and fused-MoE GEMM contracts, stock and extras. | 4 |
+| [quant/](quant/README.md) | Weight/activation format contracts: pack, dequant, which DOT. | 15 |
+| [gemm-moe/](gemm-moe/README.md) | Dense skinny GEMM / GEMV and fused-MoE GEMM contracts, stock and extras. | 5 |
 | [attention/](attention/README.md) | Attention-side kernels: stock Triton baseline, KV INT8, Sage QK, sparse MLA, indexer. | 5 |
 | [linear-attn/](linear-attn/README.md) | Linear-attention / recurrent kernels: GDN decode + prefill, causal conv1d, FlashKDA. | 4 |
 | [aot-glue/](aot-glue/README.md) | Small HIP glue that replaces Triton JIT: RMSNorm, AOT list. | 2 |
@@ -36,7 +38,9 @@ Figures: [img/](img/) holds primary-source figures (each with caption, source an
 
 ## Silicon tip watermark
 
-Kernel pages are read through dest `rdna_extras` tip **`8bb8ff36`** (`8bb8ff36cdb2e885553a151a824706d2d920fe3a`, merge of PR #98, read 2026-10-14).[^c-8bb8ff36] From `64d59b89` to `15e9e7ad` there is no `csrc/` or `CMakeLists.txt` change; `15e9e7ad` → `8bb8ff36` changes only the MoE W4A16 zero-point plumbing (`zero_offset` runtime argument, asymmetric 4-bit compressed-tensors MoE stays native). Lock: [quant/w4a16.md](quant/w4a16.md#extras-lock-2026-10-14-tip-8bb8ff36-pr-98--moe-w4a16-asymmetric-zero-points).[^c-15e9e7ad][^c-8bb8ff36]
+Kernel pages are read through dest `rdna_extras` tip **`b7402893`** (`b74028935393d1e21f73f80f65f506c9ea4639af`, merge of PR #147, read 2026-10-29).[^c-b7402893] From `8015ea48` the range adds two new HIP sources (`rdna_hint_flex_rdna2.cu` in the gfx1030 list, `rdna_expert_cache.cu` in the base ROCm list) and a Q32 fixed-point epilogue on the W4A16 kernels. Existing kernels keep their tiles, `__launch_bounds__` and DOT; the other changes are new template specializations (K2 offload stages, GDN diagnostics), the GDN norm reduction, and a 2 KiB static-LDS sort in QSA index expansion. Locks: [quant/rdna-hint-flex.md](quant/rdna-hint-flex.md), [gemm-moe/rdna2-moe-offload-q32.md](gemm-moe/rdna2-moe-offload-q32.md), [persistent/monokernel-gfx1030-dest.md](persistent/monokernel-gfx1030-dest.md) (GDN FP32 norm partials, K2 offload stages), [models/qwen4exp-flash-next-hip.md](models/qwen4exp-flash-next-hip.md) (QSA canonical order).[^c-b7402893-cmp]
+
+*(Historical, `8bb8ff36`, read 2026-10-14)* Kernel pages are read through dest `rdna_extras` tip **`8bb8ff36`** (`8bb8ff36cdb2e885553a151a824706d2d920fe3a`, merge of PR #98, read 2026-10-14).[^c-8bb8ff36] From `64d59b89` to `15e9e7ad` there is no `csrc/` or `CMakeLists.txt` change; `15e9e7ad` → `8bb8ff36` changes only the MoE W4A16 zero-point plumbing (`zero_offset` runtime argument, asymmetric 4-bit compressed-tensors MoE stays native). Lock: [quant/w4a16.md](quant/w4a16.md#extras-lock-2026-10-14-tip-8bb8ff36-pr-98--moe-w4a16-asymmetric-zero-points).[^c-15e9e7ad][^c-8bb8ff36]
 
 *(Historical, `64d59b89`, read 2026-10-12)* Kernel pages are read through dest `rdna_extras` tip **`64d59b89`** (`64d59b8942d3b982f1d91f0f3e625dfda4418106`, merge of PR #84, read 2026-10-12).[^c-64d59b89] The silicon watch's previous recorded tip was `c6d99ca3` on the 0.28 line (still cited by dated locks on [gemm-moe/README.md](gemm-moe/README.md), [quant/w4a16.md](quant/w4a16.md) and [models/qwen4exp-flash-next-hip.md](models/qwen4exp-flash-next-hip.md)). That commit is not an ancestor of `64d59b89`: the branch was replaced by the v0.31 port (PR #47), and the ported kernels are locked at `1dc3bac4` on the pages above.[^c-c6d99ca3][^pr47][^c-1dc3bac4]
 
@@ -52,7 +56,9 @@ flowchart TD
   W -- "FP8 E4M3 (W8A16-FP8)" --> F2b["E4M3 → fp16 → fdot2"]
   W -- "E2M1 + E8M0 / E4M3 scale (mxfp4, NVFP4)" --> F2c["E2M1 unpack + scale → fdot2"]
   W -- "EXL3 trellis" --> F2d["decode_3inst → half2 → fdot2"]
+  W -- "rdna_hint_flex per-row INT2/4/8 (F16 mode)" --> F2f["0x6400 magic → fp16 fma → fdot2"]
   A -- "int8" --> I{"weight storage"}
+  I -- "rdna_hint_flex per-row INT2/4/8 (I8 mode)" --> S4c["spread codes → sdot4 + sumq correction"]
   I -- "int8 (W8A8 INT8)" --> S4["sdot4 · V_DOT4_I32_I8"]
   I -- "int4 (W4A8)" --> S4b["sdot4 on the GPTQ-shuffled int4 buffer"]
   A -- "int4 (W4A4 integer, explore)" --> S8["sdot8 · V_DOT8_I32_I4"]
@@ -149,3 +155,5 @@ Index rows summarise the linked pages; each page carries its own footnoted prima
 [^pr47]: opengfx1030/vllm-rdna PR #47 — v0.31 port of `rdna_extras`. <https://github.com/opengfx1030/vllm-rdna/pull/47>
 [^c-8bb8ff36]: opengfx1030/vllm-rdna commit [`8bb8ff36`](https://github.com/opengfx1030/vllm-rdna/commit/8bb8ff36cdb2e885553a151a824706d2d920fe3a) (2026-10-14 11:45 Europe/Paris) — "Merge pull request #98 from opengfx1030/feat/rdna2-moe-asym-zp", merging [`6f5edc41`](https://github.com/opengfx1030/vllm-rdna/commit/6f5edc41a1d7eef6451d3a7b758284bbe7e2c23f) "feat(rdna2): native W4A16 MoE for asymmetric compressed-tensors checkpoints". `compare 15e9e7ad...8bb8ff36` touches `csrc/rocm/moe_q_gemm_rdna2.cu` (+18/−14), `moe_w4a8_rdna2.cu` (+1/−1), `ops.h`, `torch_bindings.cpp`, two compressed-tensors MoE Python files, `_custom_ops.py` and one test; no `CMakeLists.txt` change.
 [^c-15e9e7ad]: `gh api repos/opengfx1030/vllm-rdna/compare/64d59b89...15e9e7ad` (read 2026-10-14): 23 commits ahead, 24 files, none under `csrc/` or `CMakeLists.txt`. <https://github.com/opengfx1030/vllm-rdna/compare/64d59b8942d3b982f1d91f0f3e625dfda4418106...15e9e7adbd0de5c56bda1b4644ddf10bcbdfc17c>
+[^c-b7402893]: opengfx1030/vllm-rdna commit [`b7402893`](https://github.com/opengfx1030/vllm-rdna/commit/b74028935393d1e21f73f80f65f506c9ea4639af) (2026-10-29 01:23 Paris) — "Merge pull request #147 from opengfx1030/codex/rdna2-moe-offload-improvements".
+[^c-b7402893-cmp]: Compare [`8015ea48...b7402893`](https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af) (59 commits, PRs #142–#147 plus the HI2 / rdna_hint_flex series); `CMakeLists.txt` +2 lines, both new sources.

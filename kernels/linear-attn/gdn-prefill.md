@@ -33,8 +33,14 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/CMakeLists.txt
   - https://github.com/opengfx1030/vllm-rdna/compare/005db0325d5bfdff3fc7f8a7843893a48158f5bd...8015ea485b7f6c0298d8f98ce6e824ce1c444c45
   - https://github.com/opengfx1030/vllm-rdna/blob/8015ea485b7f6c0298d8f98ce6e824ce1c444c45/csrc/rocm/gdn_prefill_delta_h_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af
+  - https://github.com/opengfx1030/vllm-rdna/commit/655cde1ce20838cf86f6a2f071db53cac089727b
 ---
 # GDN chunked prefill — extras HIP (`aac1fcd6`)
+
+## Recheck at dest `rdna_extras` @ `b7402893` (checked 2026-10-29)
+
+No GDN prefill source changed from `8015ea48` to `b7402893`, so the `8015ea48` rows below still hold. The GDN fix in this range (`655cde1c`, FP32 per-tile norm partials instead of Q32) is in the MonoKernel decode `mono_gdn_rdna2.cu`, not in the prefill chain: see [../persistent/monokernel-gfx1030-dest.md](../persistent/monokernel-gfx1030-dest.md).[^gdnp-b740]
 
 ## Update at dest `rdna_extras` @ `8015ea48` (checked 2026-10-26)
 
@@ -159,3 +165,4 @@ Tests only, no `csrc/rocm` change. `test_gdn_prefill_kkt_rdna2.py` is now skippe
 [^gdnp-30d6-kkt]: `csrc/rocm/gdn_prefill_kkt_rdna2.cu` L16-L36 (parity rule, 0.07 abs failure of the old fp32 form, `v_dot2c_f32_f16`), L50-L56 (`KKT_KP`), L78 (inline asm), L82-L83 (`waves_per_eu(2, 4)`), L167 (`unroll 8`); introduced by commit 34cc3c21 in the a01f2637...30d6e82d range; dest at 30d6e82dcd6e649d0421c2c20fb6813454efbdb1. https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/csrc/rocm/gdn_prefill_kkt_rdna2.cu#L16-L83
 [^gdnp-30d6-o]: `csrc/rocm/gdn_prefill_o_rdna2.cu` L53-L56 (BV 64, 256 thr), L69-L95 (padded strides, LDS byte constants, `s_bA` reuse rule), L213-L214 (`waves_per_eu(2, 4)`); dest at 30d6e82dcd6e649d0421c2c20fb6813454efbdb1. https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/csrc/rocm/gdn_prefill_o_rdna2.cu#L53-L214
 [^gdnp-8015-st]: `csrc/rocm/gdn_prefill_delta_h_rdna2.cu` L61-L77 (state dtype conversions), L95-L97 (`template <typename ST>`, `__launch_bounds__`, `waves_per_eu(4, 8)`), L164 (`h0` load), L328 (final-state store), L396-L423 (dtype checks), L442-L473 (`kSmem`, dtype dispatch, launch check); landed by commit 8303cd26 via PR #140; dest at 8015ea485b7f6c0298d8f98ce6e824ce1c444c45. https://github.com/opengfx1030/vllm-rdna/blob/8015ea485b7f6c0298d8f98ce6e824ce1c444c45/csrc/rocm/gdn_prefill_delta_h_rdna2.cu#L61-L473 ; https://github.com/opengfx1030/vllm-rdna/compare/005db0325d5bfdff3fc7f8a7843893a48158f5bd...8015ea485b7f6c0298d8f98ce6e824ce1c444c45
+[^gdnp-b740]: Compare [`8015ea48...b7402893`](https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af): the `csrc/` files changed are `moe_accum_rdna2.cuh`, `moe_q_gemm_rdna2.cu`, `mono_gdn_rdna2.cu`, `mono_k2_rdna2.cu`, `ops.h`, `q_gemm_rdna2*.{cu,cuh}`, `qsa_rdna2.cu`, `rdna_allreduce.cu`, `torch_bindings.cpp`, `w4a8_sdot4_rdna2.cu` and the new `rdna_expert_cache.cu` / `rdna_hint_flex_rdna2.cu`; commit [`655cde1c`](https://github.com/opengfx1030/vllm-rdna/commit/655cde1ce20838cf86f6a2f071db53cac089727b) touches `mono_gdn_rdna2.cu` only.

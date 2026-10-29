@@ -14,10 +14,30 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/1c1426d585c9b2653265947734225721cfc7ea6e/vllm/models/qwen4_exp/amd/mono/rdna2/__init__.py
   - https://github.com/opengfx1030/vllm-rdna/blob/1c1426d585c9b2653265947734225721cfc7ea6e/vllm/models/qwen4_exp/amd/mono/rdna2/README.md
   - https://github.com/opengfx1030/vllm-rdna/blob/1c1426d585c9b2653265947734225721cfc7ea6e/docs/rdna/monokernel/p0-results.md
+  - https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_gdn_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_k2_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/mono/rdna2/gdn.py
+  - https://github.com/opengfx1030/vllm-rdna/commit/655cde1ce20838cf86f6a2f071db53cac089727b
+  - https://github.com/opengfx1030/vllm-rdna/commit/2436df23358ef8b9397076c0663707ec3dce69bf
 ---
 # MonoKernel on gfx1030: what dest built
 
 Silicon locks from the MonoKernel merge into dest `rdna_extras` (PR #94, tip `1c1426d5` = `1c1426d585c9b2653265947734225721cfc7ea6e`).[^pr94] This page supersedes the open questions in [monokernel-gfx1030-plan.md](monokernel-gfx1030-plan.md), which stays as the historical plan read at `e245a469`. No tok/s here; the fork's own results live under `docs/rdna/monokernel/`.[^readme]
+
+## Update at dest `rdna_extras` @ `b7402893` (checked 2026-10-29)
+
+Read at tip `b7402893` (`b74028935393d1e21f73f80f65f506c9ea4639af`). Two silicon changes since this page was locked at `1c1426d5`: the GDN norm reduction (`655cde1c`) and a staged K2 for MoE expert offload (PR #146, `2436df23`).[^gdnfix][^c2436] The rows below supersede the matching bullets further down, which stay as history.
+
+| Item | State at `b7402893` |
+|---|---|
+| GDN gated-RMSNorm sum of squares | **FP32 per-tile partials, not Q32.** Each of the `kV / kBV` = 4 V tiles of a (token, head) has one writer and stores its squared-sum partial as a plain `volatile float` store into `ssq[(tok·HV + hv)·4 + tile]`; the last tile sums the four partials in fixed tile order and computes `rsqrtf(tot / kV + eps)`. The source says Q32 "overflowed above RMS4096 and discarded small squared sums", while FP32 covers the finite FP16 range, and the fixed order keeps the result deterministic regardless of arrival order. The old int64 `atomicAdd` and the per-call `*ps = 0` clear are gone.[^gdnpart][^gdnsum][^gdnconst2] |
+| GDN scratch layout | FP32 `ssq` partials, then `cnt`, then `cntqk`: `kCapRows · (HV·20 + H·4)` bytes (was `HV·12 + H·4`), then the fp16 `obuf`, then one `int` diagnostic flag; `mono_gdn_rdna2_scratch_bytes` grows to match.[^gdnscratch] |
+| GDN accepted-index guard | Padded sequences may carry `nacc = 0`, so the conv slot is checked first and the accepted-state index is read only after `1 ≤ accepted ≤ tmax`; invalid metadata writes NaN to `y` instead of reading outside the slot row.[^gdnacc] |
+| GDN diagnostics | `gdn_fused_k<KMAP, DIAG>`: `DIAG = true` only when `VLLM_RDNA_GDN_DIAGNOSTICS=1` (read once, process-static). It adds bit-test finiteness checks (`finite32`, works under fast-math) and a first-error `atomicCAS` flag plus `printf`; the default `DIAG = false` specialization compiles none of it.[^gdndiag][^gdnenv][^gdnpy] |
+| GDN occupancy | Unchanged: `__launch_bounds__(kThreads)` with `kThreads = 256`, grid `(N·HV, kV/kBV)`, dynamic LDS `tmax · (2·kK + kBV) · 4` B.[^gdnlb][^gdnconst2][^gdnlds2] |
+| K2 offload stages | `mono_ffn_kernel<MT, WPE, Stage>` (Stage 0 = the resident kernel, unchanged). Per the source: stage 1 (prefix) runs P1–P4 including router / top-k and the shared expert and writes `route_ids` / `route_weights`; stage 2 (expert pass) reads them and computes only pairs whose local expert maps to a resident slot via `local_to_slot`, then returns before P7; stage 3 (finish) runs only P7. "Separate specializations leave the resident kernel's generated code intact."[^k2stage][^k2offload][^k2launch] |
+| K2 offload limits | `__launch_bounds__(256)` and `amdgpu_waves_per_eu(WPE, 16)` as before (WPE 8 for every M because `MONO_FFN_TILED_BIG` is 0). Offload stages raise `LocalCapacity` from `kLocalE` = 128 to 256 local experts and allow `Ise ≤ 320` (resident: 160); the entry requires symmetric Flash-Next INT4 geometry (`wr` 512 rows, H 2560, w13 `[slots, 320, 1280]`, w2 `[slots, 80, 2560]`, `zero_offset == 1`) and an int32 `local_to_slot[128 or 256]`.[^k2lb][^k2cap][^k2checks] |
+| K2 offload LDS | The four expert-list arrays (`s_used`, `s_ucnt`, `s_slot` int, `s_urow` short × `kMaxM` = 24) are sized by `LocalCapacity`: 7680 B at Stage 0, 15360 B in the offload stages (computed from the declarations). Each specialization gets its own slot in the code-object residency cap (`cap[16]`, slots 4–15), so the grid is re-derived from that object's VGPR / LDS rather than reused from the resident kernel.[^k2lds][^k2launch][^k2capslot] Whether the larger static LDS crosses the 32 KiB rounding step noted below is (unsourced): it needs the code object. |
 
 ## What is on dest
 
@@ -44,7 +64,7 @@ All three sources are in the gfx1030 HIP list in `CMakeLists.txt`.[^cmake] Off b
 
 - **Dense paths are fp16 `__builtin_amdgcn_fdot2` with fp32 accumulate** (HC GEMVs, router, shared expert); routed int4 experts dequantize to half and also use `fdot2`. No sdot4 in the MonoKernel sources.[^fdot2][^fdot2q]
 - **QSA decode** also uses `fdot2` for q·k, lane l owns head dims 8l..8l+7 (head_dim 256), ≤ 8 query heads per group, probabilities rounded to fp16 before P·V like the Triton kernel.[^qsahdr][^qsadot]
-- **Cross-WG sums are 64-bit fixed point** (2^-32 resolution) through native `global_atomic_add_x2`, because gfx1030 has no global fp32 atomic add (`atomicAdd(float*)` is a CAS loop); integer sums are order-independent, so reductions are deterministic.[^fx] The GDN gated RMSNorm uses the same int64 fixed-point sums of squares.[^gdnhdr]
+- **Cross-WG sums are 64-bit fixed point** (2^-32 resolution) through native `global_atomic_add_x2`, because gfx1030 has no global fp32 atomic add (`atomicAdd(float*)` is a CAS loop); integer sums are order-independent, so reductions are deterministic.[^fx] *(Historical @ `1c1426d5`, still true at `8015ea48`; superseded at `b7402893` by FP32 per-tile partials, see the update table above.)* The GDN gated RMSNorm uses the same int64 fixed-point sums of squares.[^gdnhdr]
 - **Barrier wait:** wave 0 arrives and polls with `s_sleep` backoff (2 to 127) while waves 1–7 prefetch the next phase's weights into L2 / Infinity Cache.[^barrier]
 - **LDS tile:** `wg_tile_tn` ports the `hc_prefill_rdna2.cu` split-K layout to 256 threads: k-pair-major `half2`, 32-element slabs, A stride `BM + 4`, B stride `BN + 2`, next slab prefetched into registers.[^tile]
 - **GDN LDS** is dynamic, `tmax × (2·128 + 32) × 4` bytes (tmax ≤ 8 MTP verify tokens).[^gdnconst][^gdnlds]
@@ -90,3 +110,23 @@ Marked historical in the plan page (`e245a469`): "plan, nothing built"; "coopera
 [^p0fp]: [p0-results.md:78–92](https://github.com/opengfx1030/vllm-rdna/blob/1c1426d585c9b2653265947734225721cfc7ea6e/docs/rdna/monokernel/p0-results.md#L78-L92) @ 1c1426d585c9b2653265947734225721cfc7ea6e.
 [^p0bound]: [p0-results.md:94–105](https://github.com/opengfx1030/vllm-rdna/blob/1c1426d585c9b2653265947734225721cfc7ea6e/docs/rdna/monokernel/p0-results.md#L94-L105) @ 1c1426d585c9b2653265947734225721cfc7ea6e.
 [^p0concl]: [p0-results.md:107–122](https://github.com/opengfx1030/vllm-rdna/blob/1c1426d585c9b2653265947734225721cfc7ea6e/docs/rdna/monokernel/p0-results.md#L107-L122) @ 1c1426d585c9b2653265947734225721cfc7ea6e.
+[^gdnfix]: opengfx1030/vllm-rdna commit [`655cde1c`](https://github.com/opengfx1030/vllm-rdna/commit/655cde1ce20838cf86f6a2f071db53cac089727b) "fix(rdna2): preserve finite GDN normalization across FP16 range": "Replace overflowing Q32 squared sums with fixed-order FP32 tile partials. Add opt-in device diagnostics and reject invalid accepted indices before state reads."
+[^c2436]: opengfx1030/vllm-rdna commit [`2436df23`](https://github.com/opengfx1030/vllm-rdna/commit/2436df23358ef8b9397076c0663707ec3dce69bf) "[ROCm] Add graph-safe RDNA2 MoE expert offloading" (PR #146).
+[^gdnpart]: [mono_gdn_rdna2.cu:352–361](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_gdn_rdna2.cu#L352-L361) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^gdnsum]: [mono_gdn_rdna2.cu:370–381](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_gdn_rdna2.cu#L370-L381) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^gdnconst2]: [mono_gdn_rdna2.cu:43–46, 75](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_gdn_rdna2.cu#L43-L46) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^gdnscratch]: [mono_gdn_rdna2.cu:467–476, 513–523, 545–548](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_gdn_rdna2.cu#L467-L548) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^gdnacc]: [mono_gdn_rdna2.cu:202–231](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_gdn_rdna2.cu#L202-L231) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^gdndiag]: [mono_gdn_rdna2.cu:83–102, 190–191](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_gdn_rdna2.cu#L83-L102) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^gdnenv]: [mono_gdn_rdna2.cu:469–475, 526–541](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_gdn_rdna2.cu#L469-L541) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^gdnpy]: [mono/rdna2/gdn.py:93–102](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/mono/rdna2/gdn.py#L93-L102) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^gdnlb]: [mono_gdn_rdna2.cu:191](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_gdn_rdna2.cu#L191) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^gdnlds2]: [mono_gdn_rdna2.cu:525–527](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_gdn_rdna2.cu#L525-L527) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^k2stage]: [mono_k2_rdna2.cu:949–950, 1425, 1668–1676, 1690–1697, 1858–1861, 1992](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_k2_rdna2.cu#L1668-L1697) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^k2offload]: [mono_k2_rdna2.cu:2511–2570](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_k2_rdna2.cu#L2511-L2570) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^k2launch]: [mono_k2_rdna2.cu:2456–2478](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_k2_rdna2.cu#L2456-L2478) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^k2lb]: [mono_k2_rdna2.cu:872–894](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_k2_rdna2.cu#L872-L894) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^k2cap]: [mono_k2_rdna2.cu:66–69, 2241–2260](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_k2_rdna2.cu#L2241-L2260) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^k2checks]: [mono_k2_rdna2.cu:2525–2544](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_k2_rdna2.cu#L2525-L2544) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^k2lds]: [mono_k2_rdna2.cu:917–922](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_k2_rdna2.cu#L917-L922) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^k2capslot]: [mono_k2_rdna2.cu:2429–2436](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/mono_k2_rdna2.cu#L2429-L2436) @ b74028935393d1e21f73f80f65f506c9ea4639af.
