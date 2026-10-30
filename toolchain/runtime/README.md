@@ -1,7 +1,10 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-26
+updated: 2026-10-30
 sources:
+  - https://github.com/Niko1221/Strata/issues/4668
+  - https://github.com/Niko1221/Strata/issues/4378
+  - https://repo.radeon.com/amdgpu/31.60/ubuntu/pool/main/a/amdgpu-dkms-firmware/
   - https://github.com/ROCm/TheRock/issues/9484
   - https://github.com/ROCm/TheRock/issues/9141
   - https://github.com/ROCm/TheRock/issues/9475
@@ -123,7 +126,17 @@ Stream priority changed between releases. In `therock-7.14.1` and `therock-10.0`
 
 The reporter's 2026-10-13 update: `GPU_MAX_HW_QUEUES=2` avoided the stall in 116 of 116 requests, while 4 (default) and 6 stalled. 8 did not stall but decoded about 40% slower, and 16 about 95% slower. With 2 queues, the drafter stream and the stage-1 verify stream share one hardware queue, so their per-window event hand-off never crosses queues or pipes. The reporter reads the trigger as that cross-queue hand-off; AMD had not replied when we read it.[^q-6698] In the Strata thread, one specific drafter attention kernel (8 cells per step with DPP lane exchanges) made the hang near-certain, and every variant without it ran clean; the reporter calls it a timing trigger, not a math bug. A gfx1100 user on Windows reported the same hang where that kernel does not run.[^q-2245] A separate R9700 (gfx1201) report found the drafter fast or slow depending on the engine start, and `GPU_MAX_HW_QUEUES=2` made every start fast. That is a throughput effect, not a hang.[^q-2305]
 
-For our HIP code: if two streams hand work back and forth through events every step, assume their queue placement can differ from run to run. When a multi-stream engine on gfx1030 hangs with an idle GPU and no fault, try `GPU_MAX_HW_QUEUES=2` before blaming a kernel, then measure decode against the default. Putting both stages on one stream does not depend on clr's mapping. No 7.14.0 pin change.
+For our HIP code: if two streams hand work back and forth through events every step, assume their queue placement can differ from run to run. When a multi-stream engine on gfx1030 hangs with an idle GPU and no fault, check the MEC firmware first (below), then try `GPU_MAX_HW_QUEUES=2` before blaming a kernel, then measure decode against the default. Putting both stages on one stream does not depend on clr's mapping. No 7.14.0 pin change.
+
+**MEC firmware update (2026-10-27 to 2026-10-30).** An AMD engineer reproduced the stall and called newer MEC firmware a mitigation, not a full fix: with `0x83` they still saw it, less often. They pointed the reporter at `amdgpu-dkms` 31.60, which ships MEC `0x86` for the card. The reporter's stock Ubuntu 24.04 `linux-firmware` loads `0x74`. On 2026-10-30 the reporter said that after moving to `0x86` they ran two days and hundreds of requests with no hang, without `GPU_MAX_HW_QUEUES=2`, and got about 10% more prompt speed from dropping the workaround. The same reporter had also seen the stall on ROCm 10.3.0a20261023 with `0x74`, so a newer ROCm alone did not fix it.[^q-9306fw] The Strata write-up adds about 470 test requests on 2× V620 with `0x86` and no stall, and gives a firmware-only install: copy `sienna_cichlid_mec.bin` and `sienna_cichlid_mec2.bin` from the `amdgpu-dkms-firmware` 31.60 package into `/lib/firmware/updates/amdgpu/`, update the initramfs if it carries amdgpu firmware, and reboot. Check with `cat /sys/class/drm/card*/device/fw_version/mec_fw_version`.[^q-4668][^q-fw3160]
+
+For our V620 hosts: read `mec_fw_version` on every card and record it next to the ROCm pin in any stall report. A `0x74` host should keep `GPU_MAX_HW_QUEUES=2` as the fallback. A `0x86` host can test the default 4 queues, but AMD has not called it fixed. This is a firmware change, not a ROCm pin change. Not tested on our hardware.
+
+### gfx1030 SDMA copies stalling after GFXOFF (two cards)
+
+[Strata#4378](https://github.com/Niko1221/Strata/issues/4378) (open, filed 2026-10-28) reports 20–300 s stalls on 2× RX 6900 XT (gfx1030, Linux) in a two-card layer split. The reporter's watchdog showed the host waiting behind a stream wait while the idle card sat in GFXOFF, and a 64-byte device-to-host copy to the sleeping card did not finish within 3 s. Every stall came at the first layers a card ran after idling through the other card's layers. The copies there all go through SDMA. With GFXOFF at the default, 9 of 168 sessions hit the 300 s limit. With `HSA_ENABLE_SDMA=0` (ROCr does copies with blit kernels) 28 of 28 sessions ran clean at the same speed, and disabling GFXOFF on both cards (debugfs `amdgpu_gfxoff` set to 0) also gave 0 of 28. The reporter calls GFXOFF the trigger and the SDMA copy the stuck part.[^q-4378]
+
+This differs from the cross-queue stall above: the stuck work is an SDMA copy after a card idled, not compute queues with idle MEC pipes. For a multi-GPU gfx1030 engine whose cards take turns idling, try `HSA_ENABLE_SDMA=0` when a stall follows an idle stretch, and measure copy-heavy paths, since blit copies use compute. Single report, not tested here.
 
 ### gfx1100 idle power with a pending barrier (MES)
 
@@ -209,3 +222,7 @@ Until both land: build every binary for every arch in the box, and run one proce
 [^q-9141]: TheRock#9141, "100% GPU usage for multiple models with pipeline parallel", open; comments by zichguan-amd 2025-08-14 to 2025-12-10. https://github.com/ROCm/TheRock/issues/9141
 [^hc9475]: TheRock#9475, "gfx1030 on Windows: each hostcall takes seconds, so a kernel calling printf twice times out", open, read 2026-10-26. https://github.com/ROCm/TheRock/issues/9475
 [^graph14234]: rocm-systems#14234, open, read 2026-10-26 with two reporter follow-ups. https://github.com/ROCm/rocm-systems/issues/14234
+[^q-9306fw]: TheRock#9306, `lucbruni-amd` comment 2026-10-27 16:01 UTC (MEC `0x83` mitigates, `amdgpu-dkms` 31.60 ships `0x86`) and `metzenwest` comments 2026-10-27 02:36 UTC (10.3.0a20261023 still stalls) and 2026-10-30 02:59 UTC (`0x86`, two days without a hang, about 10% prompt gain). https://github.com/ROCm/TheRock/issues/9306
+[^q-4668]: Strata#4668, opened 2026-10-30 03:24 UTC: MEC `0x74` vs `0x86` on 2× V620, about 470 requests clean, firmware-only install steps, `GPU_MAX_HW_QUEUES=2` fallback. https://github.com/Niko1221/Strata/issues/4668
+[^q-fw3160]: AMD package folder for `amdgpu-dkms-firmware` 31.60 (Ubuntu). https://repo.radeon.com/amdgpu/31.60/ubuntu/pool/main/a/amdgpu-dkms-firmware/
+[^q-4378]: Strata#4378, opened 2026-10-28 00:24 UTC: GFXOFF/SDMA stall table (168 / 28 / 28 sessions) and watchdog findings. https://github.com/Niko1221/Strata/issues/4378
