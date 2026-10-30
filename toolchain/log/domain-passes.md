@@ -2,6 +2,10 @@
 owner: ROCM_specialist
 kind: scan-log
 sources:
+  - "https://github.com/ROCm/TheRock/issues/9484"
+  - "https://github.com/ROCm/TheRock/issues/9475"
+  - "https://github.com/ROCm/rocm-systems/issues/14234"
+  - "https://github.com/ROCm/TheRock/issues/9297"
   - "https://github.com/ROCm/rocm-systems/tree/develop/emulation/rocjitsu"
   - "https://github.com/ROCm/rocm-systems/pull/9470"
   - "https://github.com/warpfront/hipfire"
@@ -388,3 +392,17 @@ Vs Oct 16 ~10:45 (the Oct 19-22 runs did not complete). **No dest/pin lever.** L
 | [TheRock#9260](https://github.com/ROCm/TheRock/issues/9260), [TheRock#9291](https://github.com/ROCm/TheRock/issues/9291) | Leave | gfx1100 address-zero SQC fault closed unreproduced; gfx1030 comgr segfault on ROCm 7.1 (same family as legacy-rocm-build#6685). |
 
 Artifact: `/workspace/rocm-rdna-domain-20261023-1030.md`.
+
+## 2026-10-26 ~10:35 — domain pass (gfx1100 idle power with pending barrier, gfx1030 Windows hostcall, gfx1100 kernarg NULL crash; not dest)
+
+Vs Oct 23 ~10:30. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly 09:58 (TheRock main `7d87da48fdee`). GitHub search hit the rate limit partway, so llama.cpp, vLLM and Triton were not swept this pass.
+
+| Item | Verdict | Note |
+|---|---|---|
+| [TheRock#9484](https://github.com/ROCm/TheRock/issues/9484) (+ [#9141](https://github.com/ROCm/TheRock/issues/9141)) | **Take (runtime)** | gfx1100 MES: one unsatisfied AQL `BARRIER_AND` holds idle power at ~95 W / 100% GFX; ROCm 7.2.4, 7.14, 10.1. In [runtime/](../runtime/README.md). |
+| [TheRock#9475](https://github.com/ROCm/TheRock/issues/9475) | **Take (runtime, Windows)** | gfx1030 Windows hostcall takes seconds; `-mprintf-kind=buffered` avoids it. In [runtime/](../runtime/README.md). |
+| [rocm-systems#14234](https://github.com/ROCm/rocm-systems/issues/14234) | **Take (watch)** | gfx1100 7.2.4 `libamdhip64` NULL kernarg arena write during llama.cpp graph capture. In [runtime/](../runtime/README.md) Graphs. |
+| [TheRock#9297](https://github.com/ROCm/TheRock/issues/9297) | Leave | gfx1201 `hipStreamWaitEvent` adds ~17 µs per small kernel; title says not on gfx1030 and gone with `GPU_MAX_HW_QUEUES≤2`. |
+| [TheRock#9483](https://github.com/ROCm/TheRock/issues/9483), [TheRock#8744](https://github.com/ROCm/TheRock/issues/8744), [rocm-systems#14213](https://github.com/ROCm/rocm-systems/issues/14213) | Leave | gfx1201 f32 atomic throughput, gfx1201 VMM reuse corruption, gfx1150 mmap H2D pinning. |
+
+Artifact: `/workspace/rocm-rdna-domain-20261026-1035.md`.
