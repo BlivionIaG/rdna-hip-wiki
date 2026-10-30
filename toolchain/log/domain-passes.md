@@ -406,3 +406,17 @@ Vs Oct 23 ~10:30. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per ho
 | [TheRock#9483](https://github.com/ROCm/TheRock/issues/9483), [TheRock#8744](https://github.com/ROCm/TheRock/issues/8744), [rocm-systems#14213](https://github.com/ROCm/rocm-systems/issues/14213) | Leave | gfx1201 f32 atomic throughput, gfx1201 VMM reuse corruption, gfx1150 mmap H2D pinning. |
 
 Artifact: `/workspace/rocm-rdna-domain-20261026-1035.md`.
+
+## 2026-10-30 ~10:35 — domain pass (V620 queue stall: MEC firmware 0x86; gfx1030 SDMA stall after GFXOFF; not dest)
+
+Vs Oct 26 ~10:35 (the Oct 27-29 runs did not leave a pass). **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly ~10:03 (TheRock main `682b3407528d`).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [TheRock#9306](https://github.com/ROCm/TheRock/issues/9306) + [Strata#4668](https://github.com/Niko1221/Strata/issues/4668) | **Take (runtime, firmware)** | AMD reproduced the 2× V620 stall; MEC `0x83` mitigates, `0x86` (`amdgpu-dkms` 31.60) ran two days and ~470 test requests clean without `GPU_MAX_HW_QUEUES=2`. AMD calls it a mitigation. In [runtime/](../runtime/README.md). |
+| [Strata#4378](https://github.com/Niko1221/Strata/issues/4378) | **Take (runtime)** | 2× gfx1030: SDMA copies to a card in GFXOFF stall 20–300 s; `HSA_ENABLE_SDMA=0` or GFXOFF off gives 28/28 clean. In [runtime/](../runtime/README.md). |
+| [rocm-libraries#14550](https://github.com/ROCm/rocm-libraries/issues/14550) | Watch (libraries) | hipBLASLt int8→int8 with `HIPBLAS_COMPUTE_32I` + `HIP_R_32F` scale reads float alpha bits as int32 (W7900, gfx1100). Open; [#14554](https://github.com/ROCm/rocm-libraries/pull/14554) (half alpha width) is a different bug. Relevant to the gfx1030 hipBLASLt `I8II` path in [BlivionIaG/rocm-libraries#3](https://github.com/BlivionIaG/rocm-libraries/issues/3). |
+| [hipfire#1027](https://github.com/warpfront/hipfire/issues/1027) | Leave (method note) | gfx1100 raw-PM4 replay must set `COMPUTE_PGM_RSRC1.PRIV` or CWSR preemption faults at VA 0; only matters for code that writes its own PM4. |
+| [sglang#46900](https://github.com/sgl-project/sglang/issues/46900) / [#30599](https://github.com/sgl-project/sglang/issues/30599) | Leave (engine lane) | RDNA3/RDNA4 upstreaming to SGLang main blocked on RDNA CI; no gfx1030. |
+
+Artifact: `/workspace/rocm-rdna-domain-20261030-1035.md`.
