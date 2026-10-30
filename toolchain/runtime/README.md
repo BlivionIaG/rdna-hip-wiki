@@ -64,7 +64,7 @@ flowchart TD
   async --> asyncbad["reported: buffer reads back as zeros, hipSuccess"]
   async --> thr["hipMemPoolAttrReleaseThreshold = UINT64_MAX: 0 of 600"]
   vmm --> hang["DRM 3.61: hipMemSetAccess waits in DRM_IOCTL_SYNCOBJ_TIMELINE_WAIT"]
-  vmm --> vmmok["DRM 3.64: open fix keeps the timeline wait"]
+  vmm --> vmmok["DRM 3.64: fix keeps the timeline wait"]
 ```
 
 ### `hipMallocAsync` default pool
@@ -81,7 +81,7 @@ The reports are on HIP 7.2.53211. This page has no 7.14.0 repro. Treat the bug a
 
 [rocm-systems#9820](https://github.com/ROCm/rocm-systems/issues/9820) (open): with ROCm 7.14 userspace on amdgpu DRM 3.61, `hipMemSetAccess` blocks forever in `DRM_IOCTL_SYNCOBJ_TIMELINE_WAIT`. libhsakmt puts GEM_VA timeline output in the ioctl; DRM 3.64 added that output, and older amdgpu accepts the larger struct and ignores the extra fields, so the wait never completes. PyTorch reaches it through `PYTORCH_HIP_ALLOC_CONF=expandable_segments:True`. Turning expandable segments off avoids the path.[^vmm9820]
 
-[rocm-systems#9821](https://github.com/ROCm/rocm-systems/pull/9821) (open) gates the timeline syncobj on DRM ≥ 3.64 and uses the synchronous VA op below that. The PR's test notes say a physical DRM 3.61 host reproduced the hang, and DRM 3.64 completed the timeline waits.[^vmm9821] Host kernel versions for the RCCL symptom on the same DRM boundary are [comms/](../comms/README.md).
+[rocm-systems#9821](https://github.com/ROCm/rocm-systems/pull/9821) (merged to `develop` on 2026-10-29; not in a tagged ROCm release yet) gates the timeline syncobj on DRM ≥ 3.64 and uses the synchronous VA op below that. The PR's test notes say a physical DRM 3.61 host reproduced the hang, and DRM 3.64 completed the timeline waits.[^vmm9821] Host kernel versions for the RCCL symptom on the same DRM boundary are [comms/](../comms/README.md).
 
 [pytorch#200608](https://github.com/pytorch/pytorch/issues/200608) (open) is a second expandable-segments failure, in PyTorch's allocator rather than the kernel interface. On WSL2 (RX 7800 XT, ROCm 7.2.4, torch 2.12.1+rocm7.2) the allocator hits `TORCH_INTERNAL_ASSERT(!handles_.at(i))` in `ExpandableSegment::map()` with 4 to 5 GiB still free. A 2026-10-15 comment from bare-metal Linux (RX 7900 XT gfx1100, kernel 7.0, torch 2.14.1+rocm7.2, HIP 7.2.53211) saw no assert. Instead the same seed gave a different output every run and the next prompt hit `hipErrorIllegalAddress`, with an amdgpu page fault at a 2 MiB-aligned address no longer mapped in the process. `AMD_SERIALIZE_KERNEL=3 AMD_SERIALIZE_COPY=3` did not help. With expandable segments off: 0 faults and 5 of 5 runs bit-identical.[^pt200608] [pytorch#200774](https://github.com/pytorch/pytorch/pull/200774) (open) says the cause is `map()` recording new handles before `hipMemMap` / `hipMemSetAccess` succeed, so a failed map leaves slots occupied, and makes the mapping roll back on failure.[^pt200774] The comment does not give the DRM version, so whether its failed map is the DRM 3.64 hang above is not known. Until #200774 is in a wheel we use, leave `expandable_segments` off on ROCm.
 
@@ -169,7 +169,7 @@ Until both land: build every binary for every arch in the box, and run one proce
 [^malloc10943]: rocm-systems#10943, open, including the gfx1100 follow-up comment. https://github.com/ROCm/rocm-systems/issues/10943
 [^ct2090]: CTranslate2#2090, open. https://github.com/OpenNMT/CTranslate2/issues/2090
 [^vmm9820]: rocm-systems#9820, open. https://github.com/ROCm/rocm-systems/issues/9820
-[^vmm9821]: rocm-systems#9821, open. https://github.com/ROCm/rocm-systems/pull/9821
+[^vmm9821]: rocm-systems#9821, merged 2026-10-29T21:53Z into develop. https://github.com/ROCm/rocm-systems/pull/9821
 [^graph12638]: rocm-systems#12638, open. https://github.com/ROCm/rocm-systems/issues/12638
 [^rn7140]: ROCm Core SDK 7.14.0 release notes, dated 2026-07-15. https://rocm.docs.amd.com/en/docs-7.14.0/about/release-notes.html
 [^pin12528]: rocm-systems#12528, open, issue body (gfx1200 measurements, staging workaround). https://github.com/ROCm/rocm-systems/issues/12528

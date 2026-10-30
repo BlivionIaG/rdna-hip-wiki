@@ -192,3 +192,6 @@ CLR/runtime notes now in the TheRock systems pin (still **not** live dest):
 
 Drop `#8288` (closed unmerged; superseded). Still open: systems follow-on `#8300`/`#8294`, libraries `#8289`, COT+ASAN `#8248`/`#8291`. Live dest stays **7.14.0**.
 
+## 2026-10-30
+
+- [rocm-systems#9821](https://github.com/ROCm/rocm-systems/pull/9821) (HIP VMM hang below DRM 3.64) merged into `develop` on 2026-10-29 at 21:53 UTC. It is not in ROCm 7.14.0 or therock-10.1, so on a 7.14.0 pin the workaround (no `expandable_segments`, or an amdgpu reporting DRM 3.64+) still applies. The PR validated the patched paths on dual gfx1100.
