@@ -15,9 +15,25 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/b54e626104e248be16eb59ffe916116170a069f9
   - https://github.com/opengfx1030/vllm-rdna/commit/9aa08d40a66b180ca61ee1133e464618a0b0a463
   - https://github.com/opengfx1030/vllm-rdna/commit/03287a53f0b895be66adef219c1e8ed97035ed81
+  - https://github.com/opengfx1030/vllm-rdna/commit/19a010b476a82455aa3b54ef63b91f6e5fa9d3f4
+  - https://github.com/opengfx1030/vllm-rdna/blob/c4a05415cbda030c784bdc91c7d32e55c287a828/csrc/rocm/rdna_allreduce.cuh
 ---
 
 # gfx1030 push one-shot all-reduce (`rdna_ar`) — silicon lock
+
+## Update at dest tip `c4a05415` (checked 2026-11-02)
+
+`rdna_ar` now also carries two decode-step collectives besides the all-reduce. The all-reduce math, gate, dtypes, buffers and wait bound below are unchanged.[^ar-c4a0-19a0]
+
+| Item | State at `c4a05415` |
+|---|---|
+| Shared exchange | Phases 1-2 (push into every peer's Uncached staging, posted flag store, local flag wait, abort handling) are one device function, `rdna_ar_exchange`, and each collective is a finisher over it. *(Historical @ `b7402893`: the push and wait lived inline in `rdna_ar_oneshot`.)*[^ar-c4a0-cuh] |
+| All-gather | `rdna_ag_oneshot`: last-dim gather, `[rows, cols]` to `[rows, world*cols]` with rank j at columns `[j*cols, (j+1)*cols)`. It is a pure copy, so the result matches RCCL's `all_gather_into_tensor` layout bit for bit.[^ar-c4a0-cuh] |
+| Vocab argmax | `rdna_ar_argmax_oneshot`: each rank pushes one 8-byte `(float value, int index)` pair per row (`RdnaArPair`); the finisher keeps `torch.argmax` semantics (NaN wins, ties go to the lowest rank) and writes int64 indices.[^ar-c4a0-cuh] |
+| Eligibility | Both use the all-reduce one-shot gate (`rdna_ar_fits`: staged bytes ≤ min(`max_bytes`, `oneshot_max`), so 64 KiB by default). All-gather needs a contiguous fp16/bf16/fp32 tensor; argmax needs 1-D contiguous values plus int64 indices of the same length, sized by `sizeof(RdnaArPair)`.[^ar-c4a0-cu] |
+| Launch / LDS | Same launch shape as the all-reduce (`<<<nblocks, 256>>>`, no dynamic LDS); no DOT, no tile, no new `__launch_bounds__`.[^ar-c4a0-cu] |
+| Gate | New env `VLLM_RDNA_AR_GATHER`, read with `os.environ` and default `"1"`; `0` keeps all-gather and argmax on RCCL. Both routes also need the backend enabled, and `VLLM_RDNA_AR` still defaults to `"0"`, so a default serve does not take them.[^ar-c4a0-py][^ar-c4a0-envs] |
+| Verification claimed | The commit message reports bit-exact results against a reference for worlds 2 and 4 over fp16/bf16/fp32, ties, NaN and CUDA-graph replay on 4x V620. This page does not copy its latency figures.[^ar-c4a0-19a0] |
 
 ## Update at dest tip `b7402893` (checked 2026-10-29)
 
@@ -149,3 +165,8 @@ Primary sources for this page, cited inline as footnotes:
 [^ar-b740-cu]: [rdna_allreduce.cu:114–125](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/rdna_allreduce.cu#L114-L125) @ b74028935393d1e21f73f80f65f506c9ea4639af.
 [^ar-b54e]: Commit [`b54e6261`](https://github.com/opengfx1030/vllm-rdna/commit/b54e626104e248be16eb59ffe916116170a069f9) "fix(rdna2): consume HIP sticky error after failed peer-access enable" (`vllm/distributed/device_communicators/rdna_all_reduce.py` +10).
 [^ar-9aa0]: Commit [`9aa08d40`](https://github.com/opengfx1030/vllm-rdna/commit/9aa08d40a66b180ca61ee1133e464618a0b0a463) "fix(rdna2): clear peer-access error before native init throws" (`rdna_allreduce.cu` +3/−4, `rdna_all_reduce.py` −10).
+[^ar-c4a0-19a0]: opengfx1030/vllm-rdna commit [`19a010b4`](https://github.com/opengfx1030/vllm-rdna/commit/19a010b476a82455aa3b54ef63b91f6e5fa9d3f4) (2026-11-01) "feat(rdna2): HIP one-shot all-gather and fused vocab argmax on rdna_ar"; an ancestor of dest tip `c4a05415cbda030c784bdc91c7d32e55c287a828`.
+[^ar-c4a0-cuh]: `csrc/rocm/rdna_allreduce.cuh` L198 (`rdna_ar_exchange`), L334 (all-reduce finisher), L360-L388 (`rdna_ag_oneshot`), L392-L440 (`RdnaArPair`, `rdna_ar_pair_wins`, `rdna_ar_argmax_oneshot`) @ c4a05415cbda030c784bdc91c7d32e55c287a828. https://github.com/opengfx1030/vllm-rdna/blob/c4a05415cbda030c784bdc91c7d32e55c287a828/csrc/rocm/rdna_allreduce.cuh#L198-L440
+[^ar-c4a0-cu]: `csrc/rocm/rdna_allreduce.cu` L281-L282 (`rdna_ar_fits`), L286-L304 (launches, 256 threads), L311-L316 (`rdna_ar_can_all_gather`), L353-L362 (`rdna_ar_can_argmax`) @ c4a05415cbda030c784bdc91c7d32e55c287a828. https://github.com/opengfx1030/vllm-rdna/blob/c4a05415cbda030c784bdc91c7d32e55c287a828/csrc/rocm/rdna_allreduce.cu#L281-L362
+[^ar-c4a0-py]: `vllm/distributed/device_communicators/rdna_all_reduce.py` L150-L152 (`VLLM_RDNA_AR_GATHER`, default "1") @ c4a05415cbda030c784bdc91c7d32e55c287a828. https://github.com/opengfx1030/vllm-rdna/blob/c4a05415cbda030c784bdc91c7d32e55c287a828/vllm/distributed/device_communicators/rdna_all_reduce.py#L150-L152
+[^ar-c4a0-envs]: `vllm/envs.py` L184 and L1511 (`VLLM_RDNA_AR` default "0") @ c4a05415cbda030c784bdc91c7d32e55c287a828. https://github.com/opengfx1030/vllm-rdna/blob/c4a05415cbda030c784bdc91c7d32e55c287a828/vllm/envs.py#L1511
