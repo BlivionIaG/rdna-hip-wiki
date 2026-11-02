@@ -4,6 +4,7 @@ owner: VLLM_FORK_Manager
 pinned_tip: 64d59b8942d3b982f1d91f0f3e625dfda4418106
 verified: 2026-10-11
 sources:
+  - https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/tools/rdna/recipes/flashnext-mtp2.env
   - https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/tools/rdna/port_v031/build.sh
   - https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/docs/rdna2/v0.31.0-port-notes.md
   - https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/tools/rdna/serve_rdna.sh
@@ -68,7 +69,7 @@ All serves go through one launcher, `bash tools/rdna/serve_rdna.sh RECIPE=<name>
 flowchart TD
   A["TP all-reduce on gfx1030"] --> B{"VLLM_RDNA_AR == 1?<br/>(code default 0)"}
   B -- "no (code default)" --> R["upstream chain:<br/>custom AR is gfx94/95-only unless<br/>VLLM_FORCE_CUSTOM_ALL_REDUCE=1 → RCCL (pynccl)"]
-  B -- "yes (all TP recipes at 64d59b89,<br/>unless launcher P2P=0)" --> C{"tensor ≤ VLLM_RDNA_AR_ONESHOT_KB<br/>(64 KiB in recipes)?"}
+  B -- "yes (all TP recipes at 64d59b89,<br/>unless launcher P2P=0)" --> C{"tensor ≤ VLLM_RDNA_AR_ONESHOT_KB<br/>(64 KiB in recipes;<br/>flashnext-mtp2 256 KiB since b30757c2)?"}
   C -- yes --> O["rdna_ar one-shot<br/>(fresh output per call since 00fcc97f)"]
   C -- no --> R
 ```
@@ -93,7 +94,7 @@ Examples, each checked to exist at `64d59b89`:
 | `VLLM_RDNA2_W4A8_SDOT4` | `rdna2_w4a16.py` (`W4A8_ENV_VAR`)[^w4a8gate]; `rdna2_w4a16_moe.py` (`W4A8_MOE_ENV_VAR`, MoE ≥ 512 tokens)[^w4a8moe] |
 | `NCCL_P2P_DISABLE` | Exported as `1`, together with `VLLM_RDNA_AR=0`, by launcher `P2P=0` (PR #83; default `P2P=1`): no PCIe P2P, so RCCL goes over host shared memory and the recipe's `rdna_ar` is overridden[^p2p] |
 | `VLLM_FA_RDNA2_GQA_DECODE` | Launcher `rdna_select_attention` still defaults it to `1` when `ATTN=fa` (`${VLLM_FA_RDNA2_GQA_DECODE:-1}`); draft PR #53 would change that[^gqa] |
-| `VLLM_RDNA_AR_ONESHOT_KB` | `rdna_all_reduce.py` `resolve_gate_kb()`, one-shot size cap (default 64 KiB); `vllm/envs.py` only mentions it in a comment[^oneshot]. `RDNA_AR_ONESHOT_MAX` is a compile-time constant, not a setting |
+| `VLLM_RDNA_AR_ONESHOT_KB` | `rdna_all_reduce.py` `resolve_gate_kb()`, one-shot size cap (default 64 KiB); `vllm/envs.py` only mentions it in a comment[^oneshot]. `RDNA_AR_ONESHOT_MAX` is a compile-time constant, not a setting. *(Recipe value: 64 KiB historical for `flashnext-mtp2` at `59b0f5eb`; 256 KiB at `b30757c2`.)*[^sl-b307] |
 | `VLLM_USE_RDNA2_FA` | `vllm/envs.py`[^fa]; pins `RDNA_ATTN` (see [dispatch.md](dispatch.md)) |
 
 `VLLM_HETERO_MOE` is **not** at `64d59b89` (no match anywhere in the tree). Hetero MoE is still the draft PR #40[^pr40], so it is left out of this table.
@@ -136,3 +137,4 @@ Examples, each checked to exist at `64d59b89`:
 [^pleoffload]: `VLLM_PLE_CPU_OFFLOAD`: <https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/vllm/envs.py#L2182-L2184>
 [^plelaunch]: `serve_rdna.sh` `PLE=bf16|int4|int4-disk` default and `case $PLE` exports: <https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/tools/rdna/serve_rdna.sh#L146-L161> and <https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/tools/rdna/serve_rdna.sh#L185-L202>
 [^pr52]: PR #52 "[RDNA2] INT4 PLE table from disk via the CPU sidecar (PLE=int4-disk)", merge `fbe84e94` (Python/tools/tests only): <https://github.com/opengfx1030/vllm-rdna/pull/52>
+[^sl-b307]: `flashnext-mtp2` recipe one-shot gate 256 KiB @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/tools/rdna/recipes/flashnext-mtp2.env#L38-L44

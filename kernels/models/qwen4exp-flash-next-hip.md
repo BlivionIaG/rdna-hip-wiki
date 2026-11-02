@@ -50,8 +50,28 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/qsa_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/ops/qsa.py
   - https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/ops/qsa_rdna2.py
+  - https://github.com/opengfx1030/vllm-rdna/commit/b30757c257c25c737d671179025bbc5c2ec1ee50
+  - https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/vllm/model_executor/layers/rdna_ops.py
 ---
 # Qwen3.8-Flash-Next / Qwen4Exp HIP — tip `8960a3bc`
+
+## Update at dest `rdna_extras` @ `b30757c2` (checked 2026-11-02)
+
+Commit `b30757c2` ("MTP verify glue batch 1") changes two HIP files. Tip was `59b0f5eb`, which had no HIP delta since `c4a05415`.[^b307-cmp][^b307-c]
+
+| Surface | State at `b30757c2` |
+|---|---|
+| `gemm_tn_splitk_k` reduction (HC prefill down GEMM) | The fp32 `atomicAdd` epilogue into an `at::zeros` accumulator is gone. With one K slice the block stores C directly. With several, each slice stores its fp32 partial tile to a per-call workspace `ws[z][M][N]`, then `__threadfence()` + `__syncthreads()`, and thread 0 takes an arrival ticket (`atomicAdd` on a per-tile int). The last slice re-fences (acquire), sums the slices in ascending z order with 16-byte `__builtin_nontemporal_load` (8 slices unrolled), stores C, and re-arms the ticket to 0. The early `if (kb >= ke) return` is removed so every block reaches the ticket. Result is run-to-run deterministic, and the per-call zero fill disappears.[^b307-splitk] |
+| Split-K ticket pool | `hc_tickets()`: one pool per device of `(kHcSlots 8 + kHcCaptureSlots 8) * kHcTickets 128` int32, zeroed once with `at::zeros` + `cudaStreamSynchronize`. A stream keeps its slot; a capturing stream takes a slot from the capture range (graphs captured on one stream share it). No slot available falls back to a per-call `at::zeros({128})`. More than 128 output tiles is a `TORCH_CHECK` error. Same scheme as `wvSplitKrc`, per the source comment.[^b307-tickets] |
+| HC prefill launch shape | Unchanged: `__launch_bounds__(TY * 16)` on both kernels, same tile select and split rule (target 144 blocks narrow / 72 wide, 1..16 slices), v_dot2_f32_f16 with LDS K slab KT = 32. `acc` is now `at::empty`.[^b307-splitk][^b307-plan] |
+| HC injection logits | `rdna_hc_mix_prefill` and decode `rdna_gemv_act` now return a separate contiguous fp16 injection tensor `[M, min(HC, N - R)]` (columns R.. of the down projection) instead of the whole fp16 `dai`. Decode `rdna_gemv_act` only computes the first `act_cols + inj_cols` weight rows. Op schemas changed to return `(Tensor, Tensor)`.[^b307-inj][^b307-glue-api][^b307-ops] |
+| Shared expert fused pair (`rdna_fused_glue.cu`) | `rdna_se_gate_up_silu` takes `w_gate` and launches one extra block that computes `gate[m] = sigmoid(w_gate . x[m])` in fp32 once; `rdna_se_down_gated` reads that gate instead of recomputing the K-long dot in every block. The `__shared__ float s_gate[kMaxM]` and its `__syncthreads()` are removed. Gate and up rows now share every x load (`dot_pair`, still `__builtin_amdgcn_fdot2`). `__launch_bounds__(WAVES * 32)` unchanged.[^b307-glue-se][^b307-glue-pair] |
+| Shared expert M range | fp16 weights now take M up to `kMaxSeM = 32` through `dispatch_guarded` (MT capacity 16 / 24 / 32, rows `m >= M` skipped wave-uniformly). int8 shadows stay exact MT ≤ 8 (`static_assert(!GUARD)`). Python gate `VLLM_RDNA_SE_DECODE_MAX`, default 32, 0 = off. HC glue stays at `kMaxM = 8`.[^b307-glue-se][^b307-sedecode] |
+| RDNA2 WNA16 MoE align | With `expert_map` set, `moe_align_block_size` now gets `ignore_invalid_experts=True`, so the align kernel drops other ranks' experts itself instead of a later gather remap. Python call-site change, no kernel source change.[^b307-moealign] |
+
+Occupancy note (hunch, not measured): the split-K workspace adds `splits * M * N * 4` bytes of fp32 traffic per call, and `ascending-z` reduction runs on one block per tile. No VGPR or occupancy figure is given in the commit.
 
 ## Update at dest `rdna_extras` @ `b7402893` (checked 2026-10-29)
 
@@ -81,10 +101,10 @@ CMake gfx1030 `EXT_SRC` includes: `rdna_fused_glue.cu`, `hc_rdna2.cu`, `qsa_rdna
 
 ## Take (silicon)
 
-### T46 `rdna_fused_glue.cu` — fused decode glue (M ≤ 8)
+### T46 `rdna_fused_glue.cu` — fused decode glue (M ≤ 8; shared expert fp16 M ≤ 32 since `b30757c2`)
 
 - Explicit `__builtin_amdgcn_fdot2` on fp16 and int8→half2 weight rows (wave32 lanes stride K).[^f-c6d99ca3-rdna-fused-glue-cu][^f-50120e13-rdna-fused-glue-cu]
-- `__launch_bounds__(WAVES * 32)`; tiny `__shared__ float s_gate[kMaxM]` on one kernel.[^f-c6d99ca3-rdna-fused-glue-cu][^f-50120e13-rdna-fused-glue-cu]
+- `__launch_bounds__(WAVES * 32)`; *(historical at `59b0f5eb`: tiny `__shared__ float s_gate[kMaxM]` on one kernel; removed at `b30757c2`, the gate is now computed once by an extra block of `rdna_se_gate_up_silu`[^b307-glue-se])*.[^f-c6d99ca3-rdna-fused-glue-cu][^f-50120e13-rdna-fused-glue-cu]
 - Gate: `VLLM_RDNA_FUSED_HC` (+ ROCm, fp16 input). **Default on** (`"1"`), already at `c6d99ca3` and still at `1dc3bac4`; the earlier "opt-in, default off" wording here was wrong.[^f-c6d99ca3-envs-py][^q4-tip-envs][^q4-tip-hcpy]
 - No WMMA. Real DOT path for Flash-Next decode glue.[^f-c6d99ca3-rdna-fused-glue-cu][^f-50120e13-rdna-fused-glue-cu]
 
@@ -236,3 +256,16 @@ FA prefill leftover still first (`__launch_bounds__(*, 1)`). ticket-26 EXL3 `-cb
 [^qsa-b740-host]: [qsa_rdna2.cu:860–884](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/qsa_rdna2.cu#L860-L884) @ b74028935393d1e21f73f80f65f506c9ea4639af.
 [^qsa-b740-py]: [ops/qsa.py:930–940](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/ops/qsa.py#L930-L940) and [ops/qsa_rdna2.py:52–66](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/ops/qsa_rdna2.py#L52-L66) @ b74028935393d1e21f73f80f65f506c9ea4639af.
 [^qsa-b740-cmp]: Compare [`8015ea48...b7402893`](https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af); `qsa_rdna2.cu` +45/−6 lines, from commit [`2436df23`](https://github.com/opengfx1030/vllm-rdna/commit/2436df23358ef8b9397076c0663707ec3dce69bf).
+
+[^b307-cmp]: opengfx1030/vllm-rdna compare `59b0f5eb...b30757c2`: https://github.com/opengfx1030/vllm-rdna/compare/59b0f5eb227998194c5ac8ca7bebf555f1e8ae32...b30757c257c25c737d671179025bbc5c2ec1ee50
+[^b307-c]: opengfx1030/vllm-rdna commit [`b30757c2`](https://github.com/opengfx1030/vllm-rdna/commit/b30757c257c25c737d671179025bbc5c2ec1ee50) "rdna: MTP verify glue batch 1 - HC split-K without fill, injection from the op, shared expert fused to M<=32, MoE align without gather".
+[^b307-splitk]: `csrc/rocm/hc_prefill_rdna2.cu` header and `gemm_tn_splitk_k` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu#L21-L42 ; https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu#L248-L434
+[^b307-tickets]: `hc_tickets()` and pool constants @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu#L492-L564
+[^b307-plan]: `plan_down` / `rdna_hc_mix_prefill` launch @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu#L467-L490 ; https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu#L611-L673
+[^b307-inj]: `n_inj` / injection output in `rdna_hc_mix_prefill` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu#L611-L673 ; `_hc_inj_cols` in `vllm/model_executor/layers/rdna_ops.py`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/vllm/model_executor/layers/rdna_ops.py#L65-L122
+[^b307-glue-api]: `rdna_gemv_act` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu#L216-L245 ; https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu#L553-L585
+[^b307-ops]: op schemas in `csrc/rocm/torch_bindings.cpp` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/torch_bindings.cpp
+[^b307-glue-se]: shared-expert kernels and hosts in `csrc/rocm/rdna_fused_glue.cu` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu#L283-L364 ; https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu#L616-L685
+[^b307-glue-pair]: `RowF16::dot_pair` (`__builtin_amdgcn_fdot2`) and `kMaxSeM` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu#L37-L38 ; https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu#L83-L130
+[^b307-sedecode]: `dispatch_guarded` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu#L439-L466 ; `_SE_DECODE_MAX` in `rdna_ops.py`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/vllm/model_executor/layers/rdna_ops.py#L31 ; https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/vllm/model_executor/layers/rdna_ops.py#L225
+[^b307-moealign]: `_rdna2_fused_moe` routing in `compressed_tensors_moe_wna16_rdna2.py` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_wna16_rdna2.py#L353-L365
