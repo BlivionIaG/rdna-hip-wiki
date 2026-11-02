@@ -107,6 +107,14 @@ For our forks: if a kernel calls through a function pointer, read `.uses_dynamic
 
 [TheRock#9294](https://github.com/ROCm/TheRock/issues/9294) (open) reports a gfx1100 kernel (W7900, ROCm 7.1.1, AMD clang 20) that hits `HIP error 700` (illegal memory access) when built with `-g` at `-O1`, `-O2` or `-O3`, and runs correctly from the same source without `-g`.[^tr9294] An AMD LLVM developer replied that `-g` currently does change codegen, that internal bugs track it, and named spilling `exec` to describe its unwinding as one cause.[^tr9294] For our forks: do correctness parity and performance runs on the same flags you ship, and treat a crash that only appears with `-g` as a possible compiler difference before you blame the kernel. This page has no gfx1030 repro.
 
+## Gotcha — `llvm-mc` misprints the K of `v_fmamk` / `v_fmaak`
+
+[llvm-project#237158](https://github.com/llvm/llvm-project/issues/237158) (open): the AMDGPU disassembler decodes the 32-bit K constant that follows `v_fmamk_*` / `v_fmaak_*` as if it were a 9-bit source-operand code. K = `0xff` crashes it in the `_f16` forms; K = `0x80` to `0xf8` prints an inline constant's value instead of K, so the printed text reassembles to a different word. The reporter saw it with LLVM 22.1.8 on gfx1151, gfx1100, gfx1200 and, for the f32 forms, gfx1030; a commenter reproduced it on LLVM main. The assembler encodes correctly.[^llvm237158] For ISA reviews: when a disassembled `v_fmamk`/`v_fmaak` shows a small K, check the raw dword before trusting it, and do not round-trip disassembly back through the assembler.
+
+## Gotcha — `mulhs` on 24-bit types returns the wrong bits
+
+[llvm-project#237718](https://github.com/llvm/llvm-project/issues/237718) (open, filed 2026-11-01) reports that the AMDGPU `performMulhsCombine` has no width check, so a signed high multiply on a non-i32 type (for example `_BitInt(24)`, also i7/i8/i16/i64 of sign-extended 24-bit values) lowers to `v_mul_hi_i32_i24`, which returns bits 32..47 of the product instead of bits N..2N-1. The reporter's `h24(2^22, 2^22)` returns 4096 instead of 1048576 on `-mcpu=gfx900` trunk and lists every target with 24-bit multiplies, including gfx1100.[^llvm237718] Plain `int32` `__mulhi` is not affected per the report. Avoid `_BitInt` high-multiply idioms in our kernels until a fix lands.
+
 ## `-O0` integer divide, and wave64
 
 [TheRock#7751](https://github.com/ROCm/TheRock/issues/7751) is **closed**. The issue body reports that ROCm 7.2.4 and 7.14 miscompile i32 `udiv` / `urem` at `-O0` on gfx1034 (float reciprocal instead of the integer path). The same kernels were correct at `-O1`/`-O2`/`-O3`, and correct at `-O0` on ROCm 6.4.3. `schung-amd` commented that they reproduced it on gfx1100, and later that it should be fixed in current nightlies via llvm-project#201186 and llvm-project#202753.[^tr7751] Live extras stay `-O3` on 7.14.0.
@@ -135,3 +143,5 @@ For our forks: if a kernel calls through a function pointer, read `.uses_dynamic
 [^ht12473]: rocm-libraries#12473, closed, issue body (metadata excerpts, 1024-byte default, MI350 field report). https://github.com/ROCm/rocm-libraries/issues/12473
 [^tr9294]: TheRock#9294, open; issue body (flag table) and `slinder1` comment of 2026-09-23 on `-g` codegen changes. https://github.com/ROCm/TheRock/issues/9294
 [^ht12638]: rocm-libraries#12638, merged 2026-10-12, docs only. https://github.com/ROCm/rocm-libraries/pull/12638
+[^llvm237158]: llvm-project#237158, open, issue body and `dcwire` comment (reproduced on LLVM 24.0.0git main). https://github.com/llvm/llvm-project/issues/237158
+[^llvm237718]: llvm-project#237718, open, issue body (reproducer, gfx900 asm, affected targets). https://github.com/llvm/llvm-project/issues/237718

@@ -420,3 +420,20 @@ Vs Oct 26 ~10:35 (the Oct 27-29 runs did not leave a pass). **No dest/pin lever.
 | [sglang#46900](https://github.com/sgl-project/sglang/issues/46900) / [#30599](https://github.com/sgl-project/sglang/issues/30599) | Leave (engine lane) | RDNA3/RDNA4 upstreaming to SGLang main blocked on RDNA CI; no gfx1030. |
 
 Artifact: `/workspace/rocm-rdna-domain-20261030-1035.md`.
+
+## 2026-11-02 ~10:30 — domain pass (ROCR_VISIBLE_DEVICES memory leak onto hidden GPUs, two AMDGPU LLVM bugs; not dest)
+
+Vs Oct 30 ~10:35. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly ~09:58 (TheRock main `9af6d8faac6c`; releases therock-10.1, rocm-7.14.0).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [rocm-systems#14778](https://github.com/ROCm/rocm-systems/issues/14778) | **Take (runtime)** | `ROCR_VISIBLE_DEVICES` hides devices but libhsakmt still acquires a VM on every GPU, and `hipHostRegister` maps into the hidden ones (gfx1100, 7.2.1/10.1 nightly/develop). In [runtime/](../runtime/README.md). |
+| [llvm-project#237158](https://github.com/llvm/llvm-project/issues/237158) | **Take (compiler/tools)** | Disassembler misdecodes `v_fmamk`/`v_fmaak` K (f32 on gfx1030 too); K=0xff crashes f16. In [compiler/](../compiler/README.md). |
+| [llvm-project#237718](https://github.com/llvm/llvm-project/issues/237718) | **Take (compiler)** | `mulhs` on non-i32 widths lowers to `v_mul_hi_i32_i24`, wrong bits (gfx900, gfx1100, ...). In [compiler/](../compiler/README.md). |
+| [Triton v3.9.0](https://github.com/triton-lang/triton/releases/tag/v3.9.0) | Watch (frameworks) | Released 2026-10-27: RDNA3 buffer atomics, RDNA3/3.5 shared-memory address fix, CDNA barriers no longer emitted on RDNA. gfx103x status is covered by open wiki PR [#44](https://github.com/BlivionIaG/rdna-hip-wiki/pull/44). |
+| [FlyDSL#1216](https://github.com/ROCm/FlyDSL/pull/1216) / [#1357](https://github.com/ROCm/FlyDSL/issues/1357) | Watch (gfx1100) | Dense flash attention for gfx1100 still open; follow-ups filed (runtime seq lengths, D128 at 65–69% of WMMA peak). |
+| [rocm-libraries#14838](https://github.com/ROCm/rocm-libraries/issues/14838) | Note | Upstream feature request for gfx1030 hipBLASLt, filed by BlivionIaG 2026-11-01; mirrors [BlivionIaG/rocm-libraries#3](https://github.com/BlivionIaG/rocm-libraries/issues/3). No AMD response yet. |
+| [hipfire v0.4.4](https://github.com/warpfront/hipfire/releases/tag/v0.4.4) | Leave (engine lane) | gfx1100 MTP verify GEMV/attention gains; nothing for gfx1030 or gfx900. |
+
+Artifact: `/workspace/rocm-rdna-domain-20261102-1030.md`.
+

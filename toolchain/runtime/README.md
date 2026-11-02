@@ -169,6 +169,10 @@ A box with a gfx1030 and a gfx1100 in one process has two open runtime and libra
 
 Until both land: build every binary for every arch in the box, and run one process per architecture with `HIP_VISIBLE_DEVICES` or `ROCR_VISIBLE_DEVICES`.
 
+### `ROCR_VISIBLE_DEVICES` does not isolate memory
+
+[rocm-systems#14778](https://github.com/ROCm/rocm-systems/issues/14778) (open, filed 2026-11-01) reports that a process started with `ROCR_VISIBLE_DEVICES=0` sees one HIP device but still opens the DRM render node of every GPU and acquires a GPU VM on each. Every `hipHostRegister` then maps the registration into the hidden GPUs too: about 2 MiB per 1 GiB registration on each hidden card, held until the process exits. The reporter measured it on eight W7900D (gfx1100) with ROCm 7.2.1, TheRock 10.1.0a20260822 and `develop` at `8915864`, and points at `hsakmt_fmm_init_process_apertures()` in libhsakmt `fmm.c`, which runs before ROCr applies the filter.[^vis14778] The code path is not arch-specific, but this page has no gfx1030 repro. For a multi-V620 host that runs one engine per card: the mask hides devices, it does not keep a job's host registrations off the other cards. Container device cgroups (only passing the card's `/dev/dri/renderD*` node) do keep it off.
+
 ## Graphs
 
 [rocm-systems#12638](https://github.com/ROCm/rocm-systems/issues/12638) (open) reports that on Core SDK **10.0.0**, a retained fork/join graph whose root segment holds only empty nodes can hang on first replay. `GraphExecSegmented::BuildSyncPlan()` allocates a completion signal for that segment and never attaches a producer, so the successor's barrier waits. The issue names released source commit `6b0e43f341195e203754e08f850e437ff2fc09f9` (`therock-10.0`).[^graph12638] The 7.14.0 release notes are dated 2026-07-15, before that 10.0.0 report.[^rn7140] Check this before any 10.x move if a capture uses empty join roots. No 7.14.0 pin change.
@@ -178,6 +182,8 @@ Until both land: build every binary for every arch in the box, and run one proce
 [rocm-systems#14234](https://github.com/ROCm/rocm-systems/issues/14234) (open, filed 2026-10-26) reports a SIGSEGV inside `libamdhip64` 7.2.4 (`hip-runtime-amd 7.2.53211.70204`) on an RX 7900 XTX (gfx1100): an internal kernarg arena allocator returns NULL and the caller writes to address 0 with no check. The backtrace runs through llama.cpp's CUDA-graph capture path during MTP speculative decoding. The reporter's core analysis shows the arena alive with a fresh, never-used 4 MiB chunk and a zero cursor, and does not name a root cause.[^graph14234] Watch it if a captured decode graph crashes in `libamdhip64` with a NULL destination; it is not reported on 7.14.0.
 
 ## Sources
+
+[^vis14778]: rocm-systems#14778, open, issue body (fdinfo table, versions, `fmm.c` analysis). https://github.com/ROCm/rocm-systems/issues/14778
 
 [^malloc10943]: rocm-systems#10943, open, including the gfx1100 follow-up comment. https://github.com/ROCm/rocm-systems/issues/10943
 [^ct2090]: CTranslate2#2090, open. https://github.com/OpenNMT/CTranslate2/issues/2090
