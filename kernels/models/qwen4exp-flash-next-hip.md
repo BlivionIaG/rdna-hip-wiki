@@ -54,12 +54,32 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/vllm/model_executor/layers/rdna_ops.py
+  - https://github.com/opengfx1030/vllm-rdna/commit/cec69c12c80d1fdcd3fd9d7938809abf056d9b52
+  - https://github.com/opengfx1030/vllm-rdna/commit/27e5fa40da6338dd2344927c97b3dad63990bf1f
+  - https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/csrc/rocm/hc_prefill_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/vllm/model_executor/layers/rdna_ops.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/docs/rdna2/tuning.md
   - https://github.com/opengfx1030/vllm-rdna/commit/5bda4c245024508f8e9ce59c43c5387c98b61228
   - https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/hc_prefill_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/vllm/model_executor/layers/utils.py
   - https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/tools/rdna/recipes/flashnext-mtp2.env
 ---
 # Qwen3.8-Flash-Next / Qwen4Exp HIP — tip `8960a3bc`
+
+## Update at dest `rdna_extras` @ `cec69c12` (checked 2026-11-02)
+
+Four commits since `5bda4c24`. One touches HIP: `27e5fa40` ("shared-expert gate_up tile and one-kernel Gemma norm (batch 4)"). `7992f0eb` and `cec69c12` are docs, `a69d6dde` is profiler tooling under `tools/rdna/prof/`.[^cec6-cmp][^cec6-c]
+
+| Surface | State at `cec69c12` |
+|---|---|
+| `gemm_tn_splitk_k` shared-expert mode | New `bool kSE = false` template parameter and an `SeArgs` argument (`wg`, `act`, `gate`, `I`). With `kSE` the B tile (BN = 32, enforced by `static_assert`) loads 16 gate rows `tn*16+j` and the 16 matching up rows `I+tn*16+j`; one extra tile column loads the expert-gate row `wg` in row 0 and zeros elsewhere. `__launch_bounds__(TY * 16)` unchanged, still no `waves_per_eu`.[^cec6-kern] |
+| kSE reduce / epilogue | kSE always takes the ticket path, even with one K slice (`if (!kSE && gridDim.z == 1)`). The last-arriving block sums slices in ascending z (same `slice_sum` as the plain path, now a lambda) and writes `act = silu(g) * u` as fp16 `[M, I]` (one thread per row and 4 columns) and `gate = sigmoid(wg . x)` as fp32 `[M]` for the gate tile. Fence and ticket reset are unchanged.[^cec6-epi] |
+| New op `rdna_se_gate_up_tile(x, w, w_gate)` | Tile `<TY 8, TM 4, NC 2>` (BM 32, BN 32), target `kSeTarget = 154` blocks (source comment: about 14 K slices at TP4), at most 16 slices. Checks: M ≤ 32, `K % 32 == 0`, `2I % 32 == 0`, `I/16 + 1 <= kHcTickets` (128), contiguous fp16, 16-byte aligned operands. Bound in `torch_bindings.cpp`.[^cec6-op][^cec6-bind] |
+| Python routing (env gate) | `_rdna_shared_expert` uses the tile op when weights are fp16 (no int8 shadow), `VLLM_RDNA_SE_TILE_MIN` (default **9**, 0 = off) ≤ M, `w1.shape[0] % 32 == 0`, `w1.shape[0] <= 4064`, `K % 32 == 0`. Below 9 rows, and for int8, `rdna_se_gate_up_silu` (wave per output pair) stays. M is still capped by `VLLM_RDNA_SE_DECODE_MAX` (32).[^cec6-route][^cec6-tune] |
+
+Derived from the template constants (not measured): with `SA = BM + 4` and `SB = BN + ((2 - BN % 8) + 8) % 8`, the `<8, 4, 2>` kSE tile is 128 threads (4 wave32) with `As[16][36]` + `Bs[16][34]` half2 = 4,480 B of LDS plus `s_last`, smaller than the 5,440 B `<8, 4, 3>` HC down tile. The commit gives no VGPR, occupancy, or ISA figure, and its µs timings are in the commit message and `docs/rdna2/tuning.md`; they are not copied here.[^cec6-kern][^cec6-c] The one-kernel Gemma RMSNorm from the same commit is in [kernels/aot-glue/layernorm.md](../aot-glue/layernorm.md).
+
+*Historical:* at `5bda4c24` and before, `gemm_tn_splitk_k` had no shared-expert mode and every fp16 shared-expert gate_up for M ≤ 32 ran `rdna_se_gate_up_silu` (see the `b30757c2` rows below).
 
 ## Update at dest `rdna_extras` @ `5bda4c24` (checked 2026-11-02)
 
@@ -89,7 +109,7 @@ Commit `b30757c2` ("MTP verify glue batch 1") changes two HIP files. Tip was `59
 | HC prefill launch shape | *(historical at `b30757c2`; M ≤ 32 retuned at `5bda4c24`, see above)* Unchanged: `__launch_bounds__(TY * 16)` on both kernels, same tile select and split rule (target 144 blocks narrow / 72 wide, 1..16 slices), v_dot2_f32_f16 with LDS K slab KT = 32. `acc` is now `at::empty`.[^b307-splitk][^b307-plan] |
 | HC injection logits | `rdna_hc_mix_prefill` and decode `rdna_gemv_act` now return a separate contiguous fp16 injection tensor `[M, min(HC, N - R)]` (columns R.. of the down projection) instead of the whole fp16 `dai`. Decode `rdna_gemv_act` only computes the first `act_cols + inj_cols` weight rows. Op schemas changed to return `(Tensor, Tensor)`.[^b307-inj][^b307-glue-api][^b307-ops] |
 | Shared expert fused pair (`rdna_fused_glue.cu`) | `rdna_se_gate_up_silu` takes `w_gate` and launches one extra block that computes `gate[m] = sigmoid(w_gate . x[m])` in fp32 once; `rdna_se_down_gated` reads that gate instead of recomputing the K-long dot in every block. The `__shared__ float s_gate[kMaxM]` and its `__syncthreads()` are removed. Gate and up rows now share every x load (`dot_pair`, still `__builtin_amdgcn_fdot2`). `__launch_bounds__(WAVES * 32)` unchanged.[^b307-glue-se][^b307-glue-pair] |
-| Shared expert M range | fp16 weights now take M up to `kMaxSeM = 32` through `dispatch_guarded` (MT capacity 16 / 24 / 32, rows `m >= M` skipped wave-uniformly). int8 shadows stay exact MT ≤ 8 (`static_assert(!GUARD)`). Python gate `VLLM_RDNA_SE_DECODE_MAX`, default 32, 0 = off. HC glue stays at `kMaxM = 8`.[^b307-glue-se][^b307-sedecode] |
+| Shared expert M range | *(historical at `b30757c2`: from `cec69c12` fp16 gate_up with 9 ≤ M ≤ 32 runs `rdna_se_gate_up_tile` by default, see above)* fp16 weights now take M up to `kMaxSeM = 32` through `dispatch_guarded` (MT capacity 16 / 24 / 32, rows `m >= M` skipped wave-uniformly). int8 shadows stay exact MT ≤ 8 (`static_assert(!GUARD)`). Python gate `VLLM_RDNA_SE_DECODE_MAX`, default 32, 0 = off. HC glue stays at `kMaxM = 8`.[^b307-glue-se][^b307-sedecode] |
 | RDNA2 WNA16 MoE align | With `expert_map` set, `moe_align_block_size` now gets `ignore_invalid_experts=True`, so the align kernel drops other ranks' experts itself instead of a later gather remap. Python call-site change, no kernel source change.[^b307-moealign] |
 
 Occupancy note (hunch, not measured): the split-K workspace adds `splits * M * N * 4` bytes of fp32 traffic per call, and `ascending-z` reduction runs on one block per tile. No VGPR or occupancy figure is given in the commit.
@@ -278,6 +298,14 @@ FA prefill leftover still first (`__launch_bounds__(*, 1)`). ticket-26 EXL3 `-cb
 [^qsa-b740-py]: [ops/qsa.py:930–940](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/ops/qsa.py#L930-L940) and [ops/qsa_rdna2.py:52–66](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/ops/qsa_rdna2.py#L52-L66) @ b74028935393d1e21f73f80f65f506c9ea4639af.
 [^qsa-b740-cmp]: Compare [`8015ea48...b7402893`](https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af); `qsa_rdna2.cu` +45/−6 lines, from commit [`2436df23`](https://github.com/opengfx1030/vllm-rdna/commit/2436df23358ef8b9397076c0663707ec3dce69bf).
 
+[^cec6-cmp]: opengfx1030/vllm-rdna compare `5bda4c24...cec69c12`: https://github.com/opengfx1030/vllm-rdna/compare/5bda4c245024508f8e9ce59c43c5387c98b61228...cec69c12c80d1fdcd3fd9d7938809abf056d9b52
+[^cec6-c]: opengfx1030/vllm-rdna commit [`27e5fa40`](https://github.com/opengfx1030/vllm-rdna/commit/27e5fa40da6338dd2344927c97b3dad63990bf1f) "rdna: shared-expert gate_up tile and one-kernel Gemma norm (batch 4)"; tip [`cec69c12`](https://github.com/opengfx1030/vllm-rdna/commit/cec69c12c80d1fdcd3fd9d7938809abf056d9b52).
+[^cec6-kern]: `SeArgs` and `gemm_tn_splitk_k<OutT, TY, TM, NC, kSE>` with the kSE B-row mapping @ `cec69c12`: https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/csrc/rocm/hc_prefill_rdna2.cu#L289-L363
+[^cec6-epi]: one-slice bypass, slice sum and kSE epilogue @ `cec69c12`: https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/csrc/rocm/hc_prefill_rdna2.cu#L421-L512
+[^cec6-op]: `kSeTarget`, `se_gate_up_gemm` and `rdna_se_gate_up_tile` @ `cec69c12`: https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/csrc/rocm/hc_prefill_rdna2.cu#L673-L691 ; https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/csrc/rocm/hc_prefill_rdna2.cu#L821-L856
+[^cec6-bind]: op schema @ `cec69c12`: https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/csrc/rocm/torch_bindings.cpp#L114-L119
+[^cec6-route]: `_SE_TILE_MIN` and the routing branch in `_rdna_shared_expert` @ `cec69c12`: https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/vllm/model_executor/layers/rdna_ops.py#L32-L35 ; https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/vllm/model_executor/layers/rdna_ops.py#L238-L247
+[^cec6-tune]: `VLLM_RDNA_SE_TILE_MIN` row in `docs/rdna2/tuning.md` @ `cec69c12`: https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/docs/rdna2/tuning.md#L386
 [^5bda-cmp]: opengfx1030/vllm-rdna compare `13fbe2f9...5bda4c24`: https://github.com/opengfx1030/vllm-rdna/compare/13fbe2f9160027e71ab6c915ecbcb95d42373a2e...5bda4c245024508f8e9ce59c43c5387c98b61228
 [^5bda-c]: opengfx1030/vllm-rdna commit [`5bda4c24`](https://github.com/opengfx1030/vllm-rdna/commit/5bda4c245024508f8e9ce59c43c5387c98b61228) "rdna: MTP verify glue batch 3 - HC decode tile retune, rdna_gemm_smallm".
 [^5bda-hdr]: `csrc/rocm/hc_prefill_rdna2.cu` header @ `5bda4c24`: https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/hc_prefill_rdna2.cu#L21-L42
