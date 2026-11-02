@@ -31,6 +31,7 @@ Up: [silicon/](../README.md)
 | [dpp-crosslane-occupancy.md](dpp-crosslane-occupancy.md) | Cross-lane ops: DPP `row_shr`/`row_xmask` + `v_permlanex16` are VALU; `__shfl*` = `ds_bpermute` (LDS pipe, 0 LDS bytes, `lgkmcnt` park); `wave_reduce_*` = serial readlane loop on clang 22; `row_bcast`/`wave_*` gone in GFX10; extras `REDUCE_SUM_DPP_WAVE32` (`0x118…0x111`) verified correct; not a PIX MaxWaves row |
 | [hazard-occupancy.md](hazard-occupancy.md) | Software hazard waitstates: gfx1030 has HW interlocks and none of the gfx101x hazard features, so clang emits 0 `s_nop`/`s_waitcnt_depctr`/`vscnt null` (probe); gfx1013/gfx101x builds of the same source get them, so gfx1030 objects are unsafe on BC-250; don't copy NOP padding; not a PIX MaxWaves row |
 | [fence-occupancy.md](fence-occupancy.md) | Fences / acquire-release: `__threadfence()` = seq_cst agent = drain + `buffer_gl1_inv; buffer_gl0_inv`; release-only = drain only; workgroup scope never invalidates GL1; extras HC split-K ticket verified correct at `b30757c2`; not a PIX MaxWaves row |
+| [spin-hwq-occupancy.md](spin-hwq-occupancy.md) | Device-side spins vs `GPU_MAX_HW_QUEUES=2`: MonoKernel barrier/peer, `rdna_ar` arrive/peer, HC/GDN/QSA tickets — **safe** for same-GPU hwq deadlock at extras `5bda4c24`; `=2` vs `=4` is skew / TheRock#9306, not these spins; not a PIX MaxWaves row |
 
 ## Sources
 
