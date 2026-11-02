@@ -54,8 +54,29 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/vllm/model_executor/layers/rdna_ops.py
+  - https://github.com/opengfx1030/vllm-rdna/commit/5bda4c245024508f8e9ce59c43c5387c98b61228
+  - https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/hc_prefill_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/vllm/model_executor/layers/utils.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/tools/rdna/recipes/flashnext-mtp2.env
 ---
 # Qwen3.8-Flash-Next / Qwen4Exp HIP — tip `8960a3bc`
+
+## Update at dest `rdna_extras` @ `5bda4c24` (checked 2026-11-02)
+
+Three commits since `13fbe2f9`. One touches HIP: `5bda4c24` ("MTP verify glue batch 3"). The other two (`bbe36aab`, `7860e9b4`) change the `flashnext-mtp2` recipe and docs only.[^5bda-cmp][^5bda-c]
+
+| Surface | State at `5bda4c24` |
+|---|---|
+| `gemm_tn_splitk_k` output type | Now templated on `OutT` (`float` or `half`). The final stores go through `store_out` / `store4`; the fp16 path packs two `half2` into one `uint2` store. Kernel body, ticket reduce, and `__launch_bounds__(TY * 16)` are unchanged. No `waves_per_eu` on this kernel.[^5bda-kern] |
+| HC down tile for M ≤ 32 | New third bucket: `M <= 32` launches `<TY 8, TM 4, NC 3>` with a 288-block target and up to 32 K slices. `32 < M < 256` keeps `<8, 8, 3>` (target 144, 16 slices); `M >= 256` keeps `<16, 8, 7>` (target 72, 16 slices). `plan_down` takes `max_splits` instead of a hard-coded 16. The source comment says decode-sized M is latency-bound and gets "about 220" blocks on 72 CUs.[^5bda-plan][^5bda-hdr] |
+| Workspace / tickets | Moved into one `down_gemm<OutT,...>()` helper shared by both ops. Same rule as before: workspace `[splits, M, N]` fp32 and a ticket slot only when `splits > 1`; more than `kHcTickets` (128) output tiles is a `TORCH_CHECK` error.[^5bda-down] |
+| New op `rdna_gemm_smallm(x, w)` | Dense fp16 `y = x @ w^T` for M ≤ 32 on the same split-K kernel with fp16 output, tile `<8, 4, 3>`, target 144 blocks, 16 slices max. Checks: contiguous fp16, `K % 32 == 0`, `K >= 32`, `N % 4 == 0`, `N <= 128 * 48` (6144), 16-byte aligned operands. Bound in `torch_bindings.cpp`.[^5bda-smallm][^5bda-bind] |
+| Python routing (env gate) | `rocm_unquantized_gemm_impl` sends fp16, bias-free GEMMs with 9 to 32 rows to `rdna_gemm_smallm` on gfx10x when the weight fits in `VLLM_RDNA_SMALLM_GEMM_MAX_BYTES`. Default is **0 (off)**; the `flashnext-mtp2` recipe sets 4194304 (4 MiB). Otherwise rocBLAS is used as before.[^5bda-route][^5bda-env] |
+| `flashnext-mtp2` HW queues | Recipe `GPU_MAX_HW_QUEUES` 4 -> 2 (the launcher default). The recipe comment says `--monokernel` raises the workers back to 4. This is a launch setting, not a kernel change; see [toolchain/runtime](../../toolchain/runtime/README.md) for how clr maps streams to queues.[^5bda-env][^5bda-hwq] |
+
+Derived from the template constants (not measured): with `SA = BM + 4` and `SB = BN + ((2 - BN % 8) + 8) % 8`, the `<8, 4, 3>` tile is 128 threads (4 wave32) with `As[16][36]` + `Bs[16][50]` half2 = 5,440 B of LDS plus `s_last`. The `<8, 8, 3>` tile it replaces for M ≤ 32 is 128 threads with `As[16][68]` + `Bs[16][50]` = 7,552 B. The commit gives no VGPR, occupancy, or ISA figure. The commit's own µs timings are in the commit message and the port notes; they are not copied here.[^5bda-kern][^5bda-c]
+
+*Historical:* the `b30757c2` row below that says the HC prefill tile select and split rule are "Unchanged (target 144 narrow / 72 wide, 1..16 slices)" no longer holds for M ≤ 32 at `5bda4c24`.
 
 ## Update at dest `rdna_extras` @ `b30757c2` (checked 2026-11-02)
 
@@ -65,7 +86,7 @@ Commit `b30757c2` ("MTP verify glue batch 1") changes two HIP files. Tip was `59
 |---|---|
 | `gemm_tn_splitk_k` reduction (HC prefill down GEMM) | The fp32 `atomicAdd` epilogue into an `at::zeros` accumulator is gone. With one K slice the block stores C directly. With several, each slice stores its fp32 partial tile to a per-call workspace `ws[z][M][N]`, then `__threadfence()` + `__syncthreads()`, and thread 0 takes an arrival ticket (`atomicAdd` on a per-tile int). The last slice re-fences (acquire), sums the slices in ascending z order with 16-byte `__builtin_nontemporal_load` (8 slices unrolled), stores C, and re-arms the ticket to 0. The early `if (kb >= ke) return` is removed so every block reaches the ticket. Result is run-to-run deterministic, and the per-call zero fill disappears.[^b307-splitk] |
 | Split-K ticket pool | `hc_tickets()`: one pool per device of `(kHcSlots 8 + kHcCaptureSlots 8) * kHcTickets 128` int32, zeroed once with `at::zeros` + `cudaStreamSynchronize`. A stream keeps its slot; a capturing stream takes a slot from the capture range (graphs captured on one stream share it). No slot available falls back to a per-call `at::zeros({128})`. More than 128 output tiles is a `TORCH_CHECK` error. Same scheme as `wvSplitKrc`, per the source comment.[^b307-tickets] |
-| HC prefill launch shape | Unchanged: `__launch_bounds__(TY * 16)` on both kernels, same tile select and split rule (target 144 blocks narrow / 72 wide, 1..16 slices), v_dot2_f32_f16 with LDS K slab KT = 32. `acc` is now `at::empty`.[^b307-splitk][^b307-plan] |
+| HC prefill launch shape | *(historical at `b30757c2`; M ≤ 32 retuned at `5bda4c24`, see above)* Unchanged: `__launch_bounds__(TY * 16)` on both kernels, same tile select and split rule (target 144 blocks narrow / 72 wide, 1..16 slices), v_dot2_f32_f16 with LDS K slab KT = 32. `acc` is now `at::empty`.[^b307-splitk][^b307-plan] |
 | HC injection logits | `rdna_hc_mix_prefill` and decode `rdna_gemv_act` now return a separate contiguous fp16 injection tensor `[M, min(HC, N - R)]` (columns R.. of the down projection) instead of the whole fp16 `dai`. Decode `rdna_gemv_act` only computes the first `act_cols + inj_cols` weight rows. Op schemas changed to return `(Tensor, Tensor)`.[^b307-inj][^b307-glue-api][^b307-ops] |
 | Shared expert fused pair (`rdna_fused_glue.cu`) | `rdna_se_gate_up_silu` takes `w_gate` and launches one extra block that computes `gate[m] = sigmoid(w_gate . x[m])` in fp32 once; `rdna_se_down_gated` reads that gate instead of recomputing the K-long dot in every block. The `__shared__ float s_gate[kMaxM]` and its `__syncthreads()` are removed. Gate and up rows now share every x load (`dot_pair`, still `__builtin_amdgcn_fdot2`). `__launch_bounds__(WAVES * 32)` unchanged.[^b307-glue-se][^b307-glue-pair] |
 | Shared expert M range | fp16 weights now take M up to `kMaxSeM = 32` through `dispatch_guarded` (MT capacity 16 / 24 / 32, rows `m >= M` skipped wave-uniformly). int8 shadows stay exact MT ≤ 8 (`static_assert(!GUARD)`). Python gate `VLLM_RDNA_SE_DECODE_MAX`, default 32, 0 = off. HC glue stays at `kMaxM = 8`.[^b307-glue-se][^b307-sedecode] |
@@ -257,6 +278,17 @@ FA prefill leftover still first (`__launch_bounds__(*, 1)`). ticket-26 EXL3 `-cb
 [^qsa-b740-py]: [ops/qsa.py:930–940](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/ops/qsa.py#L930-L940) and [ops/qsa_rdna2.py:52–66](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/ops/qsa_rdna2.py#L52-L66) @ b74028935393d1e21f73f80f65f506c9ea4639af.
 [^qsa-b740-cmp]: Compare [`8015ea48...b7402893`](https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af); `qsa_rdna2.cu` +45/−6 lines, from commit [`2436df23`](https://github.com/opengfx1030/vllm-rdna/commit/2436df23358ef8b9397076c0663707ec3dce69bf).
 
+[^5bda-cmp]: opengfx1030/vllm-rdna compare `13fbe2f9...5bda4c24`: https://github.com/opengfx1030/vllm-rdna/compare/13fbe2f9160027e71ab6c915ecbcb95d42373a2e...5bda4c245024508f8e9ce59c43c5387c98b61228
+[^5bda-c]: opengfx1030/vllm-rdna commit [`5bda4c24`](https://github.com/opengfx1030/vllm-rdna/commit/5bda4c245024508f8e9ce59c43c5387c98b61228) "rdna: MTP verify glue batch 3 - HC decode tile retune, rdna_gemm_smallm".
+[^5bda-hdr]: `csrc/rocm/hc_prefill_rdna2.cu` header @ `5bda4c24`: https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/hc_prefill_rdna2.cu#L21-L42
+[^5bda-kern]: `store_out` / `store4` and `gemm_tn_splitk_k` @ `5bda4c24`: https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/hc_prefill_rdna2.cu#L264-L302
+[^5bda-plan]: `DownPlan` / `plan_down` and the M-bucket dispatch in `rdna_hc_mix_prefill` @ `5bda4c24`: https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/hc_prefill_rdna2.cu#L491-L515 ; https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/hc_prefill_rdna2.cu#L684-L698
+[^5bda-down]: `down_gemm` @ `5bda4c24`: https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/hc_prefill_rdna2.cu#L590-L610
+[^5bda-smallm]: `rdna_gemm_smallm` @ `5bda4c24`: https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/hc_prefill_rdna2.cu#L706-L737
+[^5bda-bind]: op schema @ `5bda4c24`: https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/torch_bindings.cpp#L112-L113
+[^5bda-route]: `_RDNA_SMALLM_MAX_BYTES` and the routing branch in `rocm_unquantized_gemm_impl` @ `5bda4c24`: https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/vllm/model_executor/layers/utils.py#L26-L31 ; https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/vllm/model_executor/layers/utils.py#L379-L400
+[^5bda-env]: `flashnext-mtp2` recipe @ `5bda4c24`: https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/tools/rdna/recipes/flashnext-mtp2.env#L38-L59
+[^5bda-hwq]: opengfx1030/vllm-rdna commit [`bbe36aab`](https://github.com/opengfx1030/vllm-rdna/commit/bbe36aab973a41b56b9e70ab45a5d647c0bcee86) "perf(rdna2): flashnext-mtp2 GPU_MAX_HW_QUEUES 4 -> 2".
 [^b307-cmp]: opengfx1030/vllm-rdna compare `59b0f5eb...b30757c2`: https://github.com/opengfx1030/vllm-rdna/compare/59b0f5eb227998194c5ac8ca7bebf555f1e8ae32...b30757c257c25c737d671179025bbc5c2ec1ee50
 [^b307-c]: opengfx1030/vllm-rdna commit [`b30757c2`](https://github.com/opengfx1030/vllm-rdna/commit/b30757c257c25c737d671179025bbc5c2ec1ee50) "rdna: MTP verify glue batch 1 - HC split-K without fill, injection from the op, shared expert fused to M<=32, MoE align without gather".
 [^b307-splitk]: `csrc/rocm/hc_prefill_rdna2.cu` header and `gemm_tn_splitk_k` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu#L21-L42 ; https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu#L248-L434
