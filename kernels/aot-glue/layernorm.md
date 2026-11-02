@@ -1,6 +1,9 @@
 ---
 title: "HIP AOT RMSNorm — extras `83de31cf` + gated `71a54552`"
 sources:
+  - https://github.com/opengfx1030/vllm-rdna/commit/13fbe2f9160027e71ab6c915ecbcb95d42373a2e
+  - https://github.com/opengfx1030/vllm-rdna/blob/13fbe2f9160027e71ab6c915ecbcb95d42373a2e/csrc/rocm/layernorm.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/13fbe2f9160027e71ab6c915ecbcb95d42373a2e/vllm/model_executor/layers/layernorm.py
   - https://github.com/opengfx1030/vllm-rdna/commit/56f67111dd87847c5e92e14a7076fec2c9ab6f22
   - https://github.com/opengfx1030/vllm-rdna/commit/71a54552ae8f6f8ad7f315c5a2291cebdb747690
   - https://github.com/opengfx1030/vllm-rdna/blob/56f67111dd87847c5e92e14a7076fec2c9ab6f22/csrc/rocm/layernorm.cu
@@ -15,6 +18,8 @@ sources:
   - https://github.com/BlivionIaG/vllm/commit/f22a15b64bf4b3525dba8a7fca0379c3513cf5ca
 ---
 # HIP AOT RMSNorm — extras `83de31cf` + gated `71a54552`
+
+**At dest `13fbe2f9` (checked 2026-11-02):** `gated_rms_norm` accepts a strided `z`. `z` may be 2D `[M, N]` contiguous (as before) or 3D `[T, H, N]` with contiguous heads (`stride(2) == 1`, `stride(1) == N`) and any token stride, with `T * H == M`. The kernel gains `z_tok_stride` and `heads` arguments and row `r` reads `z` at `(r / heads) * z_tok_stride + (r % heads) * N`, so `z` can be a view into the packed qkvz projection with no copy. `input`, `weight` and `out` must still be contiguous. Tile, WG choice and the lack of occupancy attributes are unchanged.[^ln-13fb-k] `RMSNormGated.forward_hip` passes the 3D `z` through when its heads are contiguous and otherwise still reshapes and copies it.[^ln-13fb-py] *Historical:* up to `b30757c2` the op required 2D `z` with `input`'s exact shape and contiguous layout.[^ln-b307]
 
 **At dest `1dc3bac4` (checked 2026-10-11):** `layernorm.cu` (with `gated_rms_norm`) is still on the unconditional list next to EXL3, not inside the gfx1030 block.[^ln-tip]
 
@@ -94,3 +99,6 @@ Public entries are global-scope (`83de31cf` closed `vllm::rocm_layernorm` before
 [^c-f22a15b6]: BlivionIaG/vllm commit [`f22a15b6`](https://github.com/BlivionIaG/vllm/commit/f22a15b64bf4b3525dba8a7fca0379c3513cf5ca) (2026-09-01) — "fix(rocm/layernorm): 64-bit shfl mask + move public entries to global scope".
 [^ln-tip-cg]: No `isnan` / `VLLM_CG_NAN_INPUT_CHECK` in `vllm/compilation/cuda_graph.py` at dest 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/compilation/cuda_graph.py
 [^ln-tip]: `csrc/rocm/layernorm.cu` (`gated_rms_norm_kernel` L136) on the unconditional ROCm list next to EXL3 (`CMakeLists.txt` L1570-L1575, outside the `VLLM_ROCM_HAS_GFX1030` block that starts at L1517), dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/layernorm.cu#L136 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/CMakeLists.txt#L1517-L1575
+[^ln-13fb-k]: `gated_rms_norm_kernel` signature and z addressing L139-L151, launcher L205-L215, host checks L287-L312, `csrc/rocm/layernorm.cu` at 13fbe2f9 (commit [`13fbe2f9`](https://github.com/opengfx1030/vllm-rdna/commit/13fbe2f9160027e71ab6c915ecbcb95d42373a2e), 2026-11-02). https://github.com/opengfx1030/vllm-rdna/blob/13fbe2f9160027e71ab6c915ecbcb95d42373a2e/csrc/rocm/layernorm.cu#L139-L151 ; https://github.com/opengfx1030/vllm-rdna/blob/13fbe2f9160027e71ab6c915ecbcb95d42373a2e/csrc/rocm/layernorm.cu#L287-L312
+[^ln-13fb-py]: `vllm/model_executor/layers/layernorm.py` L478-L492, dest at 13fbe2f9. https://github.com/opengfx1030/vllm-rdna/blob/13fbe2f9160027e71ab6c915ecbcb95d42373a2e/vllm/model_executor/layers/layernorm.py#L478-L492
+[^ln-b307]: `gated_rms_norm` host checks (`input and z must be 2D`, `input and z must match shapes`, contiguous) at b30757c2. https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/layernorm.cu
