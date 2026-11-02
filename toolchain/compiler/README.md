@@ -113,7 +113,7 @@ For our forks: if a kernel calls through a function pointer, read `.uses_dynamic
 
 ## Gotcha — `mulhs` on 24-bit types returns the wrong bits
 
-[llvm-project#237718](https://github.com/llvm/llvm-project/issues/237718) (open, filed 2026-11-01) reports that the AMDGPU `performMulhsCombine` has no width check, so a signed high multiply on a non-i32 type (for example `_BitInt(24)`, also i7/i8/i16/i64 of sign-extended 24-bit values) lowers to `v_mul_hi_i32_i24`, which returns bits 32..47 of the product instead of bits N..2N-1. The reporter's `h24(2^22, 2^22)` returns 4096 instead of 1048576 on `-mcpu=gfx900` trunk and lists every target with 24-bit multiplies, including gfx1100.[^llvm237718] Plain `int32` `__mulhi` is not affected per the report. Avoid `_BitInt` high-multiply idioms in our kernels until a fix lands.
+[llvm-project#237718](https://github.com/llvm/llvm-project/issues/237718) (open, filed 2026-11-01) reports that the AMDGPU `performMulhsCombine` has no width check, so a signed high multiply on a non-i32 type (for example `_BitInt(24)`, also i7/i8/i16/i64 of sign-extended 24-bit values) lowers to `v_mul_hi_i32_i24`, which returns bits 32..47 of the product instead of bits N..2N-1. The reporter's `h24(2^22, 2^22)` returns 4096 instead of 1048576 on `-mcpu=gfx900` trunk and lists every target with 24-bit multiplies, including gfx1100.[^llvm237718] The report scopes the bug to `mulhs` of types other than i32. Avoid `_BitInt` high-multiply idioms in our kernels until a fix lands.
 
 ## `-O0` integer divide, and wave64
 
