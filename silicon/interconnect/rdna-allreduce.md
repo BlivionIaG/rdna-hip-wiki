@@ -18,9 +18,24 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/19a010b476a82455aa3b54ef63b91f6e5fa9d3f4
   - https://github.com/opengfx1030/vllm-rdna/blob/c4a05415cbda030c784bdc91c7d32e55c287a828/csrc/rocm/rdna_allreduce.cuh
   - https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/tools/rdna/recipes/flashnext-mtp2.env
+  - https://github.com/opengfx1030/vllm-rdna/commit/a359ddb4a8f483ffb6690b057c70c11c68718734
+  - https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/rdna_allreduce.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/rdna_allreduce.cuh
 ---
 
 # gfx1030 push one-shot all-reduce (`rdna_ar`) — silicon lock
+
+## Update at dest tip `e1ebb1f3` (checked 2026-11-03)
+
+`a359ddb4` changes the all-reduce finisher and its launch width. Protocol, gate, dtypes, buffers, wait bound and the 256-thread launch are unchanged.[^e1eb-ar-c]
+
+| Item | State at `e1ebb1f3` |
+|---|---|
+| Vector finisher | `rdna_ar_sum_vec<T, W>`: one 16-byte load per rank slice, fp32 sum in fixed order rank 0 .. W−1 from `0.f`, one 16-byte store. W is a template argument (2, 4, 8) so the W uncached loads issue back to back. Taken when in/out are 16-byte aligned; the tail and any other world size use the scalar loop. The source says the result is bit-equal to the scalar loop.[^e1eb-ar-vec] |
+| Launch width (all-reduce only) | `rdna_ar_reduce_blocks`: 4 / 6 / 32 blocks for staged bytes ≤ 8 KB / ≤ 32 KB / larger, still capped by `VLLM_RDNA_AR_BLOCKS`. Gather and argmax keep `rdna_ar_blocks` (4 / 16 / 32).[^e1eb-ar-blocks] |
+| Env | `VLLM_RDNA_AR_VEC` (default **1**); `0` restores the scalar finisher and the old widths.[^e1eb-ar-blocks][^e1eb-ar-tune] |
+
+*Historical @ `c4a05415`:* the all-reduce used the scalar fixed-order loop and `rdna_ar_blocks`, i.e. 16 blocks for 8–32 KB payloads.
 
 ## Update at dest tip `c4a05415` (checked 2026-11-02)
 
@@ -176,3 +191,8 @@ Primary sources for this page, cited inline as footnotes:
 [^ar-b307-recipe]: `tools/rdna/recipes/flashnext-mtp2.env` @ `b30757c2` (L38-L44): https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/tools/rdna/recipes/flashnext-mtp2.env#L38-L44 ; commit [`641e0c22`](https://github.com/opengfx1030/vllm-rdna/commit/641e0c2288db9aae34b74428632b80bc8643adfb) "perf(rdna2): flashnext-mtp2 one-shot all-reduce gate 64 -> 256 KiB" (in compare https://github.com/opengfx1030/vllm-rdna/compare/59b0f5eb227998194c5ac8ca7bebf555f1e8ae32...b30757c257c25c737d671179025bbc5c2ec1ee50).
 [^ar-b307-py]: `_ONESHOT_DEFAULT_KB = 64` and `resolve_gate_kb()` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/vllm/distributed/device_communicators/rdna_all_reduce.py#L58-L80
 [^ar-b307-tuning]: `docs/rdna2/tuning.md` all-reduce env table @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/docs/rdna2/tuning.md
+
+[^e1eb-ar-c]: opengfx1030/vllm-rdna commit [`a359ddb4`](https://github.com/opengfx1030/vllm-rdna/commit/a359ddb4a8f483ffb6690b057c70c11c68718734) "rdna_ar: 16-byte all-reduce finisher, retuned launch widths"; tip [`e1ebb1f3`](https://github.com/opengfx1030/vllm-rdna/commit/e1ebb1f3fa6bebe8822036b12f03da6220b611a6)
+[^e1eb-ar-vec]: `rdna_ar_sum_vec` and the finisher dispatch in `rdna_ar_oneshot` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/rdna_allreduce.cuh#L319-L410
+[^e1eb-ar-blocks]: `VLLM_RDNA_AR_VEC` parse, `rdna_ar_blocks`, `rdna_ar_reduce_blocks` and the all-reduce call site @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/rdna_allreduce.cu#L56-L58 ; https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/rdna_allreduce.cu#L104-L105 ; https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/rdna_allreduce.cu#L232-L253 ; https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/rdna_allreduce.cu#L276-L277
+[^e1eb-ar-tune]: `VLLM_RDNA_AR_VEC` row in `docs/rdna2/tuning.md` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/docs/rdna2/tuning.md#L426
