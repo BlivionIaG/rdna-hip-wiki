@@ -2,6 +2,8 @@
 owner: ROCM_specialist
 updated: 2026-10-11
 sources:
+  - https://github.com/ROCm/therock-ci-config/blob/c97840545eb31d5377791884378ce6171fe5f84e/runner-config-v2.json
+  - https://github.com/ROCm/TheRock/issues/8297
   - https://github.com/ROCm/ROCm/commit/830cc1b5e90d7da1b07e39113d7a5c95f3e687a1
   - https://rocm.docs.amd.com/en/docs-7.14.0/about/release-notes.html
   - https://rocm.docs.amd.com/en/docs-7.14.1/about/release-notes.html
@@ -61,6 +63,8 @@ The same notes' breaking-change section says ROCm SMI (`rocm-smi-lib`) is no lon
 
 TheRock `SUPPORTED_GPUS.md` at `74744339975d50c76a942aad3e090c4d95116af6` (main, read 2026-10-11) marks Linux **gfx1030** and **gfx1100** Build Passing, Sanity Tested, and Release Ready. Linux **gfx900** is Build Passing only.[^gpus] That page defines Release Ready as "supported and tested as part of our overall release process" and warns that Build Passing alone means a package was published, which is the gfx900 column.[^gpus] Older scan notes that used the phrase `gfx103X-dgpu` and "libraries excluded" are in the [log](../log/pin-scans.md); the support page opened this pass does not use that wording.
 
+TheRock's CI runner config currently runs **no gfx103X GPU tests** on Linux or Windows. At `ROCm/therock-ci-config` main `c97840545eb3`, the `gfx103x` entry has an empty `test-runs-on` for both OSes, with the disable comments "linux-gfx1030-gpu-rocm, count: 2, failure rate is 45%, component test failures" and "windows-gfx1030-gpu-rocm, count: 6, failure rate is 27%, component test failures".[^ciconf] On 2026-11-03 an AMD reply in TheRock#8297 said the linux-gfx103x runners were removed for infra and capacity issues and will be added back once those are resolved.[^ci8297] So gfx1030 nightlies are still built but not GPU-tested upstream for now; a new nightly needs our own smoke test before it counts as working on V620.
+
 ## Host amdgpu DRM is part of the pin
 
 Two open upstream threads describe ROCm-era userspace failing on older in-tree amdgpu, and both clear on a kernel whose amdgpu is **DRM 3.64**.
@@ -83,3 +87,5 @@ Record the kernel release and the amdgpu DRM version next to the ROCm version in
 [^rccl6565]: legacy-rocm-build#6565, comment by `lucbruni-amd` on 2026-10-06 attributing the failure to Ubuntu's 6.8 amdgpu. https://github.com/ROCm/legacy-rocm-build/issues/6565
 [^vmm9820]: rocm-systems#9820. https://github.com/ROCm/rocm-systems/issues/9820
 [^vmm9821]: rocm-systems#9821, merged 2026-10-29T21:53Z into develop. https://github.com/ROCm/rocm-systems/pull/9821
+[^ciconf]: `ROCm/therock-ci-config` `runner-config-v2.json` at `c97840545eb31d5377791884378ce6171fe5f84e`, read 2026-11-03; gfx103x runners first excluded in commit `8fbd21bf` (2026-10-13). https://github.com/ROCm/therock-ci-config/blob/c97840545eb31d5377791884378ce6171fe5f84e/runner-config-v2.json
+[^ci8297]: TheRock#8297, comment of 2026-11-03T10:22Z. https://github.com/ROCm/TheRock/issues/8297
