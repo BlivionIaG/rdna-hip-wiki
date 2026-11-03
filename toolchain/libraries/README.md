@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-16
+updated: 2026-11-03
 sources:
   - https://github.com/ROCm/TheRock/issues/8729
   - https://github.com/Niko1221/Strata/pull/1123
@@ -18,6 +18,9 @@ sources:
   - https://github.com/pytorch/pytorch/issues/200999
   - https://github.com/pytorch/pytorch/commit/fba88a5dd7c53d679cb82fd33cbe084c3d6b3f31
   - https://github.com/ROCm/TheRock/issues/9066
+  - https://github.com/Niko1221/Strata/issues/5060
+  - https://github.com/ROCm/TheRock/blob/main/docs/rfcs/RFC0008-Multi-Arch-Packaging.md
+  - https://github.com/Comfy-Org/ComfyUI/issues/17500
 ---
 
 # Libraries
@@ -93,6 +96,17 @@ For gfx1100 code that calls torch SDPA on 2.14.x or older, add that guard for he
 
 [TheRock#9066](https://github.com/ROCm/TheRock/issues/9066) (open, filed 2026-10-16) says the multi-arch PyTorch nightly wheel builds fail, so no nightly wheels are produced. PyTorch commit `31a88272c8` (pytorch#200307, a CK-Tile group GEMM backend) compiles `ck_tile_group_gemm.hip` for every arch in `PYTORCH_ROCM_ARCH`, including gfx900, gfx906, gfx90c and gfx1010-1012, and CK-Tile's `get_compiler_target()` returns void for those.[^tr9066] This is a build break on the nightly line, not a 7.14.0 dest change. Anyone building PyTorch from source for gfx900 after that commit should expect the same failure until it is gated.
 
+
+### kpack: bundled math libraries lose their device code
+
+ROCm installs that use kpack split device code out of the libraries into `<rocm>/.kpack/*_lib_<arch>.kpack` archives. [Strata#5060](https://github.com/Niko1221/Strata/issues/5060) (open, filed 2026-11-03, gfx1100) shows that the bundled `librocblas.so.5`, `libhipblaslt.so.1` and `librocsolver.so.0` then carry an empty `.hip_fatbin` and a `.rocm_kpack_ref` path relative to the library, such as `../.kpack/blas_lib_@GFXARCH@.kpack`. When an app copies those libraries into its own folder without the `.kpack` archives, most calls still work through the Tensile files, but the first kernel rocBLAS keeps in its own fat binary fails with `hipErrorInvalidKernelFile`, and `AMD_LOG_LEVEL=1` prints "Could not find device type specific kpack code objects".[^st5060] The packaging design is in TheRock's [RFC0008](https://github.com/ROCm/TheRock/blob/main/docs/rfcs/RFC0008-Multi-Arch-Packaging.md).[^rfc0008]
+
+For our own containers or fork builds on a kpack ROCm (Strata's report uses `/opt/rocm/core-10.1`), copy the matching `.kpack` archives next to the bundled libraries at the same relative path, or link against the system ROCm instead of vendoring the libraries. Run one rocBLAS call outside the Tensile path in a smoke test, because the failure only appears on the first such kernel. Whether our 7.14.0 dest images use kpack was not checked this pass (unsourced).
+
+### Non-contiguous batched GEMM operands on gfx1030
+
+[ComfyUI#17500](https://github.com/Comfy-Org/ComfyUI/issues/17500) (open, filed 2026-11-03) measured `baddbmm` on an RX 6800 XT (gfx1030, PyTorch 2.13.0+rocm10.0.0) with a strided, non-contiguous key. One attention call at 32,760 tokens took 16.37 s as-is and 1.56 s after `key.contiguous()`, with unchanged output; at 20,280 tokens it went from 0.88 s to 0.53 s.[^cf17500] The report also notes that gfx1030 has no AOTriton SDPA kernels, so PyTorch SDPA falls back to MATH there.[^cf17500] Which rocBLAS or hipBLASLt path the strided layout lands on was not isolated in the report. In HIP-side code that feeds batched GEMMs from permuted views on gfx1030, make the operand contiguous and time both layouts before trusting the library to handle the stride.
+
 ## Sources
 
 [^tr8729]: TheRock#8729, open, issue body (wheel contents, gfx1030 vs gfx1100). https://github.com/ROCm/TheRock/issues/8729
@@ -112,3 +126,6 @@ For gfx1100 code that calls torch SDPA on 2.14.x or older, add that guard for he
 [^ptfba88a5]: pytorch commit `fba88a5dd7c5`, committed 2026-08-28 (#194280). https://github.com/pytorch/pytorch/commit/fba88a5dd7c53d679cb82fd33cbe084c3d6b3f31
 [^tr9066]: TheRock#9066, open. https://github.com/ROCm/TheRock/issues/9066
 [^aot168]: ROCm/aotriton#168, open, `xinyazhang` comments 2026-04-25 and 2026-04-28. https://github.com/ROCm/aotriton/issues/168
+[^st5060]: Strata#5060, open, filed 2026-11-03 05:48 UTC (kpack ref sections, `hipErrorInvalidKernelFile`, AMD_LOG_LEVEL=1 message). https://github.com/Niko1221/Strata/issues/5060
+[^rfc0008]: TheRock RFC0008, Multi-Arch Packaging. https://github.com/ROCm/TheRock/blob/main/docs/rfcs/RFC0008-Multi-Arch-Packaging.md
+[^cf17500]: ComfyUI#17500, open, filed 2026-11-03 01:41 UTC (RX 6800 XT gfx1030, timings, AOTriton note). https://github.com/Comfy-Org/ComfyUI/issues/17500

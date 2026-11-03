@@ -437,3 +437,19 @@ Vs Oct 30 ~10:35. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per ho
 
 Artifact: `/workspace/rocm-rdna-domain-20261102-1030.md`.
 
+
+## 2026-11-03 ~10:25 — domain pass (kpack bundling breaks rocBLAS device code, gfx1030 non-contiguous GEMM 10x, dmem cgroup VRAM; not dest)
+
+Vs Nov 2 ~10:30. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly ~09:55 (TheRock main `662e2f45a954`; releases therock-10.1, rocm-7.14.0). The gfx1100 pageable H2D bug [rocm-systems#14886](https://github.com/ROCm/rocm-systems/issues/14886) was already added by the hourly scan.
+
+| Item | Verdict | Note |
+|---|---|---|
+| [Strata#5060](https://github.com/Niko1221/Strata/issues/5060) | **Take (libraries/packaging)** | On kpack ROCm, vendored `librocblas`/`libhipblaslt`/`librocsolver` point at `../.kpack/*.kpack`; without the archives the first non-Tensile rocBLAS kernel fails with `hipErrorInvalidKernelFile`. In [libraries/](../libraries/README.md). |
+| [ComfyUI#17500](https://github.com/Comfy-Org/ComfyUI/issues/17500) | **Take (libraries)** | gfx1030 `baddbmm` with a non-contiguous key: 16.37 s vs 1.56 s at 32,760 tokens after `.contiguous()`. In [libraries/](../libraries/README.md). |
+| [rocm-systems#14860](https://github.com/ROCm/rocm-systems/issues/14860) | **Take (runtime)** | `hipMemGetInfo` ignores cgroup `dmem.max`; engines over-plan VRAM in capped containers. In [runtime/](../runtime/README.md). |
+| [vllm#50603](https://github.com/vllm-project/vllm/issues/50603) | Leave (engine lane) | gfx1100 nondeterminism traced to RDNA3 W4A16 split-K reduction (fix PR [#54706](https://github.com/vllm-project/vllm/pull/54706)) and the ROCm custom paged-attention path. |
+| [rocm-systems#13795](https://github.com/ROCm/rocm-systems/issues/13795) | Watch | rocjitsu RDNA target qualification; RDNA2 (gfx1030-1036) listed fourth; no comments. |
+| [rocm-systems#14845](https://github.com/ROCm/rocm-systems/issues/14845) | Leave | HIP texture-object helper misforwarding (layered/gather/LOD/grad); we do not use texture sampling. |
+| [rocm-libraries#14838](https://github.com/ROCm/rocm-libraries/issues/14838) | Note | gfx1030 hipBLASLt request still has no reply. hipfire still v0.4.4. |
+
+Artifact: `/workspace/rocm-rdna-domain-20261103-1025.md`.

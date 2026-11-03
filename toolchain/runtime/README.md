@@ -47,6 +47,7 @@ sources:
   - https://github.com/ROCm/rocm-systems/pull/11277
   - https://github.com/ROCm/rocm-libraries/pull/13639
   - https://github.com/ROCm/rocm-systems/pull/5792
+  - https://github.com/ROCm/rocm-systems/issues/14860
 ---
 
 # HIP runtime
@@ -184,6 +185,11 @@ Until both land: build every binary for every arch in the box, and run one proce
 
 [rocm-systems#14234](https://github.com/ROCm/rocm-systems/issues/14234) (open, filed 2026-10-26) reports a SIGSEGV inside `libamdhip64` 7.2.4 (`hip-runtime-amd 7.2.53211.70204`) on an RX 7900 XTX (gfx1100): an internal kernarg arena allocator returns NULL and the caller writes to address 0 with no check. The backtrace runs through llama.cpp's CUDA-graph capture path during MTP speculative decoding. The reporter's core analysis shows the arena alive with a fresh, never-used 4 MiB chunk and a zero cursor, and does not name a root cause.[^graph14234] Watch it if a captured decode graph crashes in `libamdhip64` with a NULL destination; it is not reported on 7.14.0.
 
+
+### cgroup `dmem.max` VRAM limits are not reported
+
+Since Linux 6.14 the `dmem` cgroup controller can cap a container's VRAM on amdgpu. [rocm-systems#14860](https://github.com/ROCm/rocm-systems/issues/14860) (open feature request, filed 2026-11-02, W7900 gfx1100, ROCm 7.2.4) shows the cap is enforced (`hipMalloc` stops at about 11,008 MiB under an 11,264 MiB `dmem.max`) but `hipMemGetInfo` and the HSA pool size still report the whole card: 46,064 MiB total, and free memory of the device rather than of the cgroup.[^sys14860] vLLM's `--gpu-memory-utilization` and PyTorch's caching allocator size themselves from those numbers, so a capped container plans for memory it cannot get.[^sys14860] When we share one card between containers with `dmem`, pass an explicit memory budget to the engine instead of a utilization fraction.
+
 ## Sources
 
 [^vis14778]: rocm-systems#14778, open, issue body (fdinfo table, versions, `fmm.c` analysis). https://github.com/ROCm/rocm-systems/issues/14778
@@ -236,3 +242,4 @@ Until both land: build every binary for every arch in the box, and run one proce
 [^q-4668]: Strata#4668, opened 2026-10-30 03:24 UTC: MEC `0x74` vs `0x86` on 2× V620, about 470 requests clean, firmware-only install steps, `GPU_MAX_HW_QUEUES=2` fallback. https://github.com/Niko1221/Strata/issues/4668
 [^q-fw3160]: AMD package folder for `amdgpu-dkms-firmware` 31.60 (Ubuntu). https://repo.radeon.com/amdgpu/31.60/ubuntu/pool/main/a/amdgpu-dkms-firmware/
 [^q-4378]: Strata#4378, opened 2026-10-28 00:24 UTC: GFXOFF/SDMA stall table (168 / 28 / 28 sessions) and watchdog findings. https://github.com/Niko1221/Strata/issues/4378
+[^sys14860]: rocm-systems#14860, open, filed 2026-11-02 20:56 UTC (measurements on W7900, kernel 7.0, ROCm 7.2.4). https://github.com/ROCm/rocm-systems/issues/14860
