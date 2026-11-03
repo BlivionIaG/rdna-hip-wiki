@@ -1,7 +1,8 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-30
+updated: 2026-11-03
 sources:
+  - https://github.com/ROCm/rocm-systems/issues/14886
   - https://github.com/Niko1221/Strata/issues/4668
   - https://github.com/Niko1221/Strata/issues/4378
   - https://repo.radeon.com/amdgpu/31.60/ubuntu/pool/main/a/amdgpu-dkms-firmware/
@@ -105,6 +106,8 @@ For our HIP code: when an engine streams mmap'd weights or keeps a large page-lo
 ### Small pageable H2D copies on gfx11
 
 [rocm-systems#10639](https://github.com/ROCm/rocm-systems/pull/10639) (open) says `hipMemcpyAsync` can silently drop a small host-to-device copy from pageable memory, reproduced intermittently on gfx1101. Small pageable copies go through a pinned staging slot that a blit shader reads. clr bump-allocates slots at the cache line size the agent reports, 64 bytes on gfx11, while L2 tracks 128-byte lines. The first copy's shader can pull the neighbor slot into L2 before the CPU fills it, so the second copy reads stale data; in the report every lost copy is odd-numbered and reads back as zero. The PR floors the reported line at 128 bytes on gfx11.[^clr10639] It names gfx11 only; gfx1030 is not discussed. For gfx1100 code that sends many small per-step uploads from pageable memory, send them from pinned (`hipHostMalloc`) buffers or check them on readback until the PR is in a pin.
+
+[rocm-systems#14886](https://github.com/ROCm/rocm-systems/issues/14886) (open, filed 2026-11-03) reports the same stale-L2-line loss on 2× RX 7900 XTX (gfx1100) with ROCm 10.0.0 wheels (HIP 7.16.26361) and 10.1.0 wheels (HIP 7.16.26385), with a deterministic repro: two 8-byte pageable `hipMemcpyAsync` H2D copies on one stream with about 100 µs of host work between them lose the second copy 20 of 20 runs. The reporter traces it to `KernelBlitManager::writeBuffer` in clr `rocblit.cpp`: async staged copies keep the agent-scope acquire that `AMD_OPT_FLUSH=1` selects, and only blocking copies call `addSystemScope()`; the proposed fix requests system scope on every staged H2D dispatch. In their table `AMD_OPT_FLUSH=0`, `AMD_SERIALIZE_COPY=2`, pinned source buffers, or a sync between the copies avoid it; `HSA_ENABLE_SDMA=0` and `GPU_MAX_HW_QUEUES=1` do not.[^clr14886] The issue says this breaks RCCL 2.30.4 init: channel 0 `ring.userRanks` uploads as `[0,0]` on both ranks, so `ncclAllGather` writes to the wrong slots while 2-rank all-reduce stays exact. `vllm/vllm-openai-rocm:v0.33.0` with `--tensor-parallel-size 2` then answers garbage at temperature 0, and `AMD_OPT_FLUSH=0` fixes it in eager and graph mode.[^clr14886] The reporter notes that `develop` after #13275 adds a system-scope barrier and host wait before each staged H2D copy, which probably hides the defect there, but 10.1.0 shows no such barrier.[^clr14886] For gfx1100 tensor-parallel serving on ROCm 10.x, validate all-gather output (not only all-reduce) and try `AMD_OPT_FLUSH=0` if TP answers are wrong. The issue names gfx1100 only; whether gfx1030 is affected is not tested here (unsourced).
 
 ### mmap'd sources: SVM split fault before Linux 7.2
 
@@ -216,6 +219,7 @@ Until both land: build every binary for every arch in the box, and run one proce
 [^pt200774]: pytorch#200774, open, "[ROCm] Make expandable segment mapping failures retryable". https://github.com/pytorch/pytorch/pull/200774
 [^st2729]: Strata#2729, open, issue body (events 1-4, `HSA_USERPTR_FOR_PAGED_MEM=0`, suspend). https://github.com/Niko1221/Strata/issues/2729
 [^clr10639]: rocm-systems#10639, open, "fix(clr): set gfx11 cache line size to 128 bytes" (gfx1101, AIRUNTIME-2666). https://github.com/ROCm/rocm-systems/pull/10639
+[^clr14886]: rocm-systems#14886, open, issue body (repro, env-var table, `rocblit.cpp` analysis, RCCL/vLLM impact). https://github.com/ROCm/rocm-systems/issues/14886
 [^tr8259]: TheRock#8259, merged 2026-10-02 20:22 UTC. https://github.com/ROCm/TheRock/pull/8259
 [^tr9021]: TheRock#9021, merged 2026-10-15 20:07 UTC; description, and `lumachad` comments 2026-10-15 07:42 and 15:03 UTC. https://github.com/ROCm/TheRock/pull/9021
 [^tr8833]: TheRock#8833, "Fix Triton hostcalls by packaging SDK-matched OCKL", closed 2026-10-15 without merge. https://github.com/ROCm/TheRock/pull/8833
