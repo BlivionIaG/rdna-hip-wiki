@@ -21,6 +21,11 @@ sources:
   - https://github.com/Niko1221/Strata/issues/5060
   - https://github.com/ROCm/TheRock/blob/main/docs/rfcs/RFC0008-Multi-Arch-Packaging.md
   - https://github.com/Comfy-Org/ComfyUI/issues/17500
+  - https://github.com/ROCm/rocm-libraries/issues/14965
+  - https://github.com/ROCm/rocm-libraries/pull/14966
+  - https://github.com/ROCm/rocm-libraries/pull/14837
+  - https://github.com/ROCm/rocm-libraries/pull/14859
+  - https://github.com/ROCm/rocm-libraries/pull/14111
 ---
 
 # Libraries
@@ -107,6 +112,18 @@ For our own containers or fork builds on a kpack ROCm (Strata's report uses `/op
 
 [ComfyUI#17500](https://github.com/Comfy-Org/ComfyUI/issues/17500) (open, filed 2026-11-03) measured `baddbmm` on an RX 6800 XT (gfx1030, PyTorch 2.13.0+rocm10.0.0) with a strided, non-contiguous key. One attention call at 32,760 tokens took 16.37 s as-is and 1.56 s after `key.contiguous()`, with unchanged output; at 20,280 tokens it went from 0.88 s to 0.53 s.[^cf17500] The report also notes that gfx1030 has no AOTriton SDPA kernels, so PyTorch SDPA falls back to MATH there.[^cf17500] Which rocBLAS or hipBLASLt path the strided layout lands on was not isolated in the report. In HIP-side code that feeds batched GEMMs from permuted views on gfx1030, make the operand contiguous and time both layouts before trusting the library to handle the stride.
 
+### MIOpen dilated fp32 Conv1d on RDNA
+
+[rocm-libraries#14965](https://github.com/ROCm/rocm-libraries/issues/14965) (open, filed 2026-11-03) reports that on RDNA an fp32 forward 1D convolution with dilation > 1 has only two applicable MIOpen solvers, `ConvDirectNaiveConvFwd` and `GemmFwdRest`. Find picks the naive one (10x to 23x slower than `GemmFwdRest` on the reported gfx1151 and gfx1201 shapes), and with `MIOPEN_DEBUG_CONV_DIRECT_NAIVE_CONV_FWD=0` the convolution fails with "No suitable algorithm was found".[^mi14965] The fix PR [rocm-libraries#14966](https://github.com/ROCm/rocm-libraries/pull/14966) (open) says CK rejects fp32 convolutions on gfx11/gfx12 and `GetWorkSpaceSizeGEMM()` returns 0 for dilation > 1, so PyTorch never gives `GemmFwdRest` a workspace. It adds a tiled HIP direct solver, `ConvHipDirectConv1dFwd`, whose applicability list includes `gfx103X`, but the PR says it was not run on gfx10 or gfx110X hardware.[^mi14966] Until it lands, expect dilated fp32 Conv1d (audio vocoders and decoders) to run on the naive kernel on gfx1030 and gfx1100 as well (inferred from the gfx103X/gfx110X applicability list, not measured).
+
+### hipBLASLt FP64/FP32 emulation (Ozaki) on RDNA 3 and later
+
+[rocm-libraries#14837](https://github.com/ROCm/rocm-libraries/pull/14837) (open) enables hipBLASLt's fixed-point FP64 and FP32 emulation (Ozaki Scheme II), previously MI350X/MI355X only, on RDNA 3, RDNA 3.5 and RDNA 4 targets. It adds a measured chip row for the Radeon PRO W7800 (`0x745e`, gfx1100) and per-target arithmetic-intensity thresholds for gfx1100/1101/1102, gfx1150/1151/1152 and gfx1200/1201; a device with neither row is never emulated.[^lt14837] gfx1030 is not in the list, so on RDNA2 FP64 GEMMs stay native.[^lt14837] Kernel side is [rocm-libraries#14859](https://github.com/ROCm/rocm-libraries/pull/14859) (open).[^lt14859]
+
+### hip-kernel-provider FlyDSL kernels skip gfx103X
+
+[rocm-libraries#14111](https://github.com/ROCm/rocm-libraries/pull/14111) (merged 2026-10-30) adds prebuilt FlyDSL code objects to hipDNN's hip-kernel-provider: RMSNorm forward/backward for gfx11-generic, gfx12-generic and CDNA, and RDNA SDPA forward and decode engines for gfx11-generic and gfx12-generic only.[^hkp14111] gfx1030 gets none of these engines, so on RDNA2 hipDNN RMSNorm and SDPA fall through to other providers.
+
 ## Sources
 
 [^tr8729]: TheRock#8729, open, issue body (wheel contents, gfx1030 vs gfx1100). https://github.com/ROCm/TheRock/issues/8729
@@ -129,3 +146,8 @@ For our own containers or fork builds on a kpack ROCm (Strata's report uses `/op
 [^st5060]: Strata#5060, open, filed 2026-11-03 05:48 UTC (kpack ref sections, `hipErrorInvalidKernelFile`, AMD_LOG_LEVEL=1 message). https://github.com/Niko1221/Strata/issues/5060
 [^rfc0008]: TheRock RFC0008, Multi-Arch Packaging. https://github.com/ROCm/TheRock/blob/main/docs/rfcs/RFC0008-Multi-Arch-Packaging.md
 [^cf17500]: ComfyUI#17500, open, filed 2026-11-03 01:41 UTC (RX 6800 XT gfx1030, timings, AOTriton note). https://github.com/Comfy-Org/ComfyUI/issues/17500
+[^mi14965]: rocm-libraries#14965, open, filed 2026-11-03 11:27 UTC (solver list, timings on gfx1151/gfx1201, failure with naive disabled). https://github.com/ROCm/rocm-libraries/issues/14965
+[^mi14966]: rocm-libraries#14966, open (motivation, applicability table, known gaps). https://github.com/ROCm/rocm-libraries/pull/14966
+[^lt14837]: rocm-libraries#14837, open (device table, W7800 chip row, RDNA architecture rows). https://github.com/ROCm/rocm-libraries/pull/14837
+[^lt14859]: rocm-libraries#14859, open. https://github.com/ROCm/rocm-libraries/pull/14859
+[^hkp14111]: rocm-libraries#14111, merged 2026-10-30 21:15 UTC (engine/target table). https://github.com/ROCm/rocm-libraries/pull/14111
