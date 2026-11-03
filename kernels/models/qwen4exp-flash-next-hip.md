@@ -69,8 +69,25 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/qsa_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/vllm/model_executor/layers/rdna_ops.py
   - https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/docs/rdna2/tuning.md
+  - https://github.com/opengfx1030/vllm-rdna/compare/e1ebb1f3fa6bebe8822036b12f03da6220b611a6...3c2708585cf78dca851867d38140a4a28faa7a4c
+  - https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/csrc/rocm/qsa_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/docs/rdna2/tuning.md
+  - https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/tools/rdna/recipes/flashnext-mtp2.env
 ---
 # Qwen3.8-Flash-Next / Qwen4Exp HIP — tip `8960a3bc`
+
+## Update at dest `rdna_extras` @ `3c270858` (checked 2026-11-03)
+
+Five commits since `e1ebb1f3`. The only HIP source change is the default of the pipelined QSA gate in `b80f0dde`; the kernel body, launch bounds, LDS and split cost model are unchanged. `b8863048` turns on W4A8 sdot4 MoE prefill in the `flashnext-mtp2` recipe. `e777550e` adds 31 rocBLAS TunableOp rows (no HIP code); the two docs commits fix bench receipts. No CMake or gfx-list change.[^3c27-cmp][^3c27-b80f][^3c27-b886]
+
+| Surface | State at `3c270858` |
+|---|---|
+| QSA pipelined kernel gate | `pipe_ok` now reads `qsa_env_int("VLLM_RDNA_QSA_PIPE", 1)`: the pipelined `qsa_sparse_paged_gqa_pipe_kernel<NWARPS>` is the **default** for the shapes it covers (non-int4 fp16 cache, `vec8`, head_dim 256, BLOCK_N 32, group size 4 / 6 / 8, K and V sharing strides). `VLLM_RDNA_QSA_PIPE=0` restores the legacy kernel; any explicit BLOCK_N override and every other shape still take the legacy kernel. Register and LDS budget as recorded at `e1ebb1f3` below (source comment 245 VGPRs, 42 KB LDS, two blocks per WGP).[^3c27-qsa-gate][^3c27-tune-qsa] |
+| `flashnext-mtp2` recipe | Now sets `VLLM_RDNA2_W4A8_SDOT4=1`, so Flash-Next MoE GEMMs with at least 512 tokens run the int8-activation sdot4 kernel; decode stays W4A16. See [w4a8.md](../quant/w4a8.md).[^3c27-recipe][^3c27-tune-w4a8] |
+
+The commit messages carry the serve A/B for both flips; timings are not copied here. The same A/B kept `VLLM_RDNA_GDN_DH_PIPE` off.[^3c27-b80f]
+
+*Historical:* at `e1ebb1f3` the pipelined QSA kernel ran only with `VLLM_RDNA_QSA_PIPE=1` (default 0), and the `flashnext-mtp2` recipe did not set `VLLM_RDNA2_W4A8_SDOT4`.[^e1eb-qsa-host][^e1eb-tune-qsa]
 
 ## Update at dest `rdna_extras` @ `e1ebb1f3` (checked 2026-11-03)
 
@@ -83,7 +100,7 @@ Twenty commits since `cec69c12`. HIP changes for this page are in `815b1602` (on
 | New op `rdna_moe_route_zero` | `moe_route_zero_k`, `__launch_bounds__(256)`, grid `1 + zero_ctas` (at most 64 zeroing CTAs). CTA 0 does `moe_align_block_size` + count-and-sort for ≤ 1024 routed entries and ≤ 1024 experts (block_size 1..64), stable flat-index order inside an expert; the other CTAs zero the two fp16 atomic accumulators with 16-byte stores when aligned. Static LDS (derived): `s_e[1024]` + `s_cnt[1024]` + `s_off[1024]` int + `s_wsum[9]` = 12,324 B, reserved by every CTA of the launch.[^e1eb-route-k][^e1eb-route-host][^e1eb-bind] |
 | MoE routing gate | `_rdna2_fused_moe` uses it when `VLLM_RDNA_MOE_ROUTE_HIP` (default **1**) is on, `total_tokens ≤ 1024` and `global_num_experts ≤ 1024`; `0` restores align + sort + two `zero_()` fills.[^e1eb-route-py][^e1eb-tune-route] |
 | HC prefill down plan (M ≥ 256) | Still `<16, 8, 7>`, target 72. `VLLM_RDNA_HC_DOWN_TARGET` and `VLLM_RDNA_HC_DOWN_SPLITS` (read on every call, 0..4096) override the target and force the slice count; unset keeps the shipped plan.[^e1eb-hcenv] |
-| QSA pipelined kernel (opt-in) | `qsa_sparse_paged_gqa_pipe_kernel<NWARPS>` for head_dim 256, fp16 cache, group size 4 / 6 / 8, BLOCK_N 32, launched with `NWARPS * 32` threads under `__launch_bounds__(QSA_MAX_THREADS)` (256). Resolves up to 2048 key offsets per block into LDS up front, double-buffers the next K/V tile in registers, QK and P·V both `__builtin_amdgcn_fdot2` (V staged as key-pair half2). The source comment gives 245 VGPRs and 42 KB LDS, two blocks per WGP; the static arrays sum to 41,728 / 41,856 / 41,984 B for 4 / 6 / 8 warps (derived). Split count from a cost model with `2 × multiProcessorCount` concurrent blocks. Selected only with `VLLM_RDNA_QSA_PIPE=1` (default **0**); `VLLM_RDNA_QSA_BLOCK_N` / `_SPLITS` overrides are new sweep knobs and any BLOCK_N override keeps the legacy kernel.[^e1eb-qsa-k][^e1eb-qsa-host][^e1eb-tune-qsa] |
+| QSA pipelined kernel (opt-in; *historical @ `e1ebb1f3`*, default on since `3c270858`) | `qsa_sparse_paged_gqa_pipe_kernel<NWARPS>` for head_dim 256, fp16 cache, group size 4 / 6 / 8, BLOCK_N 32, launched with `NWARPS * 32` threads under `__launch_bounds__(QSA_MAX_THREADS)` (256). Resolves up to 2048 key offsets per block into LDS up front, double-buffers the next K/V tile in registers, QK and P·V both `__builtin_amdgcn_fdot2` (V staged as key-pair half2). The source comment gives 245 VGPRs and 42 KB LDS, two blocks per WGP; the static arrays sum to 41,728 / 41,856 / 41,984 B for 4 / 6 / 8 warps (derived). Split count from a cost model with `2 × multiProcessorCount` concurrent blocks. Selected only with `VLLM_RDNA_QSA_PIPE=1` (default **0**); `VLLM_RDNA_QSA_BLOCK_N` / `_SPLITS` overrides are new sweep knobs and any BLOCK_N override keeps the legacy kernel.[^e1eb-qsa-k][^e1eb-qsa-host][^e1eb-tune-qsa] |
 
 Timings for these ops are in the commit messages and `docs/rdna2/tuning.md`; they are not copied here.
 
@@ -266,6 +283,13 @@ FA prefill leftover still first (`__launch_bounds__(*, 1)`). ticket-26 EXL3 `-cb
 
 ## Sources
 
+[^3c27-cmp]: compare `e1ebb1f3...3c270858`: https://github.com/opengfx1030/vllm-rdna/compare/e1ebb1f3fa6bebe8822036b12f03da6220b611a6...3c2708585cf78dca851867d38140a4a28faa7a4c
+[^3c27-b80f]: commit [`b80f0dde`](https://github.com/opengfx1030/vllm-rdna/commit/b80f0dde0c2d60ff7443585bb7ce23b1c52c45be) "qsa: default the pipelined kernel on; prefill lever table", in dest `rdna_extras` @ `3c2708585cf78dca851867d38140a4a28faa7a4c`
+[^3c27-b886]: commit [`b8863048`](https://github.com/opengfx1030/vllm-rdna/commit/b88630488c7aa07ee21945f098d52d0ca6672692) "flashnext-mtp2: set W4A8 MoE on", in dest `rdna_extras` @ `3c2708585cf78dca851867d38140a4a28faa7a4c`
+[^3c27-qsa-gate]: the `pipe_ok` gate @ `3c270858`: https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/csrc/rocm/qsa_rdna2.cu#L1907-L1925
+[^3c27-tune-qsa]: `VLLM_RDNA_QSA_PIPE` row (default 1) in `docs/rdna2/tuning.md` @ `3c270858`: https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/docs/rdna2/tuning.md#L413
+[^3c27-recipe]: `VLLM_RDNA2_W4A8_SDOT4=1` in `tools/rdna/recipes/flashnext-mtp2.env` @ `3c270858`: https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/tools/rdna/recipes/flashnext-mtp2.env#L44-L49
+[^3c27-tune-w4a8]: `VLLM_RDNA2_W4A8_SDOT4` row in `docs/rdna2/tuning.md` @ `3c270858`: https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/docs/rdna2/tuning.md#L370
 [^c-50120e13]: opengfx1030/vllm-rdna commit [`50120e13`](https://github.com/opengfx1030/vllm-rdna/commit/50120e13b46895fc5d074e88fc493f1eef69da9f) (2026-09-17) — "fix(rocm,hc): make the HC HIP dispatcher's _contig() capture-safe".
 [^c-8960a3bc]: opengfx1030/vllm-rdna commit [`8960a3bc`](https://github.com/opengfx1030/vllm-rdna/commit/8960a3bcbb175e8e74efd2f6c6b37b597972debc) (2026-09-16) — "fix(rocm): make the Qwen4Exp HC HIP chain compute correctly".
 [^f-8960a3bc-rdna-fused-glue-cu]: opengfx1030/vllm-rdna `csrc/rocm/rdna_fused_glue.cu` @ [`8960a3bc`](https://github.com/opengfx1030/vllm-rdna/blob/8960a3bcbb175e8e74efd2f6c6b37b597972debc/csrc/rocm/rdna_fused_glue.cu).
