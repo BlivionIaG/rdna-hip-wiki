@@ -36,8 +36,25 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af
   - https://github.com/opengfx1030/vllm-rdna/commit/655cde1ce20838cf86f6a2f071db53cac089727b
   - https://github.com/opengfx1030/vllm-rdna/commit/10269034920f6a8c9d87d08a0d30e560d38b3a43
+  - https://github.com/opengfx1030/vllm-rdna/commit/e1ebb1f3fa6bebe8822036b12f03da6220b611a6
+  - https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/gdn_prefill_delta_h_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/docs/rdna2/tuning.md
 ---
 # GDN chunked prefill — extras HIP (`aac1fcd6`)
+
+## Update at dest `rdna_extras` @ `e1ebb1f3` (checked 2026-11-03)
+
+`0fc943cb` adds an opt-in latency-hiding `delta_h` kernel, `gdn_prefill_delta_h_pipe_kernel<ST, BV, KPAIR>`. The default is unchanged: with `VLLM_RDNA_GDN_DH_PIPE` unset or `0`, the shipped `gdn_prefill_delta_h_packed_kernel` (256 threads, `(4, 8)`, 37,120 B LDS, see the `30d6e82d` table) still runs.[^e1eb-gdn-c][^e1eb-gdn-sel][^e1eb-gdn-tune]
+
+| Item | State at `e1ebb1f3` |
+|---|---|
+| Selection | `VLLM_RDNA_GDN_DH_PIPE` read with `getenv` on every call: `1` = BV 32, `2` = BV 64, `3` / `4` = the same with the pair-interleaved k tile (`KPAIR`). Any other value, or k/u/w/v_new base pointers that are not 16-byte aligned, keeps the shipped kernel.[^e1eb-gdn-sel] |
+| Launch / occupancy | `__launch_bounds__(BV * 8)` and `amdgpu_waves_per_eu(4, 8)`; grid `(V / BV, N * H)`, `BV * 8` threads (256 for BV 32, 512 for BV 64), no dynamic LDS.[^e1eb-gdn-k][^e1eb-gdn-sel] |
+| LDS (derived from the static arrays, not measured) | `ks`, `ws` `[64 × 128]` half, `us`, `vn` `[64 × BV]` half, `gd[64]` fp32: 41,216 B at BV 32 and 49,408 B at BV 64, against 37,120 B for the shipped kernel. `KPAIR` changes the `ks` layout to `[token pair][column]` half2 words, not its size.[^e1eb-gdn-k] |
+| ISA moves | k-slice reduction over the 8 lanes by three `__builtin_amdgcn_update_dpp` steps (quad_perm `0xB1`, `0x4E`, row_xmask `0x164`) instead of `ds_bpermute` shuffles; h update still `fdot2`; chunk staging and `v_new` stores in 16-byte pieces with the next chunk's loads issued before the current recurrence.[^e1eb-gdn-dpp][^e1eb-gdn-k] |
+| Status | Off by default. The tuning table says the current build's bitwise check, kernel timing and serve A/B are still to run; an earlier build of variants 1 and 2 was bitwise equal on 110 configurations.[^e1eb-gdn-tune] |
+
+Not checked here: VGPR count and real waves per SIMD of the new variants (the commit gives no ELF figure, and this box has no gfx1030 compiler).
 
 ## Update at dest tip `c4a05415` (checked 2026-11-02)
 
@@ -172,3 +189,9 @@ Tests only, no `csrc/rocm` change. `test_gdn_prefill_kkt_rdna2.py` is now skippe
 [^gdnp-8015-st]: `csrc/rocm/gdn_prefill_delta_h_rdna2.cu` L61-L77 (state dtype conversions), L95-L97 (`template <typename ST>`, `__launch_bounds__`, `waves_per_eu(4, 8)`), L164 (`h0` load), L328 (final-state store), L396-L423 (dtype checks), L442-L473 (`kSmem`, dtype dispatch, launch check); landed by commit 8303cd26 via PR #140; dest at 8015ea485b7f6c0298d8f98ce6e824ce1c444c45. https://github.com/opengfx1030/vllm-rdna/blob/8015ea485b7f6c0298d8f98ce6e824ce1c444c45/csrc/rocm/gdn_prefill_delta_h_rdna2.cu#L61-L473 ; https://github.com/opengfx1030/vllm-rdna/compare/005db0325d5bfdff3fc7f8a7843893a48158f5bd...8015ea485b7f6c0298d8f98ce6e824ce1c444c45
 [^gdnp-b740]: Compare [`8015ea48...b7402893`](https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af): the `csrc/` files changed are `moe_accum_rdna2.cuh`, `moe_q_gemm_rdna2.cu`, `mono_gdn_rdna2.cu`, `mono_k2_rdna2.cu`, `ops.h`, `q_gemm_rdna2*.{cu,cuh}`, `qsa_rdna2.cu`, `rdna_allreduce.cu`, `torch_bindings.cpp`, `w4a8_sdot4_rdna2.cu` and the new `rdna_expert_cache.cu` / `rdna_hint_flex_rdna2.cu`; commit [`655cde1c`](https://github.com/opengfx1030/vllm-rdna/commit/655cde1ce20838cf86f6a2f071db53cac089727b) touches `mono_gdn_rdna2.cu` only.
 [^gdnp-c4a0]: opengfx1030/vllm-rdna commit [`10269034`](https://github.com/opengfx1030/vllm-rdna/commit/10269034920f6a8c9d87d08a0d30e560d38b3a43) "fix(rocm): use supported GDN dot2 encoding on gfx12"; `csrc/rocm/gdn_prefill_kkt_rdna2.cu` L78-L82 and `csrc/rocm/gdn_prefill_prep_rdna2.cu` L75-L79 @ c4a05415cbda030c784bdc91c7d32e55c287a828. https://github.com/opengfx1030/vllm-rdna/blob/c4a05415cbda030c784bdc91c7d32e55c287a828/csrc/rocm/gdn_prefill_kkt_rdna2.cu#L78-L82 ; https://github.com/opengfx1030/vllm-rdna/blob/c4a05415cbda030c784bdc91c7d32e55c287a828/csrc/rocm/gdn_prefill_prep_rdna2.cu#L75-L79
+
+[^e1eb-gdn-c]: opengfx1030/vllm-rdna commit [`0fc943cb`](https://github.com/opengfx1030/vllm-rdna/commit/0fc943cb0faca97e25fc5c20d3496523ca47f114) "feat(rdna2): opt-in latency-hiding GDN prefill delta_h kernel variants"; tip [`e1ebb1f3`](https://github.com/opengfx1030/vllm-rdna/commit/e1ebb1f3fa6bebe8822036b12f03da6220b611a6); compare https://github.com/opengfx1030/vllm-rdna/compare/cec69c12c80d1fdcd3fd9d7938809abf056d9b52...e1ebb1f3fa6bebe8822036b12f03da6220b611a6
+[^e1eb-gdn-k]: `gdn_prefill_delta_h_pipe_kernel` (launch bounds, waves_per_eu, static `__shared__` arrays, staging and h update) @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/gdn_prefill_delta_h_rdna2.cu#L351-L626 ; constants `GDN_K/V/BT/BV/THREADS`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/gdn_prefill_delta_h_rdna2.cu#L49-L53
+[^e1eb-gdn-dpp]: `gdn_ksum_dpp` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/gdn_prefill_delta_h_rdna2.cu#L335-L349
+[^e1eb-gdn-sel]: `VLLM_RDNA_GDN_DH_PIPE` selection and `GDN_PREFILL_PIPE` launch @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/gdn_prefill_delta_h_rdna2.cu#L745-L790
+[^e1eb-gdn-tune]: `VLLM_RDNA_GDN_DH_PIPE` row in `docs/rdna2/tuning.md` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/docs/rdna2/tuning.md#L414
