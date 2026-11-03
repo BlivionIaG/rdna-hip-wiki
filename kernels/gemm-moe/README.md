@@ -31,7 +31,7 @@ flowchart TD
   R["routed tokens"] --> RES{"VLLM_RDNA_MOE_RESIDENT=1 and<br/>VLLM_RDNA_MOE_RESIDENT_SKINNY=1?<br/>(default off)"}
   RES -- "yes, M host-gated 1..4" --> SK["moe_resident_int4_decode<br/>WG 128, LDS = 4-wave K-reduce only<br/>fdot2"]
   RES -- "no" --> W8{"VLLM_RDNA2_W4A8_SDOT4=1?<br/>resolve_w4a8_moe() is hard-off under resident"}
-  W8 -- yes --> MW8["moe_w4a8_gemm_rdna2 · sdot4<br/>BLOCK_M ∈ {1,2,4,8}, 2 KiB LDS A stage<br/>internal Fallback → moe_gptq_gemm_rdna2"]
+  W8 -- yes --> MW8["moe_w4a8_gemm_rdna2 · sdot4<br/>BLOCK_M ∈ {1,2,4,8}, 2 KiB LDS A stage<br/>opt-in v2 (7773dc62): BLOCK_M 4/8/16, A window ≤ 32 KiB dynamic LDS<br/>internal Fallback → moe_gptq_gemm_rdna2"]
   W8 -- no --> BSM["_resolve_block_size_m (c6d99ca3)<br/>≤ 4 tokens → 1<br/>≥ VLLM_RDNA2_MOE_BSM_MIN_TOKENS (512) → min(VLLM_RDNA2_MOE_BSM_LARGE, 8)<br/>else 4"]
   BSM --> AL["moe_align_block_size<br/>pads to block_size_m"]
   AL --> MQ["moe_gptq_gemm_rdna2<br/>nibble → (zp + zero_offset) → signed INT4 → × group scale → fdot2<br/>zero_offset 1 GPTQv1 synth · 0 asym 4-bit ckpt zeros (8bb8ff36)"]
@@ -44,6 +44,8 @@ flowchart TD
 *Built only from the pages: resident decode and dequant order from [quant/w4a16.md](../quant/w4a16.md) (`e1315629`), `block_size_m` resolve from the `c6d99ca3` lock, W4A8 MoE from [quant/w4a8.md](../quant/w4a8.md) (`3a0786ea`), and the accum switch from the "MoE epilogue accum" section of w4a8 (`30b0bd4e`); the runtime `zero_offset` from the `8bb8ff36` lock in quant/w4a16.md. Diagram does not imply a tile size beyond what those pages state.*[^c-e1315629][^c-c6d99ca3][^c-3a0786ea][^c-30b0bd4e][^c-8bb8ff36]
 
 *Update @ `b7402893`:* the accum switch in the diagram now has a third, Q32 integer branch (int64 `[rows, N+1]` + status column, one finalize cast), used by the expert-offload path and the deterministic dense opt-in; the default is still packed-fp16 CAS. See [rdna2-moe-offload-q32.md](rdna2-moe-offload-q32.md).[^c-b740-moe]
+
+*Update @ `7773dc62`:* `VLLM_RDNA_W4A8_KBLOCK` (or tile 16 via `VLLM_RDNA2_W4A8_BLOCK_M`) selects an opt-in v2 W4A8 MoE kernel with a runtime K block and plain-store or batched-CAS epilogue; defaults keep the shipped kernel. See [quant/w4a8.md](../quant/w4a8.md).[^c-7773-moe]
 
 ## Sources
 
@@ -58,3 +60,4 @@ Index rows summarise the linked pages; each page carries its own footnoted prima
 [^c-30b0bd4e]: opengfx1030/vllm-rdna commit [`30b0bd4e`](https://github.com/opengfx1030/vllm-rdna/commit/30b0bd4e3604a6ea678244a0df74e452ac05fee6) (2026-10-01) — "test(exl3): backport loader unit tests + mul1 tile reformat".
 [^c-8bb8ff36]: opengfx1030/vllm-rdna commit [`8bb8ff36`](https://github.com/opengfx1030/vllm-rdna/commit/8bb8ff36cdb2e885553a151a824706d2d920fe3a) (2026-10-14 11:45 Europe/Paris) — "Merge pull request #98 from opengfx1030/feat/rdna2-moe-asym-zp", merging [`6f5edc41`](https://github.com/opengfx1030/vllm-rdna/commit/6f5edc41a1d7eef6451d3a7b758284bbe7e2c23f) "feat(rdna2): native W4A16 MoE for asymmetric compressed-tensors checkpoints". `compare 15e9e7ad...8bb8ff36` touches `csrc/rocm/moe_q_gemm_rdna2.cu` (+18/−14), `moe_w4a8_rdna2.cu` (+1/−1), `ops.h`, `torch_bindings.cpp`, two compressed-tensors MoE Python files, `_custom_ops.py` and one test; no `CMakeLists.txt` change.
 [^c-b740-moe]: dest tip [`b7402893`](https://github.com/opengfx1030/vllm-rdna/commit/b74028935393d1e21f73f80f65f506c9ea4639af); PR #146 [`2436df23`](https://github.com/opengfx1030/vllm-rdna/commit/2436df23358ef8b9397076c0663707ec3dce69bf) and PR #147.
+[^c-7773-moe]: `csrc/rocm/moe_w4a8_rdna2.cu` @ `7773dc6230f91fae56c50d69bb9c1e4ebdacdf83` L641-L792. https://github.com/opengfx1030/vllm-rdna/blob/7773dc6230f91fae56c50d69bb9c1e4ebdacdf83/csrc/rocm/moe_w4a8_rdna2.cu#L641-L792
