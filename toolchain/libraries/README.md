@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-03
+updated: 2026-11-04
 sources:
   - https://github.com/ROCm/TheRock/issues/8729
   - https://github.com/Niko1221/Strata/pull/1123
@@ -26,6 +26,7 @@ sources:
   - https://github.com/ROCm/rocm-libraries/pull/14837
   - https://github.com/ROCm/rocm-libraries/pull/14859
   - https://github.com/ROCm/rocm-libraries/pull/14111
+  - https://github.com/ROCm/rocm-libraries/issues/14993
 ---
 
 # Libraries
@@ -124,6 +125,10 @@ For our own containers or fork builds on a kpack ROCm (Strata's report uses `/op
 
 [rocm-libraries#14111](https://github.com/ROCm/rocm-libraries/pull/14111) (merged 2026-10-30) adds prebuilt FlyDSL code objects to hipDNN's hip-kernel-provider: RMSNorm forward/backward for gfx11-generic, gfx12-generic and CDNA, and RDNA SDPA forward and decode engines for gfx11-generic and gfx12-generic only.[^hkp14111] gfx1030 gets none of these engines, so on RDNA2 hipDNN RMSNorm and SDPA fall through to other providers.
 
+### hipBLASLt gfx1100: long-k fp16 GEMMs never split k
+
+[rocm-libraries#14993](https://github.com/ROCm/rocm-libraries/issues/14993) (open, filed 2026-11-03) reports that on gfx1100, for fp16 GEMMs with `HIPBLAS_COMPUTE_32F`, transA=T, transB=N, a small output and a long k, every algorithm the heuristic returns is unsplit. Measured on a Radeon Pro W7800, the same on ROCm 10.1.0 (hipBLASLt 1.4.1) and the 10.3.0a20261103 nightly (hipBLASLt 1.5.0): at 16 x 2 output the error is 0.57, 2.44 and 8.34 fp16 ulp at k = 2^16, 2^18 and 2^20, and all 32 returned algorithms report a workspace size of 0.[^lt14993] Forcing split-k with `hipblaslt_ext::GemmTuning::setSplitK` on the same kernel brings that case to 0.63 ulp at 16 splits or more and from 2294 us to about 50 us at 64 splits; the issue attributes the error to accumulating the whole k chain in the WMMA accumulator, and says `torch.matmul` inherits it.[^lt14993] For gfx1100 reductions with very long k (for example long-sequence dot products), force split-k or accumulate in fp32 outside hipBLASLt until this is fixed. gfx1030 was not measured.
+
 ## Sources
 
 [^tr8729]: TheRock#8729, open, issue body (wheel contents, gfx1030 vs gfx1100). https://github.com/ROCm/TheRock/issues/8729
@@ -151,3 +156,4 @@ For our own containers or fork builds on a kpack ROCm (Strata's report uses `/op
 [^lt14837]: rocm-libraries#14837, open (device table, W7800 chip row, RDNA architecture rows). https://github.com/ROCm/rocm-libraries/pull/14837
 [^lt14859]: rocm-libraries#14859, open. https://github.com/ROCm/rocm-libraries/pull/14859
 [^hkp14111]: rocm-libraries#14111, merged 2026-10-30 21:15 UTC (engine/target table). https://github.com/ROCm/rocm-libraries/pull/14111
+[^lt14993]: rocm-libraries#14993, open, filed 2026-11-03 18:29 UTC by `jeffdaily` (W7800 ulp table, split-k sweep, torch repro). https://github.com/ROCm/rocm-libraries/issues/14993
