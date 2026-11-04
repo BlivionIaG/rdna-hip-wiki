@@ -2,6 +2,9 @@
 owner: ROCM_specialist
 kind: scan-log
 sources:
+  - "https://github.com/ROCm/rocm-examples/issues/566"
+  - "https://github.com/Niko1221/Strata/issues/5151"
+  - "https://github.com/ROCm/TheRock/issues/7480"
   - "https://github.com/ROCm/TheRock/issues/9484"
   - "https://github.com/ROCm/TheRock/issues/9475"
   - "https://github.com/ROCm/rocm-systems/issues/14234"
@@ -453,3 +456,16 @@ Vs Nov 2 ~10:30. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hou
 | [rocm-libraries#14838](https://github.com/ROCm/rocm-libraries/issues/14838) | Note | gfx1030 hipBLASLt request still has no reply. hipfire still v0.4.4. |
 
 Artifact: `/workspace/rocm-rdna-domain-20261103-1025.md`.
+
+## 2026-11-04 ~10:30 — domain pass (AMD moving ROCm off hipcc/hipconfig; not dest)
+
+Vs Nov 3 ~10:25. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly ~10:00 (TheRock main `da2505a2b87a`; releases therock-10.1, rocm-7.14.0). The hipBLASLt gfx1100 split-k item [rocm-libraries#14993](https://github.com/ROCm/rocm-libraries/issues/14993) was already added by the hourly scan.
+
+| Item | Verdict | Note |
+|---|---|---|
+| [rocm-examples#566](https://github.com/ROCm/rocm-examples/issues/566) | **Take (compiler)** | AMD says ROCm is migrating off `hipcc`/`hipconfig` org-wide; `HIPCC_COMPILE_FLAGS_APPEND` is silently ignored by `amdclang++`. In [compiler/](../compiler/README.md). |
+| [Strata#1208](https://github.com/Niko1221/Strata/issues/1208) / [#5151](https://github.com/Niko1221/Strata/issues/5151) | Leave (engine lane) | gfx1030 batched-prompt non-finite logits reproduced on Strata 0.1.56 with ROCm 7.1.1 system packages (gfx1201 stage 0, gfx1030 stage 1); a gfx1030-only ROCm 10.0 box was finite. Strata asks to make FP16 prompt GEMMs the gfx103x default. Standalone `hipblasGemmEx` was correct, so no library bug is shown. |
+| [TheRock#7480](https://github.com/ROCm/TheRock/issues/7480) | Leave | RDNA2 Windows request; AMD says the compatibility matrix is the source of truth and `HSA_OVERRIDE_GFX_VERSION` is no longer officially recommended. Windows is not our target. |
+| hipfire, TheRock releases, llama.cpp / Triton / vLLM / PyTorch RDNA PRs | Note | No new release (hipfire v0.4.4, therock-10.1); no RDNA-tagged PRs updated since Nov 3 09:00 UTC in those four repos. |
+
+Artifact: `/workspace/rocm-rdna-domain-20261104-1030.md`.

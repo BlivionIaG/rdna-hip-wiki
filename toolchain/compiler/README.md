@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-23
+updated: 2026-11-04
 sources:
   - https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.14.0/reference/rocmcc.html
   - https://rocm.docs.amd.com/projects/HIP/en/docs-7.14.0/how-to/hip_cpp_language_extensions.html
@@ -21,6 +21,7 @@ sources:
   - https://github.com/pytorch/pytorch/pull/198208
   - https://github.com/triton-lang/triton/pull/10906
   - https://github.com/ROCm/TheRock/issues/9294
+  - https://github.com/ROCm/rocm-examples/issues/566
 ---
 
 # Compiler
@@ -40,6 +41,8 @@ hipcc --offload-arch=gfx1030 -O3
 ```
 
 Pass `gfx1100` as its own `--offload-arch` when that translation unit is in the bundle. RCCL's device-compile parser rejects the generic ids `gfx10-3-generic` and `gfx11-generic` (it divides the digits after `gfx` and then misses the SGPR-limit table).[^rccl10701] Use the specific ids.
+
+**hipcc is on its way out.** An AMD engineer opened rocm-examples#566 on 2026-10-30 saying ROCm is "migrating away from `hipcc` and `hipconfig` across the ROCm organization": projects should call `amdclang++` directly and use CMake's HIP language support in place of `hipconfig`.[^hipccmig] The issue lists what a straight swap loses. `HIPCC_COMPILE_FLAGS_APPEND` is read only by hipcc, so with `amdclang++` an `--offload-arch` passed that way is silently dropped and the build falls back to the default target. The issue also calls `hipcc --genco` a hipcc-only option. hipcc's machine auto-detection becomes `--offload-arch=native`. The issue's replacement line is `amdclang++ --hip-path=${ROCM_PATH} --hip-device-lib-path=${ROCM_PATH}/lib/llvm/amdgcn/bitcode -x hip --offload-arch=gfx1100 ...`, and `hipcc --hipcc-verbose=7 <args>` prints the clang command hipcc builds today.[^hipccmig] For our builds: keep the `hipcc` line above while ROCm ships it, but write new build files so `--offload-arch=gfx1030` (and `gfx1100` / `gfx900` where needed) is passed explicitly on the compile line, never only through `HIPCC_COMPILE_FLAGS_APPEND` or auto-detection. As of 2026-11-04 we found no ROCm release note that removes hipcc; the issue is the only source here.
 
 ```mermaid
 flowchart LR
@@ -145,3 +148,4 @@ For our forks: if a kernel calls through a function pointer, read `.uses_dynamic
 [^ht12638]: rocm-libraries#12638, merged 2026-10-12, docs only. https://github.com/ROCm/rocm-libraries/pull/12638
 [^llvm237158]: llvm-project#237158, open, issue body and `dcwire` comment (reproduced on LLVM 24.0.0git main). https://github.com/llvm/llvm-project/issues/237158
 [^llvm237718]: llvm-project#237718, open, issue body (reproducer, gfx900 asm, affected targets). https://github.com/llvm/llvm-project/issues/237718
+[^hipccmig]: ROCm/rocm-examples#566, "Migrate examples off hipcc (hipcc → amdclang++)", opened 2026-10-30 by david-salinas (AMD), open on 2026-11-04. https://github.com/ROCm/rocm-examples/issues/566
