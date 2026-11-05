@@ -21,9 +21,31 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/a359ddb4a8f483ffb6690b057c70c11c68718734
   - https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/rdna_allreduce.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/rdna_allreduce.cuh
+  - https://github.com/opengfx1030/vllm-rdna/blob/47c426fb43bfadf161d97536262408afb442924a/csrc/rocm/rdna_allreduce.cuh
+  - https://github.com/opengfx1030/vllm-rdna/blob/47c426fb43bfadf161d97536262408afb442924a/csrc/rocm/mono_k2_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/commit/4368ebb5d86c192faabdc7e4088fff496c0f70ef
+  - https://github.com/opengfx1030/vllm-rdna/commit/9bd03cfb9baee5a4638516eb269913a15103eb83
+  - https://github.com/opengfx1030/vllm-rdna/commit/7842decc7efa2e65d291e9827656133941d0754b
+  - https://github.com/opengfx1030/vllm-rdna/blob/47c426fb43bfadf161d97536262408afb442924a/docs/rdna2/rdna-ar-wedge-2026-11-04.md
+  - https://github.com/opengfx1030/vllm-rdna/blob/47c426fb43bfadf161d97536262408afb442924a/docs/rdna2/tuning.md
+  - https://github.com/opengfx1030/vllm-rdna/blob/47c426fb43bfadf161d97536262408afb442924a/vllm/models/qwen4_exp/common/ngram_embedding.py
+  - https://github.com/opengfx1030/vllm-rdna/compare/c8727ec4a8101f1e7ef607e2ea02c7098dc23e62...47c426fb43bfadf161d97536262408afb442924a
 ---
 
 # gfx1030 push one-shot all-reduce (`rdna_ar`) — silicon lock
+
+## Update at dest tip `47c426fb` (checked 2026-11-05)
+
+`4368ebb5` changes the one-shot wait so a late peer is waited for and only a lost write aborts. Push, Uncached staging, gate, dtypes, finisher and the 256-thread launch are unchanged; no DOT, LDS tile or `__launch_bounds__` change.[^47c4-cmp][^47c4-4368]
+
+| Item | At `47c426fb` |
+| --- | --- |
+| Wait bound | `RDNA_AR_WAIT_MS` default **600000 ms** (was 120000), set past the engine's 300 s execute timeout, so a rank that has not reached the collective is waited for and a dead rank ends the engine through that timeout. `VLLM_RDNA_AR_WAIT_MS` still overrides. *(Historical @ `1dc3bac4`…`c8727ec4`: 120000 ms; see the Current state row below.)*[^47c4-cuh-wait][^47c4-tuning] |
+| Late peer vs lost write | Past `RDNA_AR_SLOW_MS` (2000 ms), once per `RDNA_AR_PROBE_MS` (1000 ms), the waiter does one P2P read of the peer's **own** flag slot (`rdna_ar_peer_announced`). If the peer has announced but our slot is still behind, that is a lost posted write, aborted `RDNA_AR_LOST_MS` (10000 ms) after the announce was first seen.[^47c4-cuh-wait][^47c4-cuh-loop] |
+| Announce order | `rdna_ar_announce` stores `seq` into every peer's slot for this rank, starting at `rank+1` and writing this rank's own slot **last**, so seeing the own slot means every store to that peer has left the GPU. MonoKernel Stage D (`mono_k2_rdna2.cu`) now uses the same helper. *(Historical @ `c8727ec4`: plain loop `j = 0..W-1`.)*[^47c4-cuh-announce][^47c4-mono] |
+| Sequence wrap | Flags are compared with `rdna_ar_before(flag, seq)` = `(int)((unsigned)flag - (unsigned)seq) < 0` (serial-number order) and `seq` is incremented in unsigned arithmetic; the commit gives the old signed `<` as breaking at the 2^31 wrap (~19 days at ~1300 collectives/s, the commit's own estimate). *(Historical @ `c8727ec4`: `flag < seq`.)*[^47c4-cuh-before][^47c4-4368] |
+| Abort / live record | Record byte 0 gains bit 1 (`RDNA_AR_REC_LIVE`, wait still in progress; block 0 refreshes `report[1]` while spinning) and bit 2 (`RDNA_AR_REC_SEEN`, peer had announced). Before aborting, the wave re-reads its flag once, since it may have been descheduled since the last poll. Only a SEEN abort writes the wedge marker that keeps later boots on RCCL.[^47c4-cuh-rec][^47c4-cuh-loop][^47c4-tuning] |
+| Root cause given | The dest doc ties the 11-03 / 11-04 wedges to KFD evicting every queue of a worker when host reclaim or compaction moves a page of the 32 GiB userptr-backed pinned PLE table; the fix allocates that table at exact size and `mlock()`s it on gfx10x (`9bd03cfb`). Pinned memory as GTT (`HSA_USERPTR_FOR_PAGED_MEM=0`) was tried and reverted in `7842decc` because the GTT BO landed on another GPU. This page does not copy the doc's timing tables.[^47c4-wedge-doc][^47c4-ple][^47c4-7842] |
 
 ## Update at dest tip `e1ebb1f3` (checked 2026-11-03)
 
@@ -73,7 +95,7 @@ This section supersedes the two-shot and persist-out rows further down; those ar
 | Recipe gate (`b30757c2`) | The `flashnext-mtp2` recipe sets `VLLM_RDNA_AR_MAX_KB=256` and `VLLM_RDNA_AR_ONESHOT_KB=256` (one-shot up to 256 KiB, RCCL above); commit `641e0c22` raised it from 64 KiB because MTP2 verify batches exceed 64 KiB. The library default `_ONESHOT_DEFAULT_KB` is still 64, and `docs/rdna2/tuning.md` says the other recipes stay at 64 until measured.[^ar-b307-recipe][^ar-b307-py][^ar-b307-tuning] |
 | Two-shot requests | `VLLM_RDNA_AR_ALGO=twoshot`, or a `MAX_KB` above the one-shot gate, is ignored with one warning.[^dest-py-1dc3] |
 | Output buffer | Each call returns a **fresh output tensor** (`at::empty_like`). Since `00fcc97f` (PR #47), the old shared persistent buffer (`rdna2_persist_zeros`) is gone: it was clobbered by the next all-reduce while callers still held the result (the embedding output kept as the decoder residual).[^extras-rdna-allreduce-cu][^dest-00fcc97f] |
-| Wait bound | Each one-shot wait is bounded in wall-clock time by `VLLM_RDNA_AR_WAIT_MS` (default `RDNA_AR_WAIT_MS` = 120000 ms), replacing the old poll-count cap (`VLLM_RDNA_AR_SPIN_CAP` / `RDNA_AR_SPIN_CAP` no longer exist at the tip); waits over `RDNA_AR_SLOW_MS` (2000 ms) that complete are logged as a late peer. This landed in `a43be93b`, which also traced the old "peer flag never arrived" wedge to rank skew rather than a lost P2P write: the 2e6-poll cap was only ~0.8 s on gfx1030. `a43be93b` left two-shot on `SPIN_CAP` polls; `611063c6` then removed two-shot and the `SPIN_CAP` knob.[^dest-cuh-wait-1dc3][^dest-py-1dc3][^c-a43be93b][^c-611063c6] |
+| Wait bound | *(Historical @ `1dc3bac4`…`c8727ec4`; superseded at `47c426fb`, see the update above.)* Each one-shot wait is bounded in wall-clock time by `VLLM_RDNA_AR_WAIT_MS` (default `RDNA_AR_WAIT_MS` = 120000 ms), replacing the old poll-count cap (`VLLM_RDNA_AR_SPIN_CAP` / `RDNA_AR_SPIN_CAP` no longer exist at the tip); waits over `RDNA_AR_SLOW_MS` (2000 ms) that complete are logged as a late peer. This landed in `a43be93b`, which also traced the old "peer flag never arrived" wedge to rank skew rather than a lost P2P write: the 2e6-poll cap was only ~0.8 s on gfx1030. `a43be93b` left two-shot on `SPIN_CAP` polls; `611063c6` then removed two-shot and the `SPIN_CAP` knob.[^dest-cuh-wait-1dc3][^dest-py-1dc3][^c-a43be93b][^c-611063c6] |
 | Default | Off: `VLLM_RDNA_AR` defaults to `"0"` and is not implied by `VLLM_FORCE_CUSTOM_ALL_REDUCE`.[^dest-envs-1dc3] |
 
 ## Historical: extras lock 2026-09-28 — tip `bfd5286d` (`101a16c8` / prior `22d6e346`+`c782696a`)
@@ -156,6 +178,7 @@ flowchart TB
 
 ## Sources
 
+- opengfx1030/vllm-rdna tip `47c426fb43bfadf161d97536262408afb442924a` (read 2026-11-05): `rdna_allreduce.cuh`, `mono_k2_rdna2.cu`, commits `4368ebb5`, `9bd03cfb`, `7842decc`, `docs/rdna2/rdna-ar-wedge-2026-11-04.md`, `docs/rdna2/tuning.md`
 - opengfx1030/vllm-rdna commits `611063c6` (two-shot removal), `a43be93b` (wall-clock one-shot wait), `00fcc97f` (fresh output); tip `64d59b89` (read 2026-10-12)
 
 Primary sources for this page, cited inline as footnotes:
@@ -196,3 +219,16 @@ Primary sources for this page, cited inline as footnotes:
 [^e1eb-ar-vec]: `rdna_ar_sum_vec` and the finisher dispatch in `rdna_ar_oneshot` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/rdna_allreduce.cuh#L319-L410
 [^e1eb-ar-blocks]: `VLLM_RDNA_AR_VEC` parse, `rdna_ar_blocks`, `rdna_ar_reduce_blocks` and the all-reduce call site @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/rdna_allreduce.cu#L56-L58 ; https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/rdna_allreduce.cu#L104-L105 ; https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/rdna_allreduce.cu#L232-L253 ; https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/rdna_allreduce.cu#L276-L277
 [^e1eb-ar-tune]: `VLLM_RDNA_AR_VEC` row in `docs/rdna2/tuning.md` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/docs/rdna2/tuning.md#L426
+
+[^47c4-cmp]: Compare [`c8727ec4...47c426fb`](https://github.com/opengfx1030/vllm-rdna/compare/c8727ec4a8101f1e7ef607e2ea02c7098dc23e62...47c426fb43bfadf161d97536262408afb442924a): the only `csrc/` files touched are `csrc/rocm/rdna_allreduce.cuh` (+124/−49) and `csrc/rocm/mono_k2_rdna2.cu` (+8/−8).
+[^47c4-4368]: opengfx1030/vllm-rdna commit [`4368ebb5`](https://github.com/opengfx1030/vllm-rdna/commit/4368ebb5d86c192faabdc7e4088fff496c0f70ef) "fix(rdna): rdna_ar waits out a late peer and aborts only a lost write" (message: 120 s to 600 s, probe past 2 s once a second, lost-write abort 10 s after announce seen, serial-number compare for the 2^31 wrap).
+[^47c4-cuh-wait]: `RDNA_AR_WAIT_MS` / `_SLOW_MS` / `_PROBE_MS` / `_LOST_MS` and their comment, `csrc/rocm/rdna_allreduce.cuh` at 47c426fb. https://github.com/opengfx1030/vllm-rdna/blob/47c426fb43bfadf161d97536262408afb442924a/csrc/rocm/rdna_allreduce.cuh#L52-L81
+[^47c4-cuh-rec]: Abort-record layout, `RDNA_AR_REC_LIVE` / `RDNA_AR_REC_SEEN`, `csrc/rocm/rdna_allreduce.cuh` at 47c426fb. https://github.com/opengfx1030/vllm-rdna/blob/47c426fb43bfadf161d97536262408afb442924a/csrc/rocm/rdna_allreduce.cuh#L100-L120
+[^47c4-cuh-before]: `rdna_ar_before`, `csrc/rocm/rdna_allreduce.cuh` at 47c426fb. https://github.com/opengfx1030/vllm-rdna/blob/47c426fb43bfadf161d97536262408afb442924a/csrc/rocm/rdna_allreduce.cuh#L134-L139
+[^47c4-cuh-announce]: `rdna_ar_announce` and `rdna_ar_peer_announced`, `csrc/rocm/rdna_allreduce.cuh` at 47c426fb. https://github.com/opengfx1030/vllm-rdna/blob/47c426fb43bfadf161d97536262408afb442924a/csrc/rocm/rdna_allreduce.cuh#L211-L230
+[^47c4-cuh-loop]: Wait loop in `rdna_ar_exchange` (probe, lost test, re-read before abort, live record), `csrc/rocm/rdna_allreduce.cuh` at 47c426fb. https://github.com/opengfx1030/vllm-rdna/blob/47c426fb43bfadf161d97536262408afb442924a/csrc/rocm/rdna_allreduce.cuh#L325-L380
+[^47c4-mono]: MonoKernel Stage D announce and wait, `csrc/rocm/mono_k2_rdna2.cu` at 47c426fb. https://github.com/opengfx1030/vllm-rdna/blob/47c426fb43bfadf161d97536262408afb442924a/csrc/rocm/mono_k2_rdna2.cu#L2020-L2040
+[^47c4-tuning]: `VLLM_RDNA_AR_WAIT_MS` row, `docs/rdna2/tuning.md` at 47c426fb. https://github.com/opengfx1030/vllm-rdna/blob/47c426fb43bfadf161d97536262408afb442924a/docs/rdna2/tuning.md#L428
+[^47c4-wedge-doc]: `docs/rdna2/rdna-ar-wedge-2026-11-04.md` at 47c426fb. https://github.com/opengfx1030/vllm-rdna/blob/47c426fb43bfadf161d97536262408afb442924a/docs/rdna2/rdna-ar-wedge-2026-11-04.md
+[^47c4-ple]: commit [`9bd03cfb`](https://github.com/opengfx1030/vllm-rdna/commit/9bd03cfb9baee5a4638516eb269913a15103eb83) "fix(rdna): mlock the exact-size pinned PLE table on gfx10x"; code in https://github.com/opengfx1030/vllm-rdna/blob/47c426fb43bfadf161d97536262408afb442924a/vllm/models/qwen4_exp/common/ngram_embedding.py#L839-L870
+[^47c4-7842]: commit [`7842decc`](https://github.com/opengfx1030/vllm-rdna/commit/7842decc7efa2e65d291e9827656133941d0754b) "revert(rdna): drop GTT host memory for workers; GTT BOs land on a foreign GPU".
