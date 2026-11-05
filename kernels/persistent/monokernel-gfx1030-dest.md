@@ -24,6 +24,15 @@ sources:
 
 Silicon locks from the MonoKernel merge into dest `rdna_extras` (PR #94, tip `1c1426d5` = `1c1426d585c9b2653265947734225721cfc7ea6e`).[^pr94] This page supersedes the open questions in [monokernel-gfx1030-plan.md](monokernel-gfx1030-plan.md), which stays as the historical plan read at `e245a469`. No tok/s here; the fork's own results live under `docs/rdna/monokernel/`.[^readme]
 
+## Update at dest `rdna_extras` @ `f36f05b9` (checked 2026-11-05)
+
+Routing gate only: no `csrc/rocm`, CMake, `__launch_bounds__`, LDS or DOT change in `47c426fb...f36f05b9` (12 commits).[^f36-cmp]
+
+- `--monokernel` now **accepts** `VLLM_RDNA2_W4A8_SDOT4=1`. `moe_refusal` no longer refuses W4A8; the layout check refuses only asymmetric (v2 zeros) experts.[^f36-refusal][^f36-layout]
+- W4A8 runs on the same packed weights, scales and zeros: load only sets a Python flag (`_w4a8`), nothing is repacked. Decode stays W4A16 and `fdot2` (K2 serves up to 8 rows, the modules 9–24 rows); the `sdot4` W4A8 GEMM runs only from `W4A8_MOE_MIN_TOKENS` (512) tokens, in steps the MonoKernel never serves. So the MonoKernel ISA lock below ("no sdot4 in the MonoKernel sources") still holds.[^f36-readme][^f36-const]
+- The expert cache (`expert_cache_slots`) **refuses** W4A8, both at startup and per layer: cached experts run the W4A16 fixed-point kernel only.[^f36-cache]
+- The boot log line per rank adds `W4A8 MoE prefill from 512 tokens (modules, not K2)` when it is on.[^f36-log]
+
 ## Update at dest `rdna_extras` @ `b7402893` (checked 2026-10-29)
 
 Read at tip `b7402893` (`b74028935393d1e21f73f80f65f506c9ea4639af`). Two silicon changes since this page was locked at `1c1426d5`: the GDN norm reduction (`655cde1c`) and a staged K2 for MoE expert offload (PR #146, `2436df23`).[^gdnfix][^c2436] The rows below supersede the matching bullets further down, which stay as history.
@@ -48,7 +57,7 @@ Read at tip `b7402893` (`b74028935393d1e21f73f80f65f506c9ea4639af`). Two silicon
 | GDN | `gdn_fused_k` (conv1d update + gated delta rule + gated RMSNorm) | one WG per (seq, value head, 32-row V tile), 256 threads | ≤ 64 rows[^gdnhdr][^opts] |
 | QSA | `qsa_dec_k` (sparse paged GQA decode + split merge) | grid (rows × kv heads, splits), 256 threads = 8 waves | decode / verify[^qsahdr][^readme] |
 
-All three sources are in the gfx1030 HIP list in `CMakeLists.txt`.[^cmake] Off by default: `--monokernel` (`KernelConfig.monokernel`), with `VLLM_ROCM_MONO_DECODE=1` as an alias read by the ROCm platform; startup refuses non-gfx10x, non-Qwen4Exp, MRV2 off, PP > 1, or a non-symmetric-W4A16 MoE.[^env][^rocm][^readme] The workers need `GPU_MAX_HW_QUEUES=4`; the engine raises it to 4 by default (`hw_queues` knob).[^readme][^opts]
+All three sources are in the gfx1030 HIP list in `CMakeLists.txt`.[^cmake] Off by default: `--monokernel` (`KernelConfig.monokernel`), with `VLLM_ROCM_MONO_DECODE=1` as an alias read by the ROCm platform; startup refuses non-gfx10x, non-Qwen4Exp, MRV2 off, PP > 1, or a non-symmetric-W4A16 MoE. *(Historical @ `1c1426d5`: W4A8 counted as non-W4A16 and was refused; since `f36f05b9` W4A8 prefill is accepted and only the expert cache refuses it, see the update above.)*[^env][^rocm][^readme] The workers need `GPU_MAX_HW_QUEUES=4`; the engine raises it to 4 by default (`hw_queues` knob).[^readme][^opts]
 
 ## Grid sync and residency (occupancy first)
 
@@ -79,6 +88,13 @@ Marked historical in the plan page (`e245a469`): "plan, nothing built"; "coopera
 
 ## Sources
 
+[^f36-cmp]: Compare [`47c426fb...f36f05b9`](https://github.com/opengfx1030/vllm-rdna/compare/47c426fb43bfadf161d97536262408afb442924a...f36f05b9b78825b5a41c27f903499f93912529ed); feature commit [`7c103e73`](https://github.com/opengfx1030/vllm-rdna/commit/7c103e7341a758ea1ef6a465bff98fc816ef487c).
+[^f36-refusal]: [mono_decode_rdna2.py:159–181](https://github.com/opengfx1030/vllm-rdna/blob/f36f05b9b78825b5a41c27f903499f93912529ed/vllm/models/qwen4_exp/amd/mono_decode_rdna2.py#L159-L181) @ f36f05b9b78825b5a41c27f903499f93912529ed.
+[^f36-layout]: [layout.py:283–288](https://github.com/opengfx1030/vllm-rdna/blob/f36f05b9b78825b5a41c27f903499f93912529ed/vllm/models/qwen4_exp/amd/mono/rdna2/layout.py#L283-L288) @ f36f05b9b78825b5a41c27f903499f93912529ed.
+[^f36-readme]: [mono/rdna2/README.md:69–79](https://github.com/opengfx1030/vllm-rdna/blob/f36f05b9b78825b5a41c27f903499f93912529ed/vllm/models/qwen4_exp/amd/mono/rdna2/README.md#L69-L79) @ f36f05b9b78825b5a41c27f903499f93912529ed.
+[^f36-const]: [mono_decode_rdna2.py:48–56](https://github.com/opengfx1030/vllm-rdna/blob/f36f05b9b78825b5a41c27f903499f93912529ed/vllm/models/qwen4_exp/amd/mono_decode_rdna2.py#L48-L56) @ f36f05b9b78825b5a41c27f903499f93912529ed.
+[^f36-cache]: [mono_decode_rdna2.py:178–179, 201–202](https://github.com/opengfx1030/vllm-rdna/blob/f36f05b9b78825b5a41c27f903499f93912529ed/vllm/models/qwen4_exp/amd/mono_decode_rdna2.py#L178-L202) @ f36f05b9b78825b5a41c27f903499f93912529ed.
+[^f36-log]: [mono_decode_rdna2.py:147–156, 325](https://github.com/opengfx1030/vllm-rdna/blob/f36f05b9b78825b5a41c27f903499f93912529ed/vllm/models/qwen4_exp/amd/mono_decode_rdna2.py#L147-L156) @ f36f05b9b78825b5a41c27f903499f93912529ed.
 [^pr94]: [opengfx1030/vllm-rdna PR #94](https://github.com/opengfx1030/vllm-rdna/pull/94), merge commit [`1c1426d585c9b2653265947734225721cfc7ea6e`](https://github.com/opengfx1030/vllm-rdna/commit/1c1426d585c9b2653265947734225721cfc7ea6e) (51 commits over `e84c2eb2`).
 [^readme]: [mono/rdna2/README.md:1–50](https://github.com/opengfx1030/vllm-rdna/blob/1c1426d585c9b2653265947734225721cfc7ea6e/vllm/models/qwen4_exp/amd/mono/rdna2/README.md#L1-L50) @ 1c1426d585c9b2653265947734225721cfc7ea6e.
 [^opts]: [mono/rdna2/__init__.py:15–35](https://github.com/opengfx1030/vllm-rdna/blob/1c1426d585c9b2653265947734225721cfc7ea6e/vllm/models/qwen4_exp/amd/mono/rdna2/__init__.py#L15-L35) @ 1c1426d585c9b2653265947734225721cfc7ea6e.
