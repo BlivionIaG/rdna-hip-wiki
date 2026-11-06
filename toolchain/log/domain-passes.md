@@ -2,6 +2,9 @@
 owner: ROCM_specialist
 kind: scan-log
 sources:
+  - "https://github.com/ROCm/rocm-examples/issues/566"
+  - "https://github.com/Niko1221/Strata/issues/5151"
+  - "https://github.com/ROCm/TheRock/issues/7480"
   - "https://github.com/ROCm/TheRock/issues/9484"
   - "https://github.com/ROCm/TheRock/issues/9475"
   - "https://github.com/ROCm/rocm-systems/issues/14234"
@@ -75,6 +78,21 @@ sources:
   - "https://github.com/ROCm/rocm-libraries/issues/12102"
   - "https://github.com/ROCm/rocm-libraries/issues/13606"
   - "https://github.com/Niko1221/Strata/releases/tag/v0.1.44"
+  - "https://github.com/vivienfanghuagood/hk-dsl"
+  - "https://github.com/vivienfanghuagood/hk-dsl/releases/tag/v0.9.10"
+  - "https://pypi.org/project/hk-dsl/0.9.10/"
+  - "https://github.com/ROCm/rocm-libraries/pull/15079"
+  - "https://github.com/ROCm/TheRock/pull/9752"
+  - "https://github.com/ggml-org/llama.cpp/pull/31746"
+  - "https://github.com/ROCm/aiter/issues/6962"
+  - "https://github.com/ROCm/rocm-libraries/pull/15225"
+  - "https://github.com/ROCm/rocm-libraries/pull/15193"
+  - "https://github.com/ROCm/TheRock/pull/9759"
+  - "https://github.com/ROCm/TheRock/pull/9763"
+  - "https://github.com/ROCm/rocm-libraries/pull/14905"
+  - "https://github.com/ROCm/rocm-systems/pull/14463"
+  - "https://github.com/ROCm/TheRock/pull/9786"
+  - "https://github.com/ROCm/rocm-systems/pull/14786"
 ---
 
 > Historical scan record, kept intact from the flat `toolchain/` pages on branch `toolchain/gotchas-2026-10-09`. Inline links are the sources recorded on the scan date. This restructure did not re-open every SHA or open/merged status below. Those point-in-time claims are **(unsourced)** as of 2026-10-11, except where a topic page repeats the claim with a footnote.
@@ -406,3 +424,94 @@ Vs Oct 23 ~10:30. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per ho
 | [TheRock#9483](https://github.com/ROCm/TheRock/issues/9483), [TheRock#8744](https://github.com/ROCm/TheRock/issues/8744), [rocm-systems#14213](https://github.com/ROCm/rocm-systems/issues/14213) | Leave | gfx1201 f32 atomic throughput, gfx1201 VMM reuse corruption, gfx1150 mmap H2D pinning. |
 
 Artifact: `/workspace/rocm-rdna-domain-20261026-1035.md`.
+
+## 2026-10-30 ~10:35 — domain pass (V620 queue stall: MEC firmware 0x86; gfx1030 SDMA stall after GFXOFF; not dest)
+
+Vs Oct 26 ~10:35 (the Oct 27-29 runs did not leave a pass). **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly ~10:03 (TheRock main `682b3407528d`).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [TheRock#9306](https://github.com/ROCm/TheRock/issues/9306) + [Strata#4668](https://github.com/Niko1221/Strata/issues/4668) | **Take (runtime, firmware)** | AMD reproduced the 2× V620 stall; MEC `0x83` mitigates, `0x86` (`amdgpu-dkms` 31.60) ran two days and ~470 test requests clean without `GPU_MAX_HW_QUEUES=2`. AMD calls it a mitigation. In [runtime/](../runtime/README.md). |
+| [Strata#4378](https://github.com/Niko1221/Strata/issues/4378) | **Take (runtime)** | 2× gfx1030: SDMA copies to a card in GFXOFF stall 20–300 s; `HSA_ENABLE_SDMA=0` or GFXOFF off gives 28/28 clean. In [runtime/](../runtime/README.md). |
+| [rocm-libraries#14550](https://github.com/ROCm/rocm-libraries/issues/14550) | Watch (libraries) | hipBLASLt int8→int8 with `HIPBLAS_COMPUTE_32I` + `HIP_R_32F` scale reads float alpha bits as int32 (W7900, gfx1100). Open; [#14554](https://github.com/ROCm/rocm-libraries/pull/14554) (half alpha width) is a different bug. Relevant to the gfx1030 hipBLASLt `I8II` path in [BlivionIaG/rocm-libraries#3](https://github.com/BlivionIaG/rocm-libraries/issues/3). |
+| [hipfire#1027](https://github.com/warpfront/hipfire/issues/1027) | Leave (method note) | gfx1100 raw-PM4 replay must set `COMPUTE_PGM_RSRC1.PRIV` or CWSR preemption faults at VA 0; only matters for code that writes its own PM4. |
+| [sglang#46900](https://github.com/sgl-project/sglang/issues/46900) / [#30599](https://github.com/sgl-project/sglang/issues/30599) | Leave (engine lane) | RDNA3/RDNA4 upstreaming to SGLang main blocked on RDNA CI; no gfx1030. |
+
+Artifact: `/workspace/rocm-rdna-domain-20261030-1035.md`.
+
+## 2026-11-02 ~10:30 — domain pass (ROCR_VISIBLE_DEVICES memory leak onto hidden GPUs, two AMDGPU LLVM bugs; not dest)
+
+Vs Oct 30 ~10:35. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly ~09:58 (TheRock main `9af6d8faac6c`; releases therock-10.1, rocm-7.14.0).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [rocm-systems#14778](https://github.com/ROCm/rocm-systems/issues/14778) | **Take (runtime)** | `ROCR_VISIBLE_DEVICES` hides devices but libhsakmt still acquires a VM on every GPU, and `hipHostRegister` maps into the hidden ones (gfx1100, 7.2.1/10.1 nightly/develop). In [runtime/](../runtime/README.md). |
+| [llvm-project#237158](https://github.com/llvm/llvm-project/issues/237158) | **Take (compiler/tools)** | Disassembler misdecodes `v_fmamk`/`v_fmaak` K (f32 on gfx1030 too); K=0xff crashes f16. In [compiler/](../compiler/README.md). |
+| [llvm-project#237718](https://github.com/llvm/llvm-project/issues/237718) | **Take (compiler)** | `mulhs` on non-i32 widths lowers to `v_mul_hi_i32_i24`, wrong bits (gfx900, gfx1100, ...). In [compiler/](../compiler/README.md). |
+| [Triton v3.9.0](https://github.com/triton-lang/triton/releases/tag/v3.9.0) | Watch (frameworks) | Released 2026-10-27: RDNA3 buffer atomics, RDNA3/3.5 shared-memory address fix, CDNA barriers no longer emitted on RDNA. gfx103x status is covered by open wiki PR [#44](https://github.com/BlivionIaG/rdna-hip-wiki/pull/44). |
+| [FlyDSL#1216](https://github.com/ROCm/FlyDSL/pull/1216) / [#1357](https://github.com/ROCm/FlyDSL/issues/1357) | Watch (gfx1100) | Dense flash attention for gfx1100 still open; follow-ups filed (runtime seq lengths, D128 at 65–69% of WMMA peak). |
+| [rocm-libraries#14838](https://github.com/ROCm/rocm-libraries/issues/14838) | Note | Upstream feature request for gfx1030 hipBLASLt, filed by BlivionIaG 2026-11-01; mirrors [BlivionIaG/rocm-libraries#3](https://github.com/BlivionIaG/rocm-libraries/issues/3). No AMD response yet. |
+| [hipfire v0.4.4](https://github.com/warpfront/hipfire/releases/tag/v0.4.4) | Leave (engine lane) | gfx1100 MTP verify GEMV/attention gains; nothing for gfx1030 or gfx900. |
+
+Artifact: `/workspace/rocm-rdna-domain-20261102-1030.md`.
+
+
+## 2026-11-03 ~10:25 — domain pass (kpack bundling breaks rocBLAS device code, gfx1030 non-contiguous GEMM 10x, dmem cgroup VRAM; not dest)
+
+Vs Nov 2 ~10:30. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly ~09:55 (TheRock main `662e2f45a954`; releases therock-10.1, rocm-7.14.0). The gfx1100 pageable H2D bug [rocm-systems#14886](https://github.com/ROCm/rocm-systems/issues/14886) was already added by the hourly scan.
+
+| Item | Verdict | Note |
+|---|---|---|
+| [Strata#5060](https://github.com/Niko1221/Strata/issues/5060) | **Take (libraries/packaging)** | On kpack ROCm, vendored `librocblas`/`libhipblaslt`/`librocsolver` point at `../.kpack/*.kpack`; without the archives the first non-Tensile rocBLAS kernel fails with `hipErrorInvalidKernelFile`. In [libraries/](../libraries/README.md). |
+| [ComfyUI#17500](https://github.com/Comfy-Org/ComfyUI/issues/17500) | **Take (libraries)** | gfx1030 `baddbmm` with a non-contiguous key: 16.37 s vs 1.56 s at 32,760 tokens after `.contiguous()`. In [libraries/](../libraries/README.md). |
+| [rocm-systems#14860](https://github.com/ROCm/rocm-systems/issues/14860) | **Take (runtime)** | `hipMemGetInfo` ignores cgroup `dmem.max`; engines over-plan VRAM in capped containers. In [runtime/](../runtime/README.md). |
+| [vllm#50603](https://github.com/vllm-project/vllm/issues/50603) | Leave (engine lane) | gfx1100 nondeterminism traced to RDNA3 W4A16 split-K reduction (fix PR [#54706](https://github.com/vllm-project/vllm/pull/54706)) and the ROCm custom paged-attention path. |
+| [rocm-systems#13795](https://github.com/ROCm/rocm-systems/issues/13795) | Watch | rocjitsu RDNA target qualification; RDNA2 (gfx1030-1036) listed fourth; no comments. |
+| [rocm-systems#14845](https://github.com/ROCm/rocm-systems/issues/14845) | Leave | HIP texture-object helper misforwarding (layered/gather/LOD/grad); we do not use texture sampling. |
+| [rocm-libraries#14838](https://github.com/ROCm/rocm-libraries/issues/14838) | Note | gfx1030 hipBLASLt request still has no reply. hipfire still v0.4.4. |
+
+Artifact: `/workspace/rocm-rdna-domain-20261103-1025.md`.
+
+## 2026-11-04 ~10:30 — domain pass (AMD moving ROCm off hipcc/hipconfig; not dest)
+
+Vs Nov 3 ~10:25. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly ~10:00 (TheRock main `da2505a2b87a`; releases therock-10.1, rocm-7.14.0). The hipBLASLt gfx1100 split-k item [rocm-libraries#14993](https://github.com/ROCm/rocm-libraries/issues/14993) was already added by the hourly scan.
+
+| Item | Verdict | Note |
+|---|---|---|
+| [rocm-examples#566](https://github.com/ROCm/rocm-examples/issues/566) | **Take (compiler)** | AMD says ROCm is migrating off `hipcc`/`hipconfig` org-wide; `HIPCC_COMPILE_FLAGS_APPEND` is silently ignored by `amdclang++`. In [compiler/](../compiler/README.md). |
+| [Strata#1208](https://github.com/Niko1221/Strata/issues/1208) / [#5151](https://github.com/Niko1221/Strata/issues/5151) | Leave (engine lane) | gfx1030 batched-prompt non-finite logits reproduced on Strata 0.1.56 with ROCm 7.1.1 system packages (gfx1201 stage 0, gfx1030 stage 1); a gfx1030-only ROCm 10.0 box was finite. Strata asks to make FP16 prompt GEMMs the gfx103x default. Standalone `hipblasGemmEx` was correct, so no library bug is shown. |
+| [TheRock#7480](https://github.com/ROCm/TheRock/issues/7480) | Leave | RDNA2 Windows request; AMD says the compatibility matrix is the source of truth and `HSA_OVERRIDE_GFX_VERSION` is no longer officially recommended. Windows is not our target. |
+| hipfire, TheRock releases, llama.cpp / Triton / vLLM / PyTorch RDNA PRs | Note | No new release (hipfire v0.4.4, therock-10.1); no RDNA-tagged PRs updated since Nov 3 09:00 UTC in those four repos. |
+
+Artifact: `/workspace/rocm-rdna-domain-20261104-1030.md`.
+
+## 2026-11-06 ~10:20 — domain pass (hk-dsl Watch, hipBLASLt USO tip; not dest)
+
+Vs Nov 4 ~10:30 (Nov 5 domain routine produced no artifact). **No dest/pin lever.** Live dest stays **7.14.0**. Pins match morning hourlies: TheRock main `11b1016c6df9`; libraries `98e132f`; systems `c1ab6df`; releases therock-10.1 / rocm-7.14.0.
+
+| Item | Verdict | Note |
+|---|---|---|
+| [vivienfanghuagood/hk-dsl](https://github.com/vivienfanghuagood/hk-dsl) 0.9.10 | **Watch (tools)** / Leave engine | HipKittens Python DSL + `hk.check` spill gate; targets gfx1100/1201/942/950 only (no gfx1030). PyPI 0.9.10 (2026-11-06) opt-in `HK_VLLM_ROCM_DECODE=1` on gfx1100. In [tools/](../tools/README.md). |
+| [rocm-libraries#15079](https://github.com/ROCm/rocm-libraries/pull/15079) | **Watch (libraries)** tip | MERGED: hipBLASLt defaults USO off on gfx11*/gfx120*; gfx1030 not in arch check. Not in pin `98e132f`; open TheRock bumps #9759/#9769/#9781 would pull. In [libraries/](../libraries/README.md). |
+| [TheRock#9752](https://github.com/ROCm/TheRock/pull/9752) | Watch tip | rocjitsu-memory packaging; gfx1030 still no topology JSON on systems develop. |
+| [llama.cpp#31746](https://github.com/ggml-org/llama.cpp/pull/31746) | Leave (engine) | HIP D256 MMA FlashAttention tune for RDNA3; W7800 spill→0 / +23.7% prefill claim. |
+| [aiter#6962](https://github.com/ROCm/aiter/issues/6962) | Leave (engine) | RDNA Triton flash_attn prefill single-config; gfx1101 head-dim 64 alt config 1.16–1.32×. |
+| MIOpen open solvers #15225 / #15193 / #15130 / #15145 / #15132 | Watch (hourlies) | FMA 2D fwd, FMA bwd-data 1d, depthwise bwd1d, ConvTranspose1d — open on libraries develop; pin lag. |
+| hipfire v0.4.4; therock-10.1; rapier / exllamav3-rocm / HipKittens upstream | Note | No new releases; rapier last push 2026-11-03; exllamav3-rocm still 2026-09-26. |
+| [rocm-examples#566](https://github.com/ROCm/rocm-examples/issues/566) / [TheRock#7480](https://github.com/ROCm/TheRock/issues/7480) | unchanged | hipcc migration Take from Nov 4; RDNA2 Windows Leave. |
+
+Artifact: `/workspace/rocm-rdna-domain-20261106-1020.md`.
+
+## 2026-11-06 ~13:53 — hourly pin land (USO + gfx103X MIOpen tolerance in tip; not dest)
+
+Vs domain ~10:20 and quiet hourlies through ~12:53. **No dest bump** (live **7.14.0**). TheRock main `11b1016c6df9`→`be87ca4970ff`: [#9763](https://github.com/ROCm/TheRock/pull/9763) systems `c1ab6df`→`3f917c0`; [#9759](https://github.com/ROCm/TheRock/pull/9759) libraries `98e132f`→`37f616f`.
+
+| Item | Verdict | Note |
+|---|---|---|
+| [rocm-libraries#15079](https://github.com/ROCm/rocm-libraries/pull/15079) | **Take tip (libraries)** | Now in pin `37f616f`. USO off default on gfx11*/gfx120*; gfx1030 unchanged. [libraries/](../libraries/README.md). |
+| [rocm-libraries#14905](https://github.com/ROCm/rocm-libraries/pull/14905) | **Take tip (libraries)** | gfx103X MIOpen WrW tolerance now in pin (test calibration, not product defect). |
+| [rocm-systems#14463](https://github.com/ROCm/rocm-systems/pull/14463) | Watch tip | Still 2 commits past systems pin; open TheRock#9786 would include. |
+| [rocm-systems#14786](https://github.com/ROCm/rocm-systems/pull/14786) | Watch tip | rocjitsu gfx1100 public target bind; in develop tip / #9786 target, not in `3f917c0`. |
+| #15225 / #15012 / #9783 / #9782 | unchanged | MIOpen FMA 2D fwd open; CK Tile FMHA gfx11 issue open; gfx1201 Windows only; #9782 release/10.2. |
+
+Detail: [pin-scans](pin-scans.md).

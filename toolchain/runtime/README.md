@@ -1,7 +1,13 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-26
+updated: 2026-11-06
 sources:
+  - https://github.com/ROCm/rocm-systems/issues/14886
+  - https://github.com/ROCm/rocm-systems/pull/11617
+  - https://github.com/ROCm/rocm-systems/pull/10639
+  - https://github.com/Niko1221/Strata/issues/4668
+  - https://github.com/Niko1221/Strata/issues/4378
+  - https://repo.radeon.com/amdgpu/31.60/ubuntu/pool/main/a/amdgpu-dkms-firmware/
   - https://github.com/ROCm/TheRock/issues/9484
   - https://github.com/ROCm/TheRock/issues/9141
   - https://github.com/ROCm/TheRock/issues/9475
@@ -43,11 +49,19 @@ sources:
   - https://github.com/ROCm/rocm-systems/pull/11277
   - https://github.com/ROCm/rocm-libraries/pull/13639
   - https://github.com/ROCm/rocm-systems/pull/5792
+  - https://github.com/ROCm/rocm-systems/issues/14860
+  - https://github.com/opengfx1030/vllm-rdna/blob/50570499f83e70e038a631ffa223be4e26fa6590/docs/rdna2/pinned-host-evictions-2026-11-05.md
+  - https://github.com/opengfx1030/vllm-rdna/blob/50570499f83e70e038a631ffa223be4e26fa6590/docs/rdna2/hwq-abba-2026-11-06.md
+  - https://github.com/opengfx1030/vllm-rdna/blob/50570499f83e70e038a631ffa223be4e26fa6590/docs/rdna/serving.md
+  - https://github.com/opengfx1030/vllm-rdna/commit/6e647aeb1e4990119628b945a601b09790f778d5
+  - https://github.com/opengfx1030/vllm-rdna/commit/50570499f83e70e038a631ffa223be4e26fa6590
+  - https://github.com/ROCm/TheRock/blob/main/docs/packaging/python_packaging.md
+  - https://github.com/ROCm/rocm-systems/issues/14778
 ---
 
 # HIP runtime
 
-Date: **2026-10-16**. Live dest stays ROCm **7.14.0** ([pin](../pin/README.md)). TheRock systems-pin chronology is [../log/runtime-scans.md](../log/runtime-scans.md). MIOpen's GEMM backend is a library routing fact: [libraries/](../libraries/README.md).
+Date: **2026-10-16** (page); mlock / HWQ / TheRock lib-path note **2026-11-06**. Live dest stays ROCm **7.14.0** ([pin](../pin/README.md)). TheRock systems-pin chronology is [../log/runtime-scans.md](../log/runtime-scans.md). MIOpen's GEMM backend is a library routing fact: [libraries/](../libraries/README.md). Pinned-host mlock, `GPU_MAX_HW_QUEUES` 4-vs-2 ABBA, and TheRock `_rocm_sdk_core/lib` layout: [pinned-host-mlock-hwq.md](pinned-host-mlock-hwq.md).
 
 ## Allocator paths
 
@@ -99,9 +113,15 @@ Strata [#2729](https://github.com/Niko1221/Strata/issues/2729) (open, filed 2026
 
 For our HIP code: when an engine streams mmap'd weights or keeps a large page-locked expert set while the host is short on RAM, a stall with an idle GPU and one spinning CPU core is this failure first, not a kernel hang. Try `GPU_PINNED_MIN_XFER_SIZE` (staging) or `HSA_USERPTR_FOR_PAGED_MEM=0`, and measure copy throughput without pressure before making either a default. No 7.14.0 repro on this page; no pin change.
 
+Dest-fork follow-up (2026-11-05/06): locking every pinned host mapping (`VLLM_ROCM_MLOCK_PINNED_HOST`), host `RLIMIT_MEMLOCK` / `vm.compact_unevictable_allowed`, and how to check a worker — [pinned-host-mlock-hwq.md](pinned-host-mlock-hwq.md).
+
 ### Small pageable H2D copies on gfx11
 
 [rocm-systems#10639](https://github.com/ROCm/rocm-systems/pull/10639) (open) says `hipMemcpyAsync` can silently drop a small host-to-device copy from pageable memory, reproduced intermittently on gfx1101. Small pageable copies go through a pinned staging slot that a blit shader reads. clr bump-allocates slots at the cache line size the agent reports, 64 bytes on gfx11, while L2 tracks 128-byte lines. The first copy's shader can pull the neighbor slot into L2 before the CPU fills it, so the second copy reads stale data; in the report every lost copy is odd-numbered and reads back as zero. The PR floors the reported line at 128 bytes on gfx11.[^clr10639] It names gfx11 only; gfx1030 is not discussed. For gfx1100 code that sends many small per-step uploads from pageable memory, send them from pinned (`hipHostMalloc`) buffers or check them on readback until the PR is in a pin.
+
+[rocm-systems#14886](https://github.com/ROCm/rocm-systems/issues/14886) (open, filed 2026-11-03) reports the same stale-L2-line loss on 2× RX 7900 XTX (gfx1100) with ROCm 10.0.0 wheels (HIP 7.16.26361) and 10.1.0 wheels (HIP 7.16.26385), with a deterministic repro: two 8-byte pageable `hipMemcpyAsync` H2D copies on one stream with about 100 µs of host work between them lose the second copy 20 of 20 runs. The reporter traces it to `KernelBlitManager::writeBuffer` in clr `rocblit.cpp`: async staged copies keep the agent-scope acquire that `AMD_OPT_FLUSH=1` selects, and only blocking copies call `addSystemScope()`; the proposed fix requests system scope on every staged H2D dispatch. In their table `AMD_OPT_FLUSH=0`, `AMD_SERIALIZE_COPY=2`, pinned source buffers, or a sync between the copies avoid it; `HSA_ENABLE_SDMA=0` and `GPU_MAX_HW_QUEUES=1` do not.[^clr14886] The issue says this breaks RCCL 2.30.4 init: channel 0 `ring.userRanks` uploads as `[0,0]` on both ranks, so `ncclAllGather` writes to the wrong slots while 2-rank all-reduce stays exact. `vllm/vllm-openai-rocm:v0.33.0` with `--tensor-parallel-size 2` then answers garbage at temperature 0, and `AMD_OPT_FLUSH=0` fixes it in eager and graph mode.[^clr14886] The reporter notes that `develop` after #13275 adds a system-scope barrier and host wait before each staged H2D copy, which probably hides the defect there, but 10.1.0 shows no such barrier.[^clr14886] For gfx1100 tensor-parallel serving on ROCm 10.x, validate all-gather output (not only all-reduce) and try `AMD_OPT_FLUSH=0` if TP answers are wrong. The issue names gfx1100 only; whether gfx1030 is affected is not tested here (unsourced).
+
+Update (2026-11-03): the reporter now places the root cause in ROCr, not clr. When KFD reports a cache-line size of 0, ROCr falls back to 64 bytes; [rocm-systems#11617](https://github.com/ROCm/rocm-systems/pull/11617) (merged to `develop` 2026-09-23) raises that fallback to 256, and [rocm-systems#10639](https://github.com/ROCm/rocm-systems/pull/10639) adds a hip-tests regression test.[^rocr11617] The comment says `release/therock-10.0`, `release/therock-10.1`, and `vllm/vllm-openai-rocm:v0.33.0` still return 64 from `HSA_AMD_AGENT_INFO_CACHELINE_SIZE` when KFD reports 0, and that the affected gfx11 host runs amdgpu 6.10.5 with `cache_line_size 0`; a 10.1.x backport was requested but not granted, and `AMD_OPT_FLUSH=0` remains the workaround (cost not measured).[^clr14886c] To check a host, look for `cache_line_size 0` in the KFD topology node properties under `/sys/class/kfd/kfd/topology/nodes/*/` (path is standard KFD sysfs; the issue does not name it, unsourced).
 
 ### mmap'd sources: SVM split fault before Linux 7.2
 
@@ -123,7 +143,19 @@ Stream priority changed between releases. In `therock-7.14.1` and `therock-10.0`
 
 The reporter's 2026-10-13 update: `GPU_MAX_HW_QUEUES=2` avoided the stall in 116 of 116 requests, while 4 (default) and 6 stalled. 8 did not stall but decoded about 40% slower, and 16 about 95% slower. With 2 queues, the drafter stream and the stage-1 verify stream share one hardware queue, so their per-window event hand-off never crosses queues or pipes. The reporter reads the trigger as that cross-queue hand-off; AMD had not replied when we read it.[^q-6698] In the Strata thread, one specific drafter attention kernel (8 cells per step with DPP lane exchanges) made the hang near-certain, and every variant without it ran clean; the reporter calls it a timing trigger, not a math bug. A gfx1100 user on Windows reported the same hang where that kernel does not run.[^q-2245] A separate R9700 (gfx1201) report found the drafter fast or slow depending on the engine start, and `GPU_MAX_HW_QUEUES=2` made every start fast. That is a throughput effect, not a hang.[^q-2305]
 
-For our HIP code: if two streams hand work back and forth through events every step, assume their queue placement can differ from run to run. When a multi-stream engine on gfx1030 hangs with an idle GPU and no fault, try `GPU_MAX_HW_QUEUES=2` before blaming a kernel, then measure decode against the default. Putting both stages on one stream does not depend on clr's mapping. No 7.14.0 pin change.
+For our HIP code: if two streams hand work back and forth through events every step, assume their queue placement can differ from run to run. When a multi-stream engine on gfx1030 hangs with an idle GPU and no fault, check the MEC firmware first (below), then try `GPU_MAX_HW_QUEUES=2` before blaming a kernel, then measure decode against the default. Putting both stages on one stream does not depend on clr's mapping. No 7.14.0 pin change.
+
+A later paired ABBA for `GPU_MAX_HW_QUEUES` 4 vs 2 on a TP4 gfx1030 Flash-Next serve is summarized in [pinned-host-mlock-hwq.md](pinned-host-mlock-hwq.md#gpu_max_hw_queues-2-vs-4-paired-abba). It does not retire the stall workaround above on hosts still on MEC `0x74`.
+
+**MEC firmware update (2026-10-27 to 2026-10-30).** An AMD engineer reproduced the stall and called newer MEC firmware a mitigation, not a full fix: with `0x83` they still saw it, less often. They pointed the reporter at `amdgpu-dkms` 31.60, which ships MEC `0x86` for the card. The reporter's stock Ubuntu 24.04 `linux-firmware` loads `0x74`. On 2026-10-30 the reporter said that after moving to `0x86` they ran two days and hundreds of requests with no hang, without `GPU_MAX_HW_QUEUES=2`, and got about 10% more prompt speed from dropping the workaround. The same reporter had also seen the stall on ROCm 10.3.0a20261023 with `0x74`, so a newer ROCm alone did not fix it.[^q-9306fw] The Strata write-up adds about 470 test requests on 2× V620 with `0x86` and no stall, and gives a firmware-only install: copy `sienna_cichlid_mec.bin` and `sienna_cichlid_mec2.bin` from the `amdgpu-dkms-firmware` 31.60 package into `/lib/firmware/updates/amdgpu/`, update the initramfs if it carries amdgpu firmware, and reboot. Check with `cat /sys/class/drm/card*/device/fw_version/mec_fw_version`.[^q-4668][^q-fw3160]
+
+For our V620 hosts: read `mec_fw_version` on every card and record it next to the ROCm pin in any stall report. A `0x74` host should keep `GPU_MAX_HW_QUEUES=2` as the fallback. A `0x86` host can test the default 4 queues, but AMD has not called it fixed. This is a firmware change, not a ROCm pin change. Not tested on our hardware.
+
+### gfx1030 SDMA copies stalling after GFXOFF (two cards)
+
+[Strata#4378](https://github.com/Niko1221/Strata/issues/4378) (open, filed 2026-10-28) reports 20–300 s stalls on 2× RX 6900 XT (gfx1030, Linux) in a two-card layer split. The reporter's watchdog showed the host waiting behind a stream wait while the idle card sat in GFXOFF, and a 64-byte device-to-host copy to the sleeping card did not finish within 3 s. Every stall came at the first layers a card ran after idling through the other card's layers. The copies there all go through SDMA. With GFXOFF at the default, 9 of 168 sessions hit the 300 s limit. With `HSA_ENABLE_SDMA=0` (ROCr does copies with blit kernels) 28 of 28 sessions ran clean at the same speed, and disabling GFXOFF on both cards (debugfs `amdgpu_gfxoff` set to 0) also gave 0 of 28. The reporter calls GFXOFF the trigger and the SDMA copy the stuck part.[^q-4378]
+
+This differs from the cross-queue stall above: the stuck work is an SDMA copy after a card idled, not compute queues with idle MEC pipes. For a multi-GPU gfx1030 engine whose cards take turns idling, try `HSA_ENABLE_SDMA=0` when a stall follows an idle stretch, and measure copy-heavy paths, since blit copies use compute. Single report, not tested here.
 
 ### gfx1100 idle power with a pending barrier (MES)
 
@@ -156,6 +188,10 @@ A box with a gfx1030 and a gfx1100 in one process has two open runtime and libra
 
 Until both land: build every binary for every arch in the box, and run one process per architecture with `HIP_VISIBLE_DEVICES` or `ROCR_VISIBLE_DEVICES`.
 
+### `ROCR_VISIBLE_DEVICES` does not isolate memory
+
+[rocm-systems#14778](https://github.com/ROCm/rocm-systems/issues/14778) (open, filed 2026-11-01) reports that a process started with `ROCR_VISIBLE_DEVICES=0` sees one HIP device but still opens the DRM render node of every GPU and acquires a GPU VM on each. Every `hipHostRegister` then maps the registration into the hidden GPUs too: about 2 MiB per 1 GiB registration on each hidden card, held until the process exits. The reporter measured it on eight W7900D (gfx1100) with ROCm 7.2.1, TheRock 10.1.0a20260822 and `develop` at `8915864`, and points at `hsakmt_fmm_init_process_apertures()` in libhsakmt `fmm.c`, which runs before ROCr applies the filter.[^vis14778] The code path is not arch-specific, but this page has no gfx1030 repro. For a multi-V620 host that runs one engine per card: the mask hides devices, it does not keep a job's host registrations off the other cards. Whether passing only one card's render node into a container avoids it was not tested here (unsourced).
+
 ## Graphs
 
 [rocm-systems#12638](https://github.com/ROCm/rocm-systems/issues/12638) (open) reports that on Core SDK **10.0.0**, a retained fork/join graph whose root segment holds only empty nodes can hang on first replay. `GraphExecSegmented::BuildSyncPlan()` allocates a completion signal for that segment and never attaches a producer, so the successor's barrier waits. The issue names released source commit `6b0e43f341195e203754e08f850e437ff2fc09f9` (`therock-10.0`).[^graph12638] The 7.14.0 release notes are dated 2026-07-15, before that 10.0.0 report.[^rn7140] Check this before any 10.x move if a capture uses empty join roots. No 7.14.0 pin change.
@@ -164,7 +200,14 @@ Until both land: build every binary for every arch in the box, and run one proce
 
 [rocm-systems#14234](https://github.com/ROCm/rocm-systems/issues/14234) (open, filed 2026-10-26) reports a SIGSEGV inside `libamdhip64` 7.2.4 (`hip-runtime-amd 7.2.53211.70204`) on an RX 7900 XTX (gfx1100): an internal kernarg arena allocator returns NULL and the caller writes to address 0 with no check. The backtrace runs through llama.cpp's CUDA-graph capture path during MTP speculative decoding. The reporter's core analysis shows the arena alive with a fresh, never-used 4 MiB chunk and a zero cursor, and does not name a root cause.[^graph14234] Watch it if a captured decode graph crashes in `libamdhip64` with a NULL destination; it is not reported on 7.14.0.
 
+
+### cgroup `dmem.max` VRAM limits are not reported
+
+Since Linux 6.14 the `dmem` cgroup controller can cap a container's VRAM on amdgpu. [rocm-systems#14860](https://github.com/ROCm/rocm-systems/issues/14860) (open feature request, filed 2026-11-02, W7900 gfx1100, ROCm 7.2.4) shows the cap is enforced (`hipMalloc` stops at about 11,008 MiB under an 11,264 MiB `dmem.max`) but `hipMemGetInfo` and the HSA pool size still report the whole card: 46,064 MiB total, and free memory of the device rather than of the cgroup.[^sys14860] vLLM's `--gpu-memory-utilization` and PyTorch's caching allocator size themselves from those numbers, so a capped container plans for memory it cannot get.[^sys14860] When we share one card between containers with `dmem`, pass an explicit memory budget to the engine instead of a utilization fraction.
+
 ## Sources
+
+[^vis14778]: rocm-systems#14778, open, issue body (fdinfo table, versions, `fmm.c` analysis). https://github.com/ROCm/rocm-systems/issues/14778
 
 [^malloc10943]: rocm-systems#10943, open, including the gfx1100 follow-up comment. https://github.com/ROCm/rocm-systems/issues/10943
 [^ct2090]: CTranslate2#2090, open. https://github.com/OpenNMT/CTranslate2/issues/2090
@@ -197,6 +240,9 @@ Until both land: build every binary for every arch in the box, and run one proce
 [^pt200774]: pytorch#200774, open, "[ROCm] Make expandable segment mapping failures retryable". https://github.com/pytorch/pytorch/pull/200774
 [^st2729]: Strata#2729, open, issue body (events 1-4, `HSA_USERPTR_FOR_PAGED_MEM=0`, suspend). https://github.com/Niko1221/Strata/issues/2729
 [^clr10639]: rocm-systems#10639, open, "fix(clr): set gfx11 cache line size to 128 bytes" (gfx1101, AIRUNTIME-2666). https://github.com/ROCm/rocm-systems/pull/10639
+[^clr14886]: rocm-systems#14886, open, issue body (repro, env-var table, `rocblit.cpp` analysis, RCCL/vLLM impact). https://github.com/ROCm/rocm-systems/issues/14886
+[^clr14886c]: rocm-systems#14886, comment by hadihonarvar 2026-11-03T09:51Z (root cause in ROCr fallback cache-line size, released branches unfixed). https://github.com/ROCm/rocm-systems/issues/14886
+[^rocr11617]: rocm-systems#11617 "fix(rocr): increase fallback cache line size", merged 2026-09-23; rocm-systems#10639 hip-tests regression test, merged. https://github.com/ROCm/rocm-systems/pull/11617 https://github.com/ROCm/rocm-systems/pull/10639
 [^tr8259]: TheRock#8259, merged 2026-10-02 20:22 UTC. https://github.com/ROCm/TheRock/pull/8259
 [^tr9021]: TheRock#9021, merged 2026-10-15 20:07 UTC; description, and `lumachad` comments 2026-10-15 07:42 and 15:03 UTC. https://github.com/ROCm/TheRock/pull/9021
 [^tr8833]: TheRock#8833, "Fix Triton hostcalls by packaging SDK-matched OCKL", closed 2026-10-15 without merge. https://github.com/ROCm/TheRock/pull/8833
@@ -209,3 +255,8 @@ Until both land: build every binary for every arch in the box, and run one proce
 [^q-9141]: TheRock#9141, "100% GPU usage for multiple models with pipeline parallel", open; comments by zichguan-amd 2025-08-14 to 2025-12-10. https://github.com/ROCm/TheRock/issues/9141
 [^hc9475]: TheRock#9475, "gfx1030 on Windows: each hostcall takes seconds, so a kernel calling printf twice times out", open, read 2026-10-26. https://github.com/ROCm/TheRock/issues/9475
 [^graph14234]: rocm-systems#14234, open, read 2026-10-26 with two reporter follow-ups. https://github.com/ROCm/rocm-systems/issues/14234
+[^q-9306fw]: TheRock#9306, `lucbruni-amd` comment 2026-10-27 16:01 UTC (MEC `0x83` mitigates, `amdgpu-dkms` 31.60 ships `0x86`) and `metzenwest` comments 2026-10-27 02:36 UTC (10.3.0a20261023 still stalls) and 2026-10-30 02:59 UTC (`0x86`, two days without a hang, about 10% prompt gain). https://github.com/ROCm/TheRock/issues/9306
+[^q-4668]: Strata#4668, opened 2026-10-30 03:24 UTC: MEC `0x74` vs `0x86` on 2× V620, about 470 requests clean, firmware-only install steps, `GPU_MAX_HW_QUEUES=2` fallback. https://github.com/Niko1221/Strata/issues/4668
+[^q-fw3160]: AMD package folder for `amdgpu-dkms-firmware` 31.60 (Ubuntu). https://repo.radeon.com/amdgpu/31.60/ubuntu/pool/main/a/amdgpu-dkms-firmware/
+[^q-4378]: Strata#4378, opened 2026-10-28 00:24 UTC: GFXOFF/SDMA stall table (168 / 28 / 28 sessions) and watchdog findings. https://github.com/Niko1221/Strata/issues/4378
+[^sys14860]: rocm-systems#14860, open, filed 2026-11-02 20:56 UTC (measurements on W7900, kernel 7.0, ROCm 7.2.4). https://github.com/ROCm/rocm-systems/issues/14860
