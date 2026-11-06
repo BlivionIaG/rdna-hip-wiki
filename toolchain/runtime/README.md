@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-03
+updated: 2026-11-06
 sources:
   - https://github.com/ROCm/rocm-systems/issues/14886
   - https://github.com/ROCm/rocm-systems/pull/11617
@@ -50,11 +50,18 @@ sources:
   - https://github.com/ROCm/rocm-libraries/pull/13639
   - https://github.com/ROCm/rocm-systems/pull/5792
   - https://github.com/ROCm/rocm-systems/issues/14860
+  - https://github.com/opengfx1030/vllm-rdna/blob/50570499f83e70e038a631ffa223be4e26fa6590/docs/rdna2/pinned-host-evictions-2026-11-05.md
+  - https://github.com/opengfx1030/vllm-rdna/blob/50570499f83e70e038a631ffa223be4e26fa6590/docs/rdna2/hwq-abba-2026-11-06.md
+  - https://github.com/opengfx1030/vllm-rdna/blob/50570499f83e70e038a631ffa223be4e26fa6590/docs/rdna/serving.md
+  - https://github.com/opengfx1030/vllm-rdna/commit/6e647aeb1e4990119628b945a601b09790f778d5
+  - https://github.com/opengfx1030/vllm-rdna/commit/50570499f83e70e038a631ffa223be4e26fa6590
+  - https://github.com/ROCm/TheRock/blob/main/docs/packaging/python_packaging.md
+  - https://github.com/ROCm/rocm-systems/issues/14778
 ---
 
 # HIP runtime
 
-Date: **2026-10-16**. Live dest stays ROCm **7.14.0** ([pin](../pin/README.md)). TheRock systems-pin chronology is [../log/runtime-scans.md](../log/runtime-scans.md). MIOpen's GEMM backend is a library routing fact: [libraries/](../libraries/README.md).
+Date: **2026-10-16** (page); mlock / HWQ / TheRock lib-path note **2026-11-06**. Live dest stays ROCm **7.14.0** ([pin](../pin/README.md)). TheRock systems-pin chronology is [../log/runtime-scans.md](../log/runtime-scans.md). MIOpen's GEMM backend is a library routing fact: [libraries/](../libraries/README.md). Pinned-host mlock, `GPU_MAX_HW_QUEUES` 4-vs-2 ABBA, and TheRock `_rocm_sdk_core/lib` layout: [pinned-host-mlock-hwq.md](pinned-host-mlock-hwq.md).
 
 ## Allocator paths
 
@@ -106,6 +113,8 @@ Strata [#2729](https://github.com/Niko1221/Strata/issues/2729) (open, filed 2026
 
 For our HIP code: when an engine streams mmap'd weights or keeps a large page-locked expert set while the host is short on RAM, a stall with an idle GPU and one spinning CPU core is this failure first, not a kernel hang. Try `GPU_PINNED_MIN_XFER_SIZE` (staging) or `HSA_USERPTR_FOR_PAGED_MEM=0`, and measure copy throughput without pressure before making either a default. No 7.14.0 repro on this page; no pin change.
 
+Dest-fork follow-up (2026-11-05/06): locking every pinned host mapping (`VLLM_ROCM_MLOCK_PINNED_HOST`), host `RLIMIT_MEMLOCK` / `vm.compact_unevictable_allowed`, and how to check a worker — [pinned-host-mlock-hwq.md](pinned-host-mlock-hwq.md).
+
 ### Small pageable H2D copies on gfx11
 
 [rocm-systems#10639](https://github.com/ROCm/rocm-systems/pull/10639) (open) says `hipMemcpyAsync` can silently drop a small host-to-device copy from pageable memory, reproduced intermittently on gfx1101. Small pageable copies go through a pinned staging slot that a blit shader reads. clr bump-allocates slots at the cache line size the agent reports, 64 bytes on gfx11, while L2 tracks 128-byte lines. The first copy's shader can pull the neighbor slot into L2 before the CPU fills it, so the second copy reads stale data; in the report every lost copy is odd-numbered and reads back as zero. The PR floors the reported line at 128 bytes on gfx11.[^clr10639] It names gfx11 only; gfx1030 is not discussed. For gfx1100 code that sends many small per-step uploads from pageable memory, send them from pinned (`hipHostMalloc`) buffers or check them on readback until the PR is in a pin.
@@ -135,6 +144,8 @@ Stream priority changed between releases. In `therock-7.14.1` and `therock-10.0`
 The reporter's 2026-10-13 update: `GPU_MAX_HW_QUEUES=2` avoided the stall in 116 of 116 requests, while 4 (default) and 6 stalled. 8 did not stall but decoded about 40% slower, and 16 about 95% slower. With 2 queues, the drafter stream and the stage-1 verify stream share one hardware queue, so their per-window event hand-off never crosses queues or pipes. The reporter reads the trigger as that cross-queue hand-off; AMD had not replied when we read it.[^q-6698] In the Strata thread, one specific drafter attention kernel (8 cells per step with DPP lane exchanges) made the hang near-certain, and every variant without it ran clean; the reporter calls it a timing trigger, not a math bug. A gfx1100 user on Windows reported the same hang where that kernel does not run.[^q-2245] A separate R9700 (gfx1201) report found the drafter fast or slow depending on the engine start, and `GPU_MAX_HW_QUEUES=2` made every start fast. That is a throughput effect, not a hang.[^q-2305]
 
 For our HIP code: if two streams hand work back and forth through events every step, assume their queue placement can differ from run to run. When a multi-stream engine on gfx1030 hangs with an idle GPU and no fault, check the MEC firmware first (below), then try `GPU_MAX_HW_QUEUES=2` before blaming a kernel, then measure decode against the default. Putting both stages on one stream does not depend on clr's mapping. No 7.14.0 pin change.
+
+A later paired ABBA for `GPU_MAX_HW_QUEUES` 4 vs 2 on a TP4 gfx1030 Flash-Next serve is summarized in [pinned-host-mlock-hwq.md](pinned-host-mlock-hwq.md#gpu_max_hw_queues-2-vs-4-paired-abba). It does not retire the stall workaround above on hosts still on MEC `0x74`.
 
 **MEC firmware update (2026-10-27 to 2026-10-30).** An AMD engineer reproduced the stall and called newer MEC firmware a mitigation, not a full fix: with `0x83` they still saw it, less often. They pointed the reporter at `amdgpu-dkms` 31.60, which ships MEC `0x86` for the card. The reporter's stock Ubuntu 24.04 `linux-firmware` loads `0x74`. On 2026-10-30 the reporter said that after moving to `0x86` they ran two days and hundreds of requests with no hang, without `GPU_MAX_HW_QUEUES=2`, and got about 10% more prompt speed from dropping the workaround. The same reporter had also seen the stall on ROCm 10.3.0a20261023 with `0x74`, so a newer ROCm alone did not fix it.[^q-9306fw] The Strata write-up adds about 470 test requests on 2× V620 with `0x86` and no stall, and gives a firmware-only install: copy `sienna_cichlid_mec.bin` and `sienna_cichlid_mec2.bin` from the `amdgpu-dkms-firmware` 31.60 package into `/lib/firmware/updates/amdgpu/`, update the initramfs if it carries amdgpu firmware, and reboot. Check with `cat /sys/class/drm/card*/device/fw_version/mec_fw_version`.[^q-4668][^q-fw3160]
 
