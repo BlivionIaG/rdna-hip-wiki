@@ -74,9 +74,28 @@ sources:
   - "https://github.com/ROCm/TheRock/pull/8306"
   - "https://github.com/ROCm/TheRock/pull/8385"
   - "https://github.com/ROCm/llvm-project/pull/4267"
+  - "https://github.com/ROCm/TheRock/pull/9759"
+  - "https://github.com/ROCm/TheRock/pull/9763"
+  - "https://github.com/ROCm/rocm-libraries/pull/15079"
+  - "https://github.com/ROCm/rocm-libraries/pull/14905"
+  - "https://github.com/ROCm/rocm-systems/pull/14463"
+  - "https://github.com/ROCm/TheRock/pull/9786"
+  - "https://github.com/ROCm/rocm-systems/pull/14786"
 ---
 
 > Historical scan record, kept intact from the flat `toolchain/` pages on branch `toolchain/gotchas-2026-10-09`. Inline links are the sources recorded on the scan date. This restructure did not re-open every SHA or open/merged status below. Those point-in-time claims are **(unsourced)** as of 2026-10-11, except where a topic page repeats the claim with a footnote.
+
+
+## 2026-11-06 ~13:53 Europe/Paris — libraries 37f616f (#9759) + systems 3f917c0 (#9763) (tip, not dest)
+
+TheRock main **`11b1016c6df9` → `be87ca4970ff`** (+2). [#9763](https://github.com/ROCm/TheRock/pull/9763) systems **`c1ab6df` → `3f917c0`** (merged 12:33Z); [#9759](https://github.com/ROCm/TheRock/pull/9759) libraries **`98e132f` → `37f616f`** (merged 12:36Z). Releases **unchanged**: therock-10.1, rocm-7.14.0. Support matrix / `SUPPORTED_GPUS.md` unchanged this pass.
+
+RDNA-relevant now **in tip pin**:
+
+- [rocm-libraries#15079](https://github.com/ROCm/rocm-libraries/pull/15079) hipBLASLt USO default-off on gfx11*/gfx120* (`ab45d0bb` ancestor of `37f616f`). gfx1030 not in arch check.
+- [rocm-libraries#14905](https://github.com/ROCm/rocm-libraries/pull/14905) MIOpen gfx103X tolerance for `ConvHipImplicitGemmV4R1WrW` (`a2b512b2` in pin).
+
+Still **not** in systems pin `3f917c0`: [rocm-systems#14463](https://github.com/ROCm/rocm-systems/pull/14463) CLR GPUDirect RDMA flush/ordering (2 commits past pin tip; open TheRock [#9786](https://github.com/ROCm/TheRock/pull/9786) `3f917c0`→`19d4363` would pull it, and also [systems#14786](https://github.com/ROCm/rocm-systems/pull/14786) rocjitsu gfx1100 public target bind). Superseded closed unmerged: #9769, #9781, #9780. Open #9782 still release/therock-10.2 only. **No RDNA dest bump** — live dest stays **7.14.0**.
 
 # Official vs unofficial matrix
 

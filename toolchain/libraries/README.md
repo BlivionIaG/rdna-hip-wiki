@@ -28,6 +28,9 @@ sources:
   - https://github.com/ROCm/rocm-libraries/pull/14111
   - https://github.com/ROCm/rocm-libraries/issues/14993
   - https://github.com/ROCm/rocm-libraries/pull/15079
+  - https://github.com/ROCm/TheRock/pull/9759
+  - https://github.com/ROCm/rocm-libraries/pull/14905
+  - https://github.com/ROCm/TheRock/pull/9763
 ---
 
 # Libraries
@@ -132,7 +135,12 @@ For our own containers or fork builds on a kpack ROCm (Strata's report uses `/op
 
 ### hipBLASLt uniform summation order off by default on gfx11*/gfx120*
 
-[rocm-libraries#15079](https://github.com/ROCm/rocm-libraries/pull/15079) (merged 2026-11-05, commit `ab45d0bba4f1`) defaults `uniform_summation_order` to 0 when `gcnArchName` contains `gfx11` or `gfx120`, because USO disables StaggerU and slowed some RDNA GEMMs after #14010 (bf16 / `F.linear` reports up to ~1.9×). Explicit settings still override; non-RDNA stays default-on.[^lt15079] **gfx1030 is not in that arch check**, so RDNA2 keeps the previous default. Not in TheRock libraries pin `98e132f` yet; open bumps TheRock#9759 / #9769 / #9781 (98e132f→newer) would pull it. Dest stays 7.14.0 — tip Watch for gfx1100 until a pin lands.
+[rocm-libraries#15079](https://github.com/ROCm/rocm-libraries/pull/15079) (merged 2026-11-05, commit `ab45d0bba4f1`) defaults `uniform_summation_order` to 0 when `gcnArchName` contains `gfx11` or `gfx120`, because USO disables StaggerU and slowed some RDNA GEMMs after #14010 (bf16 / `F.linear` reports up to ~1.9×). Explicit settings still override; non-RDNA stays default-on.[^lt15079] **gfx1030 is not in that arch check**, so RDNA2 keeps the previous default. **In TheRock tip** as of 2026-11-06 ~13:53 Europe/Paris: TheRock [#9759](https://github.com/ROCm/TheRock/pull/9759) merged libraries `98e132f` → `37f616f` (main `be87ca4970ff`); ancestry check shows `ab45d0bb` is an ancestor of `37f616f`.[^tr9759] Sibling bumps #9769 / #9781 closed unmerged (superseded). Dest stays 7.14.0 — tip Watch for gfx1100 nightlies that rebuild on this pin.
+
+
+### MIOpen gfx103X WrW tolerance in tip pin
+
+[rocm-libraries#14905](https://github.com/ROCm/rocm-libraries/pull/14905) (merged 2026-11-04, commit `a2b512b2`) adds a gfx103X `SetTolerance` for `ConvHipImplicitGemmV4R1WrW` so TheRock's gfx103X nightly no longer fails ROCM-23567 on a default `1.0` tolerance. The PR calls it a test calibration gap, not a product defect.[^mi14905] In TheRock libraries pin `37f616f` via [#9759](https://github.com/ROCm/TheRock/pull/9759) as of 2026-11-06.[^tr9759]
 
 
 ## Sources
@@ -163,3 +171,6 @@ For our own containers or fork builds on a kpack ROCm (Strata's report uses `/op
 [^lt14859]: rocm-libraries#14859, open. https://github.com/ROCm/rocm-libraries/pull/14859
 [^hkp14111]: rocm-libraries#14111, merged 2026-10-30 21:15 UTC (engine/target table). https://github.com/ROCm/rocm-libraries/pull/14111
 [^lt14993]: rocm-libraries#14993, open, filed 2026-11-03 18:29 UTC by `jeffdaily` (W7800 ulp table, split-k sweep, torch repro). https://github.com/ROCm/rocm-libraries/issues/14993
+[^lt15079]: rocm-libraries#15079, merged 2026-11-05 (USO default off on gfx11/gfx120). https://github.com/ROCm/rocm-libraries/pull/15079
+[^tr9759]: TheRock#9759, merged 2026-11-06T12:36:50Z; libraries submodule `37f616f6a510`. https://github.com/ROCm/TheRock/pull/9759
+[^mi14905]: rocm-libraries#14905, merged 2026-11-04 (gfx103X WrW tolerance). https://github.com/ROCm/rocm-libraries/pull/14905

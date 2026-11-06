@@ -87,6 +87,12 @@ sources:
   - "https://github.com/ROCm/aiter/issues/6962"
   - "https://github.com/ROCm/rocm-libraries/pull/15225"
   - "https://github.com/ROCm/rocm-libraries/pull/15193"
+  - "https://github.com/ROCm/TheRock/pull/9759"
+  - "https://github.com/ROCm/TheRock/pull/9763"
+  - "https://github.com/ROCm/rocm-libraries/pull/14905"
+  - "https://github.com/ROCm/rocm-systems/pull/14463"
+  - "https://github.com/ROCm/TheRock/pull/9786"
+  - "https://github.com/ROCm/rocm-systems/pull/14786"
 ---
 
 > Historical scan record, kept intact from the flat `toolchain/` pages on branch `toolchain/gotchas-2026-10-09`. Inline links are the sources recorded on the scan date. This restructure did not re-open every SHA or open/merged status below. Those point-in-time claims are **(unsourced)** as of 2026-10-11, except where a topic page repeats the claim with a footnote.
@@ -495,3 +501,17 @@ Vs Nov 4 ~10:30 (Nov 5 domain routine produced no artifact). **No dest/pin lever
 | [rocm-examples#566](https://github.com/ROCm/rocm-examples/issues/566) / [TheRock#7480](https://github.com/ROCm/TheRock/issues/7480) | unchanged | hipcc migration Take from Nov 4; RDNA2 Windows Leave. |
 
 Artifact: `/workspace/rocm-rdna-domain-20261106-1020.md`.
+
+## 2026-11-06 ~13:53 — hourly pin land (USO + gfx103X MIOpen tolerance in tip; not dest)
+
+Vs domain ~10:20 and quiet hourlies through ~12:53. **No dest bump** (live **7.14.0**). TheRock main `11b1016c6df9`→`be87ca4970ff`: [#9763](https://github.com/ROCm/TheRock/pull/9763) systems `c1ab6df`→`3f917c0`; [#9759](https://github.com/ROCm/TheRock/pull/9759) libraries `98e132f`→`37f616f`.
+
+| Item | Verdict | Note |
+|---|---|---|
+| [rocm-libraries#15079](https://github.com/ROCm/rocm-libraries/pull/15079) | **Take tip (libraries)** | Now in pin `37f616f`. USO off default on gfx11*/gfx120*; gfx1030 unchanged. [libraries/](../libraries/README.md). |
+| [rocm-libraries#14905](https://github.com/ROCm/rocm-libraries/pull/14905) | **Take tip (libraries)** | gfx103X MIOpen WrW tolerance now in pin (test calibration, not product defect). |
+| [rocm-systems#14463](https://github.com/ROCm/rocm-systems/pull/14463) | Watch tip | Still 2 commits past systems pin; open TheRock#9786 would include. |
+| [rocm-systems#14786](https://github.com/ROCm/rocm-systems/pull/14786) | Watch tip | rocjitsu gfx1100 public target bind; in develop tip / #9786 target, not in `3f917c0`. |
+| #15225 / #15012 / #9783 / #9782 | unchanged | MIOpen FMA 2D fwd open; CK Tile FMHA gfx11 issue open; gfx1201 Windows only; #9782 release/10.2. |
+
+Detail: [pin-scans](pin-scans.md).
