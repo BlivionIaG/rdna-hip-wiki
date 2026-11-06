@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-04
+updated: 2026-11-06
 sources:
   - https://github.com/ROCm/TheRock/issues/8729
   - https://github.com/Niko1221/Strata/pull/1123
@@ -27,6 +27,7 @@ sources:
   - https://github.com/ROCm/rocm-libraries/pull/14859
   - https://github.com/ROCm/rocm-libraries/pull/14111
   - https://github.com/ROCm/rocm-libraries/issues/14993
+  - https://github.com/ROCm/rocm-libraries/pull/15079
 ---
 
 # Libraries
@@ -128,6 +129,11 @@ For our own containers or fork builds on a kpack ROCm (Strata's report uses `/op
 ### hipBLASLt gfx1100: long-k fp16 GEMMs never split k
 
 [rocm-libraries#14993](https://github.com/ROCm/rocm-libraries/issues/14993) (open, filed 2026-11-03) reports that on gfx1100, for fp16 GEMMs with `HIPBLAS_COMPUTE_32F`, transA=T, transB=N, a small output and a long k, every algorithm the heuristic returns is unsplit. Measured on a Radeon Pro W7800, the same on ROCm 10.1.0 (hipBLASLt 1.4.1) and the 10.3.0a20261103 nightly (hipBLASLt 1.5.0): at 16 x 2 output the error is 0.57, 2.44 and 8.34 fp16 ulp at k = 2^16, 2^18 and 2^20, and all 32 returned algorithms report a workspace size of 0.[^lt14993] Forcing split-k with `hipblaslt_ext::GemmTuning::setSplitK` on the same kernel brings that case to 0.63 ulp at 16 splits or more and from 2294 us to about 50 us at 64 splits; the issue attributes the error to accumulating the whole k chain in the WMMA accumulator, and says `torch.matmul` inherits it.[^lt14993] For gfx1100 reductions with very long k (for example long-sequence dot products), force split-k or accumulate in fp32 outside hipBLASLt until this is fixed. gfx1030 was not measured.
+
+### hipBLASLt uniform summation order off by default on gfx11*/gfx120*
+
+[rocm-libraries#15079](https://github.com/ROCm/rocm-libraries/pull/15079) (merged 2026-11-05, commit `ab45d0bba4f1`) defaults `uniform_summation_order` to 0 when `gcnArchName` contains `gfx11` or `gfx120`, because USO disables StaggerU and slowed some RDNA GEMMs after #14010 (bf16 / `F.linear` reports up to ~1.9×). Explicit settings still override; non-RDNA stays default-on.[^lt15079] **gfx1030 is not in that arch check**, so RDNA2 keeps the previous default. Not in TheRock libraries pin `98e132f` yet; open bumps TheRock#9759 / #9769 / #9781 (98e132f→newer) would pull it. Dest stays 7.14.0 — tip Watch for gfx1100 until a pin lands.
+
 
 ## Sources
 

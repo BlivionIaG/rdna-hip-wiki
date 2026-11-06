@@ -78,6 +78,15 @@ sources:
   - "https://github.com/ROCm/rocm-libraries/issues/12102"
   - "https://github.com/ROCm/rocm-libraries/issues/13606"
   - "https://github.com/Niko1221/Strata/releases/tag/v0.1.44"
+  - "https://github.com/vivienfanghuagood/hk-dsl"
+  - "https://github.com/vivienfanghuagood/hk-dsl/releases/tag/v0.9.10"
+  - "https://pypi.org/project/hk-dsl/0.9.10/"
+  - "https://github.com/ROCm/rocm-libraries/pull/15079"
+  - "https://github.com/ROCm/TheRock/pull/9752"
+  - "https://github.com/ggml-org/llama.cpp/pull/31746"
+  - "https://github.com/ROCm/aiter/issues/6962"
+  - "https://github.com/ROCm/rocm-libraries/pull/15225"
+  - "https://github.com/ROCm/rocm-libraries/pull/15193"
 ---
 
 > Historical scan record, kept intact from the flat `toolchain/` pages on branch `toolchain/gotchas-2026-10-09`. Inline links are the sources recorded on the scan date. This restructure did not re-open every SHA or open/merged status below. Those point-in-time claims are **(unsourced)** as of 2026-10-11, except where a topic page repeats the claim with a footnote.
@@ -469,3 +478,20 @@ Vs Nov 3 ~10:25. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hou
 | hipfire, TheRock releases, llama.cpp / Triton / vLLM / PyTorch RDNA PRs | Note | No new release (hipfire v0.4.4, therock-10.1); no RDNA-tagged PRs updated since Nov 3 09:00 UTC in those four repos. |
 
 Artifact: `/workspace/rocm-rdna-domain-20261104-1030.md`.
+
+## 2026-11-06 ~10:20 — domain pass (hk-dsl Watch, hipBLASLt USO tip; not dest)
+
+Vs Nov 4 ~10:30 (Nov 5 domain routine produced no artifact). **No dest/pin lever.** Live dest stays **7.14.0**. Pins match morning hourlies: TheRock main `11b1016c6df9`; libraries `98e132f`; systems `c1ab6df`; releases therock-10.1 / rocm-7.14.0.
+
+| Item | Verdict | Note |
+|---|---|---|
+| [vivienfanghuagood/hk-dsl](https://github.com/vivienfanghuagood/hk-dsl) 0.9.10 | **Watch (tools)** / Leave engine | HipKittens Python DSL + `hk.check` spill gate; targets gfx1100/1201/942/950 only (no gfx1030). PyPI 0.9.10 (2026-11-06) opt-in `HK_VLLM_ROCM_DECODE=1` on gfx1100. In [tools/](../tools/README.md). |
+| [rocm-libraries#15079](https://github.com/ROCm/rocm-libraries/pull/15079) | **Watch (libraries)** tip | MERGED: hipBLASLt defaults USO off on gfx11*/gfx120*; gfx1030 not in arch check. Not in pin `98e132f`; open TheRock bumps #9759/#9769/#9781 would pull. In [libraries/](../libraries/README.md). |
+| [TheRock#9752](https://github.com/ROCm/TheRock/pull/9752) | Watch tip | rocjitsu-memory packaging; gfx1030 still no topology JSON on systems develop. |
+| [llama.cpp#31746](https://github.com/ggml-org/llama.cpp/pull/31746) | Leave (engine) | HIP D256 MMA FlashAttention tune for RDNA3; W7800 spill→0 / +23.7% prefill claim. |
+| [aiter#6962](https://github.com/ROCm/aiter/issues/6962) | Leave (engine) | RDNA Triton flash_attn prefill single-config; gfx1101 head-dim 64 alt config 1.16–1.32×. |
+| MIOpen open solvers #15225 / #15193 / #15130 / #15145 / #15132 | Watch (hourlies) | FMA 2D fwd, FMA bwd-data 1d, depthwise bwd1d, ConvTranspose1d — open on libraries develop; pin lag. |
+| hipfire v0.4.4; therock-10.1; rapier / exllamav3-rocm / HipKittens upstream | Note | No new releases; rapier last push 2026-11-03; exllamav3-rocm still 2026-09-26. |
+| [rocm-examples#566](https://github.com/ROCm/rocm-examples/issues/566) / [TheRock#7480](https://github.com/ROCm/TheRock/issues/7480) | unchanged | hipcc migration Take from Nov 4; RDNA2 Windows Leave. |
+
+Artifact: `/workspace/rocm-rdna-domain-20261106-1020.md`.
