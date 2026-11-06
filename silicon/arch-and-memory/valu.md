@@ -13,6 +13,8 @@ Engine “we fire” column filled 2026-08-17. Occupancy still first. Companions
 
 **How to read.** Enc = microcode class. Size = instruction dwords in I$ (VOP2 = 1, VOP3/VOP3P = 2). Issue = VALU issues per clock **per SIMD32** — **unknown** in the ISA for DOT; the GPUOpen **ops/clk/CU** column is the sourced peak (2 SIMD32/CU). Dual-issue (VOPD) is **gfx11+**, not gfx1030.
 
+Occupancy framing for VALU ∥ VMEM ∥ LDS ∥ SALU (not a PIX MaxWaves row; VOPD still absent): [issue-pipe-occupancy.md](../occupancy/issue-pipe-occupancy.md).
+
 Rate math that matches GPUOpen RX 6950 XT: 1 DOT/clk/SIMD × 2 SIMD/CU × 32 lanes × (muls+adds in the DOT). DOT2 = 4 FLOP → **256** FP16. DOT4 = 8 integer ops → **512** IU8. DOT8 = 16 integer ops → **1024** IU4.
 
 ## gfx1030 — ops we can issue
