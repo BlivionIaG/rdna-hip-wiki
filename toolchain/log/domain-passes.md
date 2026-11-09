@@ -62,6 +62,15 @@ sources:
   - "https://github.com/ROCm/TheRock/issues/8729"
   - "https://github.com/ROCm/rocm-libraries/issues/12240"
   - "https://github.com/Niko1221/Strata/issues/1657"
+  - "https://github.com/ROCm/legacy-rocm-build/issues/6698"
+  - "https://github.com/Niko1221/Strata/issues/2245"
+  - "https://github.com/Niko1221/Strata/issues/2305"
+  - "https://github.com/ROCm/rocm-systems/pull/8485"
+  - "https://github.com/ROCm/legacy-rocm-build/issues/6407"
+  - "https://github.com/ROCm/AMDMIGraphX/issues/5396"
+  - "https://github.com/ROCm/rocm-libraries/issues/12102"
+  - "https://github.com/ROCm/rocm-libraries/issues/13606"
+  - "https://github.com/Niko1221/Strata/releases/tag/v0.1.44"
 ---
 
 > Historical scan record, kept intact from the flat `toolchain/` pages on branch `toolchain/gotchas-2026-10-09`. Inline links are the sources recorded on the scan date. This restructure did not re-open every SHA or open/merged status below. Those point-in-time claims are **(unsourced)** as of 2026-10-11, except where a topic page repeats the claim with a footnote.
@@ -293,3 +302,72 @@ Vs Oct 7 ~10:30. **No dest/pin lever.** Live dest stays **7.14.0** wave32 WGP. P
 | TheRock [#8729](https://github.com/ROCm/TheRock/issues/8729) | **Take (runtime gotcha)** | MIOpen `GemmFwdRest` routes to hipBLASLt (no gfx1030 kernels); `MIOPEN_FIND_MODE=FAST` fails. Use `MIOPEN_GEMM_ENFORCE_BACKEND=1` (rocBLAS). In [hip-runtime.md](../runtime/README.md). |
 | rocm-libraries [#12240](https://github.com/ROCm/rocm-libraries/issues/12240) | Watch | gfx103X rocBLAS nightly shards marked failed with 0 gtest failures (xml wrapper). Don't read a red gfx103X rocBLAS nightly as a regression without opening the log. |
 | Strata [#1657](https://github.com/Niko1221/Strata/issues/1657) | Leave (engine lane) | 2×RX 6900 XT gfx1030 layer-split bench on 0.1.41. |
+
+## 2026-10-12 ~10:30 — domain pass (two runtime gotchas, one library gotcha; not dest)
+
+Vs Oct 9 ~10:25 (weekend gap). **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly 09:57 (TheRock `4d1b9e560fa2`).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [rocm-systems#12528](https://github.com/ROCm/rocm-systems/issues/12528) / [#12670](https://github.com/ROCm/rocm-systems/pull/12670) / Strata [#1705](https://github.com/Niko1221/Strata/issues/1705) | **Take (runtime gotcha)** | Pageable `hipMemcpy` under host reclaim: userptr pinning leads to KFD queue eviction and minute-long stalls. AMD reproduced on gfx1100. Workarounds `GPU_PINNED_MIN_XFER_SIZE` (staging) or `HSA_USERPTR_FOR_PAGED_MEM=0`. Fix PR open. In [runtime/](../runtime/README.md). |
+| [rocm-systems#13234](https://github.com/ROCm/rocm-systems/issues/13234) | **Take (runtime gotcha)** | `hipGraphLaunch` livelock at ≥ 2 × `ROC_AQL_QUEUE_SIZE` packets in one segment (gfx1151, 7.2.1 and 10.0.0). In [runtime/](../runtime/README.md). |
+| [rocPRIM#778](https://github.com/ROCm/rocPRIM/issues/778) | **Take (library gotcha)** | hipCUB `ExclusiveScan` silently wrong with misaligned temp storage on W7800 gfx1100, ROCm 7.2.0. In [libraries/](../libraries/README.md). |
+| [openxla/xla#50464](https://github.com/openxla/xla/issues/50464) | Watch (frameworks) | XLA has no library GEMM path on gfx908/gfx1030 (no hipBLASLt, rocBLAS fallback removed). Measured on MI100 only. In [libraries/](../libraries/README.md). |
+| [legacy-rocm-build#6685](https://github.com/ROCm/legacy-rocm-build/issues/6685) | Leave | `hipStreamWaitEvent` adds ~17 µs per small kernel on gfx1201; title says not on gfx1030. |
+| Strata [#2055](https://github.com/Niko1221/Strata/issues/2055) / [#1272](https://github.com/Niko1221/Strata/issues/1272), vLLM [#50264](https://github.com/vllm-project/vllm/issues/50264), hipfire [#739](https://github.com/warpfront/hipfire/issues/739) | Leave (engine lane) | gfx1030 Windows prompt regression, 2×6900 XT shared-expert stream, RDNA hybrid-Mamba Triton fallback, gfx1100 model-load hang. |
+
+
+## 2026-10-13 ~10:35 — domain pass (one host-kernel floor, one framework gotcha, two smaller notes; not dest)
+
+Vs Oct 12 ~10:30. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly 10:05 (TheRock `defe4c25479f`).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [rocm-systems#4817](https://github.com/ROCm/rocm-systems/issues/4817) / [legacy-rocm-build#6003](https://github.com/ROCm/legacy-rocm-build/issues/6003) / Linux [`b89d58b6595d`](https://github.com/torvalds/linux/commit/b89d58b6595d79dc3fe75e213e1f4c5efd0251d4) | **Take (host-kernel floor)** | KFD SVM split bug leaves head or tail of a pinned range unmapped while SDMA reads it, so copies from mmap'd files fault with `hipErrorIllegalAddress`. Fix in Linux 7.2-rc1+ and, per AMD, amdgpu-dkms 7.1.9. RX 6800 (gfx1030) report: `HSA_USE_SVM=0` avoids it. In [runtime/](../runtime/README.md). |
+| [InvokeAI#9487](https://github.com/invoke-ai/InvokeAI/issues/9487) | **Take (data point)** | gfx1100: host→device from mmap'd safetensors at ~2 MB/s vs ~7 GB/s after `clone()`. Added next to the userptr eviction section in [runtime/](../runtime/README.md). |
+| [ComfyUI-WanVideoWrapper#2053](https://github.com/kijai/ComfyUI-WanVideoWrapper/issues/2053) / [aotriton#168](https://github.com/ROCm/aotriton/issues/168) | **Take (library gotcha, gfx1100)** | Torch SDPA at head_dim > 256 on gfx11: silently wrong on aotriton 0.13.x, `hipErrorProfilerNotInitialized` on 0.14.50 (ROCm 10.1.0 wheel). Guard to `SDPBackend.MATH`. In [libraries/](../libraries/README.md). |
+| [rocm-libraries#12473](https://github.com/ROCm/rocm-libraries/issues/12473) / [#12638](https://github.com/ROCm/rocm-libraries/pull/12638) | **Take (compiler gotcha)** | `.uses_dynamic_stack: true` kernels get `hipLimitStackSize` (1 KB/thread default); overflow is silent. Docs-only close. In [compiler/](../compiler/README.md). |
+| [hip-python#111](https://github.com/ROCm/hip-python/issues/111) | Take (tools, small) | numba-hip atomics have wrong signatures on 10.0; AMD says fix in next patch or 10.1.0 bindings. In [tools/](../tools/README.md). |
+| [legacy-rocm-build#6386](https://github.com/ROCm/legacy-rocm-build/issues/6386) | Watch | gfx1103 MES `REMOVE_QUEUE` failure on SVM invalidation, fixed by updated `gc_11_0_1` firmware per two reporters. That is gfx1103 firmware; no gfx1100 report in the thread. |
+| Sarek [#503](https://github.com/mathiasbourgoin/Sarek/issues/503) | Watch | gfx1100, amdgpu 3.64.0, Linux 7.1.2: kernel oops in `amdgpu_hmm_invalidate_gfx` after Vulkan host-memory import (userptr BO). Vulkan, not HIP; same userptr notifier code path in amdgpu. |
+| [pytorch#177834](https://github.com/pytorch/pytorch/issues/177834) | Leave | LSTM wrong results traced to MIOpen `Op2dTensorLite` grid Y > 65535 (reported on gfx1201); test added in pytorch#195738. |
+| [rocm-libraries#13530](https://github.com/ROCm/rocm-libraries/pull/13530), [rocm-systems#10701](https://github.com/ROCm/rocm-systems/pull/10701) | Leave | rocKE gfx1101 → `gfx11-generic` normalization (closed); RCCL generic-target parse PR closed unmerged. |
+| llama.cpp [#29910](https://github.com/ggml-org/llama.cpp/pull/29910), Tensile [#6996](https://github.com/ROCm/rocm-libraries/pull/6996), hipBLASLt [#10720](https://github.com/ROCm/rocm-libraries/pull/10720), clr [#11618](https://github.com/ROCm/rocm-systems/pull/11618), [#9821](https://github.com/ROCm/rocm-systems/pull/9821) | unchanged | Still open. |
+
+Artifact: `/workspace/rocm-rdna-domain-20261013-1035.md`.
+
+
+## 2026-10-14 ~10:40 — domain pass (HIP queue mapping, gfx1030 stall workaround, WGP count; not dest)
+
+Vs Oct 13 ~10:35. **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly 09:55 (TheRock `60eed59f18a6`).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [legacy-rocm-build#6698](https://github.com/ROCm/legacy-rocm-build/issues/6698) / Strata [#2245](https://github.com/Niko1221/Strata/issues/2245) / [#2305](https://github.com/Niko1221/Strata/issues/2305) | **Take (runtime gotcha, V620)** | Silent multi-queue stall on 2× V620; `GPU_MAX_HW_QUEUES=2` avoided it (116/116), 4 and 6 stall, 8 and 16 cost decode. In [runtime/](../runtime/README.md). |
+| clr `getQueueFromPool` / `flags.hpp`, [rocm-systems#8485](https://github.com/ROCm/rocm-systems/pull/8485) | **Take (runtime behavior)** | Streams share up to `GPU_MAX_HW_QUEUES` queues per priority, reuse by load. `DEBUG_HIP_IGNORE_STREAM_PRIORITY` default flips to `true` in `therock-10.1` (false in 7.14.1 and 10.0). In [runtime/](../runtime/README.md). |
+| [legacy-rocm-build#6407](https://github.com/ROCm/legacy-rocm-build/issues/6407) + clr WGP mode | **Take (runtime gotcha)** | `multiProcessorCount` returns WGPs on RDNA (V620 reports 36, by our arithmetic from the code). Grid sizing note in [runtime/](../runtime/README.md). |
+| [AMDMIGraphX#5396](https://github.com/ROCm/AMDMIGraphX/issues/5396) | Watch (gfx1100) | MLIR attention fusion is on by default only for gfx94/gfx95; `MIGRAPHX_MLIR_USE_SPECIFIC_OPS=attention` on RX 7900 XTX is faster at every measured length and 2-3× faster than the default from 4k tokens. Request to enable for gfx11. |
+| [rocm-libraries#12102](https://github.com/ROCm/rocm-libraries/issues/12102) / [#13606](https://github.com/ROCm/rocm-libraries/issues/13606) | Watch (CK_TILE on RDNA) | CK_TILE dispatcher JIT sets `CK_TILE_FMHA_FWD_FAST_EXP2=0` on non-gfx9, which the logits-soft-cap `static_assert` rejects; #13606 reaches the same assert through the CMake knob. gfx1100/gfx1201 only, not gfx1030. |
+| Strata [v0.1.44](https://github.com/Niko1221/Strata/releases/tag/v0.1.44) | Leave (engine lane) | Draft stream at high priority on gfx1200/gfx1201; on a `therock-10.1` runtime that hint is ignored by default (see runtime/). |
+| [TheRock#8939](https://github.com/ROCm/TheRock/issues/8939), [TheRock#8968](https://github.com/ROCm/TheRock/issues/8968), [rocm-systems#13338](https://github.com/ROCm/rocm-systems/issues/13338) | unchanged | Tracked by the hourly scan. |
+
+Artifact: `/workspace/rocm-rdna-domain-20261014-1040.md`.
+
+
+## 2026-10-16 ~10:45 — domain pass (hostcall flip and revert, mixed-arch hosts, WGP L0 race, three updates; not dest)
+
+Vs Oct 14 ~10:40 (the Oct 15 run failed). **No dest/pin lever.** Live dest stays **7.14.0**. Pins per hourly 09:55 (TheRock `4d992b34d67c`).
+
+| Item | Verdict | Note |
+|---|---|---|
+| TheRock [#8259](https://github.com/ROCm/TheRock/pull/8259) / [#9021](https://github.com/ROCm/TheRock/pull/9021) / [#8833](https://github.com/ROCm/TheRock/pull/8833), [rocm-systems#11277](https://github.com/ROCm/rocm-systems/pull/11277) | **Take (runtime)** | New hostcall default on 10-02, reverted 10-15 (HSA, ROCgdb; 110X and gfx90a). `printf`/`assert` kernels need PCIe AtomicOps. In [runtime/](../runtime/README.md). |
+| [rocm-libraries#13639](https://github.com/ROCm/rocm-libraries/pull/13639), [rocm-systems#5792](https://github.com/ROCm/rocm-systems/pull/5792) | **Take (mixed-arch hosts)** | hipBLASLt loads one arch per process; `hipGetFuncBySymbol` fails on all devices if one lacks a code object. One process per arch. In [runtime/](../runtime/README.md). |
+| [pytorch#198208](https://github.com/pytorch/pytorch/pull/198208) / [triton#10906](https://github.com/triton-lang/triton/pull/10906) | **Take (compiler gotcha)** | WGP mode: acquire's `buffer_gl0_inv` on one lane leaves the other CU's L0 stale; silent split-scan errors on RDNA. Triton 3.9+. In [compiler/](../compiler/README.md). |
+| [rocm-systems#10639](https://github.com/ROCm/rocm-systems/pull/10639) | **Take (runtime gotcha, gfx11)** | Small pageable H2D `hipMemcpyAsync` can be dropped on gfx11 (64 B slots vs 128 B L2 lines). In [runtime/](../runtime/README.md). |
+| [pytorch#200608](https://github.com/pytorch/pytorch/issues/200608) / [#200774](https://github.com/pytorch/pytorch/pull/200774) | **Take (framework gotcha)** | `expandable_segments` on gfx1100 bare metal: silent corruption and page faults; fix PR open. In [runtime/](../runtime/README.md). |
+| Strata [#2729](https://github.com/Niko1221/Strata/issues/2729) | Take (data point) | `HSA_USERPTR_FOR_PAGED_MEM=0` removes the amdkfd hang but not reclaim pressure on a 31 GiB gfx1100 host. In [runtime/](../runtime/README.md). |
+| [pytorch#200999](https://github.com/pytorch/pytorch/issues/200999), rocm-systems [#11618](https://github.com/ROCm/rocm-systems/pull/11618) → [llvm#232066](https://github.com/llvm/llvm-project/pull/232066), rocm-libraries [#13150](https://github.com/ROCm/rocm-libraries/pull/13150) | update | SDPA hdim>256 fixed for PyTorch 2.15 (not 2.14.1); `__shfl_xor` fix moved upstream to LLVM; gfx11-generic SDPA merged. |
+| [TheRock#9066](https://github.com/ROCm/TheRock/issues/9066) | Take (gfx900 note) | PyTorch nightly wheels fail: CK-Tile group GEMM compiled for gfx900/906/90c/1010-1012. In [libraries/](../libraries/README.md). For GFX900_manager. |
+| [legacy-rocm-build#6685](https://github.com/ROCm/legacy-rocm-build/issues/6685), vLLM [#60658](https://github.com/vllm-project/vllm/pull/60658) / [#59628](https://github.com/vllm-project/vllm/pull/59628), Strata [#2457](https://github.com/Niko1221/Strata/issues/2457), [llama.cpp#27275](https://github.com/ggml-org/llama.cpp/issues/27275) | Leave | gfx1201-only wait-event penalty; engine-lane gfx11 tuning and IQ3_S regression; Fedora ROCm 7.1.1 comgr segfault closed stale (an 8× gfx1030 user on Ubuntu 7.2.1 did not see it). |
+
+Artifact: `/workspace/rocm-rdna-domain-20261016-1045.md`.

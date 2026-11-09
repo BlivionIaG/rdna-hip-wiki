@@ -1,6 +1,8 @@
 ---
 title: "Qwen3.8-Flash-Next / Qwen4Exp HIP — tip `8960a3bc`"
 sources:
+  - https://github.com/opengfx1030/vllm-rdna/commit/ddb69e64f4941085dc2fb76bacd86096511c8fdf
+  - https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/csrc/rocm/hc_prefill_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/commit/50120e13b46895fc5d074e88fc493f1eef69da9f
   - https://github.com/opengfx1030/vllm-rdna/commit/8960a3bcbb175e8e74efd2f6c6b37b597972debc
   - https://github.com/opengfx1030/vllm-rdna/blob/8960a3bcbb175e8e74efd2f6c6b37b597972debc/csrc/rocm/rdna_fused_glue.cu
@@ -45,8 +47,121 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/50120e13b46895fc5d074e88fc493f1eef69da9f/csrc/rocm/mrope_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/c6d99ca30580f0ce6a97a168fa53bf9c6ee6b2af/csrc/rocm/layernorm.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/50120e13b46895fc5d074e88fc493f1eef69da9f/CMakeLists.txt
+  - https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/qsa_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/ops/qsa.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/ops/qsa_rdna2.py
+  - https://github.com/opengfx1030/vllm-rdna/commit/b30757c257c25c737d671179025bbc5c2ec1ee50
+  - https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/vllm/model_executor/layers/rdna_ops.py
+  - https://github.com/opengfx1030/vllm-rdna/commit/cec69c12c80d1fdcd3fd9d7938809abf056d9b52
+  - https://github.com/opengfx1030/vllm-rdna/commit/27e5fa40da6338dd2344927c97b3dad63990bf1f
+  - https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/csrc/rocm/hc_prefill_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/vllm/model_executor/layers/rdna_ops.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/docs/rdna2/tuning.md
+  - https://github.com/opengfx1030/vllm-rdna/commit/5bda4c245024508f8e9ce59c43c5387c98b61228
+  - https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/hc_prefill_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/vllm/model_executor/layers/utils.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/tools/rdna/recipes/flashnext-mtp2.env
+  - https://github.com/opengfx1030/vllm-rdna/commit/e1ebb1f3fa6bebe8822036b12f03da6220b611a6
+  - https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/hc_prefill_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/rdna_fused_glue.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/qsa_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/vllm/model_executor/layers/rdna_ops.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/docs/rdna2/tuning.md
+  - https://github.com/opengfx1030/vllm-rdna/compare/e1ebb1f3fa6bebe8822036b12f03da6220b611a6...3c2708585cf78dca851867d38140a4a28faa7a4c
+  - https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/csrc/rocm/qsa_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/docs/rdna2/tuning.md
+  - https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/tools/rdna/recipes/flashnext-mtp2.env
 ---
 # Qwen3.8-Flash-Next / Qwen4Exp HIP — tip `8960a3bc`
+
+## Update at dest `rdna_extras` @ `3c270858` (checked 2026-11-03)
+
+Five commits since `e1ebb1f3`. The only HIP source change is the default of the pipelined QSA gate in `b80f0dde`; the kernel body, launch bounds, LDS and split cost model are unchanged. `b8863048` turns on W4A8 sdot4 MoE prefill in the `flashnext-mtp2` recipe. `e777550e` adds 31 rocBLAS TunableOp rows (no HIP code); the two docs commits fix bench receipts. No CMake or gfx-list change.[^3c27-cmp][^3c27-b80f][^3c27-b886]
+
+| Surface | State at `3c270858` |
+|---|---|
+| QSA pipelined kernel gate | `pipe_ok` now reads `qsa_env_int("VLLM_RDNA_QSA_PIPE", 1)`: the pipelined `qsa_sparse_paged_gqa_pipe_kernel<NWARPS>` is the **default** for the shapes it covers (non-int4 fp16 cache, `vec8`, head_dim 256, BLOCK_N 32, group size 4 / 6 / 8, K and V sharing strides). `VLLM_RDNA_QSA_PIPE=0` restores the legacy kernel; any explicit BLOCK_N override and every other shape still take the legacy kernel. Register and LDS budget as recorded at `e1ebb1f3` below (source comment 245 VGPRs, 42 KB LDS, two blocks per WGP).[^3c27-qsa-gate][^3c27-tune-qsa] |
+| `flashnext-mtp2` recipe | Now sets `VLLM_RDNA2_W4A8_SDOT4=1`, so Flash-Next MoE GEMMs with at least 512 tokens run the int8-activation sdot4 kernel; decode stays W4A16. See [w4a8.md](../quant/w4a8.md).[^3c27-recipe][^3c27-tune-w4a8] |
+
+The commit messages carry the serve A/B for both flips; timings are not copied here. The same A/B kept `VLLM_RDNA_GDN_DH_PIPE` off.[^3c27-b80f]
+
+*Historical:* at `e1ebb1f3` the pipelined QSA kernel ran only with `VLLM_RDNA_QSA_PIPE=1` (default 0), and the `flashnext-mtp2` recipe did not set `VLLM_RDNA2_W4A8_SDOT4`.[^e1eb-qsa-host][^e1eb-tune-qsa]
+
+## Update at dest `rdna_extras` @ `e1ebb1f3` (checked 2026-11-03)
+
+Twenty commits since `cec69c12`. HIP changes for this page are in `815b1602` (one-launch MoE routing, shared-expert down tile) and `e1dfda66` (HC prefill knobs, opt-in pipelined QSA). The rest is docs, bench receipts, tests, Python MoE placement tooling, `0fc943cb` (GDN prefill, see [gdn-prefill.md](../linear-attn/gdn-prefill.md)) and `a359ddb4` (all-reduce, see [rdna-allreduce.md](../../silicon/interconnect/rdna-allreduce.md)). No CMake or gfx-list change.[^e1eb-cmp][^e1eb-815b][^e1eb-e1df]
+
+| Surface | State at `e1ebb1f3` |
+|---|---|
+| New op `rdna_se_down_tile(act, w, gate)` | Shared-expert down for M ≤ 32 on `gemm_tn_splitk_k` with tile `<TY 8, TM 4, NC 3>`, target 54 blocks and **one** K slice (`max_splits = 1`). New `SeArgs::row_scale` epilogue multiplies each output row by the fp32 expert gate; `down_gemm` rejects `row_scale` with more than one slice. Checks: M ≤ 32, `I % 32 == 0`, `H % 4 == 0`, 16-byte aligned fp16 operands. Same 128 threads and 5,440 B derived LDS as the `5bda4c24` `<8, 4, 3>` tile; no `waves_per_eu`.[^e1eb-sedn][^e1eb-rowscale][^e1eb-bind] |
+| Shared-expert routing (env gate) | After `rdna_se_gate_up_tile`, `_rdna_shared_expert` now returns `rdna_se_down_tile` when `VLLM_RDNA_SE_DOWN_TILE` (default **1**) is on, the down weight is fp16 (no int8 shadow), `w2.shape[1] % 32 == 0` and `w2.shape[0] % 4 == 0`. `0` keeps `rdna_se_down_gated` (wave per output row).[^e1eb-seroute][^e1eb-tune-se] |
+| New op `rdna_moe_route_zero` | `moe_route_zero_k`, `__launch_bounds__(256)`, grid `1 + zero_ctas` (at most 64 zeroing CTAs). CTA 0 does `moe_align_block_size` + count-and-sort for ≤ 1024 routed entries and ≤ 1024 experts (block_size 1..64), stable flat-index order inside an expert; the other CTAs zero the two fp16 atomic accumulators with 16-byte stores when aligned. Static LDS (derived): `s_e[1024]` + `s_cnt[1024]` + `s_off[1024]` int + `s_wsum[9]` = 12,324 B, reserved by every CTA of the launch.[^e1eb-route-k][^e1eb-route-host][^e1eb-bind] |
+| MoE routing gate | `_rdna2_fused_moe` uses it when `VLLM_RDNA_MOE_ROUTE_HIP` (default **1**) is on, `total_tokens ≤ 1024` and `global_num_experts ≤ 1024`; `0` restores align + sort + two `zero_()` fills.[^e1eb-route-py][^e1eb-tune-route] |
+| HC prefill down plan (M ≥ 256) | Still `<16, 8, 7>`, target 72. `VLLM_RDNA_HC_DOWN_TARGET` and `VLLM_RDNA_HC_DOWN_SPLITS` (read on every call, 0..4096) override the target and force the slice count; unset keeps the shipped plan.[^e1eb-hcenv] |
+| QSA pipelined kernel (opt-in; *historical @ `e1ebb1f3`*, default on since `3c270858`) | `qsa_sparse_paged_gqa_pipe_kernel<NWARPS>` for head_dim 256, fp16 cache, group size 4 / 6 / 8, BLOCK_N 32, launched with `NWARPS * 32` threads under `__launch_bounds__(QSA_MAX_THREADS)` (256). Resolves up to 2048 key offsets per block into LDS up front, double-buffers the next K/V tile in registers, QK and P·V both `__builtin_amdgcn_fdot2` (V staged as key-pair half2). The source comment gives 245 VGPRs and 42 KB LDS, two blocks per WGP; the static arrays sum to 41,728 / 41,856 / 41,984 B for 4 / 6 / 8 warps (derived). Split count from a cost model with `2 × multiProcessorCount` concurrent blocks. Selected only with `VLLM_RDNA_QSA_PIPE=1` (default **0**); `VLLM_RDNA_QSA_BLOCK_N` / `_SPLITS` overrides are new sweep knobs and any BLOCK_N override keeps the legacy kernel.[^e1eb-qsa-k][^e1eb-qsa-host][^e1eb-tune-qsa] |
+
+Timings for these ops are in the commit messages and `docs/rdna2/tuning.md`; they are not copied here.
+
+*Historical:* at `cec69c12` the fp16 shared-expert down projection for 9 ≤ M ≤ 32 always ran `rdna_se_down_gated` (wave per output row), and `_rdna2_fused_moe` always ran `moe_align_block_size` plus two zero fills.
+
+## Update at dest `rdna_extras` @ `cec69c12` (checked 2026-11-02)
+
+Four commits since `5bda4c24`. One touches HIP: `27e5fa40` ("shared-expert gate_up tile and one-kernel Gemma norm (batch 4)"). `7992f0eb` and `cec69c12` are docs, `a69d6dde` is profiler tooling under `tools/rdna/prof/`.[^cec6-cmp][^cec6-c]
+
+| Surface | State at `cec69c12` |
+|---|---|
+| `gemm_tn_splitk_k` shared-expert mode | New `bool kSE = false` template parameter and an `SeArgs` argument (`wg`, `act`, `gate`, `I`). With `kSE` the B tile (BN = 32, enforced by `static_assert`) loads 16 gate rows `tn*16+j` and the 16 matching up rows `I+tn*16+j`; one extra tile column loads the expert-gate row `wg` in row 0 and zeros elsewhere. `__launch_bounds__(TY * 16)` unchanged, still no `waves_per_eu`.[^cec6-kern] |
+| kSE reduce / epilogue | kSE always takes the ticket path, even with one K slice (`if (!kSE && gridDim.z == 1)`). The last-arriving block sums slices in ascending z (same `slice_sum` as the plain path, now a lambda) and writes `act = silu(g) * u` as fp16 `[M, I]` (one thread per row and 4 columns) and `gate = sigmoid(wg . x)` as fp32 `[M]` for the gate tile. Fence and ticket reset are unchanged.[^cec6-epi] |
+| New op `rdna_se_gate_up_tile(x, w, w_gate)` | Tile `<TY 8, TM 4, NC 2>` (BM 32, BN 32), target `kSeTarget = 154` blocks (source comment: about 14 K slices at TP4), at most 16 slices. Checks: M ≤ 32, `K % 32 == 0`, `2I % 32 == 0`, `I/16 + 1 <= kHcTickets` (128), contiguous fp16, 16-byte aligned operands. Bound in `torch_bindings.cpp`.[^cec6-op][^cec6-bind] |
+| Python routing (env gate) | `_rdna_shared_expert` uses the tile op when weights are fp16 (no int8 shadow), `VLLM_RDNA_SE_TILE_MIN` (default **9**, 0 = off) ≤ M, `w1.shape[0] % 32 == 0`, `w1.shape[0] <= 4064`, `K % 32 == 0`. Below 9 rows, and for int8, `rdna_se_gate_up_silu` (wave per output pair) stays. M is still capped by `VLLM_RDNA_SE_DECODE_MAX` (32).[^cec6-route][^cec6-tune] |
+
+Derived from the template constants (not measured): with `SA = BM + 4` and `SB = BN + ((2 - BN % 8) + 8) % 8`, the `<8, 4, 2>` kSE tile is 128 threads (4 wave32) with `As[16][36]` + `Bs[16][34]` half2 = 4,480 B of LDS plus `s_last`, smaller than the 5,440 B `<8, 4, 3>` HC down tile. The commit gives no VGPR, occupancy, or ISA figure, and its µs timings are in the commit message and `docs/rdna2/tuning.md`; they are not copied here.[^cec6-kern][^cec6-c] The one-kernel Gemma RMSNorm from the same commit is in [kernels/aot-glue/layernorm.md](../aot-glue/layernorm.md).
+
+*Historical:* at `5bda4c24` and before, `gemm_tn_splitk_k` had no shared-expert mode and every fp16 shared-expert gate_up for M ≤ 32 ran `rdna_se_gate_up_silu` (see the `b30757c2` rows below).
+
+## Update at dest `rdna_extras` @ `5bda4c24` (checked 2026-11-02)
+
+Three commits since `13fbe2f9`. One touches HIP: `5bda4c24` ("MTP verify glue batch 3"). The other two (`bbe36aab`, `7860e9b4`) change the `flashnext-mtp2` recipe and docs only.[^5bda-cmp][^5bda-c]
+
+| Surface | State at `5bda4c24` |
+|---|---|
+| `gemm_tn_splitk_k` output type | Now templated on `OutT` (`float` or `half`). The final stores go through `store_out` / `store4`; the fp16 path packs two `half2` into one `uint2` store. Kernel body, ticket reduce, and `__launch_bounds__(TY * 16)` are unchanged. No `waves_per_eu` on this kernel.[^5bda-kern] |
+| HC down tile for M ≤ 32 | New third bucket: `M <= 32` launches `<TY 8, TM 4, NC 3>` with a 288-block target and up to 32 K slices. `32 < M < 256` keeps `<8, 8, 3>` (target 144, 16 slices); `M >= 256` keeps `<16, 8, 7>` (target 72, 16 slices). `plan_down` takes `max_splits` instead of a hard-coded 16. The source comment says decode-sized M is latency-bound and gets "about 220" blocks on 72 CUs.[^5bda-plan][^5bda-hdr] |
+| Workspace / tickets | Moved into one `down_gemm<OutT,...>()` helper shared by both ops. Same rule as before: workspace `[splits, M, N]` fp32 and a ticket slot only when `splits > 1`; more than `kHcTickets` (128) output tiles is a `TORCH_CHECK` error.[^5bda-down] |
+| New op `rdna_gemm_smallm(x, w)` | Dense fp16 `y = x @ w^T` for M ≤ 32 on the same split-K kernel with fp16 output, tile `<8, 4, 3>`, target 144 blocks, 16 slices max. Checks: contiguous fp16, `K % 32 == 0`, `K >= 32`, `N % 4 == 0`, `N <= 128 * 48` (6144), 16-byte aligned operands. Bound in `torch_bindings.cpp`.[^5bda-smallm][^5bda-bind] |
+| Python routing (env gate) | `rocm_unquantized_gemm_impl` sends fp16, bias-free GEMMs with 9 to 32 rows to `rdna_gemm_smallm` on gfx10x when the weight fits in `VLLM_RDNA_SMALLM_GEMM_MAX_BYTES`. Default is **0 (off)**; the `flashnext-mtp2` recipe sets 4194304 (4 MiB). Otherwise rocBLAS is used as before.[^5bda-route][^5bda-env] |
+| `flashnext-mtp2` HW queues | Recipe `GPU_MAX_HW_QUEUES` 4 -> 2 (the launcher default). The recipe comment says `--monokernel` raises the workers back to 4. This is a launch setting, not a kernel change; see [toolchain/runtime](../../toolchain/runtime/README.md) for how clr maps streams to queues.[^5bda-env][^5bda-hwq] |
+
+Derived from the template constants (not measured): with `SA = BM + 4` and `SB = BN + ((2 - BN % 8) + 8) % 8`, the `<8, 4, 3>` tile is 128 threads (4 wave32) with `As[16][36]` + `Bs[16][50]` half2 = 5,440 B of LDS plus `s_last`. The `<8, 8, 3>` tile it replaces for M ≤ 32 is 128 threads with `As[16][68]` + `Bs[16][50]` = 7,552 B. The commit gives no VGPR, occupancy, or ISA figure. The commit's own µs timings are in the commit message and the port notes; they are not copied here.[^5bda-kern][^5bda-c]
+
+*Historical:* the `b30757c2` row below that says the HC prefill tile select and split rule are "Unchanged (target 144 narrow / 72 wide, 1..16 slices)" no longer holds for M ≤ 32 at `5bda4c24`.
+
+## Update at dest `rdna_extras` @ `b30757c2` (checked 2026-11-02)
+
+Commit `b30757c2` ("MTP verify glue batch 1") changes two HIP files. Tip was `59b0f5eb`, which had no HIP delta since `c4a05415`.[^b307-cmp][^b307-c]
+
+| Surface | State at `b30757c2` |
+|---|---|
+| `gemm_tn_splitk_k` reduction (HC prefill down GEMM) | The fp32 `atomicAdd` epilogue into an `at::zeros` accumulator is gone. With one K slice the block stores C directly. With several, each slice stores its fp32 partial tile to a per-call workspace `ws[z][M][N]`, then `__threadfence()` + `__syncthreads()`, and thread 0 takes an arrival ticket (`atomicAdd` on a per-tile int). The last slice re-fences (acquire), sums the slices in ascending z order with 16-byte `__builtin_nontemporal_load` (8 slices unrolled), stores C, and re-arms the ticket to 0. The early `if (kb >= ke) return` is removed so every block reaches the ticket. Result is run-to-run deterministic, and the per-call zero fill disappears.[^b307-splitk] |
+| Split-K ticket pool | `hc_tickets()`: one pool per device of `(kHcSlots 8 + kHcCaptureSlots 8) * kHcTickets 128` int32, zeroed once with `at::zeros` + `cudaStreamSynchronize`. A stream keeps its slot; a capturing stream takes a slot from the capture range (graphs captured on one stream share it). No slot available falls back to a per-call `at::zeros({128})`. More than 128 output tiles is a `TORCH_CHECK` error. Same scheme as `wvSplitKrc`, per the source comment.[^b307-tickets] |
+| HC prefill launch shape | *(historical at `b30757c2`; M ≤ 32 retuned at `5bda4c24`, see above)* Unchanged: `__launch_bounds__(TY * 16)` on both kernels, same tile select and split rule (target 144 blocks narrow / 72 wide, 1..16 slices), v_dot2_f32_f16 with LDS K slab KT = 32. `acc` is now `at::empty`.[^b307-splitk][^b307-plan] |
+| HC injection logits | `rdna_hc_mix_prefill` and decode `rdna_gemv_act` now return a separate contiguous fp16 injection tensor `[M, min(HC, N - R)]` (columns R.. of the down projection) instead of the whole fp16 `dai`. Decode `rdna_gemv_act` only computes the first `act_cols + inj_cols` weight rows. Op schemas changed to return `(Tensor, Tensor)`.[^b307-inj][^b307-glue-api][^b307-ops] |
+| Shared expert fused pair (`rdna_fused_glue.cu`) | `rdna_se_gate_up_silu` takes `w_gate` and launches one extra block that computes `gate[m] = sigmoid(w_gate . x[m])` in fp32 once; `rdna_se_down_gated` reads that gate instead of recomputing the K-long dot in every block. The `__shared__ float s_gate[kMaxM]` and its `__syncthreads()` are removed. Gate and up rows now share every x load (`dot_pair`, still `__builtin_amdgcn_fdot2`). `__launch_bounds__(WAVES * 32)` unchanged.[^b307-glue-se][^b307-glue-pair] |
+| Shared expert M range | *(historical at `b30757c2`: from `cec69c12` fp16 gate_up with 9 ≤ M ≤ 32 runs `rdna_se_gate_up_tile` by default, see above)* fp16 weights now take M up to `kMaxSeM = 32` through `dispatch_guarded` (MT capacity 16 / 24 / 32, rows `m >= M` skipped wave-uniformly). int8 shadows stay exact MT ≤ 8 (`static_assert(!GUARD)`). Python gate `VLLM_RDNA_SE_DECODE_MAX`, default 32, 0 = off. HC glue stays at `kMaxM = 8`.[^b307-glue-se][^b307-sedecode] |
+| RDNA2 WNA16 MoE align | With `expert_map` set, `moe_align_block_size` now gets `ignore_invalid_experts=True`, so the align kernel drops other ranks' experts itself instead of a later gather remap. Python call-site change, no kernel source change.[^b307-moealign] |
+
+Occupancy note (hunch, not measured): the split-K workspace adds `splits * M * N * 4` bytes of fp32 traffic per call, and `ascending-z` reduction runs on one block per tile. No VGPR or occupancy figure is given in the commit.
+
+## Update at dest `rdna_extras` @ `b7402893` (checked 2026-10-29)
+
+| Item | State at `b7402893` |
+|---|---|
+| `qsa_expand_indices_kernel` canonical order | New `canonical_order` argument. When set, the kernel loads the row's selected block IDs (padding = `INT_MAX`) into a static `__shared__ int ordered[512]` (2048 B) and bitonic-sorts them (`width` 2..512, `__syncthreads()` per pass) before expanding; the radix top-k returns an unordered set from atomic append positions, so sorting only the ≤ 512 selected IDs makes identical inputs reach attention in identical reduction order. Invalid blocks now expand to token −1.[^qsa-b740-k] |
+| Launch / occupancy | Still 256 threads per block (`kColumnBlock`), grid (rows, column blocks), no `__launch_bounds__`. The 2 KiB `ordered` array is declared at kernel scope, so it is static LDS on every launch of this kernel, sorted or not.[^qsa-b740-k][^qsa-b740-host] |
+| Gate | The host requires `1 ≤ block_topk ≤ 512` when `canonical_order` is set; the Python caller sets it when `qsa_use_rdna2()` (the fp16 HIP QSA decode path) is on and `0 < block_topk ≤ 512`.[^qsa-b740-host][^qsa-b740-py] |
+| MonoKernel | K2 offload stages and the GDN FP32 norm fix: [../persistent/monokernel-gfx1030-dest.md](../persistent/monokernel-gfx1030-dest.md).[^qsa-b740-cmp] |
 
 ## Current state at dest `rdna_extras` @ `1dc3bac4` (checked 2026-10-11)
 
@@ -54,6 +169,7 @@ sources:
 |---|---|---|
 | `VLLM_RDNA_FUSED_HC` | **on** (`"1"`) | `rdna_fused_glue.cu` decode HC mix (M ≤ 8), `__launch_bounds__(WAVES * 32)`.[^q4-tip-envs][^q4-tip-hcpy] |
 | `VLLM_RDNA_HC_PREFILL_FUSED` | **2** | New `csrc/rocm/hc_prefill_rdna2.cu` (`rdna_hc_mix_prefill`): split-K HIP down-GEMM + fused silu/up-GEMM/sigmoid/mix for prefill (M > 8). 1 = rocBLAS down + fused kernel; 0 = torch/Triton. Falls back to 0 when the op is not built (gfx1030 only).[^q4-tip-rdnaops][^q4-tip-hcprefill] |
+| *(dest `a01f2637`)* HC prefill tile / split | not overridable | The undocumented `VLLM_RDNA_HC_PREFILL_TILE` / `_SPLIT` getenv overrides in `hc_prefill_rdna2.cu` are deleted. Tile is M-based (`M ≤ 64` → 0, `M ≤ 384` → 1, else 2) and the down-GEMM split is the block-count rule clamped to 1..16.[^f-a01f-hcprefill][^c-ddb69e64] |
 | `VLLM_RDNA_HC_PREFILL_HIP` | off | Older `hc_rdna2.cu` elementwise prefill kernels (sections below).[^q4-tip-envs] |
 | `VLLM_RDNA_QSA_HIP` | off | `qsa_rdna2.cu`.[^q4-tip-envs] |
 | `VLLM_RDNA_PLE_CONV_HIP` | off | `ple_short_conv_rdna2.cu`.[^q4-tip-envs] |
@@ -66,10 +182,10 @@ CMake gfx1030 `EXT_SRC` includes: `rdna_fused_glue.cu`, `hc_rdna2.cu`, `qsa_rdna
 
 ## Take (silicon)
 
-### T46 `rdna_fused_glue.cu` — fused decode glue (M ≤ 8)
+### T46 `rdna_fused_glue.cu` — fused decode glue (M ≤ 8; shared expert fp16 M ≤ 32 since `b30757c2`)
 
 - Explicit `__builtin_amdgcn_fdot2` on fp16 and int8→half2 weight rows (wave32 lanes stride K).[^f-c6d99ca3-rdna-fused-glue-cu][^f-50120e13-rdna-fused-glue-cu]
-- `__launch_bounds__(WAVES * 32)`; tiny `__shared__ float s_gate[kMaxM]` on one kernel.[^f-c6d99ca3-rdna-fused-glue-cu][^f-50120e13-rdna-fused-glue-cu]
+- `__launch_bounds__(WAVES * 32)`; *(historical at `59b0f5eb`: tiny `__shared__ float s_gate[kMaxM]` on one kernel; removed at `b30757c2`, the gate is now computed once by an extra block of `rdna_se_gate_up_silu`[^b307-glue-se])*.[^f-c6d99ca3-rdna-fused-glue-cu][^f-50120e13-rdna-fused-glue-cu]
 - Gate: `VLLM_RDNA_FUSED_HC` (+ ROCm, fp16 input). **Default on** (`"1"`), already at `c6d99ca3` and still at `1dc3bac4`; the earlier "opt-in, default off" wording here was wrong.[^f-c6d99ca3-envs-py][^q4-tip-envs][^q4-tip-hcpy]
 - No WMMA. Real DOT path for Flash-Next decode glue.[^f-c6d99ca3-rdna-fused-glue-cu][^f-50120e13-rdna-fused-glue-cu]
 
@@ -167,6 +283,13 @@ FA prefill leftover still first (`__launch_bounds__(*, 1)`). ticket-26 EXL3 `-cb
 
 ## Sources
 
+[^3c27-cmp]: compare `e1ebb1f3...3c270858`: https://github.com/opengfx1030/vllm-rdna/compare/e1ebb1f3fa6bebe8822036b12f03da6220b611a6...3c2708585cf78dca851867d38140a4a28faa7a4c
+[^3c27-b80f]: commit [`b80f0dde`](https://github.com/opengfx1030/vllm-rdna/commit/b80f0dde0c2d60ff7443585bb7ce23b1c52c45be) "qsa: default the pipelined kernel on; prefill lever table", in dest `rdna_extras` @ `3c2708585cf78dca851867d38140a4a28faa7a4c`
+[^3c27-b886]: commit [`b8863048`](https://github.com/opengfx1030/vllm-rdna/commit/b88630488c7aa07ee21945f098d52d0ca6672692) "flashnext-mtp2: set W4A8 MoE on", in dest `rdna_extras` @ `3c2708585cf78dca851867d38140a4a28faa7a4c`
+[^3c27-qsa-gate]: the `pipe_ok` gate @ `3c270858`: https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/csrc/rocm/qsa_rdna2.cu#L1907-L1925
+[^3c27-tune-qsa]: `VLLM_RDNA_QSA_PIPE` row (default 1) in `docs/rdna2/tuning.md` @ `3c270858`: https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/docs/rdna2/tuning.md#L413
+[^3c27-recipe]: `VLLM_RDNA2_W4A8_SDOT4=1` in `tools/rdna/recipes/flashnext-mtp2.env` @ `3c270858`: https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/tools/rdna/recipes/flashnext-mtp2.env#L44-L49
+[^3c27-tune-w4a8]: `VLLM_RDNA2_W4A8_SDOT4` row in `docs/rdna2/tuning.md` @ `3c270858`: https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/docs/rdna2/tuning.md#L370
 [^c-50120e13]: opengfx1030/vllm-rdna commit [`50120e13`](https://github.com/opengfx1030/vllm-rdna/commit/50120e13b46895fc5d074e88fc493f1eef69da9f) (2026-09-17) — "fix(rocm,hc): make the HC HIP dispatcher's _contig() capture-safe".
 [^c-8960a3bc]: opengfx1030/vllm-rdna commit [`8960a3bc`](https://github.com/opengfx1030/vllm-rdna/commit/8960a3bcbb175e8e74efd2f6c6b37b597972debc) (2026-09-16) — "fix(rocm): make the Qwen4Exp HC HIP chain compute correctly".
 [^f-8960a3bc-rdna-fused-glue-cu]: opengfx1030/vllm-rdna `csrc/rocm/rdna_fused_glue.cu` @ [`8960a3bc`](https://github.com/opengfx1030/vllm-rdna/blob/8960a3bcbb175e8e74efd2f6c6b37b597972debc/csrc/rocm/rdna_fused_glue.cu).
@@ -215,3 +338,58 @@ FA prefill leftover still first (`__launch_bounds__(*, 1)`). ticket-26 EXL3 `-cb
 [^q4-tip-hcpy]: `_rdna_fused_ok()` in `vllm/models/qwen4_exp/amd/hyperconnection.py` L66-L72, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/models/qwen4_exp/amd/hyperconnection.py#L66-L72
 [^q4-tip-rdnaops]: `_HC_PREFILL_FUSED` modes in `vllm/model_executor/layers/rdna_ops.py` L118-L125, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/rdna_ops.py#L118-L125
 [^q4-tip-hcprefill]: `csrc/rocm/hc_prefill_rdna2.cu` (header L1-L20; kernels L66, L250 `__launch_bounds__(TY * 16)`) and binding `rdna_hc_mix_prefill` at `csrc/rocm/torch_bindings.cpp` L85-L87, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/hc_prefill_rdna2.cu ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/torch_bindings.cpp#L85-L87
+[^c-ddb69e64]: opengfx1030/vllm-rdna commit `ddb69e64` "cleanup(rocm): drop W4A16 prefill experiment hooks" (PR #104). https://github.com/opengfx1030/vllm-rdna/commit/ddb69e64f4941085dc2fb76bacd86096511c8fdf
+[^f-a01f-hcprefill]: `csrc/rocm/hc_prefill_rdna2.cu` `dispatch_up_mix` tile select L380 and `launch_down` split L402-L403, dest at a01f2637. https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/csrc/rocm/hc_prefill_rdna2.cu#L376-L404
+[^qsa-b740-k]: [qsa_rdna2.cu:703–750, 783–790](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/qsa_rdna2.cu#L703-L750) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^qsa-b740-host]: [qsa_rdna2.cu:860–884](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/qsa_rdna2.cu#L860-L884) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^qsa-b740-py]: [ops/qsa.py:930–940](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/ops/qsa.py#L930-L940) and [ops/qsa_rdna2.py:52–66](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/ops/qsa_rdna2.py#L52-L66) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^qsa-b740-cmp]: Compare [`8015ea48...b7402893`](https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af); `qsa_rdna2.cu` +45/−6 lines, from commit [`2436df23`](https://github.com/opengfx1030/vllm-rdna/commit/2436df23358ef8b9397076c0663707ec3dce69bf).
+
+[^cec6-cmp]: opengfx1030/vllm-rdna compare `5bda4c24...cec69c12`: https://github.com/opengfx1030/vllm-rdna/compare/5bda4c245024508f8e9ce59c43c5387c98b61228...cec69c12c80d1fdcd3fd9d7938809abf056d9b52
+[^cec6-c]: opengfx1030/vllm-rdna commit [`27e5fa40`](https://github.com/opengfx1030/vllm-rdna/commit/27e5fa40da6338dd2344927c97b3dad63990bf1f) "rdna: shared-expert gate_up tile and one-kernel Gemma norm (batch 4)"; tip [`cec69c12`](https://github.com/opengfx1030/vllm-rdna/commit/cec69c12c80d1fdcd3fd9d7938809abf056d9b52).
+[^cec6-kern]: `SeArgs` and `gemm_tn_splitk_k<OutT, TY, TM, NC, kSE>` with the kSE B-row mapping @ `cec69c12`: https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/csrc/rocm/hc_prefill_rdna2.cu#L289-L363
+[^cec6-epi]: one-slice bypass, slice sum and kSE epilogue @ `cec69c12`: https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/csrc/rocm/hc_prefill_rdna2.cu#L421-L512
+[^cec6-op]: `kSeTarget`, `se_gate_up_gemm` and `rdna_se_gate_up_tile` @ `cec69c12`: https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/csrc/rocm/hc_prefill_rdna2.cu#L673-L691 ; https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/csrc/rocm/hc_prefill_rdna2.cu#L821-L856
+[^cec6-bind]: op schema @ `cec69c12`: https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/csrc/rocm/torch_bindings.cpp#L114-L119
+[^cec6-route]: `_SE_TILE_MIN` and the routing branch in `_rdna_shared_expert` @ `cec69c12`: https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/vllm/model_executor/layers/rdna_ops.py#L32-L35 ; https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/vllm/model_executor/layers/rdna_ops.py#L238-L247
+[^cec6-tune]: `VLLM_RDNA_SE_TILE_MIN` row in `docs/rdna2/tuning.md` @ `cec69c12`: https://github.com/opengfx1030/vllm-rdna/blob/cec69c12c80d1fdcd3fd9d7938809abf056d9b52/docs/rdna2/tuning.md#L386
+[^5bda-cmp]: opengfx1030/vllm-rdna compare `13fbe2f9...5bda4c24`: https://github.com/opengfx1030/vllm-rdna/compare/13fbe2f9160027e71ab6c915ecbcb95d42373a2e...5bda4c245024508f8e9ce59c43c5387c98b61228
+[^5bda-c]: opengfx1030/vllm-rdna commit [`5bda4c24`](https://github.com/opengfx1030/vllm-rdna/commit/5bda4c245024508f8e9ce59c43c5387c98b61228) "rdna: MTP verify glue batch 3 - HC decode tile retune, rdna_gemm_smallm".
+[^5bda-hdr]: `csrc/rocm/hc_prefill_rdna2.cu` header @ `5bda4c24`: https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/hc_prefill_rdna2.cu#L21-L42
+[^5bda-kern]: `store_out` / `store4` and `gemm_tn_splitk_k` @ `5bda4c24`: https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/hc_prefill_rdna2.cu#L264-L302
+[^5bda-plan]: `DownPlan` / `plan_down` and the M-bucket dispatch in `rdna_hc_mix_prefill` @ `5bda4c24`: https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/hc_prefill_rdna2.cu#L491-L515 ; https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/hc_prefill_rdna2.cu#L684-L698
+[^5bda-down]: `down_gemm` @ `5bda4c24`: https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/hc_prefill_rdna2.cu#L590-L610
+[^5bda-smallm]: `rdna_gemm_smallm` @ `5bda4c24`: https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/hc_prefill_rdna2.cu#L706-L737
+[^5bda-bind]: op schema @ `5bda4c24`: https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/csrc/rocm/torch_bindings.cpp#L112-L113
+[^5bda-route]: `_RDNA_SMALLM_MAX_BYTES` and the routing branch in `rocm_unquantized_gemm_impl` @ `5bda4c24`: https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/vllm/model_executor/layers/utils.py#L26-L31 ; https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/vllm/model_executor/layers/utils.py#L379-L400
+[^5bda-env]: `flashnext-mtp2` recipe @ `5bda4c24`: https://github.com/opengfx1030/vllm-rdna/blob/5bda4c245024508f8e9ce59c43c5387c98b61228/tools/rdna/recipes/flashnext-mtp2.env#L38-L59
+[^5bda-hwq]: opengfx1030/vllm-rdna commit [`bbe36aab`](https://github.com/opengfx1030/vllm-rdna/commit/bbe36aab973a41b56b9e70ab45a5d647c0bcee86) "perf(rdna2): flashnext-mtp2 GPU_MAX_HW_QUEUES 4 -> 2".
+[^b307-cmp]: opengfx1030/vllm-rdna compare `59b0f5eb...b30757c2`: https://github.com/opengfx1030/vllm-rdna/compare/59b0f5eb227998194c5ac8ca7bebf555f1e8ae32...b30757c257c25c737d671179025bbc5c2ec1ee50
+[^b307-c]: opengfx1030/vllm-rdna commit [`b30757c2`](https://github.com/opengfx1030/vllm-rdna/commit/b30757c257c25c737d671179025bbc5c2ec1ee50) "rdna: MTP verify glue batch 1 - HC split-K without fill, injection from the op, shared expert fused to M<=32, MoE align without gather".
+[^b307-splitk]: `csrc/rocm/hc_prefill_rdna2.cu` header and `gemm_tn_splitk_k` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu#L21-L42 ; https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu#L248-L434
+[^b307-tickets]: `hc_tickets()` and pool constants @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu#L492-L564
+[^b307-plan]: `plan_down` / `rdna_hc_mix_prefill` launch @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu#L467-L490 ; https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu#L611-L673
+[^b307-inj]: `n_inj` / injection output in `rdna_hc_mix_prefill` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/hc_prefill_rdna2.cu#L611-L673 ; `_hc_inj_cols` in `vllm/model_executor/layers/rdna_ops.py`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/vllm/model_executor/layers/rdna_ops.py#L65-L122
+[^b307-glue-api]: `rdna_gemv_act` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu#L216-L245 ; https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu#L553-L585
+[^b307-ops]: op schemas in `csrc/rocm/torch_bindings.cpp` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/torch_bindings.cpp
+[^b307-glue-se]: shared-expert kernels and hosts in `csrc/rocm/rdna_fused_glue.cu` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu#L283-L364 ; https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu#L616-L685
+[^b307-glue-pair]: `RowF16::dot_pair` (`__builtin_amdgcn_fdot2`) and `kMaxSeM` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu#L37-L38 ; https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu#L83-L130
+[^b307-sedecode]: `dispatch_guarded` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/rdna_fused_glue.cu#L439-L466 ; `_SE_DECODE_MAX` in `rdna_ops.py`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/vllm/model_executor/layers/rdna_ops.py#L31 ; https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/vllm/model_executor/layers/rdna_ops.py#L225
+[^b307-moealign]: `_rdna2_fused_moe` routing in `compressed_tensors_moe_wna16_rdna2.py` @ `b30757c2`: https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_wna16_rdna2.py#L353-L365
+
+[^e1eb-cmp]: opengfx1030/vllm-rdna compare `cec69c12...e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/compare/cec69c12c80d1fdcd3fd9d7938809abf056d9b52...e1ebb1f3fa6bebe8822036b12f03da6220b611a6 ; tip [`e1ebb1f3`](https://github.com/opengfx1030/vllm-rdna/commit/e1ebb1f3fa6bebe8822036b12f03da6220b611a6)
+[^e1eb-815b]: commit [`815b1602`](https://github.com/opengfx1030/vllm-rdna/commit/815b16022c38d4a73bd7a891be43d6d2a41b2814) "rdna: one-launch MoE routing, shared-expert down tile, GDN row slices"
+[^e1eb-e1df]: commit [`e1dfda66`](https://github.com/opengfx1030/vllm-rdna/commit/e1dfda667370f4532498ff13f9158d57eb7f0547) "feat(rdna2): prefill knobs, opt-in pipelined QSA and MoE routing capture"
+[^e1eb-sedn]: `rdna_se_down_tile` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/hc_prefill_rdna2.cu#L886-L924
+[^e1eb-rowscale]: `SeArgs::row_scale`, the epilogue multiply and the single-slice check @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/hc_prefill_rdna2.cu#L294-L300 ; https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/hc_prefill_rdna2.cu#L430-L436 ; https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/hc_prefill_rdna2.cu#L676-L686
+[^e1eb-bind]: op schemas @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/torch_bindings.cpp#L120-L132
+[^e1eb-seroute]: `_SE_DOWN_TILE` and the routing branch in `_rdna_shared_expert` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/vllm/model_executor/layers/rdna_ops.py#L36-L38 ; https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/vllm/model_executor/layers/rdna_ops.py#L244-L256
+[^e1eb-tune-se]: `VLLM_RDNA_SE_DOWN_TILE` row in `docs/rdna2/tuning.md` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/docs/rdna2/tuning.md#L408
+[^e1eb-route-k]: `RouteArgs` and `moe_route_zero_k` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/rdna_fused_glue.cu#L556-L681
+[^e1eb-route-host]: `rdna_moe_route_zero` host checks and launch @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/rdna_fused_glue.cu#L823-L896
+[^e1eb-route-py]: `_ROUTE_ZERO` gate and call in `compressed_tensors_moe_wna16_rdna2.py` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_wna16_rdna2.py#L53-L56 ; https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_wna16_rdna2.py#L390-L416
+[^e1eb-tune-route]: `VLLM_RDNA_MOE_ROUTE_HIP` row in `docs/rdna2/tuning.md` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/docs/rdna2/tuning.md#L407
+[^e1eb-hcenv]: `hc_env_int` and the M ≥ 256 down plan @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/hc_prefill_rdna2.cu#L552-L562 ; https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/hc_prefill_rdna2.cu#L798-L807
+[^e1eb-qsa-k]: `QSA_PIPE_*` constants and `qsa_sparse_paged_gqa_pipe_kernel` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/qsa_rdna2.cu#L1362-L1669 ; `QSA_MAX_GROUP`, `QSA_LDS_DIM_256`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/qsa_rdna2.cu#L940-L948
+[^e1eb-qsa-host]: `qsa_env_int`, `qsa_pipe_pick_splits`, the `pipe_ok` gate and `QSA_PIPE_LAUNCH` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/qsa_rdna2.cu#L1748-L1790 ; https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/qsa_rdna2.cu#L1876-L2020
+[^e1eb-tune-qsa]: `VLLM_RDNA_QSA_BLOCK_N` / `VLLM_RDNA_QSA_PIPE` rows in `docs/rdna2/tuning.md` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/docs/rdna2/tuning.md#L412-L413

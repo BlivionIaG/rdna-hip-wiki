@@ -1,6 +1,10 @@
 ---
 title: "GDN packed decode — extras HIP (`69d2efe` / tip `47d92b6`)"
 sources:
+  - https://github.com/opengfx1030/vllm-rdna/commit/13fbe2f9160027e71ab6c915ecbcb95d42373a2e
+  - https://github.com/opengfx1030/vllm-rdna/blob/13fbe2f9160027e71ab6c915ecbcb95d42373a2e/csrc/rocm/gdn_decode_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/13fbe2f9160027e71ab6c915ecbcb95d42373a2e/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/13fbe2f9160027e71ab6c915ecbcb95d42373a2e/docs/rdna2/tuning.md
   - https://github.com/BlivionIaG/vllm/commit/b53a7a2c2bdf0739daa459ffff169c53a9a0f49e
   - https://github.com/BlivionIaG/vllm/commit/69d2efea371e52e4dca4c233e198ef627e181f0b
   - https://github.com/BlivionIaG/vllm/commit/47d92b6cfd9dddbc364cd7341c486cb534ac73db
@@ -10,6 +14,14 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/50120e13b46895fc5d074e88fc493f1eef69da9f/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py
 ---
 # GDN packed decode — extras HIP (`69d2efe` / tip `47d92b6`)
+
+## Spec-verify strided inputs at dest `rdna_extras` @ `13fbe2f9` (checked 2026-11-02)
+
+Occupancy unchanged: `gdn_spec_verify_rdna2_kernel` keeps `__launch_bounds__(GDN_THREADS)` + `amdgpu_waves_per_eu(2, 4)`, `GDN_THREADS = 256`, `GDN_BV = 32`.[^gdnd-13fb-lb]
+
+Contract change: the host wrapper no longer requires contiguous q/k/v/a/b. It now checks only that each token's `[heads, dim]` block is dense (`stride(3) == 1`, `stride(2) == size(3)`), that a/b are unit-stride on the head axis, and that `out` is contiguous. The kernel already took a per-tensor token stride, so q/k/v and a/b can be views into the packed conv output and the ba projection.[^gdnd-13fb-chk] *Historical:* the `requires contiguous q/k/v/a/b/out` check held up to `b30757c2`.[^gdnd-b307-chk]
+
+Gate: new env `VLLM_GDN_STRIDED_INPUTS` (default `1`). It applies only when the whole GDN layer is the opaque eager op (`VLLM_RDNA_GDN_OPAQUE` on), on RDNA2 HIP, with `VLLM_GDN_DECODE_RDNA2` on; `0` restores the packing copies.[^gdnd-13fb-env] The fork docs say mixed prefill+decode batches and non-dense layouts still take the copies, and that results are bitwise identical to the copy path per its tests (fork claim, not re-run here).[^gdnd-13fb-doc] The gated RMSNorm half of this change is in [layernorm.md](../aot-glue/layernorm.md).
 
 ## Current state at dest `rdna_extras` @ `1dc3bac4` (checked 2026-10-11)
 
@@ -62,3 +74,8 @@ Python only (`qwen_gdn_linear_attn.py`): removed the one-shot `conv_state.zero_(
 [^c-f9361950]: opengfx1030/vllm-rdna commit [`f9361950`](https://github.com/opengfx1030/vllm-rdna/commit/f93619500c3e55daee5f60ae7f6d4279cdeb3f0d) (2026-09-03) — "fix(gdn): skip host-sync NaN guard during cudagraph capture".
 [^f-50120e13-qwen-gdn-linear-attn-py]: opengfx1030/vllm-rdna `vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py` @ [`50120e13`](https://github.com/opengfx1030/vllm-rdna/blob/50120e13b46895fc5d074e88fc493f1eef69da9f/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py).
 [^gdnd-tip]: `csrc/rocm/gdn_decode_rdna2.cu` L23-L54 (`GDN_BV 32`, `GDN_THREADS 256`, `__launch_bounds__(GDN_THREADS)` + `amdgpu_waves_per_eu(2, 4)`); dispatch gated on `VLLM_GDN_DECODE_RDNA2` != "0" (default on) in `vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py` L1540-L1548 and L2138-L2144, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/gdn_decode_rdna2.cu#L23-L54 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py#L1540-L1548 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py#L2138-L2144
+[^gdnd-13fb-lb]: `csrc/rocm/gdn_decode_rdna2.cu` L23-L24 and L323-L324, dest at 13fbe2f9. https://github.com/opengfx1030/vllm-rdna/blob/13fbe2f9160027e71ab6c915ecbcb95d42373a2e/csrc/rocm/gdn_decode_rdna2.cu#L323-L324
+[^gdnd-13fb-chk]: `gdn_spec_verify_rdna2` stride checks, `csrc/rocm/gdn_decode_rdna2.cu` L488-L493, dest at 13fbe2f9 (commit [`13fbe2f9`](https://github.com/opengfx1030/vllm-rdna/commit/13fbe2f9160027e71ab6c915ecbcb95d42373a2e), 2026-11-02, "rdna: GDN spec-verify glue - q/k/v, a/b and z read in place, direct output"). https://github.com/opengfx1030/vllm-rdna/blob/13fbe2f9160027e71ab6c915ecbcb95d42373a2e/csrc/rocm/gdn_decode_rdna2.cu#L488-L493
+[^gdnd-b307-chk]: Contiguity check in `gdn_spec_verify_rdna2` at b30757c2. https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/gdn_decode_rdna2.cu
+[^gdnd-13fb-env]: `vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py` L827-L838, dest at 13fbe2f9. https://github.com/opengfx1030/vllm-rdna/blob/13fbe2f9160027e71ab6c915ecbcb95d42373a2e/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py#L827-L838
+[^gdnd-13fb-doc]: `docs/rdna2/tuning.md` (`VLLM_GDN_STRIDED_INPUTS` row) and `docs/rdna2/gdn-decode-investigation.md` section "2026-11-02: the glue around the kernel", dest at 13fbe2f9. https://github.com/opengfx1030/vllm-rdna/blob/13fbe2f9160027e71ab6c915ecbcb95d42373a2e/docs/rdna2/tuning.md ; https://github.com/opengfx1030/vllm-rdna/blob/13fbe2f9160027e71ab6c915ecbcb95d42373a2e/docs/rdna2/gdn-decode-investigation.md

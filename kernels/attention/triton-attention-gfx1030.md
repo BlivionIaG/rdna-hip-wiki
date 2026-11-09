@@ -17,6 +17,8 @@ sources:
   - https://github.com/vllm-project/vllm/blob/main/vllm/v1/attention/ops/prefix_prefill.py
   - https://github.com/vllm-project/vllm/blob/main/vllm/v1/attention/backends/mla/triton_mla.py
   - https://github.com/vllm-project/vllm/blob/main/vllm/v1/attention/ops/triton_decode_attention.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/platforms/rocm.py
+  - https://github.com/opengfx1030/vllm-rdna/commit/ffd3723e9ce6b13bdd21adf5ffbb8d9fa7b16c9e
 ---
 # Triton attention on gfx1030 — kernel baseline and ISA map
 
@@ -90,6 +92,10 @@ Record backend, profiler symbol, 2D/3D choice, split count, constexpr signature,
 
 Freeze stock evidence first. Tune logical tiles, warps, stages, sequence splits and cache layout on a separate page. Verify lowering, LDS, waitcnt and spills. Compare compile-signature count and disk-cache behavior as well as runtime. HIP A/B uses identical semantics and timing boundaries.[^f-49fb2ee-rocm-py][^f-49fb2ee-triton-unified-attention-py]
 
+## Fork note: aiter probe on gfx10 (dest `rdna_extras` @ `b7402893`, checked 2026-10-29)
+
+On the fork, the ROCm platform's Triton-FA availability probe (`_has_spec` for `flash_attn.flash_attn_triton_amd` / `aiter.ops.triton._triton_kernels.flash_attn_triton_amd`) now returns False on **any** exception, not only `ImportError` / `ValueError`. The source comment: on gfx1030, importing the aiter parents crashes in its JIT custom-op registration (pybind float cast), and `RDNA_ATTN` serves FA there. No kernel, ISA or occupancy change; it only stops the probe from crashing startup.[^aiter-b740][^aiter-c]
+
 ## Primary sources
 
 - https://github.com/vllm-project/vllm/commit/49fb2ee3481246ce88224220442c6ef30f88b209
@@ -111,3 +117,5 @@ Freeze stock evidence first. Tune logical tiles, warps, stages, sequence splits 
 [^f-49fb2ee-triton-mla-py]: vllm-project/vllm `vllm/v1/attention/backends/mla/triton_mla.py` @ [`49fb2ee`](https://github.com/vllm-project/vllm/blob/49fb2ee3481246ce88224220442c6ef30f88b209/vllm/v1/attention/backends/mla/triton_mla.py).
 [^f-49fb2ee-triton-decode-attention-py]: vllm-project/vllm `vllm/v1/attention/ops/triton_decode_attention.py` @ [`49fb2ee`](https://github.com/vllm-project/vllm/blob/49fb2ee3481246ce88224220442c6ef30f88b209/vllm/v1/attention/ops/triton_decode_attention.py).
 [^f-49fb2ee-rocm-py]: vllm-project/vllm `vllm/platforms/rocm.py` @ [`49fb2ee`](https://github.com/vllm-project/vllm/blob/49fb2ee3481246ce88224220442c6ef30f88b209/vllm/platforms/rocm.py).
+[^aiter-b740]: opengfx1030/vllm-rdna [vllm/platforms/rocm.py:503–513](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/platforms/rocm.py#L503-L513) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+[^aiter-c]: Commit [`ffd3723e`](https://github.com/opengfx1030/vllm-rdna/commit/ffd3723e9ce6b13bdd21adf5ffbb8d9fa7b16c9e) "fix(rocm): make the aiter availability probe crash-tolerant on gfx10" (+5 lines in `vllm/platforms/rocm.py`), merged by PR #143 ([`6fcfa702`](https://github.com/opengfx1030/vllm-rdna/commit/6fcfa702fb88124dbf34649526c7beab74609ffa)).

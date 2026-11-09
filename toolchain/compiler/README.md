@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-11
+updated: 2026-10-16
 sources:
   - https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.14.0/reference/rocmcc.html
   - https://rocm.docs.amd.com/projects/HIP/en/docs-7.14.0/how-to/hip_cpp_language_extensions.html
@@ -15,11 +15,16 @@ sources:
   - https://github.com/ROCm/TheRock/issues/7751
   - https://github.com/ROCm/TheRock/issues/7909
   - https://github.com/ROCm/rocm-systems/pull/10701
+  - https://github.com/ROCm/rocm-libraries/issues/12473
+  - https://github.com/ROCm/rocm-libraries/pull/12638
+  - https://github.com/llvm/llvm-project/pull/232066
+  - https://github.com/pytorch/pytorch/pull/198208
+  - https://github.com/triton-lang/triton/pull/10906
 ---
 
 # Compiler
 
-Date: **2026-10-11**. Audience: someone compiling HIP for **gfx1030** (live dest), with later **gfx1100** and **gfx900** translation units.
+Date: **2026-10-13**. Audience: someone compiling HIP for **gfx1030** (live dest), with later **gfx1100** and **gfx900** translation units.
 
 What DPP, `ds_bpermute`, and `amdgpu_waves_per_eu` do on the gfx1030 ISA is in [silicon/occupancy/dpp-crosslane-occupancy.md](../../silicon/occupancy/dpp-crosslane-occupancy.md), [silicon/occupancy/vgpr-occupancy.md](../../silicon/occupancy/vgpr-occupancy.md), and [silicon/hip-craft/hip-craft.md](../../silicon/hip-craft/hip-craft.md). This page keeps flags and compiler-version bugs. The nightly SHA log is [../log/compiler-scans.md](../log/compiler-scans.md).
 
@@ -65,9 +70,15 @@ No repro on the 7.14.0 dest is written here. No pin change.
 
 ## Gotcha — `__shfl_xor` keeps a bounds check
 
-CLR `__shfl_xor` has a lane bounds check that should fold away when `width == warpSize`. [rocm-systems#11618](https://github.com/ROCm/rocm-systems/pull/11618) (open) says LLVM cannot prove `__lane_id() < warpSize`, so the check survives as `v_cndmask`. The PR masks the lane id with `warpSize - 1`. On a wave32 butterfly (`k32.hip`, five steps) compiled with ROCm 10.0 / LLVM 23, gfx1030 and gfx1100 each go from 32 `v_*` and 5 `v_cndmask` to 11 `v_*` and 0 `v_cndmask`. gfx90a (`k64.hip`) goes from 40 / 6 to 17 / 0. With `width = 8` the `v_cndmask` count is unchanged.[^shfl11618] What a shuffle costs in pipes and waitcnt on gfx1030 is [silicon/occupancy/dpp-crosslane-occupancy.md](../../silicon/occupancy/dpp-crosslane-occupancy.md).
+CLR `__shfl_xor` has a lane bounds check that should fold away when `width == warpSize`. [rocm-systems#11618](https://github.com/ROCm/rocm-systems/pull/11618) (closed 2026-10-14 without merge) said LLVM cannot prove `__lane_id() < warpSize`, so the check survives as `v_cndmask`. The PR masks the lane id with `warpSize - 1`. On a wave32 butterfly (`k32.hip`, five steps) compiled with ROCm 10.0 / LLVM 23, gfx1030 and gfx1100 each go from 32 `v_*` and 5 `v_cndmask` to 11 `v_*` and 0 `v_cndmask`. gfx90a (`k64.hip`) goes from 40 / 6 to 17 / 0. With `width = 8` the `v_cndmask` count is unchanged.[^shfl11618] What a shuffle costs in pipes and waitcnt on gfx1030 is [silicon/occupancy/dpp-crosslane-occupancy.md](../../silicon/occupancy/dpp-crosslane-occupancy.md).
 
-Until that PR is in a pin we build, `--save-temps` and a search for `v_cndmask` in a full-wave reduction is the check. No pin change.
+#11618 was closed as superseded by a compiler fix: upstream [llvm-project#232066](https://github.com/llvm/llvm-project/pull/232066) (merged 2026-10-14, `c9355b8eb0e2`) tightens the InstCombine range of `mbcnt` so `__lane_id()` is known to be in `[0, 64)`, which folds the `__shfl_xor` bounds check when width is the wave size.[^shfl11618][^llvm232066] Whether ROCm's `amd-staging` LLVM or any TheRock pin carries it was not checked this pass. Until a pin we build has it, `--save-temps` and a search for `v_cndmask` in a full-wave reduction is the check. No pin change.
+
+## Gotcha — cross-workgroup flags in WGP mode
+
+[pytorch#198208](https://github.com/pytorch/pytorch/pull/198208) described a race that made `torch.compile` silently return wrong 64-bit split-scan results (`cumsum` on `int64`, `float64`, and promoted `int32`/`bool`) on RDNA: reproduced on gfx1151, gfx1200 and gfx1101, not on CDNA or NVIDIA. The decoupled look-back publishes a block's payload with a plain store plus a release flag, and the reader does an acquire on the flag and then a plain load. Triton runs the atomic on one lane, so the acquire's `buffer_gl0_inv` executes inside a one-lane exec-masked region, while every wave loads the payload. In WGP mode a workgroup of more than two waves spans both CUs of a WGP, which have separate L0 caches, so waves on the CU that never ran the invalidate read a stale line.[^pt198208] The PR was closed on 2026-10-14 because the problem was already fixed by [triton#10906](https://github.com/triton-lang/triton/pull/10906) (merged 2026-07-31), which PyTorch main has with Triton 3.9.[^pt198208] triton#10906 itself restricts an AMD barrier lowering to CDNA because it caused this numeric drift on RDNA3 and RDNA4.[^tri10906]
+
+The PR's reports are gfx11 and gfx12. The WGP layout it relies on (two CUs, separate L0) is the same on gfx1030, which also runs WGP mode by default ([runtime/](../runtime/README.md)); see [silicon/occupancy/l0-gl1-occupancy.md](../../silicon/occupancy/l0-gl1-occupancy.md). For our HIP kernels that pass data between workgroups through flags (split-K reductions, look-back scans, persistent queues): make sure every wave that reads the payload is ordered after an acquire that invalidates its own CU's L0, not just the lane that polled the flag. On Triton, use 3.9 or later before trusting split-scan results on RDNA.
 
 ## Gotcha — pass DPP operands as bits
 
@@ -85,6 +96,12 @@ At rocm-systems `65575fbbe6f73b9d9d96bfbcb523c856709e664c`, HIP `__byte_perm` in
 
 llama.cpp [#29927](https://github.com/ggml-org/llama.cpp/pull/29927) (open) replaces `__byte_perm` with `__builtin_amdgcn_perm` on the Q1_0 unpack path. On Instinct MI50 (gfx906) the PR reports tg128 66.99 → 128.96 t/s.[^llama29927] How the builtin's selector bytes differ from HIP's nibble index was not re-opened this pass (unsourced). Check the ISA with `--save-temps` before treating the two as the same operation. No pin change.
 
+## Gotcha — a dynamic stack gets 1 KB per thread
+
+[rocm-libraries#12473](https://github.com/ROCm/rocm-libraries/issues/12473) (closed 2026-10-12 by the docs-only PR [#12638](https://github.com/ROCm/rocm-libraries/pull/12638)): hipThreads calls user code through a function pointer, so the compiler cannot size the callee's frame and marks the kernel `.uses_dynamic_stack: true`. The runtime then gives each thread only `hipLimitStackSize`, 1024 bytes by default. Overflow gave no diagnostic: either `HSA_STATUS_ERROR_EXCEPTION` or silent corruption of a neighbouring wave's scratch and an intermittent hang. In the same report, an ordinary kernel with a 4096-byte local compiled to `.private_segment_fixed_size: 4112` and `.uses_dynamic_stack: false` and ran fine under the same 1 KB limit. The field report was on MI350 (gfx950), ROCm 10.1 RC1.[^ht12473][^ht12638]
+
+For our forks: if a kernel calls through a function pointer, read `.uses_dynamic_stack` in its code-object metadata (the dump in [silicon/occupancy/occupancy-dump.md](../../silicon/occupancy/occupancy-dump.md) shows it). If it is true, make the call direct or raise `hipLimitStackSize` to a size you have worked out. This page has no gfx1030 repro.
+
 ## `-O0` integer divide, and wave64
 
 [TheRock#7751](https://github.com/ROCm/TheRock/issues/7751) is **closed**. The issue body reports that ROCm 7.2.4 and 7.14 miscompile i32 `udiv` / `urem` at `-O0` on gfx1034 (float reciprocal instead of the integer path). The same kernels were correct at `-O1`/`-O2`/`-O3`, and correct at `-O0` on ROCm 6.4.3. `schung-amd` commented that they reproduced it on gfx1100, and later that it should be fixed in current nightlies via llvm-project#201186 and llvm-project#202753.[^tr7751] Live extras stay `-O3` on 7.14.0.
@@ -98,7 +115,10 @@ llama.cpp [#29927](https://github.com/ggml-org/llama.cpp/pull/29927) (open) repl
 [^clangwpe]: Clang attribute reference, `amdgpu_waves_per_eu`. https://clang.llvm.org/docs/AttributeReference.html#amdgpu-waves-per-eu
 [^strata1180]: Strata#1180, issue body (gfx1100, ROCm 7.10 / clang 22, rel RMS 6.544e-02, 0/20 vs 20/20). https://github.com/Niko1221/Strata/issues/1180
 [^strata1180c]: Strata#1180 comment, gfx1151, ROCm 7.14.1, `AMD clang version 23.0.0git`, engine 0.1.40.2. https://github.com/Niko1221/Strata/issues/1180
-[^shfl11618]: rocm-systems#11618, open. https://github.com/ROCm/rocm-systems/pull/11618
+[^shfl11618]: rocm-systems#11618, closed 2026-10-14 without merge; `mrowan137` closing comment points to llvm-project#232066. https://github.com/ROCm/rocm-systems/pull/11618
+[^llvm232066]: llvm-project#232066, "[AMDGPU] Tighten mbcnt result range in InstCombine", merged 2026-10-14 20:46 UTC. https://github.com/llvm/llvm-project/pull/232066
+[^pt198208]: pytorch#198208, closed 2026-10-14 without merge; description (root cause, archs) and `amd-maradosa` closing comment (fixed by triton#10906, in main with Triton 3.9). https://github.com/pytorch/pytorch/pull/198208
+[^tri10906]: triton#10906, "[AMD] Restrict BarrierOpConversion to CDNA to avoid ROCm numeric drift on RDNA", merged 2026-07-31. https://github.com/triton-lang/triton/pull/10906
 [^bnb2089]: bitsandbytes#2089, open. https://github.com/bitsandbytes-foundation/bitsandbytes/pull/2089
 [^llama29910]: llama.cpp#29910, open. https://github.com/ggml-org/llama.cpp/pull/29910
 [^hipci]: llama.cpp `.github/workflows/hip-quality-check.yml` on `master`, read 2026-10-11. The "Check for major VGPR spills" step sets `-DGPU_TARGETS=gfx908`. https://github.com/ggml-org/llama.cpp/blob/master/.github/workflows/hip-quality-check.yml
@@ -106,4 +126,6 @@ llama.cpp [#29927](https://github.com/ggml-org/llama.cpp/pull/29927) (open) repl
 [^llama29927]: llama.cpp#29927, open. https://github.com/ggml-org/llama.cpp/pull/29927
 [^tr7751]: TheRock#7751, closed. https://github.com/ROCm/TheRock/issues/7751
 [^tr7909]: TheRock#7909, open. https://github.com/ROCm/TheRock/issues/7909
-[^rccl10701]: rocm-systems#10701, open. https://github.com/ROCm/rocm-systems/pull/10701
+[^rccl10701]: rocm-systems#10701, closed without merge 2026-10-12; whether a fix landed elsewhere was not checked. https://github.com/ROCm/rocm-systems/pull/10701
+[^ht12473]: rocm-libraries#12473, closed, issue body (metadata excerpts, 1024-byte default, MI350 field report). https://github.com/ROCm/rocm-libraries/issues/12473
+[^ht12638]: rocm-libraries#12638, merged 2026-10-12, docs only. https://github.com/ROCm/rocm-libraries/pull/12638

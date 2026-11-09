@@ -30,6 +30,8 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/rdna/common/convert.cuh
   - https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/rdna/dsv4/kv_insert.cu
   - https://github.com/opengfx1030/vllm-rdna/commit/01b439bfd21ee9e7bb5c4113efd457a4d140e06c
+  - https://github.com/opengfx1030/vllm-rdna/commit/8a749519a99dafc5679f23c1813e5a6b9142eb7a
+  - https://github.com/opengfx1030/vllm-rdna/commit/a1dcd41299c617f1762a7c64484715ddfc68f3c3
 ---
 
 # gfx1030 HIP kernel-craft brief (RDNA 2)
@@ -652,6 +654,14 @@ Schedule the inner loop as “one DOT2/sdot4 per cycle per SIMD, hide 5-cycle de
 
 ---
 
+### 7.x Non-RDNA2 stubs and target-gated builtins (dest `c4a05415`, checked 2026-11-02)
+
+At `b7402893` three `_rocm_C` units failed to build for any target outside the RDNA2 device pass (gfx1100 and the host pass); `8a749519` and `a1dcd412` fixed them. The rules they leave:[^hc-c4a0-8a74][^hc-c4a0-a1dc]
+
+- A non-RDNA2 empty stub must repeat the real kernel's parameter list **in the same order**, not just the same count. The stub's mangled name is what the gfx11 image exports, so a reordered `int`/`bool` list compiles but fails at run time with `Cannot find Symbol with name`.[^hc-c4a0-a1dc][^hc-c4a0-moe]
+- Constants that host launchers use to size grids (here `kQG = 64` in `rdna_hint_flex_rdna2.cu`) must sit above the `__HIP__RDNA2__ || !__HIP_DEVICE_COMPILE__` guard; the value did not change, so the gfx1030 kernel is untouched.[^hc-c4a0-8a74][^hc-c4a0-hint]
+- `__builtin_amdgcn_s_memtime` is gated with `__has_builtin`, not an arch-name check. The commit reports it present for gfx906, gfx90a and gfx1030 on HIP 7.14.60850 and missing only on gfx1100, so gfx1030 keeps the shader clock and gfx11 reports 0 as "unavailable".[^hc-c4a0-8a74][^hc-c4a0-k2]
+
 ## 8. Unknowns (do not invent)
 
 | Question | Status |
@@ -746,3 +756,8 @@ Footnotes:
 [^f-convert]: `csrc/rocm/rdna/common/convert.cuh` L4-L18 (header comment) and L29-L138 (conversions), dest at 64d59b89. https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/rdna/common/convert.cuh#L4-L18 ; https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/rdna/common/convert.cuh#L29-L138
 [^f-kvinsert]: `csrc/rocm/rdna/dsv4/kv_insert.cu` L52-L53 (includes) and L66 (`kLanes = RdnaArch::kWaveSize`), dest at 64d59b89. https://github.com/opengfx1030/vllm-rdna/blob/64d59b8942d3b982f1d91f0f3e625dfda4418106/csrc/rocm/rdna/dsv4/kv_insert.cu#L52-L66
 [^c-01b439bf]: opengfx1030/vllm-rdna commit [`01b439bf`](https://github.com/opengfx1030/vllm-rdna/commit/01b439bfd21ee9e7bb5c4113efd457a4d140e06c) (2026-10-08) — "feat(rdna): DSV4 q-norm + RoPE + fp8_ds_mla KV insert HIP kernel (fp16/bf16)".
+[^hc-c4a0-8a74]: opengfx1030/vllm-rdna commit [`8a749519`](https://github.com/opengfx1030/vllm-rdna/commit/8a749519a99dafc5679f23c1813e5a6b9142eb7a) "fix(rocm): compile _rocm_C again on gfx1100 and the host pass"; an ancestor of `c4a05415cbda030c784bdc91c7d32e55c287a828`.
+[^hc-c4a0-a1dc]: opengfx1030/vllm-rdna commit [`a1dcd412`](https://github.com/opengfx1030/vllm-rdna/commit/a1dcd41299c617f1762a7c64484715ddfc68f3c3) "fix(rocm): restore MoE W4A16 stub signature to the launcher's parameter order"; an ancestor of `c4a05415cbda030c784bdc91c7d32e55c287a828`.
+[^hc-c4a0-moe]: `csrc/rocm/moe_q_gemm_rdna2.cu` L266-L278 (stub and its comment) @ c4a05415cbda030c784bdc91c7d32e55c287a828. https://github.com/opengfx1030/vllm-rdna/blob/c4a05415cbda030c784bdc91c7d32e55c287a828/csrc/rocm/moe_q_gemm_rdna2.cu#L266-L278
+[^hc-c4a0-hint]: `csrc/rocm/rdna_hint_flex_rdna2.cu` L68 (`kQG`) and L77 (guard) @ c4a05415cbda030c784bdc91c7d32e55c287a828. https://github.com/opengfx1030/vllm-rdna/blob/c4a05415cbda030c784bdc91c7d32e55c287a828/csrc/rocm/rdna_hint_flex_rdna2.cu#L68-L77
+[^hc-c4a0-k2]: `csrc/rocm/mono_k2_rdna2.cu` L2122-L2131 (`__has_builtin(__builtin_amdgcn_s_memtime)`) @ c4a05415cbda030c784bdc91c7d32e55c287a828. https://github.com/opengfx1030/vllm-rdna/blob/c4a05415cbda030c784bdc91c7d32e55c287a828/csrc/rocm/mono_k2_rdna2.cu#L2122-L2131

@@ -1,6 +1,10 @@
 ---
 title: "Triton JIT graph-breaks → HIP AOT (after RMSNorm)"
 sources:
+  - https://github.com/opengfx1030/vllm-rdna/commit/d77eede82442b355b181bbdef42af5459f0b7c6b
+  - https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/vllm/model_executor/layers/layernorm.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/vllm/_custom_ops.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/CMakeLists.txt
   - https://github.com/BlivionIaG/vllm/commit/83de31cf8c55ac2e63f538c2d08dd8f1668a52bb
   - https://github.com/BlivionIaG/vllm/commit/8e35767f59830fbe373ea3c8df8d39421716fad7
   - https://github.com/BlivionIaG/vllm/commit/f22a15b64bf4b3525dba8a7fca0379c3513cf5ca
@@ -38,7 +42,7 @@ User wants HIP over Triton JIT. Scan is the ROCm **decode/prefill graph**, not e
 
 `feat(rocm): HIP AOT RMSNorm` (`8e35767f`). Upstream `torch.ops._C.rms_norm` on this box was hitting a **per-shape Triton** `layer_norm_fwd_kernel`: warmup misses a scheduler shape → JIT during inference → captured cudagraph points at a dead binary → NaN logits. Eager is fine (JIT sticks).[^c-8e35767f]
 
-Replacement: `csrc/rocm/layernorm.cu` in `_rocm_C`. One CTA/row, `BLOCK_DIM` ∈ {128,256,512,1024} picked by `N`, fp16 in/out, fp32 accum, warp shuffles + tiny LDS cross-warp. Wired in `vllm/_custom_ops.py` and `RMSNorm.forward_rocm`. AOT so the binary is stable across capture/replay.[^f-83de31cf-layernorm-cu][^f-83de31cf--custom-ops-py]
+Replacement: `csrc/rocm/layernorm.cu` in `_rocm_C`. One CTA/row, `BLOCK_DIM` ∈ {128,256,512,1024} picked by `N`, fp16 in/out, fp32 accum, warp shuffles + tiny LDS cross-warp. Wired in `vllm/_custom_ops.py` and `RMSNorm.forward_rocm` (historical, `83de31cf`; `forward_rocm` deleted at `a01f2637`, see below). AOT so the binary is stable across capture/replay.[^f-83de31cf-layernorm-cu][^f-83de31cf--custom-ops-py]
 
 Locks on that kernel:
 
@@ -82,10 +86,16 @@ Order after RMSNorm (commit `8e35767f` text: “3 main Triton JIT culprits”): 
 1. New `csrc/rocm/<op>.cu` — fp16, wave32, no WMMA/MFMA/FP8. Issue the real op (`fdot2` only if both sides half and it is a DOT; conv1d/RoPE/silu are **VALU**, not DOT).[^c-83de31cf]
 2. Append to `VLLM_ROCM_EXT_SRC` (layernorm is unconditional next to EXL3; same is fine).[^c-83de31cf]
 3. `ops.h` + `torch_bindings.cpp` at **global** scope (the `83de31cf` brace lesson). HIP `__shfl_*_sync` mask is **64-bit** (`f22a15b6`).[^c-83de31cf][^c-f22a15b6][^f-83de31cf-ops-h][^f-83de31cf-torch-bindings-cpp]
-4. `_custom_ops.py` / `forward_rocm`: if `_rocm_C` op exists, never enter Triton.[^f-83de31cf--custom-ops-py]
+4. `_custom_ops.py`: if `_rocm_C` op exists, never enter Triton. (The `forward_rocm` override named here at `83de31cf` is gone at `a01f2637`.)[^f-83de31cf--custom-ops-py]
 5. Prove with a PIECEWISE probe that **this** kernel’s JIT no longer fires. Do **not** claim PIECEWISE is fixed.[^c-83de31cf]
 
 LDS: keep the WG under 64 KiB. Occupancy = min(VGPR, LDS, SIMD). Do not pin `(N, 1)`.[^isa]
+
+## RMSNorm wiring at dest `a01f2637` (checked 2026-10-16)
+
+- `RMSNorm.forward_rocm` is deleted; the commit says it had no callers. `RMSNorm` now has only `forward_native`, `forward_cuda` and `forward_xpu`, and `forward_cuda` returns `forward_native`, which calls `ir.ops.rms_norm` / `ir.ops.fused_add_rms_norm`.[^c-d77eede8][^f-a01f-layernorm-py]
+- The AOT kernel is still built and bound: `csrc/rocm/layernorm.cu` is in the unconditional `VLLM_ROCM_EXT_SRC` list, and `_custom_ops.rms_norm` / `fused_add_rms_norm` still call `torch.ops._rocm_C.*` when the op exists.[^f-a01f-cmake][^f-a01f-custom-ops-py]
+- Not verified this pass: whether the `ir.ops.rms_norm` path reaches `_custom_ops.rms_norm` (and so `_rocm_C`) on gfx1030. Re-run the PIECEWISE probe from step 5 before relying on it. (unsourced)
 
 ## Wiki gaps this pass
 
@@ -131,3 +141,7 @@ LDS: keep the WG under 64 KiB. Occupancy = min(VGPR, LDS, SIMD). Do not pin `(N,
 [^f-83de31cf-skinny-gemms-cu]: BlivionIaG/vllm `csrc/rocm/skinny_gemms.cu` @ [`83de31cf`](https://github.com/BlivionIaG/vllm/blob/83de31cf8c55ac2e63f538c2d08dd8f1668a52bb/csrc/rocm/skinny_gemms.cu).
 [^f-83de31cf-ops-h]: BlivionIaG/vllm `csrc/rocm/ops.h` @ [`83de31cf`](https://github.com/BlivionIaG/vllm/blob/83de31cf8c55ac2e63f538c2d08dd8f1668a52bb/csrc/rocm/ops.h).
 [^f-83de31cf-torch-bindings-cpp]: BlivionIaG/vllm `csrc/rocm/torch_bindings.cpp` @ [`83de31cf`](https://github.com/BlivionIaG/vllm/blob/83de31cf8c55ac2e63f538c2d08dd8f1668a52bb/csrc/rocm/torch_bindings.cpp).
+[^c-d77eede8]: opengfx1030/vllm-rdna commit `d77eede8` "cleanup(rdna): drop unread MoE scratch and dead AWQ/RMSNorm paths" (PR #105). https://github.com/opengfx1030/vllm-rdna/commit/d77eede82442b355b181bbdef42af5459f0b7c6b
+[^f-a01f-layernorm-py]: `vllm/model_executor/layers/layernorm.py` `RMSNorm` L37-L135 (`forward_native` L75-L96, `forward_cuda` L98-L115, no `forward_rocm`), dest at a01f2637. https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/vllm/model_executor/layers/layernorm.py#L37-L135
+[^f-a01f-custom-ops-py]: `vllm/_custom_ops.py` `rms_norm` L239-L257 and `fused_add_rms_norm` L343-L357 (`hasattr(torch.ops._rocm_C, ...)` then `_rocm_C` call), dest at a01f2637. https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/vllm/_custom_ops.py#L239-L357
+[^f-a01f-cmake]: `CMakeLists.txt` L1572-L1578 (`VLLM_ROCM_EXT_SRC` EXL3 list plus `csrc/rocm/layernorm.cu`), dest at a01f2637. https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/CMakeLists.txt#L1570-L1578

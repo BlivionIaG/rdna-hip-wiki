@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-11
+updated: 2026-10-16
 sources:
   - https://github.com/ROCm/TheRock/issues/8729
   - https://github.com/Niko1221/Strata/pull/1123
@@ -11,11 +11,18 @@ sources:
   - https://github.com/ROCm/rocm-libraries/pull/13129
   - https://github.com/ROCm/rocm-libraries/issues/12240
   - https://rocm.docs.amd.com/en/docs-10.1.0/about/release-notes.html
+  - https://github.com/ROCm/rocPRIM/issues/778
+  - https://github.com/openxla/xla/issues/50464
+  - https://github.com/kijai/ComfyUI-WanVideoWrapper/issues/2053
+  - https://github.com/ROCm/aotriton/issues/168
+  - https://github.com/pytorch/pytorch/issues/200999
+  - https://github.com/pytorch/pytorch/commit/fba88a5dd7c53d679cb82fd33cbe084c3d6b3f31
+  - https://github.com/ROCm/TheRock/issues/9066
 ---
 
 # Libraries
 
-Date: **2026-10-11**. Which GEMM or convolution library runs on gfx1030 versus gfx1100. Live dest stays ROCm **7.14.0** ([pin](../pin/README.md)). Nightly library-pin scans are [../log/pin-scans.md](../log/pin-scans.md).
+Date: **2026-10-13**. Which GEMM or convolution library runs on gfx1030 versus gfx1100. Live dest stays ROCm **7.14.0** ([pin](../pin/README.md)). Nightly library-pin scans are [../log/pin-scans.md](../log/pin-scans.md).
 
 ## Who serves the GEMM
 
@@ -60,11 +67,31 @@ hipBLASLt is the Linux MIOpen GEMM backend in the gfx1030 triage above, and the 
 
 ### rocKE / hipDNN generic targets
 
-[rocm-libraries#13150](https://github.com/ROCm/rocm-libraries/pull/13150) (open) builds RDNA WMMA SDPA once as `gfx11-generic` (gfx1100, gfx1101, gfx1102, gfx1103, gfx1150, gfx1151, gfx1152, gfx1153) and `gfx12-generic` (gfx1200, gfx1201). The PR does not list gfx1030 or gfx900.[^ke13150] [rocm-libraries#13129](https://github.com/ROCm/rocm-libraries/pull/13129) (open) lets hipDNN kernel descriptors name those generic targets.[^dnn13129] A specific processor id still wins when the caller sets one; the PR says `base_arch_from_target_id()` is unchanged.[^ke13150]
+[rocm-libraries#13150](https://github.com/ROCm/rocm-libraries/pull/13150) (merged 2026-10-16 00:05 UTC; not yet in a TheRock pin as of this pass) builds RDNA WMMA SDPA once as `gfx11-generic` (gfx1100, gfx1101, gfx1102, gfx1103, gfx1150, gfx1151, gfx1152, gfx1153) and `gfx12-generic` (gfx1200, gfx1201). The PR does not list gfx1030 or gfx900.[^ke13150] [rocm-libraries#13129](https://github.com/ROCm/rocm-libraries/pull/13129) (open) lets hipDNN kernel descriptors name those generic targets.[^dnn13129] A specific processor id still wins when the caller sets one; the PR says `base_arch_from_target_id()` is unchanged.[^ke13150]
 
 ### Nightly rocBLAS xml wrapper
 
 [rocm-libraries#12240](https://github.com/ROCm/rocm-libraries/issues/12240) (open) says Linux gfx103X rocBLAS nightly shards can be marked failed with zero gtest failures because of the xml wrapper. Open the log before treating a red gfx103X rocBLAS nightly as a kernel regression.[^xml12240]
+
+### hipCUB scan temp-storage alignment
+
+[rocPRIM#778](https://github.com/ROCm/rocPRIM/issues/778) (open) reports that `hipcub::DeviceScan::ExclusiveScan` returns `hipSuccess` and silently wrong sums when `d_temp_storage` is misaligned. On a Radeon Pro W7800 (gfx1100) with ROCm 7.2.0, a pointer offset by 4 bytes failed 14 to 18 of 200 iterations; the same storage rounded up to 256 bytes failed 0 of 200. Every wrong region started on a 1024-element tile boundary, with a whole tile lost or counted twice. The issue notes that CUB on CUDA does not require an aligned temp pointer.[^prim778] If a kernel carves scan scratch out of a larger arena, round the offset to 256 bytes. gfx1030 was not tested in the report.
+
+### XLA on gfx1030
+
+[openxla/xla#50464](https://github.com/openxla/xla/issues/50464) (open) says `gfx1030` is in XLA's supported list but `has_hipblaslt()` is false for it, and the GEMM rewriter no longer falls back to rocBLAS. The reporter measured on MI100 (gfx908): fp64 dots fail to compile, and fp16/fp32 dots run as Triton fusions at about 16% of rocBLAS speed. The gfx1030 claim comes from the same code path, not a gfx1030 run.[^xla50464] This matches the gfx1030 hipBLASLt gap above; JAX matmuls on V620 need a measurement before anyone relies on them.
+
+### PyTorch SDPA at head_dim > 256 on gfx11
+
+[ComfyUI-WanVideoWrapper#2053](https://github.com/kijai/ComfyUI-WanVideoWrapper/issues/2053) (open): on gfx1100 (RX 7900 XTX, torch 2.13.0), `F.scaled_dot_product_attention` with head_dim 384 still dispatches to AOTriton's fused kernels. With aotriton 0.13.x (the ROCm 10.0.0 stable wheel and 10.1/10.2 nightlies) the result is silently wrong: relative error about 1.1 against the MATH backend, all values finite, so NaN or Inf checks miss it. With aotriton 0.14.50 in the ROCm 10.1.0 stable wheel the call fails with `hipErrorProfilerNotInitialized`. head_dim 64, 128, 192 and 256 were correct on every build. The working guard routes head_dim > 256 to `SDPBackend.MATH`.[^wan2053] An AOTriton maintainer wrote in April that head_dim > 256 is disabled on purpose on all gfx11, because of LDS and register-file limits and Triton codegen trouble at `BLOCK_DMODEL=512`, and would be revisited later.[^aot168]
+
+[pytorch#200999](https://github.com/pytorch/pytorch/issues/200999) (closed 2026-10-15) reproduced the same silent error on an RX 7900 XT with plain `F.scaled_dot_product_attention`. A PyTorch maintainer wrote that mainline already has the fix, commit `fba88a5dd7c5` ("Cap SDPA head dim at 256 on gfx11xx for AOTriton 0.11 and later"), that 2.14.1 missed it, and that it will ship in PyTorch 2.15.[^pt200999][^ptfba88a5]
+
+For gfx1100 code that calls torch SDPA on 2.14.x or older, add that guard for head_dim > 256 rather than trusting the dispatcher. Which SDPA backend gfx1030 gets at that size was not checked this pass (unsourced).
+
+### PyTorch nightly wheels and gfx900
+
+[TheRock#9066](https://github.com/ROCm/TheRock/issues/9066) (open, filed 2026-10-16) says the multi-arch PyTorch nightly wheel builds fail, so no nightly wheels are produced. PyTorch commit `31a88272c8` (pytorch#200307, a CK-Tile group GEMM backend) compiles `ck_tile_group_gemm.hip` for every arch in `PYTORCH_ROCM_ARCH`, including gfx900, gfx906, gfx90c and gfx1010-1012, and CK-Tile's `get_compiler_target()` returns void for those.[^tr9066] This is a build break on the nightly line, not a 7.14.0 dest change. Anyone building PyTorch from source for gfx900 after that commit should expect the same failure until it is gated.
 
 ## Sources
 
@@ -78,3 +105,10 @@ hipBLASLt is the Linux MIOpen GEMM backend in the gfx1030 triage above, and the 
 [^ke13150]: rocm-libraries#13150, open. https://github.com/ROCm/rocm-libraries/pull/13150
 [^dnn13129]: rocm-libraries#13129, open. https://github.com/ROCm/rocm-libraries/pull/13129
 [^xml12240]: rocm-libraries#12240, open. https://github.com/ROCm/rocm-libraries/issues/12240
+[^prim778]: rocPRIM#778, open. https://github.com/ROCm/rocPRIM/issues/778
+[^xla50464]: openxla/xla#50464, open. https://github.com/openxla/xla/issues/50464
+[^wan2053]: ComfyUI-WanVideoWrapper#2053, open, issue body and build table. https://github.com/kijai/ComfyUI-WanVideoWrapper/issues/2053
+[^pt200999]: pytorch#200999, closed 2026-10-15; `xinyazhang` and `naromero77amd` comments. https://github.com/pytorch/pytorch/issues/200999
+[^ptfba88a5]: pytorch commit `fba88a5dd7c5`, committed 2026-08-28 (#194280). https://github.com/pytorch/pytorch/commit/fba88a5dd7c53d679cb82fd33cbe084c3d6b3f31
+[^tr9066]: TheRock#9066, open. https://github.com/ROCm/TheRock/issues/9066
+[^aot168]: ROCm/aotriton#168, open, `xinyazhang` comments 2026-04-25 and 2026-04-28. https://github.com/ROCm/aotriton/issues/168

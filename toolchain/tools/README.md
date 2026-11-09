@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-11
+updated: 2026-10-13
 sources:
   - https://github.com/ROCm/rocm-systems/blob/65575fbbe6f73b9d9d96bfbcb523c856709e664c/emulation/rocjitsu/README.md
   - https://github.com/ROCm/rocm-systems/tree/65575fbbe6f73b9d9d96bfbcb523c856709e664c/emulation/rocjitsu/configs
@@ -9,11 +9,12 @@ sources:
   - https://github.com/Niko1221/Strata/pull/1167
   - https://github.com/ggml-org/llama.cpp/blob/master/.github/workflows/hip-quality-check.yml
   - https://github.com/ggml-org/llama.cpp/pull/29910
+  - https://github.com/ROCm/hip-python/issues/111
 ---
 
 # Tools
 
-Date: **2026-10-11**. Profilers and small gates that touch the compiler or the libraries. Engine and fork tooling stays in [engine/](../../engine/) and [fork/](../../fork/). The domain-pass tables are [../log/domain-passes.md](../log/domain-passes.md), kept intact.
+Date: **2026-10-13**. Profilers and small gates that touch the compiler or the libraries. Engine and fork tooling stays in [engine/](../../engine/) and [fork/](../../fork/). The domain-pass tables are [../log/domain-passes.md](../log/domain-passes.md), kept intact.
 
 ## rocjitsu
 
@@ -43,6 +44,10 @@ Strata [#1167](https://github.com/Niko1221/Strata/pull/1167) adds `tools/hip/tun
 
 llama.cpp's spill job (`.github/workflows/hip-quality-check.yml` on master, read 2026-10-11) runs `scripts/hip/gcn-cdna-vgpr-check.py` against a build with `-DGPU_TARGETS=gfx908`.[^hipci] The spill counts that motivated pointing the same parser at gfx1030 and gfx1100 are [compiler/](../compiler/README.md) and llama.cpp [#29910](https://github.com/ggml-org/llama.cpp/pull/29910).[^llama29910]
 
+## numba-hip atomics
+
+[hip-python#111](https://github.com/ROCm/hip-python/issues/111) (open): the generated numba-hip bindings treat the pointer argument of HIP atomics as output-only, so `numba.hip.atomic.add` and friends get wrong signatures and kernels that use them do not compile. The reporter is on ROCm 10.0 with an RX 6700 XT and says `atomicAdd` in HIP C++ works. The issue includes a custom `@intrinsic` workaround. An AMD maintainer (`domcharrier`, 2026-10-13) confirmed the analysis for the 10.0 bindings and said the fix will come in the next patch release and/or the 10.1.0 bindings.[^hp111] Python-side kernel prototyping on RDNA through numba-hip should avoid its atomics until then.
+
 ## Sources
 
 [^rj]: rocjitsu README at rocm-systems `65575fbbe6f73b9d9d96bfbcb523c856709e664c`. https://github.com/ROCm/rocm-systems/blob/65575fbbe6f73b9d9d96bfbcb523c856709e664c/emulation/rocjitsu/README.md
@@ -52,3 +57,4 @@ llama.cpp's spill job (`.github/workflows/hip-quality-check.yml` on master, read
 [^st1167]: Strata#1167, open. https://github.com/Niko1221/Strata/pull/1167
 [^hipci]: llama.cpp `hip-quality-check.yml` on master. https://github.com/ggml-org/llama.cpp/blob/master/.github/workflows/hip-quality-check.yml
 [^llama29910]: llama.cpp#29910, open. https://github.com/ggml-org/llama.cpp/pull/29910
+[^hp111]: hip-python#111, open, issue body and `domcharrier` comment 2026-10-13. https://github.com/ROCm/hip-python/issues/111

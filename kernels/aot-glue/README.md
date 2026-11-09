@@ -12,6 +12,7 @@ Small HIP glue that replaces Triton JIT: RMSNorm, AOT list. Back to the [kernels
 |---|---|---|
 | [triton-jit-aot.md](triton-jit-aot.md) | HIP AOT vs leftover Triton JIT | Take: conv1d / ApplyRotaryEmb / SwigluStep. Leave: FA/EXL3/W4/GDN. RMSNorm AOT ≠ PIECEWISE |
 | [layernorm.md](layernorm.md) | scalar fp32 FMA + shfl + tiny LDS | Live AOT HIP (`83de31cf` + gated `71a54552`). Cudagraph-safe. Not FA leftover [^c-83de31cf][^c-71a54552] |
+| [rdna-all-hip.md](rdna-all-hip.md) | HIP ports of v1 worker/sampler, QSA metadata, MoE, ViT pos-embed | `VLLM_RDNA_ALL_HIP` default on at `30d6e82d`; 10 new HIP sources in the build |
 
 ## Sources
 

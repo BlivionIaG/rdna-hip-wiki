@@ -10,6 +10,8 @@ sources:
   - "https://github.com/ROCm/rocm-systems/pull/11752"
   - "https://github.com/ROCm/rocm-systems/pull/11803"
   - "https://github.com/ROCm/rocm-systems/pull/11035"
+  - "https://github.com/ROCm/rocm-systems/pull/12679"
+  - "https://github.com/ROCm/rocm-systems/blob/develop/projects/rccl/CHANGELOG.md"
 ---
 
 > Historical scan record, kept intact from the flat `toolchain/` pages on branch `toolchain/gotchas-2026-10-09`. Inline links are the sources recorded on the scan date. This restructure did not re-open every SHA or open/merged status below. Those point-in-time claims are **(unsourced)** as of 2026-10-11, except where a topic page repeats the claim with a footnote.
@@ -18,6 +20,14 @@ sources:
 
 Date: **2026-09-03**. Owned by ROCM_specialist (library/runtime plumbing). Measured P2P and topology work stays in [silicon/interconnect/rccl-p2p.md](../../silicon/interconnect/rccl-p2p.md).
 
+
+## 2026-10-16 — RCCL Tree+SHM crash with extra channels fixed (systems tip, not dest)
+
+- [rocm-systems#12679](https://github.com/ROCm/rocm-systems/pull/12679) merged 2026-10-16 04:48 UTC (06:48 Europe/Paris).[^r12679] Title: "TREE+SHM with more than default channels crash on Navi".[^r12679]
+- Symptom: `HSA_STATUS_ERROR_MEMORY_APERTURE_VIOLATION` when the Tree algorithm runs over shared memory with more channels than the Tree graph search found, e.g. `NCCL_ALGO=Tree` + `NCCL_P2P_DISABLE=1`.[^r12679-cl] The PR body reproduces it on gfx120x with forced Tree over SHM and >2 channels; the CHANGELOG line names gfx110x and gfx120x.[^r12679] [^r12679-cl]
+- Root cause: a long-standing design bug in the `ncclTopoPreset` → `AllGather3D` → `ncclTopoPostset()` sequence in `initTransportsRank()`; channels added after Preset had no intra-node tree links. Exposed by the gfx120x/gfx110x channel-count change in [#11035](https://github.com/ROCm/rocm-systems/pull/11035) (see 2026-09-03 below). Fix: `ncclTopoPostset` now sets tree and CollNet chain links on every channel, as it already did for rings.[^r12679] [^r12679-cl] [^r11035]
+- gfx1030: **not mentioned** in the PR (tests use gfx1201). This note does not claim gfx1030 is affected or safe; #11035's channel bump auto-enables only on gfx110x/120x.[^r12679] [^r11035]
+- Practical: not in a ROCm release; the live dest pin is ROCm 7.14.0 ([toolchain/pin/README.md](../pin/README.md)). If multi-GPU collectives crash on the gfx1100 boxes (W7800 / 7900 XTX), check this first. Watch status only, not a dest pin change.
 
 ## 2026-10-07 — RCCL corruption traced to host amdgpu, not RCCL
 
@@ -86,3 +96,9 @@ This answers the open unknown in [silicon/interconnect/rccl-p2p.md](../../silico
 Also in this PR: the `NCCL_TUNING` `INFO` spam is now rank-0 only, and `ncclTopoPreset()` gained an `nChannels` sanity check (`[1,MAXCHANNELS]`, plus a warn when a graph's channel count is below `comm->nChannels`).
 
 Not a dest or pin change. RCCL in the live 7.14.0 pin does **not** have any of this.
+
+## Sources
+
+[^r12679]: https://github.com/ROCm/rocm-systems/pull/12679
+[^r12679-cl]: https://github.com/ROCm/rocm-systems/pull/12679/files (projects/rccl/CHANGELOG.md hunk); https://github.com/ROCm/rocm-systems/blob/develop/projects/rccl/CHANGELOG.md
+[^r11035]: https://github.com/ROCm/rocm-systems/pull/11035
