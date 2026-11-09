@@ -194,3 +194,9 @@ Nightly tip still **`10.2.0a20260921` L+W** for core + device-gfx1030/1100/900 (
 ## 2026-09-03 — wave64 watch
 
 [#7909](https://github.com/ROCm/TheRock/issues/7909) open. [llvm-project#4267](https://github.com/ROCm/llvm-project/pull/4267) COMGR source-wave-size **closed unmerged** (2026-09-03). Neither is a dest pin.
+
+## 2026-11-09 ~09:00 Europe/Paris — systems 37d5e5d (#9793) + libraries 60b43a5 (#9787) (tip, not dest)
+
+TheRock main **`a970023398da` → `4c7aaf53cef9`** over the weekend. [#9793](https://github.com/ROCm/TheRock/pull/9793) systems **`3f917c0` → `37d5e5d`** (merged 2026-11-08 05:57Z); [#9787](https://github.com/ROCm/TheRock/pull/9787) libraries **`37f616f` → `60b43a5`** (merged 06:14Z). [#9786](https://github.com/ROCm/TheRock/pull/9786) closed unmerged (superseded by #9793). Compiler ww43-2.0 pointer bump was reverted on main (`077b4a6ede4d`, 2026-11-07). Releases **unchanged**: therock-10.1, rocm-7.14.0.
+
+Now **in** systems pin `37d5e5d` (GitHub compare: pin is ahead of each merge commit): [rocm-systems#14463](https://github.com/ROCm/rocm-systems/pull/14463) CLR reports GPUDirect RDMA unsupported when the device has no flush/ordering path (fixes gfx110X hip-tests capability failure [rocm-systems#14243](https://github.com/ROCm/rocm-systems/issues/14243)); [rocm-systems#14786](https://github.com/ROCm/rocm-systems/pull/14786) rocjitsu binds gfx1100 to a concrete public target. Libraries `37f616f`→`60b43a5`: RDNA-relevant commits none found by title (gfx942/gfx950 perf and CI only). **No RDNA dest bump** — live dest stays **7.14.0**.
