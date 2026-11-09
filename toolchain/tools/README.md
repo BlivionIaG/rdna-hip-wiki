@@ -16,6 +16,8 @@ sources:
   - https://github.com/ROCm/TheRock/pull/9752
   - https://github.com/ROCm/rocm-systems/tree/develop/emulation/rocjitsu/configs
   - https://github.com/vivienfanghuagood/hk-dsl/tree/main/python/hk/target
+  - https://github.com/ROCm/TheRock/pull/9822
+  - https://github.com/ROCm/rocm-systems/pull/13957
 ---
 
 # Tools
@@ -67,6 +69,8 @@ llama.cpp's spill job (`.github/workflows/hip-quality-check.yml` on master, read
 
 ## Sources
 
+TheRock main now pins rocm-systems `16ad3db` ([TheRock#9822](https://github.com/ROCm/TheRock/pull/9822), merged 2026-11-09), which brings in rocjitsu's RDNA comparison, conversion, register/lane-routing and graphics-arithmetic handlers routed through its `rj-arith` library ([#13955](https://github.com/ROCm/rocm-systems/pull/13955), [#13957](https://github.com/ROCm/rocm-systems/pull/13957), [#13958](https://github.com/ROCm/rocm-systems/pull/13958), [#13959](https://github.com/ROCm/rocm-systems/pull/13959)). The PRs say "RDNA" without naming a gfx103x target, and the configs list still has no gfx1030 JSON, so treat this as tip-only emulator progress, not a gfx1030 path.[^tr9822]
+
 [^rj]: rocjitsu README at rocm-systems `65575fbbe6f73b9d9d96bfbcb523c856709e664c`. https://github.com/ROCm/rocm-systems/blob/65575fbbe6f73b9d9d96bfbcb523c856709e664c/emulation/rocjitsu/README.md
 [^rjcfg]: `emulation/rocjitsu/configs/` at that commit. Names read 2026-10-11: `gfx1100_w7900.json`, `gfx1151.json`, `gfx1201_r9700.json`, CDNA and guest-gfx950 JSON files, and no gfx1030 file. https://github.com/ROCm/rocm-systems/tree/65575fbbe6f73b9d9d96bfbcb523c856709e664c/emulation/rocjitsu/configs
 [^isaxml]: `amdgpu_isa_rdna2.xml` contents API at that commit, `size` 11230558. https://github.com/ROCm/rocm-systems/blob/65575fbbe6f73b9d9d96bfbcb523c856709e664c/shared/machine-readable-isa/isa/amdgpu_isa_rdna2.xml
@@ -75,3 +79,4 @@ llama.cpp's spill job (`.github/workflows/hip-quality-check.yml` on master, read
 [^hipci]: llama.cpp `hip-quality-check.yml` on master. https://github.com/ggml-org/llama.cpp/blob/master/.github/workflows/hip-quality-check.yml
 [^llama29910]: llama.cpp#29910, open. https://github.com/ggml-org/llama.cpp/pull/29910
 [^hp111]: hip-python#111, open, issue body and `domcharrier` comment 2026-10-13. https://github.com/ROCm/hip-python/issues/111
+[^tr9822]: TheRock#9822 (rocm-systems 37d5e5d to 16ad3db), merged 2026-11-09, and the four rocm-systems PRs linked above, read 2026-11-09. https://github.com/ROCm/TheRock/pull/9822
