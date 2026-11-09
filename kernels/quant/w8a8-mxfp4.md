@@ -614,7 +614,7 @@ AITER official GPU table is gfx90a / gfx942 / gfx950 (map brief). vLLM `is_aiter
 | `shuffle_weight(w, layout=(32,16))` | MFMA 32×16 pack (`gemm_a8w8_ASM` docstring) [^aiter-a8w8-op] |
 | `gemm_a8w8_CK` / `gemm_a8w8_bpreshuffle` / FlyDSL | CK/MFMA / gfx1250 WMMA [^aiter-a8w8-triton][^vllm-aiter-mm][^vpr-19417] |
 | `mfma_scaled` gluon pipeline (AITER #3307) | CDNA4 [^aiter-a8w8-triton][^vllm-aiter-mm][^vpr-19417] |
-| `vmem-to-lds-load-insts` async copy | AITER #3336: gfx940/941/942/950 only [^aiter-a8w8-triton][^vllm-aiter-mm][^vpr-19417] |
+| `vmem-to-lds-load-insts` async copy | AITER #3336 guards it to gfx940/941/942/950. gfx1030 does have dword-only `lds`-bit loads (LLVM GFX10 feature list), but not the 16-byte width CDNA paths use, so the AITER code still does not port; see [lds-dma-occupancy.md](../../silicon/occupancy/lds-dma-occupancy.md) [^aiter-a8w8-triton][^vllm-aiter-mm][^vpr-19417] |
 | bf16-only ASM output | HIP-craft: RDNA2 bf16 = ❌ [^aiter-a8w8-triton][^vllm-aiter-mm][^vpr-19417] |
 | “must give bias” ASM contract | not a silicon requirement [^aiter-a8w8-triton][^vllm-aiter-mm][^vpr-19417] |
 
