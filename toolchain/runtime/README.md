@@ -1,7 +1,9 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-06
+updated: 2026-11-09
 sources:
+  - https://github.com/ROCm/rocm-systems/issues/14764
+  - https://github.com/ROCm/rocm-systems/pull/15264
   - https://github.com/ROCm/rocm-systems/issues/14886
   - https://github.com/ROCm/rocm-systems/pull/11617
   - https://github.com/ROCm/rocm-systems/pull/10639
@@ -190,7 +192,7 @@ Until both land: build every binary for every arch in the box, and run one proce
 
 ### `ROCR_VISIBLE_DEVICES` does not isolate memory
 
-[rocm-systems#14778](https://github.com/ROCm/rocm-systems/issues/14778) (open, filed 2026-11-01) reports that a process started with `ROCR_VISIBLE_DEVICES=0` sees one HIP device but still opens the DRM render node of every GPU and acquires a GPU VM on each. Every `hipHostRegister` then maps the registration into the hidden GPUs too: about 2 MiB per 1 GiB registration on each hidden card, held until the process exits. The reporter measured it on eight W7900D (gfx1100) with ROCm 7.2.1, TheRock 10.1.0a20260822 and `develop` at `8915864`, and points at `hsakmt_fmm_init_process_apertures()` in libhsakmt `fmm.c`, which runs before ROCr applies the filter.[^vis14778] The code path is not arch-specific, but this page has no gfx1030 repro. For a multi-V620 host that runs one engine per card: the mask hides devices, it does not keep a job's host registrations off the other cards. Whether passing only one card's render node into a container avoids it was not tested here (unsourced).
+[rocm-systems#14778](https://github.com/ROCm/rocm-systems/issues/14778) (open, filed 2026-11-01) reports that a process started with `ROCR_VISIBLE_DEVICES=0` sees one HIP device but still opens the DRM render node of every GPU and acquires a GPU VM on each. Every `hipHostRegister` then maps the registration into the hidden GPUs too: about 2 MiB per 1 GiB registration on each hidden card, held until the process exits. The reporter measured it on eight W7900D (gfx1100) with ROCm 7.2.1, TheRock 10.1.0a20260822 and `develop` at `8915864`, and points at `hsakmt_fmm_init_process_apertures()` in libhsakmt `fmm.c`, which runs before ROCr applies the filter.[^vis14778] The code path is not arch-specific, but this page has no gfx1030 repro. For a multi-V620 host that runs one engine per card: the mask hides devices, it does not keep a job's host registrations off the other cards. Exposing only one card's render node is not a workaround on current builds: [rocm-systems#14764](https://github.com/ROCm/rocm-systems/issues/14764) (filed 2026-10-31, label `status: fix submitted`) shows that a sandbox with `/dev/kfd` and one render node, the others absent, finds no GPU at all (`rocminfo` returns `HSA_STATUS_ERROR_OUT_OF_RESOURCES`, HIP returns `hipErrorNoDevice`; libhsakmt logs `Failed to set mem policy for GPU`). The reporter used bubblewrap on gfx1201 + gfx1036, and a second reporter reproduced it with a fresh-`/dev` user namespace on 8× W7900D (gfx1100) with ROCm 7.2.1, TheRock 10.1.0 nightly wheels and `develop` `8915864`.[^vis14764] The fix, [rocm-systems#15264](https://github.com/ROCm/rocm-systems/pull/15264) ("skip GPUs without an acquired VM when setting memory policy"), is open as of 2026-11-09 and an AMD maintainer said it should merge soon.[^vis14764] Whether a Docker `--device` subset hits the same path was not tested here (unsourced); until the fix is in the TheRock pin, keep every render node visible and use `ROCR_VISIBLE_DEVICES` to pick the card.
 
 ## Graphs
 
@@ -207,6 +209,7 @@ Since Linux 6.14 the `dmem` cgroup controller can cap a container's VRAM on amdg
 
 ## Sources
 
+[^vis14764]: rocm-systems#14764, issue body (bubblewrap repro, gfx1201/gfx1036, rocm-sdk-core 10.1.0) and comments by `harkgill-amd` 2026-11-06 20:49 UTC (patch tested, PR opened) and `vivienfanghuagood` 2026-11-08 01:26 UTC (8× W7900D gfx1100 repro table); fix PR rocm-systems#15264 open. https://github.com/ROCm/rocm-systems/issues/14764
 [^vis14778]: rocm-systems#14778, open, issue body (fdinfo table, versions, `fmm.c` analysis). https://github.com/ROCm/rocm-systems/issues/14778
 
 [^malloc10943]: rocm-systems#10943, open, including the gfx1100 follow-up comment. https://github.com/ROCm/rocm-systems/issues/10943

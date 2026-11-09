@@ -2,6 +2,12 @@
 owner: ROCM_specialist
 kind: scan-log
 sources:
+  - "https://github.com/ROCm/rocm-systems/issues/14764"
+  - "https://github.com/ROCm/rocm-systems/pull/15264"
+  - "https://github.com/ROCm/rocm-systems/issues/15150"
+  - "https://github.com/vllm-project/vllm/issues/60608"
+  - "https://github.com/vllm-project/vllm/issues/63455"
+  - "https://github.com/ROCm/rocm-libraries/issues/15191"
   - "https://github.com/ROCm/rocm-examples/issues/566"
   - "https://github.com/Niko1221/Strata/issues/5151"
   - "https://github.com/ROCm/TheRock/issues/7480"
@@ -515,3 +521,16 @@ Vs domain ~10:20 and quiet hourlies through ~12:53. **No dest bump** (live **7.1
 | #15225 / #15012 / #9783 / #9782 | unchanged | MIOpen FMA 2D fwd open; CK Tile FMHA gfx11 issue open; gfx1201 Windows only; #9782 release/10.2. |
 
 Detail: [pin-scans](pin-scans.md).
+
+## 2026-11-09 ~10:25 — domain pass (render-node subset finds no GPU; rocjitsu RDNA2 FP not started; not dest)
+
+Vs domain 2026-11-06 ~10:20. **No dest bump** (live **7.14.0**); pins are covered by the hourly scan (TheRock main `4c7aaf53cef9`).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [rocm-systems#14764](https://github.com/ROCm/rocm-systems/issues/14764) / fix [#15264](https://github.com/ROCm/rocm-systems/pull/15264) | **Take tip (runtime)** | Sandbox with `/dev/kfd` and only one render node finds no GPU (`HSA_STATUS_ERROR_OUT_OF_RESOURCES`); reproduced on 8× W7900D gfx1100. Fix PR open, not in pin. [runtime/](../runtime/README.md#mixed-architecture-hosts). |
+| [rocm-systems#15150](https://github.com/ROCm/rocm-systems/issues/15150) | Watch | rocjitsu bit-exact FP roadmap: gfx1100 loose 78% / bit-exact 45%; RDNA1/2 (gfx1030) "not started". |
+| [vllm#60608](https://github.com/vllm-project/vllm/issues/60608) | Leave engine | RDNA3 W4A16 (and Exllama) kernels give wrong output when `group_size % 32 != 0`, reproduced on gfx1100; guard boundary still debated in comments. |
+| [vllm#63455](https://github.com/vllm-project/vllm/issues/63455) | Leave engine | AutoAWQ checkpoints on ROCm never reach `RDNAHybridW4A16LinearKernel` (gfx11/gfx12); 2.5x slower than BF16 on gfx1151. |
+| [rocm-libraries#15191](https://github.com/ROCm/rocm-libraries/issues/15191) | Watch | MIOpen fp32 ConvTranspose1d on RDNA lands on `GemmBwdRest` (~3 TFLOPS on gfx1151). |
+
