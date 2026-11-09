@@ -7,6 +7,9 @@ sources:
   - https://github.com/ROCm/aiter/pull/3336
   - https://github.com/ROCm/aiter/commit/a86fb0fab139ce78bce40e2ac51659a27ca161dd
   - https://github.com/opengfx1030/vllm-rdna/blob/8bb8ff36cdb2e885553a151a824706d2d920fe3a/csrc/rocm/skinny_gemms.cu
+  - https://github.com/llvm/llvm-project/blob/08000f527e9e990564ddd4cc0fddb071aa09f1d1/llvm/lib/Target/AMDGPU/GCNFeatures.td
+  - https://github.com/llvm/llvm-project/blob/08000f527e9e990564ddd4cc0fddb071aa09f1d1/clang/lib/Sema/SemaAMDGPU.cpp
+  - https://godbolt.org/api/compiler/hipclang-trunk-rocm-71400/compile
 ---
 
 # VMEM-to-LDS direct loads (buffer/global `lds` bit) vs effective occupancy (gfx1030)
@@ -29,7 +32,7 @@ Companions: [occupancy-composite.md](occupancy-composite.md), [vgpr-occupancy.md
 | **Take** (Later) | Treat it as a **VGPR-relief lever for double-buffered tile prefetch**, where loaded data would otherwise stay live across a compute phase. Probe §3: an 8-dword-per-lane prefetch loop drops from 36 to 27 VGPRs.[^probe-ldsdma] It matters only when that cut crosses a 16-VGPR allocation rung (for example 72 rounds to 80 for 12 waves/SIMD, while 64 allows 16; formula on [vgpr-occupancy.md](vgpr-occupancy.md)). In the probe both variants already sit at 16 waves, so occupancy did not change. Measure before adopting. |
 | **Take** | Budget **one `s_mov`/`s_or` to `M0` per load** (LDS byte offset comes from `M0[15:0]`) and a VMEM read that is waited with `vmcnt`, then `s_barrier` before another wave reads the data. Probe: clang 22 emits a separate `M0` write before each of the 8 loads.[^isa-lds-addr][^isa-vmcnt][^probe-ldsdma] |
 | **Take** | Fatbin rule: keep LDS-DMA code behind a gfx10 guard. gfx1100 (W7800 / 7900 XTX class) and gfx12 reject both the MUBUF `lds` form and the clang builtins (`needs target feature vmem-to-lds-load-insts`). gfx1013 (BC-250) assembles it, same as gfx1030.[^probe-ldsdma][^llvm-td-feature] |
-| **Must** | Before any extras use, re-probe on the **ROCm 7.14.0** compiler. Upstream clang 19 rejects `__builtin_amdgcn_global_load_lds` on gfx1030 ("needs target feature gfx940-insts") and has no `__builtin_amdgcn_raw_ptr_buffer_load_lds`, while `llc` 19 still lowers both LLVM intrinsics on gfx1030. Upstream clang 22 accepts both builtins. The gate is the front end, not the silicon, and the pinned amd-clang was not checked here.[^probe-ldsdma] |
+| **Take** (resolved 2026-11-09) | The ROCm 7.14.0 front-end gate is **cleared**. On the Compiler Explorer `clang trunk rocm-7.14.0` HIP compiler, `__builtin_amdgcn_global_load_lds(…, 4, 0, 0)` compiles for gfx1030 to `s_mov_b32 m0, 0` followed by `global_load_dword v[1:2], off lds`; size 16 is rejected with "invalid size value"; gfx1100 is rejected with "needs target feature vmem-to-lds-load-insts". Upstream clang main matches: the Sema check accepts sizes 1, 2 and 4 and allows 12 and 16 only with `gfx950-insts`. The clang 19 rejection in §2 is an old front end, not the pin. This is still a Later lever, not an extras change.[^probe-rocm714][^clang-sema-size] |
 | **Leave** | Do **not** port the gfx950 16-byte path. dest `skinny_gemms.cu` calls `__builtin_amdgcn_global_load_lds(…, 16, …)` only under `#if defined(__gfx950__)`; on gfx1030 it takes the `bigType` VGPR copy, and `buffer_load_dwordx4 … lds` does not assemble for gfx1030.[^dest-skinny][^probe-ldsdma] Those copies are a prologue before `__syncthreads()`, not a prefetch overlapped with compute, so the VGPR lever above does not apply to them. |
 | **Leave** | Do **not** expect a per-lane LDS layout. The LDS side adds the lane id to the `M0` offset (ISA: "LDS adds it"), so each instruction writes a lane-contiguous dword row. Padded or swizzled tiles from [lds-bank-occupancy.md](../lds-and-tiles/lds-bank-occupancy.md) can only be built at instruction granularity, not per lane.[^isa-lds-addr] |
 | **Leave** | Do **not** subtract it from `--lds=`. The data still lands in the workgroup's LDS allocation, and the ISA clamps writes to the wave's own LDS space (out-of-range lanes are masked, with no memory violation).[^isa-lds-addr][^isa-memviol] |
@@ -70,6 +73,21 @@ All rows come from the box probe.[^probe-ldsdma] The LLVM source matches: `vmem-
 
 Both variants land at the 16-wave cap, so the 9-VGPR saving bought nothing in this toy. It becomes occupancy only for a kernel already sitting just over a rung. The probe does not measure time.
 
+## 3b. ROCm 7.14.0 re-probe (2026-11-09)
+
+Compiler Explorer, compiler `hipclang-trunk-rocm-71400` (listed as "clang trunk rocm-7.14.0"), `--offload-arch=<arch> -O3 --offload-device-only -nogpulib`. Source: one 256-thread workgroup, `__shared__ float t[256]`, one `__builtin_amdgcn_global_load_lds` per lane, `__syncthreads()`, then a reversed `ds_read`.[^probe-rocm714]
+
+| Case | Result |
+|---|---|
+| gfx1030, size 4 | `s_mov_b32 m0, 0`, `global_load_dword v[1:2], off lds` |
+| gfx1030, size 16 | error: invalid size value |
+| gfx1100, size 4 | error: needs target feature `vmem-to-lds-load-insts` |
+| gfx1030, no manual `s_waitcnt` | compiler still emits `s_waitcnt vmcnt(0)` and `s_waitcnt_vscnt null, 0x0` before `s_barrier` |
+
+The last row means `__syncthreads()` alone is enough for correctness in this shape: the compiler treats the `lds` load as an outstanding VMEM read and drains `vmcnt` at the barrier. That same drain is the cost; a double-buffered loop that wants the next tile to stay in flight across the barrier needs its own wait placement, which this probe does not test. This probe used a 64-bit `vaddr` with `off` (no SADDR form), because of how the source computed the pointer; SADDR rules are on [vmem-addressing-occupancy.md](vmem-addressing-occupancy.md). No timing was measured.[^probe-rocm714]
+
+Upstream LLVM moved the feature table out of `AMDGPU.td`: at `08000f52` `VMemToLDSLoad` is defined in `GCNFeatures.td` and listed in `FeatureGFX10`, not `FeatureGFX11` or `FeatureGFX12`, so the §2 reading still holds.[^llvm-gcnfeatures]
+
 ## 4. Where it sits in the occupancy composite
 
 Out of the theoretical min. It is an input that lowers `vgpr_count`, not a separate limiter. Count the extra `M0` SALU writes and the barrier wait inside the held slot, like [waitcnt-occupancy.md](waitcnt-occupancy.md). Leave LDS bytes unchanged.
@@ -81,6 +99,8 @@ Out of the theoretical min. It is an input that lowers `vgpr_count`, not a separ
 3. ROCm/aiter PR #3336, merged as a86fb0fab139ce78bce40e2ac51659a27ca161dd (gfx1201 fallback for `opus::_async_load`).
 4. opengfx1030/vllm-rdna `rdna_extras` at 8bb8ff36cdb2e885553a151a824706d2d920fe3a, `csrc/rocm/skinny_gemms.cu`.
 5. Box probe `/workspace/ldsdma-probe/` (`k.c`, `db.c`, `ir.ll`, `.s` outputs).
+6. Compiler Explorer ROCm 7.14.0 re-probe, 2026-11-09 (`/workspace/ldsdma-probe/rocm714/`).
+7. LLVM `GCNFeatures.td` and clang `SemaAMDGPU.cpp` at 08000f527e9e990564ddd4cc0fddb071aa09f1d1.
 
 [^isa-mubuf-lds]: AMD "RDNA 2" ISA Reference Guide, doc 70648, 2020-11-30, §8.1 MUBUF fields (p.58): "LDS … 1 = Return read-data to LDS instead of VGPRs"; §8.1.9 (p.65) lists the supported loads and "illegal to set the instruction's TFE bit for loads to LDS". https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-14)
 [^isa-flat-lds]: Same guide, §9.1 FLAT field table (p.83): "LDS … When set, data is moved from memory to LDS instead of to VGPRs. Available only for loads. For Global and Scratch only; must be zero for Flat." https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-14)
@@ -94,3 +114,6 @@ Out of the theoretical min. It is an input that lowers `vgpr_count`, not a separ
 [^aiter-3336]: ROCm/aiter PR #3336 "[csrc/opus] add synchronous fallback to _async_load for non-buffer-to-LDS archs", merged as a86fb0fab139ce78bce40e2ac51659a27ca161dd; description states RDNA gfx10xx/gfx11xx/gfx12xx lack the feature and reports the failure on gfx1201. https://github.com/ROCm/aiter/pull/3336 ; https://github.com/ROCm/aiter/commit/a86fb0fab139ce78bce40e2ac51659a27ca161dd (checked 2026-10-14)
 [^dest-skinny]: `csrc/rocm/skinny_gemms.cu`, opengfx1030/vllm-rdna `rdna_extras` at 8bb8ff36cdb2e885553a151a824706d2d920fe3a: `#if defined(__gfx950__)` → `__builtin_amdgcn_global_load_lds((int*)(&A[k]), (int*)(&s[k]), 16, 0, 0)`, `#else` → `*((bigType*)(&s[k])) = *((bigType*)(&A[k]))`, then `__syncthreads()`. https://github.com/opengfx1030/vllm-rdna/blob/8bb8ff36cdb2e885553a151a824706d2d920fe3a/csrc/rocm/skinny_gemms.cu#L403-L410 (same `__gfx950__` guard at L645, L905, L990, L2099, L2294; the L1549–L1754 calls sit inside the `wvSplitKrc_` block opened by `#if defined(__gfx950__)` at L1340, with an `#else` stub at L1816)
 [^probe-ldsdma]: Box compiler probe `/workspace/ldsdma-probe/` (`k.c`, `db.c`, `ir.ll` and `.s` output; Debian clang/llvm 22.1.8 and 19.1.7, upstream, not the ROCm 7.14.0 pin). Local box path, not a public URL; re-run to reproduce.
+[^probe-rocm714]: Compiler Explorer API, compiler id `hipclang-trunk-rocm-71400`, run 2026-11-09; sources and JSON output saved at `/workspace/ldsdma-probe/rocm714/` (local box path, not a public URL; re-run with POST to the compile endpoint). https://godbolt.org/api/compiler/hipclang-trunk-rocm-71400/compile
+[^clang-sema-size]: clang `SemaAMDGPU.cpp` at 08000f527e9e990564ddd4cc0fddb071aa09f1d1: for `*_buffer_load_lds`, `load_to_lds` and `global_load_lds`, size 1, 2, 4 return OK; 12 and 16 only when `gfx950-insts` is present; otherwise `err_amdgcn_load_lds_size_invalid_value`. https://github.com/llvm/llvm-project/blob/08000f527e9e990564ddd4cc0fddb071aa09f1d1/clang/lib/Sema/SemaAMDGPU.cpp#L50-L86 (checked 2026-11-09)
+[^llvm-gcnfeatures]: LLVM `GCNFeatures.td` at 08000f527e9e990564ddd4cc0fddb071aa09f1d1: `defm VMemToLDSLoad` (L1634); `FeatureVMemToLDSLoad` in `def FeatureGFX10` (L1811-L1836); `FeatureGFX11` (L1846) and `FeatureGFX12` (L1881) lists do not include it. https://github.com/llvm/llvm-project/blob/08000f527e9e990564ddd4cc0fddb071aa09f1d1/llvm/lib/Target/AMDGPU/GCNFeatures.td#L1634-L1881 (checked 2026-11-09)
