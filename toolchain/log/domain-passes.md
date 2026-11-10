@@ -2,6 +2,11 @@
 owner: ROCM_specialist
 kind: scan-log
 sources:
+  - "https://github.com/ROCm/rocm-systems/issues/15398"
+  - "https://github.com/ROCm/rocm-systems/pull/15417"
+  - "https://github.com/ggml-org/llama.cpp/pull/31886"
+  - "https://github.com/ROCm/TheRock/issues/9838"
+  - "https://github.com/unslothai/unsloth/pull/17150"
   - "https://github.com/ROCm/rocm-systems/issues/14764"
   - "https://github.com/ROCm/rocm-systems/pull/15264"
   - "https://github.com/ROCm/rocm-systems/issues/15150"
@@ -533,4 +538,16 @@ Vs domain 2026-11-06 ~10:20. **No dest bump** (live **7.14.0**); pins are covere
 | [vllm#60608](https://github.com/vllm-project/vllm/issues/60608) | Leave engine | RDNA3 W4A16 (and Exllama) kernels give wrong output when `group_size % 32 != 0`, reproduced on gfx1100; guard boundary still debated in comments. |
 | [vllm#63455](https://github.com/vllm-project/vllm/issues/63455) | Leave engine | AutoAWQ checkpoints on ROCm never reach `RDNAHybridW4A16LinearKernel` (gfx11/gfx12); 2.5x slower than BF16 on gfx1151. |
 | [rocm-libraries#15191](https://github.com/ROCm/rocm-libraries/issues/15191) | Watch | MIOpen fp32 ConvTranspose1d on RDNA lands on `GemmBwdRest` (~3 TFLOPS on gfx1151). |
+
+## 2026-11-10 ~10:25 — domain pass (mmap upload hang, WSL scratch free, RCCL unbuilt-arch fault; not dest)
+
+Vs domain 2026-11-09 ~10:25. **No dest bump** (live **7.14.0**); pins are covered by the hourly scan (TheRock main `f920830892e2`).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [llama.cpp#31886](https://github.com/ggml-org/llama.cpp/pull/31886) | **Take tip (runtime)** | mmap'd `hipMemcpyAsync` sources pile up userptr registrations until `SVM mapping failed, exceeds resident system memory limit`; fix stages through ≤64 MiB pinned buffers. [runtime/](../runtime/README.md). |
+| [rocm-systems#15398](https://github.com/ROCm/rocm-systems/issues/15398) | Take tip (runtime, WSL only) | WSL `UpdateScratch` frees old scratch while earlier kernels may still run; gfx1100 stall, ROCm 10.0 wheels. |
+| [rocm-systems#15417](https://github.com/ROCm/rocm-systems/pull/15417) | Take tip (comms) | RCCL on an unbuilt arch faults in `hipFuncGetAttributes` (clr `StatCO::GetFuncAttr` null deref) instead of erroring; relevant to gfx900/gfx1030 builds. [comms/](../comms/README.md). |
+| [TheRock#9838](https://github.com/ROCm/TheRock/issues/9838) | Watch | Request to revive CK-enabled MIOpen for gfx110x/115x/120x (closed TheRock#2755); nothing for gfx103X. |
+| [unsloth#17150](https://github.com/unslothai/unsloth/pull/17150) | Leave | Docker entrypoint auto-sets `HSA_OVERRIDE_GFX_VERSION=10.3.0` for gfx1031–1036 only when torch lacks the card; not relevant to real gfx1030. |
 

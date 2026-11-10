@@ -2,6 +2,7 @@
 owner: ROCM_specialist
 updated: 2026-10-11
 sources:
+  - https://github.com/ROCm/rocm-systems/pull/15417
   - https://github.com/ROCm/rocm-systems/issues/12145
   - https://github.com/ROCm/legacy-rocm-build/issues/6565
   - https://github.com/ROCm/rocm-systems/issues/9820
@@ -103,6 +104,10 @@ Symmetric memory and the GIN device API are the ROCm 10.0 section below. vLLM's 
 
 These are reports on other GPUs. None of them is a published V620 rccl-tests table. Whether this box hits the same path is a measurement; the peer matrix is the silicon page.
 
+### Unbuilt arch: init faults instead of failing
+
+[rocm-systems#15417](https://github.com/ROCm/rocm-systems/pull/15417) (open, filed 2026-11-09) says that when librccl has no device code for the running GPU arch, communicator init does not fail cleanly. `ncclInitKernelsForDevice()` ignores each failed `hipFuncGetAttributes()` query, returns success, and leaves a communicator that cannot launch a kernel; on some stacks the query itself segfaults because clr's `StatCO::GetFuncAttr` dereferences `ModuleInfo()` without the null check `StatCO::GetFunc` has. The report is gfx1103 against builds whose `GPU_TARGETS` omit it. The PR records the built targets and makes RCCL return an error naming the arch; it does not fix the clr null dereference.[^rccl15417] For us: a segfault in `hipFuncGetAttributes` under `ncclCommInitRank` on a gfx900 or gfx1030 build means checking librccl's built targets first (for example with `roc-obj-ls`), not debugging topology.
+
 ### `hipIpcGetMemHandle` invalid argument
 
 [rccl-tests#162](https://github.com/ROCm/rccl-tests/issues/162) (closed) is 4× Radeon AI PRO R9700 (gfx1201), Ubuntu 24.04.3, kernel `6.14.0-36-generic`, RCCL `2.27.7-HEAD:84d2752`, HIP `7.1.52802`, ROCm `7.1.1`. `all_reduce_perf -b 8 -e 128M -f 2 -g 4` logs `src/transport/p2p.cc:256 NCCL WARN hipIpcGetMemHandle failed : invalid argument`. `huanrwan-amd` (2025-12-13) asked for a rerun with `NCCL_P2P_DISABLE=1`. The reporter's follow-up log with that variable set prints the four R9700 devices and small-message rows with `#wrong 0`. A standalone `hipIpcGetMemHandle` program from the same reporter returned `invalid argument`; the AMD reply said that program succeeded on their machine and asked about large BAR and the `amd-smi` driver string `amdgpu version: 6.14.0-37`. Not a gfx1030 report.[^rccl162]
@@ -154,3 +159,4 @@ The blog does not publish a V620 or gfx1030 GIN bandwidth. This page does not ad
 [^vllm24160]: vllm#24160, closed, including `zejunchen-zejun` comments 2025-09-04 and 2025-09-05. https://github.com/vllm-project/vllm/issues/24160
 [^vllm18805]: vllm#18805, closed. https://github.com/vllm-project/vllm/issues/18805
 [^rocm10blog]: "ROCm 10.0: A Decade of Open Compute, Built for the Age of Agentic AI", August 27, 2026, Liam Berry, Saad Rahim, Anshul Gupta, Evan Groenke. Read 2026-10-11. https://rocm.blogs.amd.com/ecosystems-and-partners/rocm-x-blog/README.html
+[^rccl15417]: rocm-systems#15417, open, "fix(rccl): reject an unbuilt GPU arch at init instead of faulting in HIP", filed 2026-11-09 23:09 UTC. https://github.com/ROCm/rocm-systems/pull/15417

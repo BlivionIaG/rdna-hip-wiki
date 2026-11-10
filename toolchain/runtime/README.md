@@ -1,7 +1,9 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-09
+updated: 2026-11-10
 sources:
+  - https://github.com/ggml-org/llama.cpp/pull/31886
+  - https://github.com/ROCm/rocm-systems/issues/15398
   - https://github.com/ROCm/rocm-systems/issues/14764
   - https://github.com/ROCm/rocm-systems/pull/15264
   - https://github.com/ROCm/rocm-systems/issues/14886
@@ -133,6 +135,8 @@ Update (2026-11-03): the reporter now places the root cause in ROCr, not clr. Wh
 
 For the V620 host: check whether the amdgpu module in use is Linux 7.2 or later, or a DKMS build that carries `b89d58b6595d`. If it is neither, load weights from non-mmap'd buffers, or try `HSA_USE_SVM=0` and measure. Our reading, untested: `HSA_USERPTR_FOR_PAGED_MEM=0` from the section above backs paged memory with SVM, so on an unfixed kernel it may trade the eviction stall for this fault. This is a host-kernel floor, like the DRM 3.64 note above, not a 7.14.0 userspace pin change.
 
+[llama.cpp#31886](https://github.com/ggml-org/llama.cpp/pull/31886) (open, filed 2026-11-08) is a different mmap failure: a load that never finishes, with the kernel log filling with `amdgpu: SVM mapping failed, exceeds resident system memory limit`. The PR says `ggml_backend_cuda_buffer_set_tensor` hands the mmap'd source pointer straight to `hipMemcpyAsync`, the driver keeps each source range registered as a userptr mapping for DMA, and once those registrations pass the resident memory limit every further copy is retried forever. `--load-mode none` is unaffected because it already reads through pinned staging buffers. The fix stages large HIP uploads through a reused, double-buffered pinned buffer of at most 64 MiB.[^lcpp31886] For our HIP loaders: copy large mmap'd weights through a bounded pinned staging buffer instead of passing the mmap pointer to `hipMemcpyAsync`. The PR does not name a GPU architecture, so whether the V620 hits it at our model sizes is untested (unsourced).
+
 ## Streams and hardware queues
 
 clr does not give every HIP stream its own hardware queue. Per priority level it creates new HSA queues until it holds `GPU_MAX_HW_QUEUES` of them (default 4, same in `therock-7.14.1` and `therock-10.1`). After that, a new stream reuses an existing queue: an unshared queue first, then the lowest load. Under `DEBUG_HIP_DYNAMIC_QUEUES=1` (the default) "load" is a metric built from queue depth and user count; under `0` it is the user count only.[^q-flags][^q-pool] So which streams share a queue depends on creation order and on how busy each queue is at that moment. It is not fixed by the code alone.
@@ -164,6 +168,10 @@ This differs from the cross-queue stall above: the stuck work is an SDMA copy af
 [TheRock#9484](https://github.com/ROCm/TheRock/issues/9484) (open, filed 2026-10-26 01:39 UTC, no AMD reply yet) reports that on an RX 7900 XTX (gfx1100, MES firmware 0x80), a single HSA queue holding one unsatisfied AQL `BARRIER_AND` packet raises idle board power from 9–10 W to 92–94 W at 100% GFX activity, with no compute wave resident. Drained queues idle normally. The reporter reproduced it on ROCm 7.2.4, 7.14 and 10.1, and says `sched_policy=2` and the August gfx11 MES timer correction did not fix it.[^q-9484] The reporter links it to [TheRock#9141](https://github.com/ROCm/TheRock/issues/9141), an older 100%-utilisation report where an AMD contributor reproduced stuck 100% GPU use on gfx1100 with three or more llama.cpp instances and suggested `GPU_MAX_HW_QUEUES=1` as a partial workaround.[^q-9141]
 
 Our reading, not tested here: a HIP stream that waits on an event that is not yet recorded (`hipStreamWaitEvent` ahead of the producer) leaves exactly this kind of barrier packet in the queue, so a server that parks streams on cross-stream events between requests may burn power on gfx1100 while idle. Check board power on the W7800 and 7900 XTX boxes with an idle engine before treating it as a load problem. No gfx1030 report so far. No 7.14.0 pin change.
+
+### WSL: scratch freed while earlier kernels still run
+
+[rocm-systems#15398](https://github.com/ROCm/rocm-systems/issues/15398) (open, filed 2026-11-09) reports that on WSL `ComputeQueue::UpdateScratch` frees the old scratch buffer when a later kernel needs a bigger one, even if earlier kernels on the queue may still use it. On one RX 7900 XTX (gfx1100), Ubuntu 26.04 under WSL 2, ROCm 10.0.0 wheels, queuing small-scratch kernels and then one that grows scratch, with no wait between launches, stalled the GPU and Windows logged `LiveKernelEvent 141`; a clean source build did the same. The reporter asks that the old buffer stay allocated until the queue's completion fence passes.[^sys15398] This is the WSL path only; native Linux is not claimed. On WSL, a sync before a launch with much larger scratch (spilling or large private arrays) is the obvious mitigation to test (unsourced).
 
 ### `multiProcessorCount` counts WGPs on RDNA
 
@@ -263,3 +271,5 @@ Since Linux 6.14 the `dmem` cgroup controller can cap a container's VRAM on amdg
 [^q-fw3160]: AMD package folder for `amdgpu-dkms-firmware` 31.60 (Ubuntu). https://repo.radeon.com/amdgpu/31.60/ubuntu/pool/main/a/amdgpu-dkms-firmware/
 [^q-4378]: Strata#4378, opened 2026-10-28 00:24 UTC: GFXOFF/SDMA stall table (168 / 28 / 28 sessions) and watchdog findings. https://github.com/Niko1221/Strata/issues/4378
 [^sys14860]: rocm-systems#14860, open, filed 2026-11-02 20:56 UTC (measurements on W7900, kernel 7.0, ROCm 7.2.4). https://github.com/ROCm/rocm-systems/issues/14860
+[^lcpp31886]: llama.cpp#31886, open, "rocm: fix mmap model loading hang with staged uploads", filed 2026-11-08 (fixes llama.cpp#19482). https://github.com/ggml-org/llama.cpp/pull/31886
+[^sys15398]: rocm-systems#15398, open, filed 2026-11-09 20:48 UTC (RX 7900 XTX, WSL 2, ROCm 10.0.0 wheels). https://github.com/ROCm/rocm-systems/issues/15398
