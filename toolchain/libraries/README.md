@@ -1,7 +1,11 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-06
+updated: 2026-11-11
 sources:
+  - https://github.com/Comfy-Org/ComfyUI/issues/17659
+  - https://github.com/Comfy-Org/ComfyUI/pull/17667
+  - https://github.com/Comfy-Org/comfy-kitchen/pull/337
+  - https://github.com/ROCm/rocm-libraries/issues/15527
   - https://github.com/ROCm/TheRock/issues/8729
   - https://github.com/Niko1221/Strata/pull/1123
   - https://github.com/Niko1221/Strata/pull/1167
@@ -143,6 +147,14 @@ For our own containers or fork builds on a kpack ROCm (Strata's report uses `/op
 [rocm-libraries#14905](https://github.com/ROCm/rocm-libraries/pull/14905) (merged 2026-11-04, commit `a2b512b2`) adds a gfx103X `SetTolerance` for `ConvHipImplicitGemmV4R1WrW` so TheRock's gfx103X nightly no longer fails ROCM-23567 on a default `1.0` tolerance. The PR calls it a test calibration gap, not a product defect.[^mi14905] In TheRock libraries pin `37f616f` via [#9759](https://github.com/ROCm/TheRock/pull/9759) as of 2026-11-06.[^tr9759]
 
 
+### No INT8 `torch._int_mm` on gfx1030 through hipBLASLt
+
+[ComfyUI#17659](https://github.com/Comfy-Org/ComfyUI/issues/17659) (open, filed 2026-11-10) reports that INT8 models fail on an RX 6900 XT (gfx1030, ROCm 7.2) with `HIPBLAS_STATUS_INVALID_VALUE` from `hipblasLtMatmulAlgoGetHeuristic` inside `torch._int_mm`, while the bf16 variant of the same model runs.[^cf17659] The fix PR [ComfyUI#17667](https://github.com/Comfy-Org/ComfyUI/pull/17667) (open) says PyTorch's ROCm wheels ship hipBLASLt without INT8 Tensile kernels for RDNA2 and older, and routes INT8 linears through comfy-kitchen's Triton backend instead. On an RX 6800 (gfx1030, ROCm 7.2, torch 2.14.1) it reports about 39 TOPS for the Triton INT8 GEMM at N=4096 against about 7 TF/s for the bf16 fallback, and 19.7 s to 8.7 s per step on one Qwen Image 2.1 INT8 forward.[^cf17667] A SIMT INT8 GEMM for GPUs without matrix cores is proposed in [comfy-kitchen#337](https://github.com/Comfy-Org/comfy-kitchen/pull/337) (open).[^ck337] For our forks: on gfx1030, do not expect `torch._int_mm` or hipBLASLt INT8 to work; use a Triton or hand-written HIP INT8 GEMM (gfx1030 has `v_dot4_i32_i8`) and check it against a dequantized reference.
+
+### MIOpen naive-solver timeout still stalls PyTorch
+
+[rocm-libraries#15527](https://github.com/ROCm/rocm-libraries/issues/15527) (open, filed 2026-11-11) reports that MIOpen's `TryNaiveWithTimeout` stops waiting on the naive convolution kernel during Find but does not cancel it, and PyTorch's `emptyCache()` after each Find calls `hipFree`, which synchronizes the device, so the host thread stalls until the naive kernel finishes. It was measured on a Radeon PRO W7800 (gfx1100) with ROCm 10.1.0 in Kokoro-82M TTS with variable lengths.[^mi15527] Fix PRs [rocm-libraries#15532](https://github.com/ROCm/rocm-libraries/pull/15532) and [#15548](https://github.com/ROCm/rocm-libraries/pull/15548) are open. This compounds the naive-solver fallback above: with variable-length audio convolutions on RDNA, a warm user DB or fixed shapes avoids repeated Find.
+
 ## Sources
 
 [^tr8729]: TheRock#8729, open, issue body (wheel contents, gfx1030 vs gfx1100). https://github.com/ROCm/TheRock/issues/8729
@@ -174,3 +186,7 @@ For our own containers or fork builds on a kpack ROCm (Strata's report uses `/op
 [^lt15079]: rocm-libraries#15079, merged 2026-11-05 (USO default off on gfx11/gfx120). https://github.com/ROCm/rocm-libraries/pull/15079
 [^tr9759]: TheRock#9759, merged 2026-11-06T12:36:50Z; libraries submodule `37f616f6a510`. https://github.com/ROCm/TheRock/pull/9759
 [^mi14905]: rocm-libraries#14905, merged 2026-11-04 (gfx103X WrW tolerance). https://github.com/ROCm/rocm-libraries/pull/14905
+[^cf17659]: ComfyUI#17659, open, filed 2026-11-10 15:14 UTC (RX 6900 XT gfx1030, ROCm 7.2, hipBLASLt heuristic error). https://github.com/Comfy-Org/ComfyUI/issues/17659
+[^cf17667]: ComfyUI#17667, open, PR description (cause, gfx1030 measurements, tests). https://github.com/Comfy-Org/ComfyUI/pull/17667
+[^ck337]: comfy-kitchen#337, open. https://github.com/Comfy-Org/comfy-kitchen/pull/337
+[^mi15527]: rocm-libraries#15527, open, filed 2026-11-11 00:17 UTC (mechanism, PyTorch reproducer, W7800 gfx1100). https://github.com/ROCm/rocm-libraries/issues/15527

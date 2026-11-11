@@ -551,3 +551,17 @@ Vs domain 2026-11-09 ~10:25. **No dest bump** (live **7.14.0**); pins are covere
 | [TheRock#9838](https://github.com/ROCm/TheRock/issues/9838) | Watch | Request to revive CK-enabled MIOpen for gfx110x/115x/120x (closed TheRock#2755); nothing for gfx103X. |
 | [unsloth#17150](https://github.com/unslothai/unsloth/pull/17150) | Leave | Docker entrypoint auto-sets `HSA_OVERRIDE_GFX_VERSION=10.3.0` for gfx1031–1036 only when torch lacks the card; not relevant to real gfx1030. |
 
+## 2026-11-11 ~10:30 — domain pass (comgr reseeds rand(), no INT8 hipBLASLt on gfx1030, MIOpen naive stall; not dest)
+
+Vs domain 2026-11-10 ~10:25. **No dest bump** (live **7.14.0**); pins are covered by the hourly scan (TheRock main `7228d6cee8ed`).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [TheRock#9865](https://github.com/ROCm/TheRock/issues/9865) | **Take tip (compiler/runtime)** | First kernel launch reseeds `rand()`: comgr → libLLVM `GetRandomNumber` uses `srand` (no `arc4random`). Reported on gfx1100; host-side. [compiler/](../compiler/README.md). |
+| [ComfyUI#17659](https://github.com/Comfy-Org/ComfyUI/issues/17659) / [#17667](https://github.com/Comfy-Org/ComfyUI/pull/17667) | **Take tip (libraries)** | gfx1030 `torch._int_mm` fails in hipBLASLt (no INT8 kernels); Triton INT8 GEMM ~39 TOPS on RX 6800. [libraries/](../libraries/README.md). |
+| [rocm-libraries#15527](https://github.com/ROCm/rocm-libraries/issues/15527) | Take tip (libraries) | MIOpen abandoned naive kernels still stall PyTorch via `hipFree` sync; W7800 gfx1100. Fixes #15532/#15548 open. |
+| [rocm-systems#15520](https://github.com/ROCm/rocm-systems/pull/15520), #15492–#15503 | Watch | rocjitsu RDNA emulator correctness batch (INVALID-format buffer descriptors, VINTERP, image/LDS/FLAT). |
+| [vllm#66967](https://github.com/vllm-project/vllm/pull/66967), [#66958](https://github.com/vllm-project/vllm/pull/66958) | Leave engine | RDNA GDN prefill head-first grid / vectorized stores. |
+| [rocm-libraries#15446](https://github.com/ROCm/rocm-libraries/issues/15446) | Watch | MIOpen gfx1100 fp32 3x3 WrW: only `GemmWrwUniversal` applies; `ConvOclBwdWrW53` 7x faster but NaN. |
+| [unixyo/rdna2-gfx1030-ai-handbook](https://github.com/unixyo/rdna2-gfx1030-ai-handbook) | Watch | New gfx1030 (RX 6900 XT) measured-optimization notes; not reviewed in depth. |
+
