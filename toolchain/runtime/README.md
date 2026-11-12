@@ -1,7 +1,8 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-10
+updated: 2026-11-12
 sources:
+  - https://github.com/ROCm/rocm-systems/pull/15587
   - https://github.com/ggml-org/llama.cpp/pull/31886
   - https://github.com/ROCm/rocm-systems/issues/15398
   - https://github.com/ROCm/rocm-systems/issues/14764
@@ -177,6 +178,10 @@ Our reading, not tested here: a HIP stream that waits on an event that is not ye
 
 clr reads the agent's CU count and halves it when WGP mode is on. `GPU_ENABLE_WGP_MODE` defaults to `true`, and WGP mode is used on every gfx10+ target except gfx1250 and later.[^q-wgp][^q-flags] So `hipDeviceProp_t.multiProcessorCount` and `hipDeviceAttributeMultiprocessorCount` return the WGP count. [legacy-rocm-build#6407](https://github.com/ROCm/legacy-rocm-build/issues/6407) (open, docs) reports `16` on an RX 7600 with 32 CUs.[^q-6407] Our arithmetic from the code: a 72-CU V620 reports 36. A grid sized "one block per CU" from this value gets half the CUs. Size persistent or resident grids from the CU count (`rocminfo`, or 2× this value in WGP mode), and say which one a kernel note uses.
 
+### 7.14: device-resident AQL ring buffers on discrete gfx11
+
+[rocm-systems#15587](https://github.com/ROCm/rocm-systems/pull/15587) (open, filed 2026-11-11) says that on `release/therock-7.14` ROCr allocates the device-resident AQL ring buffer without the uncached attribute, so on a discrete gfx11 part the ring stays GPU-cacheable, the command processor can read a stale packet header written by the host over the large BAR, and the queue waits silently: no VM fault and no queue-error callback, only a completion-signal timeout. It reproduced deterministically on gfx1102 with `rocrtst` (`Queue_Create_DeviceMem_RingBuf_Test` and `Queue_Create_Batch_Test`), and the fix is a backport of the ROCr part of upstream commit `f79ca3d3a9e` (rocm-systems#7727, merged to `develop` 2026-07-21), which the PR says is absent from both 7.14 release branches.[^rocr15587] The PR also says the gfx1152 integrated-GPU reports on the same ticket are a separate large-BAR defect, backported in [#15607](https://github.com/ROCm/rocm-systems/pull/15607) and [#15608](https://github.com/ROCm/rocm-systems/pull/15608). For our forks: on a 7.14 runtime with gfx1100 cards, a dispatch that hangs with no fault on a queue whose ring sits in VRAM points here; the PR was not tested on gfx1030 or gfx900.
+
 ## Hostcall: device `printf` and `assert`
 
 Device `printf` and `assert` reach the host through a hostcall buffer. The device side (ockl in device-libs) and the host side (clr) must speak the same protocol. TheRock [#8259](https://github.com/ROCm/TheRock/pull/8259) (merged 2026-10-02) turned the new hostcall implementation on by default by setting `THEROCK_USE_NEW_HOSTCALL_IMPL` to ON, which TheRock passes to both device-libs and clr; the old path stayed selectable with `=OFF`.[^tr8259] [#9021](https://github.com/ROCm/TheRock/pull/9021) (merged 2026-10-15 20:07 UTC) reverts it because it "breaks HSA and ROCGDB" (two internal P1 tickets). A reviewer wrote that it broke things on 110X and gfx90a, and that `rocgdb-gpu` tests were clean on 110X, gfx90a and gfx1151 with the revert.[^tr9021] A related TheRock PR, [#8833](https://github.com/ROCm/TheRock/pull/8833) (closed 2026-10-15 without merge), was about Triton wheels shipping an OCKL that did not match the SDK, so device-side hostcalls in Triton kernels hung.[^tr8833]
@@ -273,3 +278,4 @@ Since Linux 6.14 the `dmem` cgroup controller can cap a container's VRAM on amdg
 [^sys14860]: rocm-systems#14860, open, filed 2026-11-02 20:56 UTC (measurements on W7900, kernel 7.0, ROCm 7.2.4). https://github.com/ROCm/rocm-systems/issues/14860
 [^lcpp31886]: llama.cpp#31886, open, "rocm: fix mmap model loading hang with staged uploads", filed 2026-11-08 (fixes llama.cpp#19482). https://github.com/ggml-org/llama.cpp/pull/31886
 [^sys15398]: rocm-systems#15398, open, filed 2026-11-09 20:48 UTC (RX 7900 XTX, WSL 2, ROCm 10.0.0 wheels). https://github.com/ROCm/rocm-systems/issues/15398
+[^rocr15587]: rocm-systems#15587, open, filed 2026-11-11 19:43 UTC (mechanism, gfx1102 rocrtst A/B/A results, scope note on gfx1152). https://github.com/ROCm/rocm-systems/pull/15587

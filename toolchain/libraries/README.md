@@ -1,7 +1,11 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-11
+updated: 2026-11-12
 sources:
+  - https://github.com/ROCm/rocm-libraries/issues/15578
+  - https://github.com/ROCm/rocm-libraries/pull/15586
+  - https://github.com/Comfy-Org/ComfyUI/pull/17684
+  - https://github.com/Comfy-Org/ComfyUI/pull/17686
   - https://github.com/Comfy-Org/ComfyUI/issues/17659
   - https://github.com/Comfy-Org/ComfyUI/pull/17667
   - https://github.com/Comfy-Org/comfy-kitchen/pull/337
@@ -155,6 +159,14 @@ For our own containers or fork builds on a kpack ROCm (Strata's report uses `/op
 
 [rocm-libraries#15527](https://github.com/ROCm/rocm-libraries/issues/15527) (open, filed 2026-11-11) reports that MIOpen's `TryNaiveWithTimeout` stops waiting on the naive convolution kernel during Find but does not cancel it, and PyTorch's `emptyCache()` after each Find calls `hipFree`, which synchronizes the device, so the host thread stalls until the naive kernel finishes. It was measured on a Radeon PRO W7800 (gfx1100) with ROCm 10.1.0 in Kokoro-82M TTS with variable lengths.[^mi15527] Fix PRs [rocm-libraries#15532](https://github.com/ROCm/rocm-libraries/pull/15532) and [#15548](https://github.com/ROCm/rocm-libraries/pull/15548) are open. This compounds the naive-solver fallback above: with variable-length audio convolutions on RDNA, a warm user DB or fixed shapes avoids repeated Find.
 
+### hipDNN RDNA decode attention: NaN on lowest-value bf16 masks
+
+[rocm-libraries#15578](https://github.com/ROCm/rocm-libraries/issues/15578) (open, filed 2026-11-11) reports that the hip-kernel-provider's RDNA split-KV decode attention kernel (`hipkernel:Gfx1151WmmaAttentionDecode`, rocKE) returns NaN with no error when an additive bf16 or f32 mask uses the dtype's lowest finite value instead of `-inf`, as Hugging Face masks do with `torch.finfo(dtype).min`, and every key in a wave's first 16-key tile is masked (for example with left padding). fp16 masks and `-inf` masks are not affected. It reproduced on gfx1100 and gfx1201, and the issue says the dispatcher also sends many short prefills (most with Sq ≤ 64) to this kernel.[^dnn15578] The fix [rocm-libraries#15586](https://github.com/ROCm/rocm-libraries/pull/15586) (open) says the kernel ships only for gfx1100–1103, gfx1150–1153, gfx1200 and gfx1201, so gfx1030 never reaches it.[^dnn15586] For our forks on gfx1100: if hipDNN serves SDPA, pass `-inf` masks or check bf16 padded batches for NaN until the fix lands.
+
+### ComfyUI picks FP32, not FP16, on GPUs without BF16
+
+Two open ComfyUI PRs filed 2026-11-11 say that models whose `supported_inference_dtypes` list only BF16 and FP32 fall through to FP32 on GPUs without BF16 ("RDNA2 and older"), and that `--fp16-unet` was the only way to get FP16. On a 16 GB gfx1030 with ROCm 7.2 they measure FP16 against FP32 at 7.06 vs 7.78 s/it for MOSS-Image and 5.06 vs 6.23 s/it for Qwen Image 2.1, with no NaN or Inf at 1024² to 2048².[^cf17684][^cf17686] For our forks: on gfx1030, check which dtype the app actually selected before benchmarking, and keep an FP16 path with a residual clamp where activations approach the FP16 range.
+
 ## Sources
 
 [^tr8729]: TheRock#8729, open, issue body (wheel contents, gfx1030 vs gfx1100). https://github.com/ROCm/TheRock/issues/8729
@@ -190,3 +202,7 @@ For our own containers or fork builds on a kpack ROCm (Strata's report uses `/op
 [^cf17667]: ComfyUI#17667, open, PR description (cause, gfx1030 measurements, tests). https://github.com/Comfy-Org/ComfyUI/pull/17667
 [^ck337]: comfy-kitchen#337, open. https://github.com/Comfy-Org/comfy-kitchen/pull/337
 [^mi15527]: rocm-libraries#15527, open, filed 2026-11-11 00:17 UTC (mechanism, PyTorch reproducer, W7800 gfx1100). https://github.com/ROCm/rocm-libraries/issues/15527
+[^dnn15578]: rocm-libraries#15578, open, filed 2026-11-11 19:56 UTC (trigger, cause, gfx1100/gfx1201/gfx1151 reproduction). https://github.com/ROCm/rocm-libraries/issues/15578
+[^dnn15586]: rocm-libraries#15586, open, filed 2026-11-11 20:32 UTC (ASIC coverage section). https://github.com/ROCm/rocm-libraries/pull/15586
+[^cf17684]: ComfyUI#17684, open, filed 2026-11-11 (MOSS-Image FP16, gfx1030 timings and numerics). https://github.com/Comfy-Org/ComfyUI/pull/17684
+[^cf17686]: ComfyUI#17686, open, filed 2026-11-11 (Qwen Image 2.1 FP16, gfx1030 timings and numerics, `--fp16-unet` note). https://github.com/Comfy-Org/ComfyUI/pull/17686

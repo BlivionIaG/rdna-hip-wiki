@@ -565,3 +565,17 @@ Vs domain 2026-11-10 ~10:25. **No dest bump** (live **7.14.0**); pins are covere
 | [rocm-libraries#15446](https://github.com/ROCm/rocm-libraries/issues/15446) | Watch | MIOpen gfx1100 fp32 3x3 WrW: only `GemmWrwUniversal` applies; `ConvOclBwdWrW53` 7x faster but NaN. |
 | [unixyo/rdna2-gfx1030-ai-handbook](https://github.com/unixyo/rdna2-gfx1030-ai-handbook) | Watch | New gfx1030 (RX 6900 XT) measured-optimization notes; not reviewed in depth. |
 
+
+## 2026-11-12 ~10:35 — domain pass (7.14 device-resident AQL ring hang on gfx11, hipDNN RDNA decode NaN, ComfyUI FP32 fallback on gfx1030; not dest)
+
+Vs domain 2026-11-11 ~10:30. **No dest bump** (live **7.14.0**); pins are covered by the hourly scan (TheRock main `80522adefc42`, releases unchanged).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [rocm-systems#15587](https://github.com/ROCm/rocm-systems/pull/15587) | **Take tip (runtime)** | 7.14 device-resident AQL ring left GPU-cacheable: silent completion timeout on gfx1102; backport of develop `f79ca3d3a9e` (#7727). [runtime/](../runtime/README.md). |
+| [rocm-libraries#15578](https://github.com/ROCm/rocm-libraries/issues/15578) / [#15586](https://github.com/ROCm/rocm-libraries/pull/15586) | **Take tip (libraries)** | hipDNN RDNA split-KV decode NaN on bf16 `finfo.min` masks; gfx11/gfx12 only. [libraries/](../libraries/README.md). |
+| [ComfyUI#17684](https://github.com/Comfy-Org/ComfyUI/pull/17684) / [#17686](https://github.com/Comfy-Org/ComfyUI/pull/17686) | Take tip (libraries) | BF16-less GPUs fall to FP32; FP16 1.10x/1.23x on gfx1030. |
+| [pytorch#204115](https://github.com/pytorch/pytorch/pull/204115) | Watch | AOTriton 0.15b bump (open): fixes a gfx1100 short-sequence tuning-db regression from 0.14b. |
+| [rocm-libraries#15482](https://github.com/ROCm/rocm-libraries/pull/15482), [#15565](https://github.com/ROCm/rocm-libraries/pull/15565), [#15616](https://github.com/ROCm/rocm-libraries/pull/15616) | Watch | hip-kernel-provider RDNA conv engines (FMA implicit GEMM, conv+bias, depthwise 3D) for gfx11/gfx12; no gfx1030. |
+| [rocm-systems#15620](https://github.com/ROCm/rocm-systems/pull/15620), #15576, #15579 | Watch | rocjitsu RDNA3/RDNA4 CI benchmarks and RDNA3 FP matching; still nothing for RDNA2. |
+| [TheRock#9902](https://github.com/ROCm/TheRock/pull/9902) | Watch | gfx11 CK SDPA in PyTorch wheels, still open. |
