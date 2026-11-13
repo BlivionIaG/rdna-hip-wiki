@@ -1,7 +1,8 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-23
+updated: 2026-11-11
 sources:
+  - https://github.com/ROCm/TheRock/issues/9865
   - https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.14.0/reference/rocmcc.html
   - https://rocm.docs.amd.com/projects/HIP/en/docs-7.14.0/how-to/hip_cpp_language_extensions.html
   - https://clang.llvm.org/docs/AttributeReference.html#amdgpu-waves-per-eu
@@ -21,6 +22,7 @@ sources:
   - https://github.com/pytorch/pytorch/pull/198208
   - https://github.com/triton-lang/triton/pull/10906
   - https://github.com/ROCm/TheRock/issues/9294
+  - https://github.com/ROCm/rocm-examples/issues/566
 ---
 
 # Compiler
@@ -40,6 +42,8 @@ hipcc --offload-arch=gfx1030 -O3
 ```
 
 Pass `gfx1100` as its own `--offload-arch` when that translation unit is in the bundle. RCCL's device-compile parser rejects the generic ids `gfx10-3-generic` and `gfx11-generic` (it divides the digits after `gfx` and then misses the SGPR-limit table).[^rccl10701] Use the specific ids.
+
+**hipcc is on its way out.** An AMD engineer opened rocm-examples#566 on 2026-10-30 saying ROCm is "migrating away from `hipcc` and `hipconfig` across the ROCm organization": projects should call `amdclang++` directly and use CMake's HIP language support in place of `hipconfig`.[^hipccmig] The issue lists what a straight swap loses. `HIPCC_COMPILE_FLAGS_APPEND` is read only by hipcc, so with `amdclang++` an `--offload-arch` passed that way is silently dropped and the build falls back to the default target. The issue also calls `hipcc --genco` a hipcc-only option. hipcc's machine auto-detection becomes `--offload-arch=native`. The issue's replacement line is `amdclang++ --hip-path=${ROCM_PATH} --hip-device-lib-path=${ROCM_PATH}/lib/llvm/amdgcn/bitcode -x hip --offload-arch=gfx1100 ...`, and `hipcc --hipcc-verbose=7 <args>` prints the clang command hipcc builds today.[^hipccmig] For our builds: keep the `hipcc` line above while ROCm ships it, but write new build files so `--offload-arch=gfx1030` (and `gfx1100` / `gfx900` where needed) is passed explicitly on the compile line, never only through `HIPCC_COMPILE_FLAGS_APPEND` or auto-detection. As of 2026-11-04 we found no ROCm release note that removes hipcc; the issue is the only source here.
 
 ```mermaid
 flowchart LR
@@ -107,6 +111,18 @@ For our forks: if a kernel calls through a function pointer, read `.uses_dynamic
 
 [TheRock#9294](https://github.com/ROCm/TheRock/issues/9294) (open) reports a gfx1100 kernel (W7900, ROCm 7.1.1, AMD clang 20) that hits `HIP error 700` (illegal memory access) when built with `-g` at `-O1`, `-O2` or `-O3`, and runs correctly from the same source without `-g`.[^tr9294] An AMD LLVM developer replied that `-g` currently does change codegen, that internal bugs track it, and named spilling `exec` to describe its unwinding as one cause.[^tr9294] For our forks: do correctness parity and performance runs on the same flags you ship, and treat a crash that only appears with `-g` as a possible compiler difference before you blame the kernel. This page has no gfx1030 repro.
 
+## Gotcha — `llvm-mc` misprints the K of `v_fmamk` / `v_fmaak`
+
+[llvm-project#237158](https://github.com/llvm/llvm-project/issues/237158) (open): the AMDGPU disassembler decodes the 32-bit K constant that follows `v_fmamk_*` / `v_fmaak_*` as if it were a 9-bit source-operand code. K = `0xff` crashes it in the `_f16` forms; K = `0x80` to `0xf8` prints an inline constant's value instead of K, so the printed text reassembles to a different word. The reporter saw it with LLVM 22.1.8 on gfx1151, gfx1100, gfx1200 and, for the f32 forms, gfx1030; a commenter reproduced it on LLVM main. The assembler encodes correctly.[^llvm237158] For ISA reviews: when a disassembled `v_fmamk`/`v_fmaak` shows a small K, check the raw dword before trusting it, and do not round-trip disassembly back through the assembler.
+
+## Gotcha — `mulhs` on 24-bit types returns the wrong bits
+
+[llvm-project#237718](https://github.com/llvm/llvm-project/issues/237718) (open, filed 2026-11-01) reports that the AMDGPU `performMulhsCombine` has no width check, so a signed high multiply on a non-i32 type (for example `_BitInt(24)`, also i7/i8/i16/i64 of sign-extended 24-bit values) lowers to `v_mul_hi_i32_i24`, which returns bits 32..47 of the product instead of bits N..2N-1. The reporter's `h24(2^22, 2^22)` returns 4096 instead of 1048576 on `-mcpu=gfx900` trunk and lists every target with 24-bit multiplies, including gfx1100.[^llvm237718] The report scopes the bug to `mulhs` of types other than i32. Avoid `_BitInt` high-multiply idioms in our kernels until a fix lands.
+
+## Gotcha — the first kernel launch reseeds `rand()`
+
+[TheRock#9865](https://github.com/ROCm/TheRock/issues/9865) (open, filed 2026-11-10) reports that with the TheRock pip SDK on Linux (HIP 7.16.26385, gfx1100) the first kernel launch in a process calls `srand()` with a random seed, so an app that seeded `rand()` for reproducible runs gets a different stream every run. The backtrace in the report goes `hipLaunchKernel` → `amd_comgr_do_action` → `llvm::sys::fs::createUniqueDirectory` → `llvm::sys::Process::GetRandomNumber()` → glibc `srandom`; the SDK's `libLLVM.so.24.0git` imports `srand` and not `arc4random`, which the reporter attributes to building against a glibc older than 2.36. Ubuntu 24.04's distro comgr (`libLLVM-17.so.1`) imports `arc4random` and is not affected.[^tr9865] The issue names only gfx1100, but the path is comgr on the host, so it should not depend on the GPU target (inferred, not measured on gfx1030). For our test harnesses: seed `rand()` after the first kernel launch, or use a C++ `<random>` engine you own, until the SDK's LLVM stops using `srand`.
+
 ## `-O0` integer divide, and wave64
 
 [TheRock#7751](https://github.com/ROCm/TheRock/issues/7751) is **closed**. The issue body reports that ROCm 7.2.4 and 7.14 miscompile i32 `udiv` / `urem` at `-O0` on gfx1034 (float reciprocal instead of the integer path). The same kernels were correct at `-O1`/`-O2`/`-O3`, and correct at `-O0` on ROCm 6.4.3. `schung-amd` commented that they reproduced it on gfx1100, and later that it should be fixed in current nightlies via llvm-project#201186 and llvm-project#202753.[^tr7751] Live extras stay `-O3` on 7.14.0.
@@ -135,3 +151,7 @@ For our forks: if a kernel calls through a function pointer, read `.uses_dynamic
 [^ht12473]: rocm-libraries#12473, closed, issue body (metadata excerpts, 1024-byte default, MI350 field report). https://github.com/ROCm/rocm-libraries/issues/12473
 [^tr9294]: TheRock#9294, open; issue body (flag table) and `slinder1` comment of 2026-09-23 on `-g` codegen changes. https://github.com/ROCm/TheRock/issues/9294
 [^ht12638]: rocm-libraries#12638, merged 2026-10-12, docs only. https://github.com/ROCm/rocm-libraries/pull/12638
+[^llvm237158]: llvm-project#237158, open, issue body and `dcwire` comment (reproduced on LLVM 24.0.0git main). https://github.com/llvm/llvm-project/issues/237158
+[^llvm237718]: llvm-project#237718, open, issue body (reproducer, gfx900 asm, affected targets). https://github.com/llvm/llvm-project/issues/237718
+[^hipccmig]: ROCm/rocm-examples#566, "Migrate examples off hipcc (hipcc → amdclang++)", opened 2026-10-30 by david-salinas (AMD), open on 2026-11-04. https://github.com/ROCm/rocm-examples/issues/566
+[^tr9865]: TheRock#9865, open, filed 2026-11-10 16:29 UTC; issue body (reproducer, gdb backtrace, `nm -D` output, distro comgr comparison). https://github.com/ROCm/TheRock/issues/9865

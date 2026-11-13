@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-13
+updated: 2026-11-06
 sources:
   - https://github.com/ROCm/rocm-systems/blob/65575fbbe6f73b9d9d96bfbcb523c856709e664c/emulation/rocjitsu/README.md
   - https://github.com/ROCm/rocm-systems/tree/65575fbbe6f73b9d9d96bfbcb523c856709e664c/emulation/rocjitsu/configs
@@ -10,6 +10,14 @@ sources:
   - https://github.com/ggml-org/llama.cpp/blob/master/.github/workflows/hip-quality-check.yml
   - https://github.com/ggml-org/llama.cpp/pull/29910
   - https://github.com/ROCm/hip-python/issues/111
+  - https://github.com/vivienfanghuagood/hk-dsl
+  - https://github.com/vivienfanghuagood/hk-dsl/releases/tag/v0.9.10
+  - https://pypi.org/project/hk-dsl/0.9.10/
+  - https://github.com/ROCm/TheRock/pull/9752
+  - https://github.com/ROCm/rocm-systems/tree/develop/emulation/rocjitsu/configs
+  - https://github.com/vivienfanghuagood/hk-dsl/tree/main/python/hk/target
+  - https://github.com/ROCm/TheRock/pull/9822
+  - https://github.com/ROCm/rocm-systems/pull/13957
 ---
 
 # Tools
@@ -48,7 +56,20 @@ llama.cpp's spill job (`.github/workflows/hip-quality-check.yml` on master, read
 
 [hip-python#111](https://github.com/ROCm/hip-python/issues/111) (open): the generated numba-hip bindings treat the pointer argument of HIP atomics as output-only, so `numba.hip.atomic.add` and friends get wrong signatures and kernels that use them do not compile. The reporter is on ROCm 10.0 with an RX 6700 XT and says `atomicAdd` in HIP C++ works. The issue includes a custom `@intrinsic` workaround. An AMD maintainer (`domcharrier`, 2026-10-13) confirmed the analysis for the 10.0 bindings and said the fix will come in the next patch release and/or the 10.1.0 bindings.[^hp111] Python-side kernel prototyping on RDNA through numba-hip should avoid its atomics until then.
 
+## hk-dsl (HipKittens Python DSL)
+
+[vivienfanghuagood/hk-dsl](https://github.com/vivienfanghuagood/hk-dsl) is a Python DSL over HipKittens: AST rewrite, MLIR dialect, and translation to HipKittens C++ with build-time spill / wait / MFMA-hazard checks (`hk.check`).[^hkrepo] Target modules on main (read 2026-11-06): `gfx1100.py`, `gfx1201.py`, `gfx942.py`, `gfx950.py` — **no gfx1030 / gfx900**.[^hktarget]
+
+**Watch (tools)** for gfx1100 craft and for the `hk.check` spill gate pattern. **Leave** dest-produce and engine plugins (vLLM / SGLang route injection is Inference / fork lane). PyPI **0.9.10** (2026-11-06) adds opt-in `HK_VLLM_ROCM_DECODE=1` decode-only ROCM_ATTN path on gfx1100 and AWQ prefill on gfx1201; dialect stay `hk-dialect-8`.[^hk910]
+
+## rocjitsu packaging (tip)
+
+[TheRock#9752](https://github.com/ROCm/TheRock/pull/9752) (merged 2026-11-05) packages `libexec/rocjitsu/rocjitsu-memory` into the rocjitsu artifact so tip `rocm[devel]` nightlies can start the helper. Dest stays 7.14.0 — tip Watch only.[^tr9752] gfx1030 still has **no** topology JSON under `emulation/rocjitsu/configs/` on systems develop (configs still `gfx1100_w7900.json` / `gfx1151.json` / `gfx1201_r9700.json` and CDNA/guest rows).[^rjcfg1106]
+
+
 ## Sources
+
+TheRock main now pins rocm-systems `16ad3db` ([TheRock#9822](https://github.com/ROCm/TheRock/pull/9822), merged 2026-11-09), which brings in rocjitsu's RDNA comparison, conversion, register/lane-routing and graphics-arithmetic handlers routed through its `rj-arith` library ([#13955](https://github.com/ROCm/rocm-systems/pull/13955), [#13957](https://github.com/ROCm/rocm-systems/pull/13957), [#13958](https://github.com/ROCm/rocm-systems/pull/13958), [#13959](https://github.com/ROCm/rocm-systems/pull/13959)). The PRs say "RDNA" without naming a gfx103x target, and the configs list still has no gfx1030 JSON, so treat this as tip-only emulator progress, not a gfx1030 path.[^tr9822]
 
 [^rj]: rocjitsu README at rocm-systems `65575fbbe6f73b9d9d96bfbcb523c856709e664c`. https://github.com/ROCm/rocm-systems/blob/65575fbbe6f73b9d9d96bfbcb523c856709e664c/emulation/rocjitsu/README.md
 [^rjcfg]: `emulation/rocjitsu/configs/` at that commit. Names read 2026-10-11: `gfx1100_w7900.json`, `gfx1151.json`, `gfx1201_r9700.json`, CDNA and guest-gfx950 JSON files, and no gfx1030 file. https://github.com/ROCm/rocm-systems/tree/65575fbbe6f73b9d9d96bfbcb523c856709e664c/emulation/rocjitsu/configs
@@ -58,3 +79,4 @@ llama.cpp's spill job (`.github/workflows/hip-quality-check.yml` on master, read
 [^hipci]: llama.cpp `hip-quality-check.yml` on master. https://github.com/ggml-org/llama.cpp/blob/master/.github/workflows/hip-quality-check.yml
 [^llama29910]: llama.cpp#29910, open. https://github.com/ggml-org/llama.cpp/pull/29910
 [^hp111]: hip-python#111, open, issue body and `domcharrier` comment 2026-10-13. https://github.com/ROCm/hip-python/issues/111
+[^tr9822]: TheRock#9822 (rocm-systems 37d5e5d to 16ad3db), merged 2026-11-09, and the four rocm-systems PRs linked above, read 2026-11-09. https://github.com/ROCm/TheRock/pull/9822
