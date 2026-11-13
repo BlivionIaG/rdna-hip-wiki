@@ -34,6 +34,7 @@ Up: [silicon/](../README.md)
 | [spin-hwq-occupancy.md](spin-hwq-occupancy.md) | Device-side spins vs `GPU_MAX_HW_QUEUES=2`: MonoKernel barrier/peer, `rdna_ar` arrive/peer, HC/GDN/QSA tickets — **safe** for same-GPU hwq deadlock at extras `5bda4c24`; `=2` vs `=4` is skew / TheRock#9306, not these spins; not a PIX MaxWaves row |
 | [constant-bus-occupancy.md](constant-bus-occupancy.md) | VALU constant bus: gfx1030 reads **2** scalar values per VALU op (SGPR/VCC/EXEC/literal; 1 for 64-bit shifts; implicit VCC counts), **1** literal max, VOP3 literal legal on GFX10 (96-bit); over-limit operands become VGPR copies; inline constants free; not a PIX MaxWaves row |
 | [vmem-addressing-occupancy.md](vmem-addressing-occupancy.md) | VMEM addressing: global SADDR (uniform SGPR base + 32-bit VGPR offset, 1 VGPR per pointer vs 2) needs zext/non-negative i32 index on gfx1030; offsets global/scratch 12-bit signed, flat non-negative, MUBUF 12-bit unsigned; gfx101x flat-offset bugs absent on gfx1030; not a PIX MaxWaves row |
+| [waves-per-eu-sched-occupancy.md](waves-per-eu-sched-occupancy.md) | `amdgpu_waves_per_eu` **max** = default GCN scheduler's occupancy target (VGPR license, probe 25→103 VGPR at `(4,8)`); min below flat-WG-implied waves/SIMD (256 thr WGP → 2) silently drops the whole range; `-amdgpu-sched-strategy` A/B only; dest pins all kept |
 
 ## Sources
 
