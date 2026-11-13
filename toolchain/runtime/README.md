@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-12
+updated: 2026-11-13
 sources:
   - https://github.com/ROCm/TheRock/issues/9306
   - https://github.com/ROCm/rocm-systems/pull/15587
