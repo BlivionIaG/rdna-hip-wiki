@@ -195,3 +195,7 @@ Drop `#8288` (closed unmerged; superseded). Still open: systems follow-on `#8300
 ## 2026-10-30
 
 - [rocm-systems#9821](https://github.com/ROCm/rocm-systems/pull/9821) (HIP VMM hang below DRM 3.64) merged into `develop` on 2026-10-29 at 21:53 UTC. It is not in ROCm 7.14.0 or therock-10.1, so on a 7.14.0 pin the workaround (no `expandable_segments`, or an amdgpu reporting DRM 3.64+) still applies. The PR validated the patched paths on dual gfx1100.
+
+## 2026-11-13 ~17:00 (Europe/Paris)
+
+- [TheRock#9306](https://github.com/ROCm/TheRock/issues/9306): AMD (`lucbruni-amd`, 2026-11-13 15:00 UTC) reproduced the gfx1030 stall on an RX 6800 XT with MEC `0x86` on ROCm 10.2.0 and the 10.3.0a20261112 nightly, saw no stalls with GFXOFF disabled, and suspects a doorbell lost around a GFXOFF transition after an idle internal queue was unmapped. Hypothesis only, no fix yet. Added to [runtime/](../runtime/README.md) with GFXOFF-off as a diagnostic.
