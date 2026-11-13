@@ -2,6 +2,7 @@
 owner: ROCM_specialist
 updated: 2026-11-12
 sources:
+  - https://github.com/ROCm/TheRock/issues/9306
   - https://github.com/ROCm/rocm-systems/pull/15587
   - https://github.com/ggml-org/llama.cpp/pull/31886
   - https://github.com/ROCm/rocm-systems/issues/15398
