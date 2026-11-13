@@ -579,3 +579,14 @@ Vs domain 2026-11-11 ~10:30. **No dest bump** (live **7.14.0**); pins are covere
 | [rocm-libraries#15482](https://github.com/ROCm/rocm-libraries/pull/15482), [#15565](https://github.com/ROCm/rocm-libraries/pull/15565), [#15616](https://github.com/ROCm/rocm-libraries/pull/15616) | Watch | hip-kernel-provider RDNA conv engines (FMA implicit GEMM, conv+bias, depthwise 3D) for gfx11/gfx12; no gfx1030. |
 | [rocm-systems#15620](https://github.com/ROCm/rocm-systems/pull/15620), #15576, #15579 | Watch | rocjitsu RDNA3/RDNA4 CI benchmarks and RDNA3 FP matching; still nothing for RDNA2. |
 | [TheRock#9902](https://github.com/ROCm/TheRock/pull/9902) | Watch | gfx11 CK SDPA in PyTorch wheels, still open. |
+
+## 2026-11-13 ~10:30 — domain pass (V620 queue stall: MEC 0x86 not sufficient, runlist oversubscription; not dest)
+
+Vs domain 2026-11-12 ~10:35. **No dest bump** (live **7.14.0**); pins are covered by the hourly scan (TheRock main `c018061e0cad`, releases unchanged).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [TheRock#9306](https://github.com/ROCm/TheRock/issues/9306) | **Take (runtime, V620)** | Two gfx1030 reports (2026-11-10, 2026-11-13) still hang with MEC `0x86`; 25/25 hangs coincide with `Runlist is getting oversubscribed` (8 HQDs per card); capping a side process at `GPU_MAX_HW_QUEUES=1` gave 0/81. [runtime/](../runtime/README.md) guidance revised: `0x86` alone is not a fix, budget HQDs. |
+| [vllm#67261](https://github.com/vllm-project/vllm/issues/67261) | Watch | RFC for a shared AMD target/arch-family contract across vLLM Python and C++ dispatch; relevant to how RDNA targets are named in the fork. |
+| [llama.cpp#31675](https://github.com/ggml-org/llama.cpp/issues/31675) | Leave engine | `--moe-cache-mib` aborts at load on gfx1030 (ROCm 7.2.0). |
+| [vllm#67330](https://github.com/vllm-project/vllm/issues/67330) | Leave engine | Kernel-owned LoRA fusion RFC, gfx1151 W4A16 first. |
