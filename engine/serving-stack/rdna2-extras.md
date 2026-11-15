@@ -24,7 +24,7 @@ Merge resolutions that matter:
 
 ## Not fixed by the rebase
 
-- Occupancy trap on `fa_rdna2` + `skinny_gemms.cu` (`__launch_bounds__(N, 1)` / `wvSplitKrc_` `(1,1)`)
+- Occupancy trap on `fa_rdna2` prefill (`__launch_bounds__(N, 1)`). `skinny_gemms.cu` `wvSplitKrc_` `(1,1)` is gfx950-gated; gfx1030 builds the stub (n/a, closed).[^wvsplitkrc-na]
 - MLA prefill `load_row` OOB
 - Stock skinny still gated (`on_gfx9() or on_gfx1x()`)
 - GPU verify still pending on some GEMMs (original commits say so)
@@ -71,4 +71,4 @@ Added in the 2026-10-11 sourcing pass:
 
 - dest `docs/rdna2/v0.31.0-port-notes.md` — <https://github.com/opengfx1030/vllm-rdna/blob/rdna_extras/docs/rdna2/v0.31.0-port-notes.md>
 - dest commit `8abf4c97` (v0.31 port merge tail; ancestor of tip `1dc3bac4`) — <https://github.com/opengfx1030/vllm-rdna/commit/8abf4c9719d588349b6ed5afc75e9d0133a43984>
-
+[^wvsplitkrc-na]: dest `csrc/rocm/skinny_gemms.cu` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b`: L1364 `#if defined(__gfx950__)`, L1368-L1369 `amdgpu_waves_per_eu(1, 1)` on `wvSplitKrc_`; L1840-L1848 `#else` `UNREACHABLE_CODE` stub with no attribute and no `launch_bounds`; L1849 stale `#endif  // defined(__HIP__GFX9__)` comment. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1364-L1369 ; https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1840-L1849

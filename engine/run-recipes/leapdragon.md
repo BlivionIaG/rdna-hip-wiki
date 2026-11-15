@@ -45,7 +45,7 @@ Do not reopen without a new measurement:
 - `GPU_MAX_HW_QUEUES=8`
 - Hoisting the attn range-mask (71% slower)
 
-**Our occupancy card is not this dead-end.** Their “custom W4 GEMV is dead” assumes Exllama is already streaming. extras `fa_rdna2` / `skinny_gemms.cu` still sit on `__launch_bounds__(N, 1)` / `waves_per_eu(1,1)`.
+**Our occupancy card is not this dead-end.** Their “custom W4 GEMV is dead” assumes Exllama is already streaming. extras `fa_rdna2` prefill still sits on `__launch_bounds__(N, 1)`. `skinny_gemms.cu` `wvSplitKrc_` `(1,1)` is gfx950-gated and a stub on gfx1030 (n/a, closed).[^wvsplitkrc-na]
 
 ## Pitfalls (keep)
 
@@ -68,3 +68,4 @@ MTP they left on the table; we already parked it ([mtp.md](../spec-decoding/mtp.
 
 - https://github.com/leapdragon/vllm-rdna2-recipe (`00-HARDWARE.md`, `01-PATCHES.md`, `02-VERSIONS.md`, patches 0001–0005)
 - Note 2026-08-21
+[^wvsplitkrc-na]: dest `csrc/rocm/skinny_gemms.cu` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b`: L1364 `#if defined(__gfx950__)`, L1368-L1369 `amdgpu_waves_per_eu(1, 1)` on `wvSplitKrc_`; L1840-L1848 `#else` `UNREACHABLE_CODE` stub with no attribute and no `launch_bounds`; L1849 stale `#endif  // defined(__HIP__GFX9__)` comment. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1364-L1369 ; https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1840-L1849

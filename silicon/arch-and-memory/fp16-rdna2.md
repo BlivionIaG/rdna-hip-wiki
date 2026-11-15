@@ -6,6 +6,7 @@ sources:
   - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
   - https://github.com/opengfx1030/vllm-rdna/commit/3b59ee16e553168b1e3809c9a141088662171448
   - https://github.com/opengfx1030/vllm-rdna/commit/5c4ab9891910c4b7f3bde8621d1a58c8ad47c28b
+  - https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu
 ---
 
 # Fastest gfx1030 FP16 path — silicon contract
@@ -47,7 +48,7 @@ Do not launch a 64×64 tile at `M=1`. Do not copy gfx1100 WMMA 16×16 fragments.
 
 256 FLOP/clk/CU is unreachable if the kernel is occupancy-1 or occupancy-0.
 
-- Current trap: `__launch_bounds__(*, 1)` / `amdgpu_waves_per_eu(1,1)` on `fa_rdna2` and `wvSplitKrc_`. HIP's second bound is **min waves/EU**, not CUDA min-blocks.
+- Current trap: `__launch_bounds__(*, 1)` on `fa_rdna2` prefill. HIP's second bound is **min waves/EU**, not CUDA min-blocks. `wvSplitKrc_` `amdgpu_waves_per_eu(1,1)` is gfx950-gated; gfx1030 builds a stub with no attribute (n/a, closed).[^wvsplitkrc-na]
 - Target after the flip: `amdgpu_waves_per_eu(4, 8)` only if VGPR ≤64 (decode) and no scratch.
 - `llvm-calc-occupancy -mcpu=gfx1030` **and** `hipOccupancyMaxActiveBlocksPerMultiprocessor` must be ≥1.[^llvm-calc-occupancy]
 - This occupancy fix is still **first**, before any new FP16 kernel.
@@ -106,3 +107,4 @@ Footnotes:
 [^commit-3b59ee16]: opengfx1030/vllm-rdna commit `3b59ee16e553`. https://github.com/opengfx1030/vllm-rdna/commit/3b59ee16e553168b1e3809c9a141088662171448 (exists, verified via GitHub API 2026-10-11)
 [^commit-5c4ab989]: opengfx1030/vllm-rdna commit `5c4ab9891910`. https://github.com/opengfx1030/vllm-rdna/commit/5c4ab9891910c4b7f3bde8621d1a58c8ad47c28b (exists, verified via GitHub API 2026-10-11)
 [^rocm-gpu-arch-specs]: ROCm docs 7.2.4, "GPU architecture specifications" (Radeon PRO V620 row: gfx1030, 32 GiB, 72 CU, wave 32/64, LDS 128 KiB, Infinity Cache 128 MiB, L2 4 MiB, GL1 128 KiB, L0 vector 16 KiB, L0 scalar 16 KiB, L0 instruction 32 KiB, VGPR file 512 KiB). https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html (checked 2026-10-11)
+[^wvsplitkrc-na]: dest `csrc/rocm/skinny_gemms.cu` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b`: L1364 `#if defined(__gfx950__)`, L1368-L1369 `amdgpu_waves_per_eu(1, 1)` on `wvSplitKrc_`; L1840-L1848 `#else` `UNREACHABLE_CODE` stub with no attribute and no `launch_bounds`; L1849 stale `#endif  // defined(__HIP__GFX9__)` comment. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1364-L1369 ; https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1840-L1849
