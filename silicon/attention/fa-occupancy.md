@@ -26,6 +26,7 @@ sources:
   - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
   - https://github.com/opengfx1030/vllm-rdna/commit/e054854f239b139b8bec5991345056b49315735d
   - https://github.com/ROCm/hip/issues/2521
+  - https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu
 ---
 
 # gfx1030 FA occupancy report
@@ -150,7 +151,7 @@ Hardware model used for occupancy (as requested): **16 waves/SIMD32**, **1024 VG
 |---|---|---|
 | `fa_decode_paged_splitk_kernel` | `__launch_bounds__(128)` + `waves_per_eu(4, 8)` | VGPR / hipOccupancy not dumped [^rocm-how-to-hip-cpp-language-extensions-html] |
 | `fa_decode_paged_splitk_kernel_256` | `__launch_bounds__(256)` + **same** `(4, 8)` | Wiki CUDA-port for 256-thr is min **8** (`(256,8)`). `(4,8)` is looser min, max 8 = 1 WG/SIMD [^rocm-how-to-hip-cpp-language-extensions-html] |
-| `wvSplitKrc_` | dropped `waves_per_eu(1,1)` | no max pin |
+| `wvSplitKrc_` | gfx950-gated, stub on gfx1030 | no max pin [^wvsplitkrc-na] |
 | prefill `fa_prefill_*` 128/256 / splitk / int8 | `__launch_bounds__(N, 1)` | **still the trap** [^rocm-how-to-hip-cpp-language-extensions-html] |
 
 `(4, 8)` is a compiler occupancy *range*, not a runtime query. If decode already sat ≤128 VGPR, +1% is expected. Do not close the occupancy card. Fat-M W4 / ConfigA unchanged.[^extras-fa-rdna2-cu]
@@ -531,3 +532,4 @@ Extracted from the built `_rocm_C.abi3.so` (`.hip_fatbin` section, gfx1030 code 
 [^fa-tip-recipes]: `ATTN=` lines in `tools/rdna/recipes/*.env` (flashnext.env L27, flashnext-mtp0.env L18, flashnext-mtp2.env L18, 27b-awq.env L26, 27b-exl3.env L18, full.env L19 and L35, dsv4-flash.env L30), dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/tree/1dc3bac4cda3201a1b4fb345e044578e84a272cf/tools/rdna/recipes
 [^gdn-tip-wpe]: `__launch_bounds__(…) __attribute__((amdgpu_waves_per_eu(2, 4)))` on `gdn_decode_rdna2.cu` L53-L54, `gdn_prefill_delta_h_rdna2.cu` L67-L68 (`GDN_THREADS = 256` at L47), `gdn_prefill_kkt_rdna2.cu` L41-L42, `gdn_prefill_o_rdna2.cu` L193-L194, `gdn_prefill_prep_rdna2.cu` L84-L85, `gdn_prefill_solve_wy_rdna2.cu` L127-L128, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/gdn_prefill_delta_h_rdna2.cu#L47-L68
 [^gdn-tip-o]: `GDN_BV = 32` (L51) and the LDS byte constants (L66-L77) in `csrc/rocm/gdn_prefill_o_rdna2.cu`, dest at 1dc3bac4; this file arrived in the v0.31.0 port commit `00ac7eec6577c7c050795e4b0dbf37c2191169d8` ("RDNA2 HIP kernel library and op bindings"). https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/gdn_prefill_o_rdna2.cu#L51-L77
+[^wvsplitkrc-na]: dest `csrc/rocm/skinny_gemms.cu` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b`: L1364 `#if defined(__gfx950__)`, L1368-L1369 `amdgpu_waves_per_eu(1, 1)` on `wvSplitKrc_`; L1840-L1848 `#else` `UNREACHABLE_CODE` stub with no attribute and no `launch_bounds`; L1849 stale `#endif  // defined(__HIP__GFX9__)` comment. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1364-L1369 ; https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1840-L1849

@@ -38,23 +38,21 @@ sources:
 
 ## Current state at dest `rdna_extras` @ `1dc3bac4` (checked 2026-10-11)
 
-These are unchanged at the tip:
-- `wvSplitKrc_` still carries `amdgpu_waves_per_eu(1, 1)`.
+These are unchanged at the tip, except the occupancy bullet, which is superseded by the Dest @ `a63a6b00` lock below:
+- `wvSplitKrc_` `amdgpu_waves_per_eu(1, 1)` is gfx950-gated; gfx1030 builds an `UNREACHABLE_CODE` stub with no attribute. The item is n/a on gfx1030 (closed, not open).[^f-a63a6b00-skinny-stub]
 - `VLLM_ROCM_MOE_SKINNY` is still default on.
 - `VLLM_RDNA_DENSE_GEMV` is still default off.
 - Resident MoE (`VLLM_RDNA_MOE_RESIDENT` / `_SKINNY`) is still default off.
 - `_rocm_C_skinny` (`VLLM_SKINNY_SRC`) is still built for all archs except gfx1250.[^sk-tip]
 
 
-Live: `skinny_gemms.cu`. **Incomplete.** Same occupancy ticket as `fa_rdna2`.[^f-3b59ee16-skinny-gemms-cu][^f-3b59ee16-fa-rdna2-cu]
+Live: `skinny_gemms.cu`. **Incomplete.** FA prefill still carries the `__launch_bounds__(N, 1)` occupancy ticket. The `wvSplitKrc_` `(1, 1)` half of that ticket is n/a on gfx1030.[^f-3b59ee16-skinny-gemms-cu][^f-3b59ee16-fa-rdna2-cu][^f-a63a6b00-skinny-stub]
 
 ## gfx1030 path
 
 `use_mfma` is `#if __HIP__MI3XX__` only. On gfx1030 it is **false** — scalar / packed FMA, not MFMA. The `mfma_f32_4x4x4bf16_1k` / `16x16x32` / FP8 MFMA sites are CDNA/GFX12 and must not run here.[^f-3e05abc9-skinny-gemms-cu]
 
-`wvSplitKrc_` is `__attribute__((amdgpu_waves_per_eu(1, 1)))` — same trap as `fa_rdna2` `__launch_bounds__(*, 1)`. Other `wvSplitK_hf_*` kernels are `__launch_bounds__(WvPrGrp* THRDS)` with no min-waves (safer).[^f-3b59ee16-fa-rdna2-cu][^f-3b59ee16-skinny-gemms-cu]
-
-Fix: drop `(1, 1)`, use `amdgpu_waves_per_eu(4, 8)` after the FA occupancy flip. Do not “enable MFMA” on gfx1030.[^f-3e05abc9-skinny-gemms-cu]
+`wvSplitKrc_` carries `__attribute__((amdgpu_waves_per_eu(1, 1)))` only inside `#if defined(__gfx950__)` (L1364-L1369 at `a63a6b00`). On gfx1030 the `#else` body is an `UNREACHABLE_CODE` stub with no attribute and no `launch_bounds` (L1840-L1848). The `#endif` comment at L1849 still says `__HIP__GFX9__`, which is stale. Other `wvSplitK_hf_*` kernels are `__launch_bounds__(WvPrGrp* THRDS)` with no min-waves. There is no gfx1030 `(1, 1)` leftover to drop on this kernel. Do not “enable MFMA” on gfx1030.[^f-a63a6b00-skinny-stub][^f-3b59ee16-skinny-gemms-cu][^f-3e05abc9-skinny-gemms-cu]
 
 ## MoE skinny int4 (recipe 0008) @ `5c3c0c6f`
 
@@ -62,7 +60,7 @@ Fix: drop `(1, 1)`, use `amdgpu_waves_per_eu(4, 8)` after the FA occupancy flip.
 - `VLLM_ROCM_MOE_SKINNY` **default True** at tip `5c3c0c6f` (restored in `59237b3d`). Tip history: briefly flipped default-off (`1c1dbee8`, bad test), then restored — kernel was correct; unit-scale synthetic weights overflowed FP16.[^c-5c3c0c6f][^c-59237b3d][^c-1c1dbee8][^f-5c3c0c6f-envs-py]
 - **Leave** RDNAHybridW4A16 + bf16 on gfx10 via skinny (Triton abort) — op rejects that combo cleanly; fp16 path stays.[^c-5c3c0c6f]
 - Does not replace shuffled RDNA2 fused HIP MoE (`moe_gptq_gemm_rdna2`).[^f-5c3c0c6f-moe-q-gemm-rdna2-cu]
-- Occupancy note: existing `wvSplitKrc_` `amdgpu_waves_per_eu(1,1)` trap still open; same ticket as FA.[^f-5c3c0c6f-skinny-gemms-cu]
+- Occupancy note *(historical @ `5c3c0c6f`)*: then recorded as `wvSplitKrc_` `amdgpu_waves_per_eu(1,1)` still open. Superseded: n/a on gfx1030, see Dest @ `a63a6b00`.[^f-5c3c0c6f-skinny-gemms-cu][^f-a63a6b00-skinny-stub]
 
 ## extras lock 2026-09-16 (tip `3092d635`, silicon commit `c350fa21`) — SUPERSEDED for dispatch
 
@@ -75,7 +73,7 @@ PR #11 / donor PR #5 (George Muravei-Alkhavoi / GeorgeMA-Strong). Dest: `opengfx
 | `vllm/envs.py` | `VLLM_RDNA_DENSE_GEMV` default off (force GEMV for A/B). [^f-3092d635-envs-py] |
 | `rdna_all_reduce.py` | Integer device-index normalize for opt-in `rdna_ar` (still `VLLM_RDNA_AR=0` default; not production AR). [^f-3092d635-rdna-all-reduce-py][^f-3092d635-envs-py] |
 
-No `__launch_bounds__` / `waves_per_eu` change on `wvSplitKrc_`. No DOT builtin, LDS-tile, KV-quant, or CMake gfx1030 list change. Occupancy leftover still FA + skinny `(1,1)`. Do not invent numbers.[^f-3092d635-skinny-gemms-cu]
+No `__launch_bounds__` / `waves_per_eu` change on `wvSplitKrc_` at this tip. No DOT builtin, LDS-tile, KV-quant, or CMake gfx1030 list change. FA prefill occupancy leftover remains; the skinny `(1,1)` half is n/a on gfx1030 (see Dest @ `a63a6b00`). Do not invent numbers.[^f-3092d635-skinny-gemms-cu][^f-a63a6b00-skinny-stub]
 
 ## extras lock 2026-09-18 (tip `3b59ee16`, silicon commit `5c4ab989`) — LIVE decode dispatch
 
@@ -87,7 +85,7 @@ No `__launch_bounds__` / `waves_per_eu` change on `wvSplitKrc_`. No DOT builtin,
 | `vllm/platforms/rocm.py` | Remove `on_gfx1030()` (only used by the reverted port). `on_gfx10x()` stays. [^f-3b59ee16-rocm-py] |
 | tests | Drop `test_gfx1030_decode_dispatch`. [^c-3b59ee16][^c-5c4ab989] |
 
-PersistBuf ownership fix inside `wvSplitK` host (`torch::empty` per call) remains in tree for non-gfx1030 skinny users; **gfx1030 no longer dispatches into it for decode**. No DOT / LDS-tile / CMake gfx1030 list / `__launch_bounds__` change. Occupancy leftover still FA + skinny `(1,1)`. Do not invent numbers.[^f-3b59ee16-skinny-gemms-cu]
+PersistBuf ownership fix inside `wvSplitK` host (`torch::empty` per call) remains in tree for non-gfx1030 skinny users; **gfx1030 no longer dispatches into it for decode**. No DOT / LDS-tile / CMake gfx1030 list / `__launch_bounds__` change. FA prefill occupancy leftover remains; the skinny `(1,1)` half is n/a on gfx1030 (see Dest @ `a63a6b00`). Do not invent numbers.[^f-3b59ee16-skinny-gemms-cu][^f-a63a6b00-skinny-stub]
 
 ## extras lock 2026-09-24 (tip `e1315629`, PR #17) — resident MoE decode + MoE dequant fix
 
@@ -103,7 +101,7 @@ Dest: `opengfx1030/vllm-rdna` `rdna_extras`. HIP/ISA only from the V620 baseline
 
 **Dispatch (opt-in, not dest default):** `VLLM_RDNA_MOE_RESIDENT=0`, `VLLM_RDNA_MOE_RESIDENT_SKINNY=0`. When both armed + SILU + contiguous fp16 + shape gates, M≤4 fires resident skinny; else tiled `_rdna2_fused_moe` on the same resident pack.[^f-e1315629-envs-py]
 
-No `__launch_bounds__` / `waves_per_eu` on the new kernels. No EXL3 DOT, FA, KV-quant, or CMake gfx1030 list change. Occupancy leftover still FA + skinny `(1,1)`. Leave tok/s and flipping resident defaults on. Do not invent numbers.[^c-e1315629]
+No `__launch_bounds__` / `waves_per_eu` on the new kernels. No EXL3 DOT, FA, KV-quant, or CMake gfx1030 list change. FA prefill occupancy leftover remains; the skinny `(1,1)` half is n/a on gfx1030 (see Dest @ `a63a6b00`). Leave tok/s and flipping resident defaults on. Do not invent numbers.[^c-e1315629][^f-a63a6b00-skinny-stub]
 
 ## Dest @ `a63a6b00` — LLMM1 wave32 fold, wvSplitK refused on gfx10
 
@@ -116,7 +114,7 @@ Merged into `rdna_extras` as PR #54 (`port/faisal-skinny-wave32`, merge `4a971f8
 | Tests | `test_rocm_skinny_gemms.py` adds LLMM1 shapes `(1, 4104, 1024)` and `(1, 4352, 1024)` (17 waves on wave32; per the test comment K=4352 fails without the fix) and skips the two `wvSplitK` tests on gfx10x. [^f-a63a6b00-test-skinny] |
 | Dispatch | Unchanged: `layers/utils.py` still routes gfx10x FP16 decode M ≤ 8 to `gemv_f16_rdna2`, and its comment still says wvSplitK/LLMM1 are gfx9/gfx11+ only. LLMM1 being correct on wave32 does not put it on the gfx1030 path. [^f-a63a6b00-utils] |
 
-Occupancy: no `__launch_bounds__` / `waves_per_eu` change. `wvSplitKrc_` still carries `amdgpu_waves_per_eu(1, 1)` (now at L1369), so the FA + skinny `(1,1)` leftover is still open. No DOT, LDS-tile, KV-quant, CMake gfx1030 list, or `envs.py` change. [^f-a63a6b00-skinny-l1369]
+Occupancy: no `__launch_bounds__` / `waves_per_eu` change in PR #54. The `wvSplitKrc_` `amdgpu_waves_per_eu(1, 1)` at L1369 sits inside `#if defined(__gfx950__)` (L1364). gfx1030 builds the `#else` `UNREACHABLE_CODE` stub at L1840-L1848, which has no attribute and no `launch_bounds`. The `#endif` comment at L1849 still says `defined(__HIP__GFX9__)`, which is stale. This `(1, 1)` item is **n/a on gfx1030** (closed, not open). FA prefill `__launch_bounds__(N, 1)` is a separate leftover. No DOT, LDS-tile, KV-quant, CMake gfx1030 list, or `envs.py` change. [^f-a63a6b00-skinny-l1369][^f-a63a6b00-skinny-stub]
 
 ## Sources
 
@@ -148,11 +146,12 @@ Occupancy: no `__launch_bounds__` / `waves_per_eu` change. `wvSplitKrc_` still c
 [^f-e1315629-moe-q-gemm-rdna2-cu]: opengfx1030/vllm-rdna `csrc/rocm/moe_q_gemm_rdna2.cu` @ [`e1315629`](https://github.com/opengfx1030/vllm-rdna/blob/e131562936f9c6f27c26449b00aaaeeb34159b4c/csrc/rocm/moe_q_gemm_rdna2.cu).
 [^f-e1315629-mxfp4-dot2-common-cuh]: opengfx1030/vllm-rdna `csrc/rocm/mxfp4_dot2_common.cuh` @ [`e1315629`](https://github.com/opengfx1030/vllm-rdna/blob/e131562936f9c6f27c26449b00aaaeeb34159b4c/csrc/rocm/mxfp4_dot2_common.cuh).
 [^f-e1315629-envs-py]: opengfx1030/vllm-rdna `vllm/envs.py` @ [`e1315629`](https://github.com/opengfx1030/vllm-rdna/blob/e131562936f9c6f27c26449b00aaaeeb34159b4c/vllm/envs.py).
-[^sk-tip]: `wvSplitKrc_` `amdgpu_waves_per_eu(1, 1)` at `csrc/rocm/skinny_gemms.cu` L1345; `VLLM_ROCM_MOE_SKINNY` default "1" (`vllm/envs.py` L1430), `VLLM_RDNA_DENSE_GEMV` default "0" (L1460), `VLLM_RDNA_MOE_RESIDENT` / `_SKINNY` default 0 (L1424-L1429); `VLLM_SKINNY_SRC` / `_rocm_C_skinny` at `CMakeLists.txt` L1491-L1511, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/skinny_gemms.cu#L1345 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/envs.py#L1424-L1460 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/CMakeLists.txt#L1491-L1511
+[^sk-tip]: Historical @ `1dc3bac4`: `wvSplitKrc_` `amdgpu_waves_per_eu(1, 1)` was recorded at `csrc/rocm/skinny_gemms.cu` L1345 (later found gfx950-gated; see [^f-a63a6b00-skinny-stub]). `VLLM_ROCM_MOE_SKINNY` default "1" (`vllm/envs.py` L1430), `VLLM_RDNA_DENSE_GEMV` default "0" (L1460), `VLLM_RDNA_MOE_RESIDENT` / `_SKINNY` default 0 (L1424-L1429); `VLLM_SKINNY_SRC` / `_rocm_C_skinny` at `CMakeLists.txt` L1491-L1511, dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/skinny_gemms.cu#L1345 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/vllm/envs.py#L1424-L1460 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/CMakeLists.txt#L1491-L1511
 [^c-a63a6b00-pr54]: opengfx1030/vllm-rdna merge [`4a971f82`](https://github.com/opengfx1030/vllm-rdna/commit/4a971f82f549c35c2773762b75d56fed1dd932ad) (2026-11-12) — "Merge port/faisal-skinny-wave32: LLMM1 wave32 reduction fix and refuse wvSplitK on gfx10 (#54)"; branch tip [`a63a6b00`](https://github.com/opengfx1030/vllm-rdna/commit/a63a6b0010fd4e761fb14393e32d3491f4a1460b); compare from [`69e94731`](https://github.com/opengfx1030/vllm-rdna/compare/69e947313c49d2052d6cf9f8199b2eaa2441def9...a63a6b0010fd4e761fb14393e32d3491f4a1460b).
 [^f-a63a6b00-skinny-l275]: `csrc/rocm/skinny_gemms.cu` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b` L268-L283. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L268-L283
 [^f-a63a6b00-skinny-l74]: `csrc/rocm/skinny_gemms.cu` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b` `on_gfx10()` L72-L81. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L72-L81
 [^f-a63a6b00-skinny-l1239]: `csrc/rocm/skinny_gemms.cu` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b` L1236-L1240. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1236-L1240
-[^f-a63a6b00-skinny-l1369]: `csrc/rocm/skinny_gemms.cu` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b` L1369. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1369
+[^f-a63a6b00-skinny-l1369]: `csrc/rocm/skinny_gemms.cu` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b` L1369. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1369 The attribute is inside `#if defined(__gfx950__)` starting at L1364; the gfx1030 stub is L1840-L1849.
 [^f-a63a6b00-test-skinny]: `tests/kernels/quantization/test_rocm_skinny_gemms.py` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b`. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/tests/kernels/quantization/test_rocm_skinny_gemms.py
 [^f-a63a6b00-utils]: `vllm/model_executor/layers/utils.py` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b` L361-L376. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/vllm/model_executor/layers/utils.py#L361-L376
+[^f-a63a6b00-skinny-stub]: dest `csrc/rocm/skinny_gemms.cu` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b`: L1364 `#if defined(__gfx950__)`, L1368-L1369 `__launch_bounds__(WvPrGrp* THRDS)` + `amdgpu_waves_per_eu(1, 1)` on `wvSplitKrc_`; L1840-L1848 `#else` stub `{UNREACHABLE_CODE}` with no attribute and no `launch_bounds`; L1849 `#endif  // defined(__HIP__GFX9__) TODO: Add NAVI support` (stale comment). https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1364-L1369 ; https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1840-L1849

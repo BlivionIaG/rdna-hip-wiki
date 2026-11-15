@@ -7,6 +7,7 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/7779514b449c358c14cb58c739cc33cd7efca3b4/csrc/rocm/skinny_gemms.cu
   - https://github.com/BlivionIaG/vllm/commit/8e35767f59830fbe373ea3c8df8d39421716fad7
   - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
+  - https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu
 ---
 # ikantkode gfx1030 overlays — silicon review
 
@@ -19,7 +20,7 @@ Sourced from [ikantkode/gfx1030-vllm-0.26](https://github.com/ikantkode/gfx1030-
 | Rung | Change | Opcode / launch | Take [^ikantkode] |
 |---|---|---|---|
 | 3 | Unlock AMD **LLMM1** for gfx1030 (`on_gfx9 \|\| on_gfx1x \|\| gfx1030`) | in-tree skinny n==1, `k≤8192` | **Keep.** Highest-ROI line. Check the fork has this gate. [^f-7779514b-skinny-gemms-cu][^ikantkode] |
-| 3 | **Disable `wvSplitK` on gfx1030** | device-assert | **Keep off.** Same skinny card. Do not “enable MFMA.” [^f-7779514b-skinny-gemms-cu] |
+| 3 | **Disable `wvSplitK` on gfx1030** | device-assert | **Keep off.** gfx10 host now errors out (`a63a6b00`); do not “enable MFMA.” The old skinny `(1,1)` occupancy card is n/a on gfx1030. [^f-7779514b-skinny-gemms-cu][^wvsplitkrc-na] |
 | 6–10, 15 | M==1 AWQ GEMV, then K-split + per-(N,K) table | Triton `tl.sum` fp32 FMA, **not** `tl.dot` / `fdot2` | Lesson only: fill 72 CUs when `cdiv(N,BN)` is tiny. HIP W4A16 already owns this job. [^ikantkode] |
 | 7 | fp16 GEMV for `n==1, k>8192` (GDN `out_proj` 2560×9216) | Triton scalar FMA | LLMM1 cannot launch there. HIP skinny / W4A16 should cover k>8192. [^f-7779514b-skinny-gemms-cu][^ikantkode] |
 | 13 | Fused Gemma RMSNorm | 1 Triton vs 10–13 ATen; IR gate wants `weight.dtype==x.dtype`, Gemma weight is fp32 | Llama HIP AOT landed extras `8e35767f` ([triton-jit-aot.md](../aot-glue/triton-jit-aot.md)). Gemma `(1+w)` still Todo. Do not port their Triton GEMV. [^c-8e35767f][^ikantkode] |
@@ -31,7 +32,7 @@ Their GEMV inner loop is `acc += tl.sum(w_f32 * x_f32)` after AWQ nibble unpack.
 ## Confirmed landmines (matches our ISA)
 
 - LDS **64 KB/WG**: `TRITON_ATTN` asked 139264 and died. They stay on `ROCM_ATTN`.[^isa][^ikantkode]
-- `wvSplitK` asserts on gfx1030 (our `skinny_gemms.cu` MFMA/`waves_per_eu(1,1)` trap).[^f-7779514b-skinny-gemms-cu]
+- `wvSplitK` asserts on gfx1030 (MFMA path compiled out; `wvSplitKrc_` `(1,1)` is gfx950-gated and a stub here).[^f-7779514b-skinny-gemms-cu][^wvsplitkrc-na]
 - No bf16; `--dtype float16`.[^ikantkode]
 - AITER off.[^ikantkode]
 - MTP **slower** on this M=1-optimized decode — same fat-tile (`q>1`) blocker we already filed.[^ikantkode]
@@ -62,3 +63,4 @@ Reuse: occupancy (`fa_rdna2` + skinny), W4A16 dense (HIP GEMV, not their Triton)
 [^f-7779514b-skinny-gemms-cu]: opengfx1030/vllm-rdna `csrc/rocm/skinny_gemms.cu` @ [`7779514b`](https://github.com/opengfx1030/vllm-rdna/blob/7779514b449c358c14cb58c739cc33cd7efca3b4/csrc/rocm/skinny_gemms.cu).
 [^c-8e35767f]: BlivionIaG/vllm commit [`8e35767f`](https://github.com/BlivionIaG/vllm/commit/8e35767f59830fbe373ea3c8df8d39421716fad7) (2026-09-01) — "feat(rocm): HIP AOT RMSNorm — cudagraph-safe replacement for Triton path".
 [^isa]: AMD, *"RDNA 2" Instruction Set Architecture Reference Guide* (doc 70648): "Feature Changes in RDNA2 Devices" dot-product list; VOP2 opcodes 2 `V_DOT2C_F32_F16` / 13 `V_DOT4C_I32_I8`; VOP3P opcodes 19–25 `V_DOT2_F32_F16` … `V_DOT8_U32_U4`; LDS "128kB memory per workgroup processor split up into 64 banks of dword-wide RAMs"; "a single workgroup may allocate up to 64kB of LDS". <https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture>
+[^wvsplitkrc-na]: dest `csrc/rocm/skinny_gemms.cu` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b`: L1364 `#if defined(__gfx950__)`, L1368-L1369 `amdgpu_waves_per_eu(1, 1)` on `wvSplitKrc_`; L1840-L1848 `#else` `UNREACHABLE_CODE` stub with no attribute and no `launch_bounds`; L1849 stale `#endif  // defined(__HIP__GFX9__)` comment. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1364-L1369 ; https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1840-L1849

@@ -12,6 +12,7 @@ sources:
   - https://github.com/BlivionIaG/vllm/commit/66bb24d7bf7ea27a2a71dbd7816308b38d039db8
   - https://github.com/BlivionIaG/vllm/blob/3e05abc9bdb92100b0fec7a91e856c147dc6849c/csrc/rocm/moe_w8a16_fp8_rdna2.cu
   - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
+  - https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu
 ---
 # `rdna2_extras` @ `3e05abc9` — HIP / silicon review
 
@@ -30,7 +31,7 @@ Date: 2026-08-19. Tip of `BlivionIaG/vllm` `rdna2_extras` = v0.27.1 + `perf/rdna
 | Bug | Still at tip |
 |---|---|
 | `fa_rdna2` occupancy | `__launch_bounds__(128, 1)` / `(256, 1)` — HIP second arg is **min waves/EU** [^f-3e05abc9-fa-rdna2-cu] |
-| skinny occupancy | `wvSplitKrc_` still `amdgpu_waves_per_eu(1, 1)` [^f-3e05abc9-skinny-gemms-cu] |
+| skinny occupancy | `wvSplitKrc_` `(1, 1)` is gfx950-gated; gfx1030 builds the `UNREACHABLE_CODE` stub (n/a, closed) [^wvsplitkrc-na] |
 | MLA prefill `load_row` | same blob as `66bb24d7` (`c3db1df8`): `chunk = i*THREADS+tid` into 64 float4s [^c-66bb24d7] |
 
 These are not “lost in rebase.” They were never fixed on `perf/rdna2_w4a16`.[^c-3e05abc9][^f-3e05abc9-CMakeLists-txt]
@@ -75,3 +76,4 @@ Occupancy still first.
 [^c-66bb24d7]: BlivionIaG/vllm commit [`66bb24d7`](https://github.com/BlivionIaG/vllm/commit/66bb24d7bf7ea27a2a71dbd7816308b38d039db8) (2026-08-17) — "feat(rocm): HIP sparse MLA prefill kernel for gfx1030".
 [^f-3e05abc9-moe-w8a16-fp8-rdna2-cu]: BlivionIaG/vllm `csrc/rocm/moe_w8a16_fp8_rdna2.cu` @ [`3e05abc9`](https://github.com/BlivionIaG/vllm/blob/3e05abc9bdb92100b0fec7a91e856c147dc6849c/csrc/rocm/moe_w8a16_fp8_rdna2.cu).
 [^isa]: AMD, *"RDNA 2" Instruction Set Architecture Reference Guide* (doc 70648): "Feature Changes in RDNA2 Devices" dot-product list; VOP2 opcodes 2 `V_DOT2C_F32_F16` / 13 `V_DOT4C_I32_I8`; VOP3P opcodes 19–25 `V_DOT2_F32_F16` … `V_DOT8_U32_U4`; LDS "128kB memory per workgroup processor split up into 64 banks of dword-wide RAMs"; "a single workgroup may allocate up to 64kB of LDS". <https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture>
+[^wvsplitkrc-na]: dest `csrc/rocm/skinny_gemms.cu` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b`: L1364 `#if defined(__gfx950__)`, L1368-L1369 `amdgpu_waves_per_eu(1, 1)` on `wvSplitKrc_`; L1840-L1848 `#else` `UNREACHABLE_CODE` stub with no attribute and no `launch_bounds`; L1849 stale `#endif  // defined(__HIP__GFX9__)` comment. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1364-L1369 ; https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1840-L1849

@@ -38,7 +38,7 @@ Prefill fat `M≥32` GEMM working sets are **larger than 128 MB**. IC does not m
 
 ## Occupancy is the IC knob we actually have
 
-Extra waves on a miss-path GEMV multiply outstanding GDDR6 and **evict** the 128 MB. That is why `fa_rdna2` / `skinny_gemms.cu` occupancy is still first — a perfect fit with `__launch_bounds__(N, 1)` / `waves_per_eu(1,1)` is not the win.
+Extra waves on a miss-path GEMV multiply outstanding GDDR6 and **evict** the 128 MB. That is why `fa_rdna2` prefill occupancy is still first — a perfect fit with `__launch_bounds__(N, 1)` is not the win. `wvSplitKrc_` `waves_per_eu(1,1)` is gfx950-gated and a stub on gfx1030 (n/a).[^wvsplitkrc-na]
 
 Two HIP streams or SDMA on the same V620 **fight** the same 128 MB. A “layer lives in IC” claim is only true if that GPU is otherwise quiet. Collectives stay outside GEMM ([rdna2-extras.md](../serving-stack/rdna2-extras.md), historical PYNCCL bypass; current all-reduce path: [fork/serve-locks.md](../../fork/serve-locks.md)).
 
@@ -67,4 +67,4 @@ Added in the 2026-10-11 sourcing pass:
 
 - AMD Radeon PRO V620 product page — <https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html>
 - AMD, *RDNA 2 Shader Instruction Set Architecture* (ISA 70648) — <https://www.amd.com/content/dam/amd/en/documents/radeon-tech-docs/instruction-set-architectures/rdna2-shader-instruction-set-architecture.pdf>
-
+[^wvsplitkrc-na]: dest `csrc/rocm/skinny_gemms.cu` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b`: L1364 `#if defined(__gfx950__)`, L1368-L1369 `amdgpu_waves_per_eu(1, 1)` on `wvSplitKrc_`; L1840-L1848 `#else` `UNREACHABLE_CODE` stub with no attribute and no `launch_bounds`; L1849 stale `#endif  // defined(__HIP__GFX9__)` comment. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1364-L1369 ; https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1840-L1849
