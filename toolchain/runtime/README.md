@@ -2,6 +2,8 @@
 owner: ROCM_specialist
 updated: 2026-11-16
 sources:
+  - https://github.com/ROCm/rocm-systems/pull/5686
+  - https://github.com/warpfront/hipfire/issues/1156
   - https://github.com/ROCm/TheRock/issues/9306
   - https://github.com/ROCm/rocm-systems/pull/15587
   - https://github.com/ggml-org/llama.cpp/pull/31886
@@ -210,6 +212,12 @@ A box with a gfx1030 and a gfx1100 in one process has two open runtime and libra
 
 Until both land: build every binary for every arch in the box, and run one process per architecture with `HIP_VISIBLE_DEVICES` or `ROCR_VISIBLE_DEVICES`.
 
+### `HSA_OVERRIDE_GFX_VERSION` must match every GPU's major version (7.14+)
+
+libhsakmt now rejects an override whose major version differs from the device it is applied to. The check reads `HSA_OVERRIDE_GFX_VERSION_<node>` first, then the global `HSA_OVERRIDE_GFX_VERSION`, and on a mismatch logs `Device is gfx<N>, override requested gfx<M> not allowed` and returns an error from topology setup. It was added in [rocm-systems#5686](https://github.com/ROCm/rocm-systems/pull/5686) (merged 2026-05-08). The `therock-7.14` and `therock-10.0` tags contain it; `rocm-7.2.4` does not.[^ovr5686] The hipfire maintainer reproduced the user-visible result on ROCm 10.0: with `HSA_OVERRIDE_GFX_VERSION=11.0.0` on a host whose enabled iGPU is major 10, ROCm drops all GPUs and `hipInit` returns `no ROCm-capable device is detected`. The reason only prints with `HSAKMT_DEBUG_LEVEL=3`. 7.2.4 accepted the same setting.[^hf1156]
+
+For our boxes: a global `HSA_OVERRIDE_GFX_VERSION=10.3.0` (common in RDNA2 images and guides) on a host that also has a gfx1100, or a Ryzen iGPU of a different major, breaks on 7.14 and 10.x. Real gfx1030 and gfx1100 need no override. If one card needs it (gfx1031/1032 run as 10.3.0), set it per KFD node with `HSA_OVERRIDE_GFX_VERSION_<node>`, using the node numbers from `/sys/class/kfd/kfd/topology/nodes/*/properties` (`gfx_target_version`).[^hf1156] gfx90c run as gfx900 stays within major 9, so the check does not block it.[^ovr5686]
+
 ### `ROCR_VISIBLE_DEVICES` does not isolate memory
 
 [rocm-systems#14778](https://github.com/ROCm/rocm-systems/issues/14778) (open, filed 2026-11-01) reports that a process started with `ROCR_VISIBLE_DEVICES=0` sees one HIP device but still opens the DRM render node of every GPU and acquires a GPU VM on each. Every `hipHostRegister` then maps the registration into the hidden GPUs too: about 2 MiB per 1 GiB registration on each hidden card, held until the process exits. The reporter measured it on eight W7900D (gfx1100) with ROCm 7.2.1, TheRock 10.1.0a20260822 and `develop` at `8915864`, and points at `hsakmt_fmm_init_process_apertures()` in libhsakmt `fmm.c`, which runs before ROCr applies the filter.[^vis14778] The code path is not arch-specific, but this page has no gfx1030 repro. For a multi-V620 host that runs one engine per card: the mask hides devices, it does not keep a job's host registrations off the other cards. Exposing only one card's render node is not a workaround on current builds: [rocm-systems#14764](https://github.com/ROCm/rocm-systems/issues/14764) (filed 2026-10-31, label `status: fix submitted`) shows that a sandbox with `/dev/kfd` and one render node, the others absent, finds no GPU at all (`rocminfo` returns `HSA_STATUS_ERROR_OUT_OF_RESOURCES`, HIP returns `hipErrorNoDevice`; libhsakmt logs `Failed to set mem policy for GPU`). The reporter used bubblewrap on gfx1201 + gfx1036, and a second reporter reproduced it with a fresh-`/dev` user namespace on 8× W7900D (gfx1100) with ROCm 7.2.1, TheRock 10.1.0 nightly wheels and `develop` `8915864`.[^vis14764] The fix, [rocm-systems#15264](https://github.com/ROCm/rocm-systems/pull/15264) ("skip GPUs without an acquired VM when setting memory policy"), is open as of 2026-11-09 and an AMD maintainer said it should merge soon.[^vis14764] Whether a Docker `--device` subset hits the same path was not tested here (unsourced); until the fix is in the TheRock pin, keep every render node visible and use `ROCR_VISIBLE_DEVICES` to pick the card.
@@ -291,3 +299,5 @@ Since Linux 6.14 the `dmem` cgroup controller can cap a container's VRAM on amdg
 [^lcpp31886]: llama.cpp#31886, open, "rocm: fix mmap model loading hang with staged uploads", filed 2026-11-08 (fixes llama.cpp#19482). https://github.com/ggml-org/llama.cpp/pull/31886
 [^sys15398]: rocm-systems#15398, open, filed 2026-11-09 20:48 UTC (RX 7900 XTX, WSL 2, ROCm 10.0.0 wheels). https://github.com/ROCm/rocm-systems/issues/15398
 [^rocr15587]: rocm-systems#15587, open, filed 2026-11-11 19:43 UTC (mechanism, gfx1102 rocrtst A/B/A results, scope note on gfx1152). https://github.com/ROCm/rocm-systems/pull/15587
+[^ovr5686]: rocm-systems#5686, merged 2026-05-08, "libhsakmt: Add cross-major-version validation for HSA_OVERRIDE_GFX_VERSION"; check in projects/rocr-runtime/libhsakmt/src/topology.c on develop; present in tags therock-7.14 and therock-10.0, absent from rocm-7.2.4 (checked 2026-11-16). https://github.com/ROCm/rocm-systems/pull/5686
+[^hf1156]: hipfire#1156, maintainer reply 2026-11-16 01:02 UTC (RX 7900 XTX, CachyOS, ROCm 10.0 vs 7.2.4; reproduction and per-node workaround). https://github.com/warpfront/hipfire/issues/1156

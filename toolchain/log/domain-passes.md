@@ -590,3 +590,19 @@ Vs domain 2026-11-12 ~10:35. **No dest bump** (live **7.14.0**); pins are covere
 | [vllm#67261](https://github.com/vllm-project/vllm/issues/67261) | Watch | RFC for a shared AMD target/arch-family contract across vLLM Python and C++ dispatch; relevant to how RDNA targets are named in the fork. |
 | [llama.cpp#31675](https://github.com/ggml-org/llama.cpp/issues/31675) | Leave engine | `--moe-cache-mib` aborts at load on gfx1030 (ROCm 7.2.0). |
 | [vllm#67330](https://github.com/vllm-project/vllm/issues/67330) | Leave engine | Kernel-owned LoRA fusion RFC, gfx1151 W4A16 first. |
+
+## 2026-11-16 ~10:30 — domain pass (`HSA_OVERRIDE_GFX_VERSION` cross-major check in 7.14+; not dest)
+
+Vs domain 2026-11-13 ~10:30. **No dest bump** (live **7.14.0**); pins are covered by the hourly scan (TheRock main `1e21477a5ca2`, releases unchanged).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [rocm-systems#5686](https://github.com/ROCm/rocm-systems/pull/5686) / [hipfire#1156](https://github.com/warpfront/hipfire/issues/1156) | **Take (runtime)** | 7.14+/10.x libhsakmt rejects an override whose major differs from the device; with a global override on a mixed-major host all GPUs drop. Use per-node `HSA_OVERRIDE_GFX_VERSION_<node>`. [runtime/](../runtime/README.md). |
+| [audio.cpp#1295](https://github.com/0xShug0/audio.cpp/issues/1295) | Note | TheRock 10.0.0 Windows device wheels ship no hipBLASLt Tensile data for gfx103x (gfx1032 report); same gap as [rocm-libraries#14838](https://github.com/ROCm/rocm-libraries/issues/14838). Windows is not our target. |
+| [rocm-libraries#14838](https://github.com/ROCm/rocm-libraries/issues/14838) | Note | BlivionIaG split the gfx1030 hipBLASLt work into replacement PRs #15823–#15835; per-device cache checks on two V620s (2026-11-14). No AMD reply visible. |
+| [rocm-libraries#15921](https://github.com/ROCm/rocm-libraries/issues/15921), [Netherquark/oto](https://github.com/Netherquark/oto) | Watch (gfx900) | Request to upstream a community-tuned native gfx90c rocBLAS Tensile library (today gfx90c maps to vega10); tuned with oto, an automated Tensile tuning suite for unsupported AMD GPUs. For GFX900_manager. |
+| [AMDResearch/kiwi](https://github.com/AMDResearch/kiwi) | Watch | In-kernel GPU-to-CPU invocation layer; gfx9 only per [kiwi#1](https://github.com/AMDResearch/kiwi/issues/1) (RDNA port question, 2026-11-16). |
+| [rocm-systems#15004](https://github.com/ROCm/rocm-systems/issues/15004) | Note | AsyncEventsLoop busy-spin fixed in therock-10.0+, not in 7.2.x; gfx1100 WSL data point says 10.1.0 stable is 11% slower than an Aug nightly in ComfyUI. |
+| [sglang#46900](https://github.com/sgl-project/sglang/issues/46900) | Leave engine | RDNA3/4 CI on sglang main; notes HIP VMM remap corruption on RDNA4 ([TheRock#8744](https://github.com/ROCm/TheRock/issues/8744)). |
+| [TheRock#9297](https://github.com/ROCm/TheRock/issues/9297) | Watch | gfx1201 `hipStreamWaitEvent` adds ~17 µs per small kernel; title says not on gfx1030, gone with `GPU_MAX_HW_QUEUES`≤2. |
+
