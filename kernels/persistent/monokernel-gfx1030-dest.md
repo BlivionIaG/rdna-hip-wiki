@@ -19,10 +19,15 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/models/qwen4_exp/amd/mono/rdna2/gdn.py
   - https://github.com/opengfx1030/vllm-rdna/commit/655cde1ce20838cf86f6a2f071db53cac089727b
   - https://github.com/opengfx1030/vllm-rdna/commit/2436df23358ef8b9397076c0663707ec3dce69bf
+  - https://github.com/opengfx1030/vllm-rdna/commit/3e2743351c97bd3f4367a23248b0e88495a249dd
 ---
 # MonoKernel on gfx1030: what dest built
 
 Silicon locks from the MonoKernel merge into dest `rdna_extras` (PR #94, tip `1c1426d5` = `1c1426d585c9b2653265947734225721cfc7ea6e`).[^pr94] This page supersedes the open questions in [monokernel-gfx1030-plan.md](monokernel-gfx1030-plan.md), which stays as the historical plan read at `e245a469`. No tok/s here; the fork's own results live under `docs/rdna/monokernel/`.[^readme]
+
+## Update at dest `rdna_extras` @ `3e274335` (checked 2026-11-15)
+
+PR #168 adds `mono_gdn_lq_rdna2`: the same `gdn_fused_k` launch with a `LQ=true` template that rebuilds the 32-row tile from a LeapQuant blob and appends records instead of writing per-token FP32 state. Occupancy and dynamic LDS of the fused kernel are unchanged (`__launch_bounds__(256)`, no `waves_per_eu`). Default off (`VLLM_RDNA_GDN_LEAPQUANT`). There is still no persistent / cooperative grid sync. Full silicon lock: [../linear-attn/gdn-leapquant.md](../linear-attn/gdn-leapquant.md).[^mono-3e274335]
 
 ## Update at dest `rdna_extras` @ `f36f05b9` (checked 2026-11-05)
 

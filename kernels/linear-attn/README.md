@@ -4,10 +4,11 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/7779514b449c358c14cb58c739cc33cd7efca3b4
   - https://github.com/BlivionIaG/vllm/commit/69d2efea371e52e4dca4c233e198ef627e181f0b
   - https://github.com/BlivionIaG/vllm/commit/77d6fdf801f8618a66dee12e6df14d983b530b33
+  - https://github.com/opengfx1030/vllm-rdna/commit/3e2743351c97bd3f4367a23248b0e88495a249dd
 ---
 # Linear attention
 
-Linear-attention / recurrent kernels: GDN decode + prefill, causal conv1d, FlashKDA. Back to the [kernels index](../README.md).
+Linear-attention / recurrent kernels: GDN decode + prefill, opt-in LeapQuant INT8 GDN state, causal conv1d, FlashKDA. Back to the [kernels index](../README.md).
 
 | Page | Inner loop | Completeness |
 |---|---|---|
@@ -15,6 +16,7 @@ Linear-attention / recurrent kernels: GDN decode + prefill, causal conv1d, Flash
 | [causal-conv1d.md](causal-conv1d.md) | scalar fp32 FMA (depthwise FIR) | Live HIP (still default on at `1dc3bac4`). UPDATE wire order fixed at `1dc3bac4` (HIP before Triton) [^c-7779514b] |
 | [gdn-decode.md](gdn-decode.md) | fp32 FMA + shfl K-reduce | Decode HIP Live (`69d2efe`); default on at `1dc3bac4` [^c-69d2efe] |
 | [gdn-prefill.md](gdn-prefill.md) | kkt scalar FMA; wy/delta_h/o `fdot2` | Prefill HIP opt-in at `1dc3bac4` (`VLLM_GDN_HIP_PREFILL=1`). o BV 32 / 45312 B and delta_h 256 thr at the tip (`77d6fdf8` BV 64 is historical). All `(2,4)` [^gdn-tip-readme] [^c-77d6fdf8] |
+| [gdn-leapquant.md](gdn-leapquant.md) | scalar FP32 FMA after INT8 dequant (no packed DOT) | Opt-in at `3e274335` (`VLLM_RDNA_GDN_LEAPQUANT=1`, default off). gfx1030 HIP only. [^c-3e274335-idx] |
 
 ## Sources
 
