@@ -1,6 +1,8 @@
 ---
 title: "Qwen3.8-Flash-Next / Qwen4Exp HIP — tip `8960a3bc`"
 sources:
+  - https://github.com/opengfx1030/vllm-rdna/commit/34e2ebc52ade9dd314aa77f65fdcc792f133cb8c
+  - https://github.com/opengfx1030/vllm-rdna/blob/34e2ebc52ade9dd314aa77f65fdcc792f133cb8c/csrc/rocm/rdna_fused_glue.cu
   - https://github.com/opengfx1030/vllm-rdna/commit/ddb69e64f4941085dc2fb76bacd86096511c8fdf
   - https://github.com/opengfx1030/vllm-rdna/blob/a01f26374e4ce6e8b8072c6bd0ef81ebd2387e0a/csrc/rocm/hc_prefill_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/commit/50120e13b46895fc5d074e88fc493f1eef69da9f
@@ -75,6 +77,21 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/tools/rdna/recipes/flashnext-mtp2.env
 ---
 # Qwen3.8-Flash-Next / Qwen4Exp HIP — tip `8960a3bc`
+
+## Update at dest `rdna_extras` @ `34e2ebc5` (checked 2026-11-16)
+
+PR #176 (opt-in lean-EPLB load counters) adds a counter CTA to the MoE route kernel. It is off by default: with `VLLM_RDNA_EPLB_STATS_DIR` unset, `_rdna2_fused_moe` calls `ops.rdna_moe_route_zero`, as before.[^3e2e-docs][^3e2e-py]
+
+| Surface | State at `34e2ebc5` |
+|---|---|
+| Route kernel | `moe_route_zero_k` is now `template <bool kStats>`, still `__launch_bounds__(kRouteThreads)` = 256. `kStats=false` keeps the exact `RouteArgs` signature and grid `1 + zero_ctas`, so the `e1ebb1f3` row below still holds for the default path.[^3e2e-tmpl][^3e2e-launch] |
+| Stats instantiation (`rdna_moe_route_zero_stats`) | Grid `2 + zero_ctas`. The last CTA (`blockIdx.x == gridDim.x - 1`) runs `eplb_stats_cta` while CTA 0 routes. The zeroing stride becomes `(gridDim.x - 1 - 1) * 256`.[^3e2e-tmpl][^3e2e-launch] |
+| Counter CTA memory model | Per-call expert histogram in LDS `s_h[kRouteMaxExperts]` (1024 int) with LDS `atomicAdd`. Per-rank `T`/`P` arrays hold `kEplbMaxRanks` = 8 entries. Global `state` words are updated with plain read-modify-write and no global atomics: each word has one writer, which is valid on a single stream only (source comment). Timestamps come from `wall_clock64()`. Ring records are `kEplbWords` = 32 int32.[^3e2e-cta][^3e2e-const] |
+| LDS (derived from source, not compiled) | `eplb_stats_cta` declares about 4.2 KB of static `__shared__` (`s_h` 4,096 B plus 2×8 int, 2×4 B, 2×8 B). It is in the `kStats=true` kernel only. I did not measure the kernel's total LDS or occupancy. |
+| Standalone `eplb_stats_k` (`rdna_eplb_stats`) | 1 CTA × 256 threads, `__launch_bounds__(kRouteThreads)`. Used for calls the route CTA skips: more than 1024 routed entries, the deterministic accumulator path, and the resident skinny kernel.[^3e2e-k][^3e2e-docs] |
+| Env gates | `VLLM_RDNA_EPLB_STATS_DIR` (unset = off), plus `_RING`, `_HIST`, `_EVERY` (power of two; sample mask), `_DECODE_MAX`, `_KERNEL` (`auto`/`hip`/`torch`) and `_INTERVAL_S`. While on, the Flash-Next `--monokernel` K2 stands down.[^3e2e-docs] |
+
+No change to DOT builtins, the GEMM/LDS tiles, KV quant or the CMake gfx1030 list in this delta.[^3e2e-cmp]
 
 ## Update at dest `rdna_extras` @ `3c270858` (checked 2026-11-03)
 
@@ -393,3 +410,11 @@ FA prefill leftover still first (`__launch_bounds__(*, 1)`). ticket-26 EXL3 `-cb
 [^e1eb-qsa-k]: `QSA_PIPE_*` constants and `qsa_sparse_paged_gqa_pipe_kernel` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/qsa_rdna2.cu#L1362-L1669 ; `QSA_MAX_GROUP`, `QSA_LDS_DIM_256`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/qsa_rdna2.cu#L940-L948
 [^e1eb-qsa-host]: `qsa_env_int`, `qsa_pipe_pick_splits`, the `pipe_ok` gate and `QSA_PIPE_LAUNCH` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/qsa_rdna2.cu#L1748-L1790 ; https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/csrc/rocm/qsa_rdna2.cu#L1876-L2020
 [^e1eb-tune-qsa]: `VLLM_RDNA_QSA_BLOCK_N` / `VLLM_RDNA_QSA_PIPE` rows in `docs/rdna2/tuning.md` @ `e1ebb1f3`: https://github.com/opengfx1030/vllm-rdna/blob/e1ebb1f3fa6bebe8822036b12f03da6220b611a6/docs/rdna2/tuning.md#L412-L413
+[^3e2e-tmpl]: `RouteArgsStats`, `template <bool kStats> moe_route_zero_k`, zero stride @ `34e2ebc5`: https://github.com/opengfx1030/vllm-rdna/blob/34e2ebc52ade9dd314aa77f65fdcc792f133cb8c/csrc/rocm/rdna_fused_glue.cu#L769-L790
+[^3e2e-launch]: `moe_route_zero_k<true>` / `<false>` launches @ `34e2ebc5`: https://github.com/opengfx1030/vllm-rdna/blob/34e2ebc52ade9dd314aa77f65fdcc792f133cb8c/csrc/rocm/rdna_fused_glue.cu#L1094-L1104
+[^3e2e-cta]: `eplb_stats_cta` @ `34e2ebc5`: https://github.com/opengfx1030/vllm-rdna/blob/34e2ebc52ade9dd314aa77f65fdcc792f133cb8c/csrc/rocm/rdna_fused_glue.cu#L641-L759
+[^3e2e-const]: `kEplbWords` / `kEplbMaxRanks` / `kEplbMaxBands` and `StatsArgs` @ `34e2ebc5`: https://github.com/opengfx1030/vllm-rdna/blob/34e2ebc52ade9dd314aa77f65fdcc792f133cb8c/csrc/rocm/rdna_fused_glue.cu#L615-L628
+[^3e2e-k]: `eplb_stats_k` and `rdna_eplb_stats` host launch @ `34e2ebc5`: https://github.com/opengfx1030/vllm-rdna/blob/34e2ebc52ade9dd314aa77f65fdcc792f133cb8c/csrc/rocm/rdna_fused_glue.cu#L761-L767 and https://github.com/opengfx1030/vllm-rdna/blob/34e2ebc52ade9dd314aa77f65fdcc792f133cb8c/csrc/rocm/rdna_fused_glue.cu#L1212-L1228
+[^3e2e-docs]: `VLLM_RDNA_EPLB_STATS_DIR` row, `docs/rdna2/tuning.md` @ `34e2ebc5`: https://github.com/opengfx1030/vllm-rdna/blob/34e2ebc52ade9dd314aa77f65fdcc792f133cb8c/docs/rdna2/tuning.md#L418
+[^3e2e-py]: `_rdna2_fused_moe` route selection @ `34e2ebc5`: https://github.com/opengfx1030/vllm-rdna/blob/34e2ebc52ade9dd314aa77f65fdcc792f133cb8c/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_wna16_rdna2.py
+[^3e2e-cmp]: compare `7f939b76`...`34e2ebc5` (PR #176, merge commit [`34e2ebc5`](https://github.com/opengfx1030/vllm-rdna/commit/34e2ebc52ade9dd314aa77f65fdcc792f133cb8c)): https://github.com/opengfx1030/vllm-rdna/compare/7f939b76d9acd0741122a642798cb488bfb64c09...34e2ebc52ade9dd314aa77f65fdcc792f133cb8c
