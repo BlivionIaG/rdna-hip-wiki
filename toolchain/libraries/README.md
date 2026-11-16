@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-12
+updated: 2026-11-16
 sources:
   - https://github.com/ROCm/rocm-libraries/issues/15578
   - https://github.com/ROCm/rocm-libraries/pull/15586
@@ -161,7 +161,7 @@ For our own containers or fork builds on a kpack ROCm (Strata's report uses `/op
 
 ### hipDNN RDNA decode attention: NaN on lowest-value bf16 masks
 
-[rocm-libraries#15578](https://github.com/ROCm/rocm-libraries/issues/15578) (open, filed 2026-11-11) reports that the hip-kernel-provider's RDNA split-KV decode attention kernel (`hipkernel:Gfx1151WmmaAttentionDecode`, rocKE) returns NaN with no error when an additive bf16 or f32 mask uses the dtype's lowest finite value instead of `-inf`, as Hugging Face masks do with `torch.finfo(dtype).min`, and every key in a wave's first 16-key tile is masked (for example with left padding). fp16 masks and `-inf` masks are not affected. It reproduced on gfx1100 and gfx1201, and the issue says the dispatcher also sends many short prefills (most with Sq ≤ 64) to this kernel.[^dnn15578] The fix [rocm-libraries#15586](https://github.com/ROCm/rocm-libraries/pull/15586) (open) says the kernel ships only for gfx1100–1103, gfx1150–1153, gfx1200 and gfx1201, so gfx1030 never reaches it.[^dnn15586] For our forks on gfx1100: if hipDNN serves SDPA, pass `-inf` masks or check bf16 padded batches for NaN until the fix lands.
+[rocm-libraries#15578](https://github.com/ROCm/rocm-libraries/issues/15578) (open, filed 2026-11-11) reports that the hip-kernel-provider's RDNA split-KV decode attention kernel (`hipkernel:Gfx1151WmmaAttentionDecode`, rocKE) returns NaN with no error when an additive bf16 or f32 mask uses the dtype's lowest finite value instead of `-inf`, as Hugging Face masks do with `torch.finfo(dtype).min`, and every key in a wave's first 16-key tile is masked (for example with left padding). fp16 masks and `-inf` masks are not affected. It reproduced on gfx1100 and gfx1201, and the issue says the dispatcher also sends many short prefills (most with Sq ≤ 64) to this kernel.[^dnn15578] The fix [rocm-libraries#15586](https://github.com/ROCm/rocm-libraries/pull/15586) (merged into `develop` 2026-11-16 03:57 UTC as `05d0e5cd8bc6`; not in any release yet) says the kernel ships only for gfx1100–1103, gfx1150–1153, gfx1200 and gfx1201, so gfx1030 never reaches it.[^dnn15586] For our forks on gfx1100: if hipDNN serves SDPA, pass `-inf` masks or check bf16 padded batches for NaN until a ROCm build that includes `05d0e5cd8bc6` is the pin.
 
 ### ComfyUI picks FP32, not FP16, on GPUs without BF16
 
@@ -203,6 +203,6 @@ Two open ComfyUI PRs filed 2026-11-11 say that models whose `supported_inference
 [^ck337]: comfy-kitchen#337, open. https://github.com/Comfy-Org/comfy-kitchen/pull/337
 [^mi15527]: rocm-libraries#15527, open, filed 2026-11-11 00:17 UTC (mechanism, PyTorch reproducer, W7800 gfx1100). https://github.com/ROCm/rocm-libraries/issues/15527
 [^dnn15578]: rocm-libraries#15578, open, filed 2026-11-11 19:56 UTC (trigger, cause, gfx1100/gfx1201/gfx1151 reproduction). https://github.com/ROCm/rocm-libraries/issues/15578
-[^dnn15586]: rocm-libraries#15586, open, filed 2026-11-11 20:32 UTC (ASIC coverage section). https://github.com/ROCm/rocm-libraries/pull/15586
+[^dnn15586]: rocm-libraries#15586, filed 2026-11-11 20:32 UTC, merged 2026-11-16 03:57 UTC as 05d0e5cd8bc6cfffb187aa752dbe3cf274b779c7 (ASIC coverage section). https://github.com/ROCm/rocm-libraries/pull/15586
 [^cf17684]: ComfyUI#17684, open, filed 2026-11-11 (MOSS-Image FP16, gfx1030 timings and numerics). https://github.com/Comfy-Org/ComfyUI/pull/17684
 [^cf17686]: ComfyUI#17686, open, filed 2026-11-11 (Qwen Image 2.1 FP16, gfx1030 timings and numerics, `--fp16-unet` note). https://github.com/Comfy-Org/ComfyUI/pull/17686
