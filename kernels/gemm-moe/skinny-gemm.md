@@ -1,6 +1,7 @@
 ---
 title: "Skinny GEMM — silicon / HIP contract"
 sources:
+  - https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/vllm/model_executor/layers/utils.py
   - https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/tests/kernels/quantization/test_rocm_skinny_gemms.py
   - https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/vllm/model_executor/layers/utils.py
@@ -114,9 +115,13 @@ Merged into `rdna_extras` as PR #54 (`port/faisal-skinny-wave32`, merge `4a971f8
 | `LLGemm1_kernel` second-stage reduce | On wave32, LLMM1's K ≤ 8192 range can leave up to 32 partial waves in `red_smem`, but the 16-lane `__shfl_xor` tree only read partials 0..15. New guard `if (WARP_SIZE == 32 && qthreadid + 16 < num_warps) acc += red_smem[qwarpid][qthreadid + 16]` folds 16..31 in before the shuffle. [^f-a63a6b00-skinny-l275] |
 | `wvSplitK` host | New `on_gfx10()` (matches `gcnArchName` containing `gfx10`) and `TORCH_CHECK(!on_gfx10(), "wvSplitK is not built for gfx10 (RDNA2); use gemv_f16_rdna2")`. Reason in the source comment: gfx10 is neither `__HIP__GFX9__` nor `__HIP__GFX1X__`, so the `wvSplitK` kernels compile to their `assert(false)` stub and the dispatch would fall into the GFX9 wave64 path (queue fault). A host error replaces the device assert recorded @ `3b59ee16`. [^f-a63a6b00-skinny-l74][^f-a63a6b00-skinny-l1239] |
 | Tests | `test_rocm_skinny_gemms.py` adds LLMM1 shapes `(1, 4104, 1024)` and `(1, 4352, 1024)` (17 waves on wave32; per the test comment K=4352 fails without the fix) and skips the two `wvSplitK` tests on gfx10x. [^f-a63a6b00-test-skinny] |
-| Dispatch | Unchanged: `layers/utils.py` still routes gfx10x FP16 decode M ≤ 8 to `gemv_f16_rdna2`, and its comment still says wvSplitK/LLMM1 are gfx9/gfx11+ only. LLMM1 being correct on wave32 does not put it on the gfx1030 path. [^f-a63a6b00-utils] |
+| Dispatch | *(Historical @ `a63a6b00` for the LM head: @ `2c6d5d45` the LM head can take up to 32 rows, see below.)* Unchanged: `layers/utils.py` still routes gfx10x FP16 decode M ≤ 8 to `gemv_f16_rdna2`, and its comment still says wvSplitK/LLMM1 are gfx9/gfx11+ only. LLMM1 being correct on wave32 does not put it on the gfx1030 path. [^f-a63a6b00-utils] |
 
 Occupancy: no `__launch_bounds__` / `waves_per_eu` change. `wvSplitKrc_` still carries `amdgpu_waves_per_eu(1, 1)` (now at L1369), so the FA + skinny `(1,1)` leftover is still open. No DOT, LDS-tile, KV-quant, CMake gfx1030 list, or `envs.py` change. [^f-a63a6b00-skinny-l1369]
+
+## Dest @ `2c6d5d45` — LM head GEMV row cap
+
+`rocm_unquantized_gemm_impl` gains `max_gemv_rows` (default 8): the gfx10x `gemv_f16_rdna2` branch now fires for `0 < n <= max_gemv_rows`. Only a `ParallelLMHead` layer passes more than 8, from `VLLM_RDNA_LM_HEAD_GEMV_MAX_M` clamped to [8, 32] (default 8 = previous behaviour); every other dense GEMM keeps 8. The source comment says `gemv_f16_rdna2` serves 1..32 rows. The `27b-hi2-tp2` recipe sets 32.[^f-2c6d5d45-utils][^f-2c6d5d45-recipe] No kernel, `__launch_bounds__` or `waves_per_eu` change in `skinny_gemms.cu`; `wvSplitKrc_` `(1, 1)` leftover unchanged.
 
 ## Sources
 
@@ -156,3 +161,5 @@ Occupancy: no `__launch_bounds__` / `waves_per_eu` change. `wvSplitKrc_` still c
 [^f-a63a6b00-skinny-l1369]: `csrc/rocm/skinny_gemms.cu` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b` L1369. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/csrc/rocm/skinny_gemms.cu#L1369
 [^f-a63a6b00-test-skinny]: `tests/kernels/quantization/test_rocm_skinny_gemms.py` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b`. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/tests/kernels/quantization/test_rocm_skinny_gemms.py
 [^f-a63a6b00-utils]: `vllm/model_executor/layers/utils.py` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b` L361-L376. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/vllm/model_executor/layers/utils.py#L361-L376
+[^f-2c6d5d45-utils]: opengfx1030/vllm-rdna `vllm/model_executor/layers/utils.py` [L33–51, 359–398](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/vllm/model_executor/layers/utils.py#L33-L51) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^f-2c6d5d45-recipe]: opengfx1030/vllm-rdna `tools/rdna/recipes/27b-hi2-tp2.env` [L114](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/tools/rdna/recipes/27b-hi2-tp2.env#L114) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.

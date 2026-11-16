@@ -1,6 +1,6 @@
 ---
 title: "rdna_hint_flex (HadamardINT2-FP16 v3.2) on gfx1030 — kernel contract"
-updated: 2026-10-29
+updated: 2026-11-16
 sources:
   - https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af
   - https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/rdna_hint_flex_rdna2.cu
@@ -16,6 +16,15 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/4dbfd4c8e56dd176a4ea3f97dcdd3f51b534ee22
   - https://github.com/opengfx1030/vllm-rdna/commit/10cf5bbe5293ffe301877bbbd1d8061fca9e5662
   - https://github.com/opengfx1030/vllm-rdna/commit/491b7d50707718f338fd0b5dd07f2f81d343c3cf
+  - https://github.com/opengfx1030/vllm-rdna/compare/3e2743351c97bd3f4367a23248b0e88495a249dd...2c6d5d450d0c74893ae8c10daee8352dac234e11
+  - https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_dense_gemm_kernel.cuh
+  - https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_dense_gemm_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_dense_gemm_rdna2.cuh
+  - https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_dense_gemm_table.cuh
+  - https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/CMakeLists.txt
+  - https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/vllm/model_executor/layers/quantization/rdna_hint_flex.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/tools/rdna/recipes/27b-hi2-tp2.env
 ---
 # rdna_hint_flex (HadamardINT2-FP16 v3.2) on gfx1030 — kernel contract
 
@@ -58,15 +67,62 @@ All kernels below use `kThreads = 256` (8 waves × wave32) where they carry `__l
 
 - **Composite linear op** `rdna_hint_flex_linear_rdna2(…, decode_max_m, mode)`: mode 0 (F16) runs the F16 GEMV for M ≤ `decode_max_m`, else dequant + rocBLAS GEMM; mode 1 (I8) runs the I8 path for M ≤ `decode_max_m`, larger M as mode 0; mode 2 runs the I8 path for every M. The choice is made at execution time from M.[^linear][^hdr]
 - **Python defaults:** `COMPUTE_MODES = {"f16": 0, "i8": 1, "i8_all": 2}`, default `"f16"`, overridable by `VLLM_RDNA_HINT_FLEX_COMPUTE_MODE`; `DECODE_MAX_M = 48`. The config only engages on ROCm with `on_gfx10x()` and the op present.[^pymode][^pyenv]
-- **GEMV split:** `RDNA_HINT_FLEX_GEMV_SPLIT` (1, 2, 4, 8) forces waves per row; otherwise 1 for R ≥ 8192, 2 for R ≥ 4096, else 4. MT is 1, 2, 4 or 8 from M.[^split][^mt]
-- **Fused prefill GEMM is opt-in:** `RDNA_HINT_FLEX_PREFILL` > 0 selects `gemm2_kernel<128, 128>`; the default (0) is dequant + `at::mm_out` (rocBLAS).[^prefill][^linear]
+- **GEMV split (v1):** `RDNA_HINT_FLEX_GEMV_SPLIT` (1, 2, 4, 8) forces waves per row; otherwise 1 for R ≥ 8192, 2 for R ≥ 4096, else 4. MT is 1, 2, 4 or 8 from M.[^split][^mt] *(Historical @ `b7402893` as the only decode GEMV: @ `2c6d5d45` `RDNA_HINT_FLEX_GEMV` can select GEMV v2, see below.)*
+- **Fused prefill GEMM is opt-in:** `RDNA_HINT_FLEX_PREFILL` > 0 selects `gemm2_kernel<128, 128>`; the default (0) is dequant + `at::mm_out` (rocBLAS).[^prefill][^linear] *(Historical @ `b7402893` for the post-dequant GEMM: @ `2c6d5d45` the dequant + GEMM branch can also run the dense HIP prefill GEMM via `RDNA_HINT_FLEX_PREFILL_GEMM`, see below; `RDNA_HINT_FLEX_PREFILL` / `gemm2` is unchanged.)*[^n-composite]
 - **I8 prefill is op-only:** `act_quant64` / `i8gemm` (tile 1 → 64 × 128, else 128 × 128) are registered ops, but `rdna_hint_flex_linear_rdna2` does not call them; its I8 branch uses the per-16-column `act_quant` + `gemv_i8`.[^i8tile][^linear] The commit that added them calls them opt-in.[^c4dbf]
 - **Routed experts:** `rdna_hint_flex_moe_rdna2` uses I8 when mode 2, or mode 1 with T ≤ `decode_max_m`; otherwise the F16 transform + GEMV pair.[^moehost] In Python, batches with more than `GROUPED_MIN_TOKENS` tokens in F16 mode take the grouped path (`moe_align_block_size` block 64 → `gemm2_kernel<64, 128, true>`); the default is 16 and `RDNA_HINT_FLEX_MOE_GROUPED_MIN` overrides it.[^grouped][^moeblock]
+
+## Dest @ `2c6d5d45` — dense fp16 prefill GEMM, GEMV v2, SiLU fold (read 2026-11-16)
+
+Tip moved `3e274335` → `2c6d5d45` (PRs #170–#172 plus the HI2 27B TP2 branches).[^n-cmp] Occupancy first; no tok/s here.
+
+### Dense fp16 prefill GEMM (`rdna_hint_flex_dense_gemm_rdna2.cu`, new)
+
+- **What:** C[M,N] = A[M,K]·W[N,K]^T, fp16 in/out, fp32 accumulation with `__builtin_amdgcn_fdot2` (v_dot2_f32_f16) on 8-byte LDS fragments; it runs on the dequantized fp16 weight inside the composite op's dequant + GEMM branch.[^n-khdr][^n-dot2][^n-composite]
+- **gfx1030 only:** device code is under `__gfx1030__`; host `launch()` returns false (nothing launched) unless `gcnArchName` starts with `gfx1030`, K is a multiple of the design's BK, and pointers and row strides are 16-byte aligned.[^n-khdr][^n-launch]
+- **Build:** added to the HIP `_rocm_C` source list; with `VLLM_ROCM_HAS_GFX1030` the generated `.hip` gets `-O3` so the shipped code matches the swept register allocation (RelWithDebInfo would give `-O2`).[^n-cmake]
+- **Occupancy:** `__launch_bounds__(P::T)` (threads = (BN/TN)·(BM/TM)); no `amdgpu_waves_per_eu`. One static `__shared__` buffer of `NBUF·(BM+BN)·(BK+PAD)·2` bytes, `static_assert` ≤ 64 KiB per block.[^n-design][^n-klb]
+
+| Design | Tile BM×BN, BK | Acc/thread | Threads (computed) | Stages, LDS layout | LDS bytes (computed) | Knobs |
+|---|---|---|---|---|---|---|
+| D1 | 128×128, 32 | 8×16 | 128 | 2, XOR-swizzled 16-B chunks | 32768 | RAST 8, BROT, SKIP, BUF |
+| D2 | 128×128, 32 | 8×16 | 128 | 2, swizzled | 32768 | RAST 4, BROT, SKIP, BUF |
+| D3 | 128×64, 64 | 8×8 | 128 | 1, pad 8 halves | 27648 | RAST 4, SKIP, BUF |
+| D4 | 256×128, 32 | 8×16 | 256 | 2, swizzled | 49152 | RAST 4, BROT, SKIP, BUF |
+| D5 (tail ≤32 rows) | 32×128, 64 | 4×8 | 128 | 2, swizzled | 40960 | SKIP, BUF |
+| D6 (tail ≤64 rows) | 64×128, 64 | 8×8 | 128 | 2, swizzled | 49152 | SKIP, BUF |
+
+Tile parameters are the `Design<…>` template arguments; thread and LDS columns are computed from the header's formulas.[^n-designs][^n-design] The source states D1 at **232 VGPR, 4 waves/SIMD, 4 blocks per WGP** (the swizzled 128×128 BK32 two-stage tile "fits four blocks in a WGP's 128 KiB").[^n-designs][^n-khdr]
+
+LDS / ISA locks stated in the header:[^n-khdr]
+- **SWZ:** XOR swizzle of 16-byte chunks per LDS row, conflict-free like PAD 8 but without the pad bytes.
+- **BROT 1:** B-fragment dwords stored rotated by one in LDS so the two sources of each v_dot2 sit in different VGPR banks; the header says same-bank dot2 sources issue 13–15 % slower. Result bit-identical.
+- **BUF 1:** `buffer_load_dwordx4` through a buffer descriptor (K advance in scalar soffset) instead of `global_load_dwordx4` with 64-bit VGPR addresses.
+- **SKIP 1:** waves whose rows/columns are all past M/N skip their dot2 work.
+- **DMA 1** (`buffer_load_dword … lds`, global→LDS without staging VGPRs) and **PRIO** (`s_setprio`) exist as knobs, but every shipped design has DMA 0 and PRIO 0.[^n-designs]
+
+Dispatch:[^n-table][^n-cuh][^n-composite]
+- A generated (N, K) slot table of measured M anchors picks a design or rocBLAS (−1); an M is served by its nearest anchor inside [0.75×first, 2.0×last anchor], rocBLAS outside; min gain over rocBLAS 1.01.
+- Tail M % 128: `kTileRows = 128`, `kTailMaxRows = 64`, `kHybridGemvMaxRows = 16`, `kDenseTailMinM = 1024`. Mode 4 (hybrid) sends r ≤ 16 tail rows to the decode GEMV, and from M ≥ 1024 larger tails (≤ 64) to D5/D6; otherwise the tail is padded into one more tile row.
+- Env `RDNA_HINT_FLEX_PREFILL_GEMM`: unset/`0`/`off`/`rocblas` → 0 (default, rocBLAS); `hip` → 4; `hip-notail` → 1. Falls back to 0 with a warning when the op is missing from the build.[^n-pyenv]
+- The `27b-hi2-tp2` recipe sets `RDNA_HINT_FLEX_PREFILL_GEMM=hip`; the code default stays rocBLAS.[^n-recipe]
+
+### GEMV v2 (decode, `rdna_hint_flex_rdna2.cu`)
+
+- RPW rows per wave share one activation load: lane l owns 16-column group g of each of the wave's rows, so a weight word costs its load, ~4 decode instructions per column pair and MT v_dot2 per pair. Pairing is column i with i + 8 so codes land in the two 16-bit halves of a dword (INT2 mask, INT4 nibble, INT8 one `v_perm_b32`), then the `0x6400` magic and `v_pk_fma_f16` (one rounding, same as v1).[^n-g2doc]
+- Wave reduction: four DPP row steps + `v_permlanex16` instead of v1's `__shfl_xor` tree (which goes through `ds_bpermute`).[^n-g2red]
+- `__launch_bounds__(WPB·32)`; the auto config uses WPB = 4 (128 threads), RPW 4 when R ≥ 2048 else 2, MT ∈ (1, 2, 3, 4, 6, 8). No `amdgpu_waves_per_eu`.[^n-g2lb][^n-g2auto]
+- Gate: `RDNA_HINT_FLEX_GEMV` unset/`v1` = v1 (default); `v2` = v2 for every eligible call; `auto` = v2 from M = 2, v1 at M = 1. Only tensors with R ≥ 1024 (`kGemv2MinRows`); smaller tensors keep v1's K split.[^n-g2env]
+- The `27b-hi2-tp2` recipe sets `RDNA_HINT_FLEX_GEMV=auto`.[^n-recipe]
+
+### SiLU fold
+
+`act_transform_kernel<PI, SILU>` can take the [M, 2K] gate|up output and compute silu(gate)·up inside the input transform of the down projection; needs the transform, F16 mode and K % 64 == 0. Gate `RDNA_HINT_FLEX_FUSE_SILU=1` (default off; recipe sets 1).[^n-silu][^n-pysilu][^n-recipe]
 
 ## Take / Leave
 
 - **Take:** per-row mixed 2/4/8-bit codes with per-block (lo, step) bytes feed both packed DOTs: `fdot2` after an exact fp16 decode, or `sdot4` directly on spread codes with a `sumq` correction. This is a third pattern next to W4A16 (`fdot2`) and W4A8 (`sdot4`): [w4a16.md](w4a16.md), [w4a8.md](w4a8.md).[^worddot][^i8dot]
-- **Leave (for now):** the fused `gemm2` prefill and the I8 prefill GEMM are not the default prefill path.[^prefill][^linear]
+- **Leave (for now):** the fused `gemm2` prefill and the I8 prefill GEMM are not the default prefill path.[^prefill][^linear] (Still true @ `2c6d5d45`; the new dense prefill GEMM below is also off by default.)
 - **Open:** none of the kernels pins `amdgpu_waves_per_eu`, and the source gives no VGPR or scratch numbers, so occupancy for `gemm2_kernel<128,128>` (~40 KiB static LDS, one WG per CU by LDS on a 64 KiB CU budget) is (unsourced) until someone reads the code object.
 
 ## Sources
@@ -107,3 +163,24 @@ All kernels below use `kThreads = 256` (8 waves × wave32) where they carry `__l
 [^moehost]: [rdna_hint_flex_rdna2.cu:1887–1960](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/rdna_hint_flex_rdna2.cu#L1887-L1960) @ b74028935393d1e21f73f80f65f506c9ea4639af.
 [^grouped]: [rdna_hint_flex_moe.py:48–52, 270–272](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/vllm/model_executor/layers/quantization/rdna_hint_flex_moe.py#L48-L52) @ b74028935393d1e21f73f80f65f506c9ea4639af; env override added in [`491b7d50`](https://github.com/opengfx1030/vllm-rdna/commit/491b7d50707718f338fd0b5dd07f2f81d343c3cf).
 [^moeblock]: [rdna_hint_flex_rdna2.cu:1810–1832](https://github.com/opengfx1030/vllm-rdna/blob/b74028935393d1e21f73f80f65f506c9ea4639af/csrc/rocm/rdna_hint_flex_rdna2.cu#L1810-L1832) @ b74028935393d1e21f73f80f65f506c9ea4639af.
+
+[^n-cmp]: Compare [`3e274335...2c6d5d45`](https://github.com/opengfx1030/vllm-rdna/compare/3e2743351c97bd3f4367a23248b0e88495a249dd...2c6d5d450d0c74893ae8c10daee8352dac234e11); tip merge [`2c6d5d45`](https://github.com/opengfx1030/vllm-rdna/commit/2c6d5d450d0c74893ae8c10daee8352dac234e11) (PR #172).
+[^n-khdr]: [rdna_hint_flex_dense_gemm_kernel.cuh:4–66](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_dense_gemm_kernel.cuh#L4-L66) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^n-dot2]: [rdna_hint_flex_dense_gemm_kernel.cuh:77–84](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_dense_gemm_kernel.cuh#L77-L84) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^n-design]: [rdna_hint_flex_dense_gemm_kernel.cuh:102–136](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_dense_gemm_kernel.cuh#L102-L136) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^n-klb]: [rdna_hint_flex_dense_gemm_kernel.cuh:181–192](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_dense_gemm_kernel.cuh#L181-L192) and L512 @ 2c6d5d450d0c74893ae8c10daee8352dac234e11; no `amdgpu_waves_per_eu` in the file.
+[^n-designs]: [rdna_hint_flex_dense_gemm_rdna2.cu:50–86](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_dense_gemm_rdna2.cu#L50-L86) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^n-launch]: [rdna_hint_flex_dense_gemm_rdna2.cu:88–90, 138–150](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_dense_gemm_rdna2.cu#L138-L150) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^n-cuh]: [rdna_hint_flex_dense_gemm_rdna2.cuh:22–76](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_dense_gemm_rdna2.cuh#L22-L76) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^n-table]: [rdna_hint_flex_dense_gemm_table.cuh:1–25](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_dense_gemm_table.cuh#L1-L25) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^n-cmake]: [CMakeLists.txt:1666, 1739–1747](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/CMakeLists.txt#L1739-L1747) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^n-composite]: [rdna_hint_flex_rdna2.cu:2768–2875](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_rdna2.cu#L2768-L2875) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^n-pyenv]: [rdna_hint_flex.py:66–93, 295–303](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/vllm/model_executor/layers/quantization/rdna_hint_flex.py#L66-L93) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^n-pysilu]: [rdna_hint_flex.py:461–473](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/vllm/model_executor/layers/quantization/rdna_hint_flex.py#L461-L473) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^n-recipe]: [27b-hi2-tp2.env:93, 107, 114, 127](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/tools/rdna/recipes/27b-hi2-tp2.env#L93-L127) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^n-g2doc]: [rdna_hint_flex_rdna2.cu:335–367](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_rdna2.cu#L335-L367) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^n-g2red]: [rdna_hint_flex_rdna2.cu:390–408](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_rdna2.cu#L390-L408) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^n-g2lb]: [rdna_hint_flex_rdna2.cu:649](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_rdna2.cu#L649) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11; no `amdgpu_waves_per_eu` in the file.
+[^n-g2auto]: [rdna_hint_flex_rdna2.cu:2091–2098](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_rdna2.cu#L2091-L2098) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^n-g2env]: [rdna_hint_flex_rdna2.cu:2041–2072](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_rdna2.cu#L2041-L2072) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^n-silu]: [rdna_hint_flex_rdna2.cu:120–141, 2451–2466, 2784–2788](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/csrc/rocm/rdna_hint_flex_rdna2.cu#L2784-L2788) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
