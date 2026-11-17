@@ -12,6 +12,7 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/8bb8ff36cdb2e885553a151a824706d2d920fe3a
   - https://github.com/opengfx1030/vllm-rdna/commit/b74028935393d1e21f73f80f65f506c9ea4639af
   - https://github.com/opengfx1030/vllm-rdna/commit/2436df23358ef8b9397076c0663707ec3dce69bf
+  - https://github.com/opengfx1030/vllm-rdna/commit/b56907c4339779d2076f0886532833689aec93ec
 ---
 # GEMM and MoE
 
@@ -24,6 +25,7 @@ Dense skinny GEMM / GEMV and fused-MoE GEMM contracts, stock and extras. Back to
 | [triton-skinny-gemm.md](triton-skinny-gemm.md) | stock dispatch baseline | Stock gfx1030 = BLAS; LLMM1/wvSplitK gate excludes gfx10 [^f-c6d99ca3-skinny-gemms-cu] |
 | [skinny-gemm.md](skinny-gemm.md) | no MFMA; gemv_f16 decode @ `3b59ee16`; MoE int4 `fdot2` @ `5c3c0c6f`; resident MoE @ `e1315629` | gfx1030 dense decode = gemv; resident MoE opt-in M=1..4; `(1,1)` leftover open [^c-3b59ee16][^c-5c3c0c6f][^c-e1315629] |
 | [rdna2-moe-offload-q32.md](rdna2-moe-offload-q32.md) | unchanged `fdot2`; new Q32 int64 epilogue | MoE expert offload (graph-safe passes, one rounding), deterministic dense W4A16 opt-in, native expert-cache copy opt-in @ `b7402893` [^c-b740-moe] |
+| [gguf-plugin-moe.md](gguf-plugin-moe.md) | out-of-tree GGUF MMQ `moe_q*` (plugin fork, ROCm tile 64×128, 8 warps) | `qwen4exp_gguf` load format; image builds plugin fork for gfx1030 only; 3 kernel defects fixed/worked around @ `b56907c4` [^c-b569-gguf] |
 
 ## MoE dispatch on gfx1030 (W4A16 / W4A8)
 
@@ -65,3 +67,4 @@ Index rows summarise the linked pages; each page carries its own footnoted prima
 [^c-b740-moe]: dest tip [`b7402893`](https://github.com/opengfx1030/vllm-rdna/commit/b74028935393d1e21f73f80f65f506c9ea4639af); PR #146 [`2436df23`](https://github.com/opengfx1030/vllm-rdna/commit/2436df23358ef8b9397076c0663707ec3dce69bf) and PR #147.
 [^c-2693-moe]: `csrc/rocm/moe_w4a8_rdna2.cu` @ `269314ac56eeb10dd03c0418cf1c8cbf8bbdd7fe` L671-L813 and `tools/rdna/recipes/flashnext-mtp2.env` L50-L58. https://github.com/opengfx1030/vllm-rdna/blob/269314ac56eeb10dd03c0418cf1c8cbf8bbdd7fe/csrc/rocm/moe_w4a8_rdna2.cu#L671-L813 ; https://github.com/opengfx1030/vllm-rdna/blob/269314ac56eeb10dd03c0418cf1c8cbf8bbdd7fe/tools/rdna/recipes/flashnext-mtp2.env#L50-L58
 [^c-7773-moe]: `csrc/rocm/moe_w4a8_rdna2.cu` @ `7773dc6230f91fae56c50d69bb9c1e4ebdacdf83` L641-L792. https://github.com/opengfx1030/vllm-rdna/blob/7773dc6230f91fae56c50d69bb9c1e4ebdacdf83/csrc/rocm/moe_w4a8_rdna2.cu#L641-L792
+[^c-b569-gguf]: opengfx1030/vllm-rdna commit [`b56907c4`](https://github.com/opengfx1030/vllm-rdna/commit/b56907c4339779d2076f0886532833689aec93ec) (2026-11-16) — "Merge pull request #189: Image: build the GGUF plugin fork; flashnext-gguf-mtp0 recipe; README and serving docs".
