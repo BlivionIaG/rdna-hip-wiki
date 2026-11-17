@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-11
+updated: 2026-11-17
 sources:
   - https://github.com/ROCm/TheRock/issues/9865
   - https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.14.0/reference/rocmcc.html
@@ -23,6 +23,8 @@ sources:
   - https://github.com/triton-lang/triton/pull/10906
   - https://github.com/ROCm/TheRock/issues/9294
   - https://github.com/ROCm/rocm-examples/issues/566
+  - https://github.com/ROCm/llvm-project/issues/5478
+  - https://github.com/ROCm/TheRock/pull/8585
 ---
 
 # Compiler
@@ -123,6 +125,12 @@ For our forks: if a kernel calls through a function pointer, read `.uses_dynamic
 
 [TheRock#9865](https://github.com/ROCm/TheRock/issues/9865) (open, filed 2026-11-10) reports that with the TheRock pip SDK on Linux (HIP 7.16.26385, gfx1100) the first kernel launch in a process calls `srand()` with a random seed, so an app that seeded `rand()` for reproducible runs gets a different stream every run. The backtrace in the report goes `hipLaunchKernel` → `amd_comgr_do_action` → `llvm::sys::fs::createUniqueDirectory` → `llvm::sys::Process::GetRandomNumber()` → glibc `srandom`; the SDK's `libLLVM.so.24.0git` imports `srand` and not `arc4random`, which the reporter attributes to building against a glibc older than 2.36. Ubuntu 24.04's distro comgr (`libLLVM-17.so.1`) imports `arc4random` and is not affected.[^tr9865] The issue names only gfx1100, but the path is comgr on the host, so it should not depend on the GPU target (inferred, not measured on gfx1030). For our test harnesses: seed `rand()` after the first kernel launch, or use a C++ `<random>` engine you own, until the SDK's LLVM stops using `srand`.
 
+## Gotcha — ROCm 7.1 `__half2float` returns the negated value (SDWA peephole)
+
+[ROCm/llvm-project#5478](https://github.com/ROCm/llvm-project/issues/5478) (open, filed 2026-11-17, no replies yet) reports that the ROCm 7.1 compiler (AMD clang 20.0.0git, roc-7.1.0 25425) miscompiles an fp16 → fp32 cast in a grid-stride loop at `-O2` and `-O3`: `__half2float(0x3C00)` returns -1.0 instead of 1.0, and 63,490 of the 65,536 half bit patterns come out wrong. The `si-peephole-sdwa` pass folds a `V_BFE_I32` + `V_CVT_F32_F16_e64` pair into `v_cvt_f32_f16_sdwa ... -v9`, setting the NEG source modifier that the source never asked for. The reporter ran the reproducer on an **RX 6800 (gfx1030)** and got the wrong values; inline asm with the same encoded instruction confirmed the hardware applies the NEG bit. Results are correct at `-O1`, with `-mllvm -amdgpu-sdwa-peephole=0`, and with ROCm 7.2 (clang 22). Which commit fixed it was not checked.[^llvm5478]
+
+For us: the live dest is **7.14.0**, newer than the 7.2 the reporter found clean, so no dest action (not re-run on 7.14 here). If a gfx1030 or gfx900 build still uses a ROCm 7.1 compiler and fp16 → fp32 casts look sign-flipped, rebuild with ≥ 7.2 or add `-mllvm -amdgpu-sdwa-peephole=0` and rerun parity. The report does not test gfx900 or gfx1100.
+
 ## `-O0` integer divide, and wave64
 
 [TheRock#7751](https://github.com/ROCm/TheRock/issues/7751) is **closed**. The issue body reports that ROCm 7.2.4 and 7.14 miscompile i32 `udiv` / `urem` at `-O0` on gfx1034 (float reciprocal instead of the integer path). The same kernels were correct at `-O1`/`-O2`/`-O3`, and correct at `-O0` on ROCm 6.4.3. `schung-amd` commented that they reproduced it on gfx1100, and later that it should be fixed in current nightlies via llvm-project#201186 and llvm-project#202753.[^tr7751] Live extras stay `-O3` on 7.14.0.
@@ -155,3 +163,4 @@ For our forks: if a kernel calls through a function pointer, read `.uses_dynamic
 [^llvm237718]: llvm-project#237718, open, issue body (reproducer, gfx900 asm, affected targets). https://github.com/llvm/llvm-project/issues/237718
 [^hipccmig]: ROCm/rocm-examples#566, "Migrate examples off hipcc (hipcc → amdclang++)", opened 2026-10-30 by david-salinas (AMD), open on 2026-11-04. https://github.com/ROCm/rocm-examples/issues/566
 [^tr9865]: TheRock#9865, open, filed 2026-11-10 16:29 UTC; issue body (reproducer, gdb backtrace, `nm -D` output, distro comgr comparison). https://github.com/ROCm/TheRock/issues/9865
+[^llvm5478]: ROCm/llvm-project#5478, open, filed 2026-11-17 05:42 UTC by saqibkh; issue body (MIR before/after `si-peephole-sdwa`, repro.hip, RX 6800 gfx1030 result, 7.2 clean). https://github.com/ROCm/llvm-project/issues/5478

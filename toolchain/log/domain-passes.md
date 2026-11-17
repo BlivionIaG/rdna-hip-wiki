@@ -606,3 +606,15 @@ Vs domain 2026-11-13 ~10:30. **No dest bump** (live **7.14.0**); pins are covere
 | [sglang#46900](https://github.com/sgl-project/sglang/issues/46900) | Leave engine | RDNA3/4 CI on sglang main; notes HIP VMM remap corruption on RDNA4 ([TheRock#8744](https://github.com/ROCm/TheRock/issues/8744)). |
 | [TheRock#9297](https://github.com/ROCm/TheRock/issues/9297) | Watch | gfx1201 `hipStreamWaitEvent` adds ~17 µs per small kernel; title says not on gfx1030, gone with `GPU_MAX_HW_QUEUES`≤2. |
 
+## 2026-11-17 ~10:30 — domain pass (ROCm 7.1 SDWA fp16 miscompile on gfx1030; not dest)
+
+Vs domain 2026-11-16 ~10:30. **No dest bump** (live **7.14.0**); pins are covered by the hourly scan (TheRock main `bbe1cc4849be`, releases unchanged: therock-10.1, 7.14.1). hipfire latest v0.4.7 (2026-11-15).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [ROCm/llvm-project#5478](https://github.com/ROCm/llvm-project/issues/5478) | **Take (compiler)** | ROCm 7.1 `si-peephole-sdwa` sets NEG on `v_cvt_f32_f16_sdwa`; `__half2float` sign-flipped at `-O2`/`-O3`, reproduced on RX 6800 gfx1030; clean on 7.2, `-O1`, or `-mllvm -amdgpu-sdwa-peephole=0`. [compiler/](../compiler/README.md). |
+| [TheRock#8585](https://github.com/ROCm/TheRock/pull/8585) | Note | Merged 2026-11-16 23:46 UTC: `LLVM_RUNTIME_TARGETS` triple `amdgcn-amd-amdhsa` → `amdgpu-amd-amdhsa` (old one a legacy alias, LCOMPILER-3262). Moves only the device runtimes (compiler-rt, libc, libcxx, flang-rt, openmp) to `lib/llvm/lib/amdgpu-amd-amdhsa/`; the artifact keeps the old `amdgcn-amd-amdhsa/*.bc` glob too. Device-libs bitcode location (`amdgcn/`) is untouched in `pre_hook_amd-llvm.cmake`, so HIP `--hip-device-lib-path` lines do not change. Nightly-only; not in 7.14.0. |
+| [rocm-systems#15966](https://github.com/ROCm/rocm-systems/issues/15966) | Watch | `hipLinkAddData` / `hipLinkAddFile` return `hipErrorInvalidValue` for `hipJitInputLLVMBitcode` (explicit guard in clr `hip_module.cpp`); `hiprtcLink*` accepts the same bitcode. Use hiprtc's linker for RDC JIT. Reported on gfx1100. |
+| [rocm-systems#15922](https://github.com/ROCm/rocm-systems/issues/15922) | Watch | gfx1100: ~3.1 µs per dependent kernel on a stream, ~2.75 µs per hipGraph node; reporter links it to the MI350X floor in #14589. In exllamav3 decode, graphs did not change tok/s; only fusion helped. No gfx1030 number. |
+| [Strata#5151](https://github.com/Niko1221/Strata/issues/5151) | Leave engine | gfx103x non-finite logits on some ROCm builds; whether #5478 is related is a hunch, not checked. |
+
