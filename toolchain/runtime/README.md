@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-16
+updated: 2026-11-18
 sources:
   - https://github.com/ROCm/rocm-systems/pull/5686
   - https://github.com/warpfront/hipfire/issues/1156
@@ -191,6 +191,10 @@ clr reads the agent's CU count and halves it when WGP mode is on. `GPU_ENABLE_WG
 
 [rocm-systems#15587](https://github.com/ROCm/rocm-systems/pull/15587) (open, filed 2026-11-11) says that on `release/therock-7.14` ROCr allocates the device-resident AQL ring buffer without the uncached attribute, so on a discrete gfx11 part the ring stays GPU-cacheable, the command processor can read a stale packet header written by the host over the large BAR, and the queue waits silently: no VM fault and no queue-error callback, only a completion-signal timeout. It reproduced deterministically on gfx1102 with `rocrtst` (`Queue_Create_DeviceMem_RingBuf_Test` and `Queue_Create_Batch_Test`), and the fix is a backport of the ROCr part of upstream commit `f79ca3d3a9e` (rocm-systems#7727, merged to `develop` 2026-07-21), which the PR says is absent from both 7.14 release branches.[^rocr15587] The PR also says the gfx1152 integrated-GPU reports on the same ticket are a separate large-BAR defect, backported in [#15607](https://github.com/ROCm/rocm-systems/pull/15607) and [#15608](https://github.com/ROCm/rocm-systems/pull/15608). For our forks: on a 7.14 runtime with gfx1100 cards, a dispatch that hangs with no fault on a queue whose ring sits in VRAM points here; the PR was not tested on gfx1030 or gfx900.
 
+### 10.1.0: first non-blocking stream can segfault on gfx1100
+
+[TheRock#10048](https://github.com/ROCm/TheRock/issues/10048) (open, filed 2026-11-17) reports that on an RX 7900 XTX (gfx1100) with distro ROCm 10.1.0 (`libamdhip64.so.7.16.0-4f6d503`), the first `hipStreamCreateWithFlags(&s, hipStreamNonBlocking)` in a process dies with SIGSEGV in about half of the runs (15/30, then 16/30 and 19/30 in two more A/B runs), always on the first creation. Plain `hipStreamCreate` failed 1/30. The same machine on ROCm 10.0.0 (`7.15.26333`) was clean in 30/30 runs, and `libhsa-runtime64` is 1.21.0 in both, so the reporter places the regression in `libamdhip64`. llama.cpp and hipfire both create a non-blocking stream at model load and abort there.[^rock10048] The report has a 20-line public-API reproducer. Our dest 7.14.0 is older than both trees and is not affected by this report. Before moving a gfx1100 box to 10.1.0, run that reproducer about 30 times. No gfx1030 data exists in the report.
+
 ## Hostcall: device `printf` and `assert`
 
 Device `printf` and `assert` reach the host through a hostcall buffer. The device side (ockl in device-libs) and the host side (clr) must speak the same protocol. TheRock [#8259](https://github.com/ROCm/TheRock/pull/8259) (merged 2026-10-02) turned the new hostcall implementation on by default by setting `THEROCK_USE_NEW_HOSTCALL_IMPL` to ON, which TheRock passes to both device-libs and clr; the old path stayed selectable with `=OFF`.[^tr8259] [#9021](https://github.com/ROCm/TheRock/pull/9021) (merged 2026-10-15 20:07 UTC) reverts it because it "breaks HSA and ROCGDB" (two internal P1 tickets). A reviewer wrote that it broke things on 110X and gfx90a, and that `rocgdb-gpu` tests were clean on 110X, gfx90a and gfx1151 with the revert.[^tr9021] A related TheRock PR, [#8833](https://github.com/ROCm/TheRock/pull/8833) (closed 2026-10-15 without merge), was about Triton wheels shipping an OCKL that did not match the SDK, so device-side hostcalls in Triton kernels hung.[^tr8833]
@@ -301,3 +305,4 @@ Since Linux 6.14 the `dmem` cgroup controller can cap a container's VRAM on amdg
 [^rocr15587]: rocm-systems#15587, open, filed 2026-11-11 19:43 UTC (mechanism, gfx1102 rocrtst A/B/A results, scope note on gfx1152). https://github.com/ROCm/rocm-systems/pull/15587
 [^ovr5686]: rocm-systems#5686, merged 2026-05-08, "libhsakmt: Add cross-major-version validation for HSA_OVERRIDE_GFX_VERSION"; check in projects/rocr-runtime/libhsakmt/src/topology.c on develop; present in tags therock-7.14 and therock-10.0, absent from rocm-7.2.4 (checked 2026-11-16). https://github.com/ROCm/rocm-systems/pull/5686
 [^hf1156]: hipfire#1156, maintainer reply 2026-11-16 01:02 UTC (RX 7900 XTX, CachyOS, ROCm 10.0 vs 7.2.4; reproduction and per-node workaround). https://github.com/warpfront/hipfire/issues/1156
+[^rock10048]: TheRock#10048, open, filed 2026-11-17 16:53 UTC (RX 7900 XTX gfx1100, CachyOS ROCm 10.1.0 packages, failure-rate table vs 10.0.0, reproducer). https://github.com/ROCm/TheRock/issues/10048

@@ -2,6 +2,10 @@
 owner: ROCM_specialist
 kind: scan-log
 sources:
+  - "https://github.com/ROCm/TheRock/issues/10048"
+  - "https://github.com/ROCm/rocm-systems/issues/16097"
+  - "https://github.com/ROCm/TheRock/issues/10047"
+  - "https://github.com/warpfront/hipfire/issues/558"
   - "https://github.com/ROCm/rocm-systems/issues/15398"
   - "https://github.com/ROCm/rocm-systems/pull/15417"
   - "https://github.com/ggml-org/llama.cpp/pull/31886"
@@ -618,3 +622,16 @@ Vs domain 2026-11-16 ~10:30. **No dest bump** (live **7.14.0**); pins are covere
 | [rocm-systems#15922](https://github.com/ROCm/rocm-systems/issues/15922) | Watch | gfx1100: ~3.1 µs per dependent kernel on a stream, ~2.75 µs per hipGraph node; reporter links it to the MI350X floor in #14589. In exllamav3 decode, graphs did not change tok/s; only fusion helped. No gfx1030 number. |
 | [Strata#5151](https://github.com/Niko1221/Strata/issues/5151) | Leave engine | gfx103x non-finite logits on some ROCm builds; whether #5478 is related is a hunch, not checked. |
 
+
+## 2026-11-18 ~10:30 — domain pass (gfx1100 10.1.0 stream segfault; kpack debug switches; not dest)
+
+Vs domain 2026-11-17 ~10:30. **No dest bump** (live **7.14.0**). Pins are covered by the hourly scan (TheRock main `8dfeb35e508c`, releases unchanged: therock-10.1, 7.14.0). hipfire latest is still v0.4.7.
+
+| Item | Verdict | Note |
+|---|---|---|
+| [TheRock#10048](https://github.com/ROCm/TheRock/issues/10048) | **Take (runtime)** | gfx1100, ROCm 10.1.0 `libamdhip64` 7.16.0: first `hipStreamCreateWithFlags(nonblocking)` SIGSEGV in about 50% of processes; 10.0.0 clean in 30/30. Gate gfx1100 moves to 10.1. [runtime/](../runtime/README.md). |
+| [rocm-systems#16097](https://github.com/ROCm/rocm-systems/issues/16097) | **Take (libraries)** | A missing `.kpack` archive shows only as `hipErrorInvalidKernelFile`; `AMD_LOG_LEVEL=4` + `ROCM_KPACK_DEBUG=1` print the searched paths. [libraries/](../libraries/README.md). |
+| [TheRock#10047](https://github.com/ROCm/TheRock/issues/10047) | Watch | Tracks removing the TheRock-side `USE_ROCM_CK_SDPA_GFX11=ON` once PyTorch defaults it; trial on gfx1100/1101/1102/1150/1151 after #9902 lands. gfx11 only. |
+| [hipfire#558](https://github.com/warpfront/hipfire/issues/558) / [#533](https://github.com/warpfront/hipfire/issues/533) | Note | gfx1030 MQ2G256 batched-prefill branch request closed 2026-11-18 in a backlog cleanup; the maintainer cites 0.4.x routes and a typed Step engine for 0.5.0. The fork branch `rakaarwaky/hipfire:perf/gfx1030` is not upstream. |
+| [llama.cpp#30022](https://github.com/ggml-org/llama.cpp/pull/30022) | Leave engine (gfx900) | Merged: HIP stream_k and MMQ config tuning for AMD GCN. For GFX900_manager. |
+| [rocm-libraries#14838](https://github.com/ROCm/rocm-libraries/issues/14838) | Note | BlivionIaG qualification updates 2026-11-17: #15837 (INT8 dot4) ready for review; packed INT8 #15832 blocked on client allocation and `Int8x4(uint32_t)`. No AMD reply visible. |

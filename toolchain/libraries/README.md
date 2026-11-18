@@ -1,6 +1,6 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-16
+updated: 2026-11-18
 sources:
   - https://github.com/ROCm/rocm-libraries/issues/15578
   - https://github.com/ROCm/rocm-libraries/pull/15586
@@ -121,6 +121,8 @@ ROCm installs that use kpack split device code out of the libraries into `<rocm>
 
 For our own containers or fork builds on a kpack ROCm (Strata's report uses `/opt/rocm/core-10.1`), copy the matching `.kpack` archives next to the bundled libraries at the same relative path, or link against the system ROCm instead of vendoring the libraries. Run one rocBLAS call outside the Tensile path in a smoke test, because the failure only appears on the first such kernel. Whether our 7.14.0 dest images use kpack was not checked this pass (unsourced).
 
+To see which archive is missing, run with `AMD_LOG_LEVEL=4` and `ROCM_KPACK_DEBUG=1`. At the default log level the HIP runtime names neither the archive nor the paths it searched. With both switches the kpack loader prints the expanded pattern, such as `../.kpack/blas_lib_@GFXARCH@.kpack` → `blas_lib_gfx11-generic.kpack`, then `blas_lib_gfx1100.kpack`, and each "archive not found".[^sys16097] The pattern is resolved from the library's own directory, so in a flat app folder it points at the parent directory. [rocm-systems#16097](https://github.com/ROCm/rocm-systems/issues/16097) (open, filed 2026-11-18) asks for a default-level message.[^sys16097]
+
 ### Non-contiguous batched GEMM operands on gfx1030
 
 [ComfyUI#17500](https://github.com/Comfy-Org/ComfyUI/issues/17500) (open, filed 2026-11-03) measured `baddbmm` on an RX 6800 XT (gfx1030, PyTorch 2.13.0+rocm10.0.0) with a strided, non-contiguous key. One attention call at 32,760 tokens took 16.37 s as-is and 1.56 s after `key.contiguous()`, with unchanged output; at 20,280 tokens it went from 0.88 s to 0.53 s.[^cf17500] The report also notes that gfx1030 has no AOTriton SDPA kernels, so PyTorch SDPA falls back to MATH there.[^cf17500] Which rocBLAS or hipBLASLt path the strided layout lands on was not isolated in the report. In HIP-side code that feeds batched GEMMs from permuted views on gfx1030, make the operand contiguous and time both layouts before trusting the library to handle the stride.
@@ -206,3 +208,4 @@ Two open ComfyUI PRs filed 2026-11-11 say that models whose `supported_inference
 [^dnn15586]: rocm-libraries#15586, filed 2026-11-11 20:32 UTC, merged 2026-11-16 03:57 UTC as 05d0e5cd8bc6cfffb187aa752dbe3cf274b779c7 (ASIC coverage section). https://github.com/ROCm/rocm-libraries/pull/15586
 [^cf17684]: ComfyUI#17684, open, filed 2026-11-11 (MOSS-Image FP16, gfx1030 timings and numerics). https://github.com/Comfy-Org/ComfyUI/pull/17684
 [^cf17686]: ComfyUI#17686, open, filed 2026-11-11 (Qwen Image 2.1 FP16, gfx1030 timings and numerics, `--fp16-unet` note). https://github.com/Comfy-Org/ComfyUI/pull/17686
+[^sys16097]: rocm-systems#16097, open, filed 2026-11-18 04:43 UTC by saman-amd (default-level silence in clr hip_fatbin.cpp, debug switches, flat-directory trace from llama.cpp#27557 on ROCm 10.1). https://github.com/ROCm/rocm-systems/issues/16097
