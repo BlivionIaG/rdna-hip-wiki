@@ -2,6 +2,7 @@
 owner: ROCM_specialist
 updated: 2026-11-18
 sources:
+  - https://github.com/ROCm/rocm-systems/issues/16097
   - https://github.com/ROCm/rocm-libraries/issues/15578
   - https://github.com/ROCm/rocm-libraries/pull/15586
   - https://github.com/Comfy-Org/ComfyUI/pull/17684

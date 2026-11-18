@@ -2,6 +2,7 @@
 owner: ROCM_specialist
 updated: 2026-11-18
 sources:
+  - https://github.com/ROCm/TheRock/issues/10048
   - https://github.com/ROCm/rocm-systems/pull/5686
   - https://github.com/warpfront/hipfire/issues/1156
   - https://github.com/ROCm/TheRock/issues/9306
