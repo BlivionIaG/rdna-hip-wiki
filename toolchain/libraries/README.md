@@ -1,7 +1,9 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-18
+updated: 2026-11-19
 sources:
+  - https://github.com/ROCm/rocm-systems/issues/15656
+  - https://github.com/ROCm/rocm-systems/pull/15786
   - https://github.com/ROCm/rocm-systems/issues/16097
   - https://github.com/ROCm/rocm-libraries/issues/15578
   - https://github.com/ROCm/rocm-libraries/pull/15586
@@ -124,6 +126,8 @@ For our own containers or fork builds on a kpack ROCm (Strata's report uses `/op
 
 To see which archive is missing, run with `AMD_LOG_LEVEL=4` and `ROCM_KPACK_DEBUG=1`. At the default log level the HIP runtime names neither the archive nor the paths it searched. With both switches the kpack loader prints the expanded pattern, such as `../.kpack/blas_lib_@GFXARCH@.kpack` → `blas_lib_gfx11-generic.kpack`, then `blas_lib_gfx1100.kpack`, and each "archive not found".[^sys16097] The pattern is resolved from the library's own directory, so in a flat app folder it points at the parent directory. [rocm-systems#16097](https://github.com/ROCm/rocm-systems/issues/16097) (open, filed 2026-11-18) asks for a default-level message.[^sys16097]
 
+[rocm-systems#15656](https://github.com/ROCm/rocm-systems/issues/15656) is a second kpack failure, in the splitter rather than the install. The wheel splitter numbered the TOC entries of a multi-TU binary per architecture, while clr looks them up by the global TU index. When one TU has no code for an architecture, every later TU on that architecture resolves to the wrong code object or to none (`Cannot find Symbol` or `hipErrorInvalidImage`). The issue lists gfx900/906/908, gfx10 and gfx11 as affected in current PyTorch nightly wheels: `AsyncMM.hip` has no code for them, so the gloo kernels after it are one entry off. With `USE_ROCM_CK_SDPA_GFX11=ON` (TheRock#9902) about 1850 CK TUs sit behind that gap on gfx11, and the first CK SDPA call aborts.[^sys15656] The fix, [rocm-systems#15786](https://github.com/ROCm/rocm-systems/pull/15786), keys entries by source bundle index and merged 2026-11-19 07:15 UTC.[^sys15786] At 2026-11-19 ~10:40 Paris, TheRock main (`3e427d5d4887`) still pinned rocm-systems `b0ea07182e28`, 74 commits behind the fix merge (`a3b0717fc873`), so torch nightlies built before the next rocm-systems bump still carry the bug. Do not judge a gfx1100 CK SDPA trial (TheRock#10047) or a gloo failure on gfx1030/gfx900 from a wheel built before that bump. The fix is on the splitter side, so only kpack-split wheels are affected, not our 7.14.0 dest (unsourced: dest packaging not checked).
+
 ### Non-contiguous batched GEMM operands on gfx1030
 
 [ComfyUI#17500](https://github.com/Comfy-Org/ComfyUI/issues/17500) (open, filed 2026-11-03) measured `baddbmm` on an RX 6800 XT (gfx1030, PyTorch 2.13.0+rocm10.0.0) with a strided, non-contiguous key. One attention call at 32,760 tokens took 16.37 s as-is and 1.56 s after `key.contiguous()`, with unchanged output; at 20,280 tokens it went from 0.88 s to 0.53 s.[^cf17500] The report also notes that gfx1030 has no AOTriton SDPA kernels, so PyTorch SDPA falls back to MATH there.[^cf17500] Which rocBLAS or hipBLASLt path the strided layout lands on was not isolated in the report. In HIP-side code that feeds batched GEMMs from permuted views on gfx1030, make the operand contiguous and time both layouts before trusting the library to handle the stride.
@@ -189,6 +193,8 @@ Two open ComfyUI PRs filed 2026-11-11 say that models whose `supported_inference
 [^ptfba88a5]: pytorch commit `fba88a5dd7c5`, committed 2026-08-28 (#194280). https://github.com/pytorch/pytorch/commit/fba88a5dd7c53d679cb82fd33cbe084c3d6b3f31
 [^tr9066]: TheRock#9066, open. https://github.com/ROCm/TheRock/issues/9066
 [^aot168]: ROCm/aotriton#168, open, `xinyazhang` comments 2026-04-25 and 2026-04-28. https://github.com/ROCm/aotriton/issues/168
+[^sys15656]: rocm-systems#15656, closed 2026-11-19 07:15 UTC (per-arch TOC numbering vs global TU lookup; affected-target list incl. gfx900/gfx10/gfx11; CK SDPA gfx11 note). https://github.com/ROCm/rocm-systems/issues/15656
+[^sys15786]: rocm-systems#15786 by mgehre-amd, merged 2026-11-19 07:15 UTC, merge commit a3b0717fc873 (TOC keyed by source bundle index; gloo `initializeMemory` repro on gfx1151 torch 2.15.0+rocm10.3.0a20261113). https://github.com/ROCm/rocm-systems/pull/15786
 [^st5060]: Strata#5060, open, filed 2026-11-03 05:48 UTC (kpack ref sections, `hipErrorInvalidKernelFile`, AMD_LOG_LEVEL=1 message). https://github.com/Niko1221/Strata/issues/5060
 [^rfc0008]: TheRock RFC0008, Multi-Arch Packaging. https://github.com/ROCm/TheRock/blob/main/docs/rfcs/RFC0008-Multi-Arch-Packaging.md
 [^cf17500]: ComfyUI#17500, open, filed 2026-11-03 01:41 UTC (RX 6800 XT gfx1030, timings, AOTriton note). https://github.com/Comfy-Org/ComfyUI/issues/17500

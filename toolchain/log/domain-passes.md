@@ -2,6 +2,9 @@
 owner: ROCM_specialist
 kind: scan-log
 sources:
+  - "https://github.com/ROCm/rocm-systems/pull/15786"
+  - "https://github.com/ROCm/rocm-systems/issues/16142"
+  - "https://github.com/ROCm/rocm-systems/issues/3573"
   - "https://github.com/ROCm/TheRock/issues/10048"
   - "https://github.com/ROCm/rocm-systems/issues/16097"
   - "https://github.com/ROCm/TheRock/issues/10047"
@@ -635,3 +638,16 @@ Vs domain 2026-11-17 ~10:30. **No dest bump** (live **7.14.0**). Pins are covere
 | [hipfire#558](https://github.com/warpfront/hipfire/issues/558) / [#533](https://github.com/warpfront/hipfire/issues/533) | Note | gfx1030 MQ2G256 batched-prefill branch request closed 2026-11-18 in a backlog cleanup; the maintainer cites 0.4.x routes and a typed Step engine for 0.5.0. The fork branch `rakaarwaky/hipfire:perf/gfx1030` is not upstream. |
 | [llama.cpp#30022](https://github.com/ggml-org/llama.cpp/pull/30022) | Leave engine (gfx900) | Merged: HIP stream_k and MMQ config tuning for AMD GCN. For GFX900_manager. |
 | [rocm-libraries#14838](https://github.com/ROCm/rocm-libraries/issues/14838) | Note | BlivionIaG qualification updates 2026-11-17: #15837 (INT8 dot4) ready for review; packed INT8 #15832 blocked on client allocation and `Int8x4(uint32_t)`. No AMD reply visible. |
+
+## 2026-11-19 ~10:40 — domain pass (kpack TOC fix not yet pinned; gfx1100 occupancy vs LDS; buffered printf trap; not dest)
+
+Vs domain 2026-11-18 ~10:30. **No dest bump** (live **7.14.0**). Pins per the hourly scan: TheRock main `3e427d5d4887`, releases therock-10.2 / rocm-7.14.0. hipfire latest still v0.4.7.
+
+| Item | Verdict | Note |
+|---|---|---|
+| [rocm-systems#15656](https://github.com/ROCm/rocm-systems/issues/15656) / [#15786](https://github.com/ROCm/rocm-systems/pull/15786) | **Take (libraries/packaging)** | kpack splitter numbered TOC per arch; clr looks up by global TU index → wrong or missing code objects on gfx900/gfx10/gfx11 in torch nightlies (gloo, and CK SDPA gfx11 after TheRock#9902). Fix merged 2026-11-19 07:15 UTC; TheRock pin `b0ea07182e28` is 74 commits behind it. Hold the TheRock#10047 CK SDPA trial until a nightly has it. [libraries/](../libraries/README.md). |
+| [rocm-systems#16142](https://github.com/ROCm/rocm-systems/issues/16142) | **Take (runtime)** | gfx1100: occupancy API returns 1 for 64–128 KiB LDS blocks that cannot launch; 10.1.0 launch check also accepted 64 KiB dyn + static then aborted (fixed in 10.2/10.3 nightlies). Check `sharedMemPerBlock` yourself. [runtime/](../runtime/README.md). |
+| [rocm-systems#3573](https://github.com/ROCm/rocm-systems/issues/3573) | Take (runtime, caveat) | gfx1030 `-mprintf-kind=buffered` + default LTO partitions → `Cannot find Symbol`; `-Xoffload-linker --lto-partitions=1` avoids it. Closed 2026-11-18 as "reopen if still observed", no fix named. Caveat added next to the buffered-printf advice. |
+| [aiter#210](https://github.com/ROCm/aiter/issues/210) | Note | Closed 2026-11-19 in a cleanup; the only answer (2025-03) is "if you can run Triton kernels on gfx1030, then yes". No new gfx1030 support. |
+| [aiter#4604](https://github.com/ROCm/aiter/issues/4604) / [#6574](https://github.com/ROCm/aiter/issues/6574) | Leave engine | gfx1100 aiter Triton-path reports (vLLM integration not enabled; KDA decode works). For LLM_Inference_specialist. |
+| [Strata#6264](https://github.com/Niko1221/Strata/issues/6264) / [#6269](https://github.com/Niko1221/Strata/issues/6269) | Leave engine | gfx1030 prefill regression in 0.1.62 (MoE GEMM gate/up 3.4x slower vs 0.1.59) and throughput gaps after the MMQ removal. Engine-side. |
