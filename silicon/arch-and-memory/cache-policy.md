@@ -61,6 +61,8 @@ This is the whole note in one table. Everything below is evidence for these rows
 
 **HIP default is already the “try to keep it” policy.** There is no `persist` on this ISA. There is a **stream** hint. There is no **prefetch-into-IC**. There is no **bypass-IC**. Design the working set; do not hunt for a magic bit.
 
+Runtime side (HIP `persistingL2CacheMaxSize` / access-policy window, ROCr persisting-size request, SDMA MALL no-alloc, PM4 GCR): see [runtime-cache-controls.md](runtime-cache-controls.md). None of them gives a usable persist or IC bypass on gfx1030.
+
 ---
 
 ## 1. Official cache topology and coherence
