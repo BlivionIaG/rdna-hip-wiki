@@ -2,6 +2,7 @@
 owner: ROCM_specialist
 updated: 2026-11-19
 sources:
+  - https://github.com/ROCm/TheRock/pull/10071
   - https://github.com/ROCm/rocm-systems/issues/15656
   - https://github.com/ROCm/rocm-systems/pull/15786
   - https://github.com/ROCm/rocm-systems/issues/16097
@@ -111,7 +112,9 @@ hipBLASLt is the Linux MIOpen GEMM backend in the gfx1030 triage above, and the 
 
 [pytorch#200999](https://github.com/pytorch/pytorch/issues/200999) (closed 2026-10-15) reproduced the same silent error on an RX 7900 XT with plain `F.scaled_dot_product_attention`. A PyTorch maintainer wrote that mainline already has the fix, commit `fba88a5dd7c5` ("Cap SDPA head dim at 256 on gfx11xx for AOTriton 0.11 and later"), that 2.14.1 missed it, and that it will ship in PyTorch 2.15.[^pt200999][^ptfba88a5]
 
-For gfx1100 code that calls torch SDPA on 2.14.x or older, add that guard for head_dim > 256 rather than trusting the dispatcher. Which SDPA backend gfx1030 gets at that size was not checked this pass (unsourced).
+[TheRock#10071](https://github.com/ROCm/TheRock/pull/10071) (merged 2026-11-19) adds `TestSDPA::test_large_head_dim` (head_dim 288, 320, 384, 512 in FP16 and BF16 against a CPU FP32 reference) to TheRock's PyTorch wheel smoke tests. Its description says ROCm/pytorch backported the cap to release/2.12, 2.13 and 2.14 on 2026-10-16. On gfx1151 it measured wrong values with torch 2.12.0+rocm7.14.1 (AOTriton 0.13.50) and 2.14.0a0+rocm7.15.0a20260711 (AOTriton 0.12.1), the profiler error with 2.14.0+rocm10.2.0a20261015, and correct results from 2.14.0+rocm10.2.0a20261017 onward and on 2.15/2.16 rocm10.3.0a20261117 nightlies (AOTriton 0.15.0). It ran only on gfx1151, not gfx1100.[^therock10071]
+
+For gfx1100 code that calls torch SDPA on a 2.14.x or older wheel built before that backport, add that guard for head_dim > 256 rather than trusting the dispatcher. Which SDPA backend gfx1030 gets at that size was not checked this pass (unsourced).
 
 ### PyTorch nightly wheels and gfx900
 
@@ -190,6 +193,7 @@ Two open ComfyUI PRs filed 2026-11-11 say that models whose `supported_inference
 [^xla50464]: openxla/xla#50464, open. https://github.com/openxla/xla/issues/50464
 [^wan2053]: ComfyUI-WanVideoWrapper#2053, open, issue body and build table. https://github.com/kijai/ComfyUI-WanVideoWrapper/issues/2053
 [^pt200999]: pytorch#200999, closed 2026-10-15; `xinyazhang` and `naromero77amd` comments. https://github.com/pytorch/pytorch/issues/200999
+[^therock10071]: ROCm/TheRock#10071, merged 2026-11-19 16:15 UTC (commit 3a449c0e6ba8; backport date and gfx1151 result table in the PR description). https://github.com/ROCm/TheRock/pull/10071
 [^ptfba88a5]: pytorch commit `fba88a5dd7c5`, committed 2026-08-28 (#194280). https://github.com/pytorch/pytorch/commit/fba88a5dd7c53d679cb82fd33cbe084c3d6b3f31
 [^tr9066]: TheRock#9066, open. https://github.com/ROCm/TheRock/issues/9066
 [^aot168]: ROCm/aotriton#168, open, `xinyazhang` comments 2026-04-25 and 2026-04-28. https://github.com/ROCm/aotriton/issues/168
