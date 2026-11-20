@@ -30,6 +30,8 @@ sources:
 
 # gfx1030 FA occupancy report
 
+Grid sizing (how many split-KV workgroups a decode launch needs to fill 36 WGPs, and why a TP split shrinks the grid) is on [split-kv-grid-occupancy.md](split-kv-grid-occupancy.md); this page stays per-kernel LDS/VGPR/launch bounds.
+
 ## Current state at dest tip `1dc3bac4` (v0.31.0 port, checked 2026-10-11)
 
 Everything below this section is dated history; where it disagrees with this table, this table wins.
