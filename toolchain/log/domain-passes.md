@@ -2,6 +2,10 @@
 owner: ROCM_specialist
 kind: scan-log
 sources:
+  - "https://github.com/ggml-org/llama.cpp/pull/32169"
+  - "https://github.com/ROCm/rocm-systems/issues/16182"
+  - "https://github.com/triton-lang/triton/issues/12469"
+  - "https://github.com/ROCm/llvm-project/issues/4513"
   - "https://github.com/ROCm/rocm-systems/pull/15786"
   - "https://github.com/ROCm/rocm-systems/issues/16142"
   - "https://github.com/ROCm/rocm-systems/issues/3573"
@@ -651,3 +655,17 @@ Vs domain 2026-11-18 ~10:30. **No dest bump** (live **7.14.0**). Pins per the ho
 | [aiter#210](https://github.com/ROCm/aiter/issues/210) | Note | Closed 2026-11-19 in a cleanup; the only answer (2025-03) is "if you can run Triton kernels on gfx1030, then yes". No new gfx1030 support. |
 | [aiter#4604](https://github.com/ROCm/aiter/issues/4604) / [#6574](https://github.com/ROCm/aiter/issues/6574) | Leave engine | gfx1100 aiter Triton-path reports (vLLM integration not enabled; KDA decode works). For LLM_Inference_specialist. |
 | [Strata#6264](https://github.com/Niko1221/Strata/issues/6264) / [#6269](https://github.com/Niko1221/Strata/issues/6269) | Leave engine | gfx1030 prefill regression in 0.1.62 (MoE GEMM gate/up 3.4x slower vs 0.1.59) and throughput gaps after the MMQ removal. Engine-side. |
+
+## 2026-11-20 ~10:35 — domain pass (gfx11 codegen nondeterminism fixed; Triton 3.9 true16 bf16 spills on gfx11; occupancy block-size caveats; not dest)
+
+Vs domain 2026-11-19 ~10:40. **No dest bump** (live **7.14.0**). Pins per the hourly scan: TheRock main `7f560e758d35`, releases therock-10.2 / rocm-7.14.0; rocm-systems bumps #10160 / #10162 (with the kpack fix) still open, so the CK SDPA trial stays on hold. hipfire latest still v0.4.7.
+
+| Item | Verdict | Note |
+|---|---|---|
+| [ROCm/llvm-project#4513](https://github.com/ROCm/llvm-project/issues/4513) / [llvm#232317](https://github.com/llvm/llvm-project/pull/232317) | **Take (compiler, caveat)** | gfx11/gfx12 post-RA schedule depended on heap addresses (VOPD pairing), up to 6.3% wall-clock between identical builds, first seen 10.1.0a20260818. Closed fixed 2026-11-19; upstream VOPD determinism fix merged 2026-10-19. Diff ISA before trusting small gfx1100 A/B deltas. [compiler/](../compiler/README.md). |
+| [triton#12469](https://github.com/triton-lang/triton/issues/12469) | Take (compiler, caveat) | Triton 3.9 true16 on gfx11: bf16-output GEMM tiles at 256 VGPRs spill (gfx1101 Windows: 54/56 vs 0); `-real-true16` per kernel works for bf16 out only. Not on Triton main. [compiler/](../compiler/README.md). |
+| [rocm-systems#16182](https://github.com/ROCm/rocm-systems/issues/16182) | Take (runtime, caveat) | `hipOccupancyMaxPotentialBlockSize` ignores `__launch_bounds__` (gfx950, gfx1151 confirmation); cap `blockSizeLimit` at the attribute. Added beside #16142. |
+| [llama.cpp#32169](https://github.com/ggml-org/llama.cpp/pull/32169) | Note (runtime) | ROCm 7.1 occupancy query returned 0 on RDNA2 for >128-VGPR wave32 FA kernels that do launch; closed as a 7.1-era bug. Added to the occupancy note. |
+| [rocm-systems#16300](https://github.com/ROCm/rocm-systems/issues/16300) / [#10370](https://github.com/ROCm/rocm-systems/pull/10370) | Watch | Open PR gates the `memcpy_async` direct-to-LDS path on `__GFX9__` (so gfx900 too), wider than the CDNA3/CDNA4 guide; the issue proposes limiting it to gfx94x/gfx950. Nothing to do unless it merges ungated. |
+| [llama.cpp#32639](https://github.com/ggml-org/llama.cpp/issues/32639) | Leave engine | gfx1030 RX 6800 XT SIGSEGV in FA vec launch near the 16 GB VRAM limit (Ollama-bundled ROCm 7.x); goes away with more headroom. For LLM_Inference_specialist. |
+| [llama.cpp#28676](https://github.com/ggml-org/llama.cpp/issues/28676) | Leave | Windows-only gfx1100+gfx1201 multi-GPU corruption; `GGML_CUDA_NO_PEER_COPY=ON` workaround. Not our Linux path. |
