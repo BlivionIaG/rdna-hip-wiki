@@ -17,7 +17,7 @@ The live dest pin is ROCm **7.14.0**. The GitHub tag `rocm-7.14.0` is commit `83
 |---|---|
 | [pin/](pin/README.md) | Live 7.14.0 pin, 10.1.0 docs status, TheRock support rows, host DRM gate |
 | [compiler/](compiler/README.md) | `hipcc` / `--offload-arch`, and compiler-version bugs |
-| [runtime/](runtime/README.md) | HIP allocator (`hipMalloc` / `hipMallocAsync`), graphs, VMM hang |
+| [runtime/](runtime/README.md) | HIP allocator (`hipMalloc` / `hipMallocAsync`), graphs, VMM hang; [pinned-host mlock / HWQ ABBA / TheRock lib path](runtime/pinned-host-mlock-hwq.md) |
 | [libraries/](libraries/README.md) | rocBLAS, hipBLASLt, MIOpen, Tensile, CK, rocKE |
 | [comms/](comms/README.md) | RCCL arch gating, NCCL-compat env knobs, HIP/RCCL bugs, Ubuntu 6.8 / DRM 3.64, ROCm 10.0 GIN note |
 | [tools/](tools/README.md) | rocjitsu, `amd-smi`, `tune_rocblas`, the llama.cpp spill gate |

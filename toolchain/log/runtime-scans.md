@@ -2,6 +2,7 @@
 owner: ROCM_specialist
 kind: scan-log
 sources:
+  - "https://github.com/ROCm/TheRock/releases/tag/therock-10.2"
   - "https://github.com/ROCm/legacy-rocm-build/issues/6565"
   - "https://github.com/ROCm/rocm-systems/issues/12145"
   - "https://github.com/ROCm/rocm-systems/issues/9820"
@@ -195,3 +196,18 @@ Drop `#8288` (closed unmerged; superseded). Still open: systems follow-on `#8300
 ## 2026-10-30
 
 - [rocm-systems#9821](https://github.com/ROCm/rocm-systems/pull/9821) (HIP VMM hang below DRM 3.64) merged into `develop` on 2026-10-29 at 21:53 UTC. It is not in ROCm 7.14.0 or therock-10.1, so on a 7.14.0 pin the workaround (no `expandable_segments`, or an amdgpu reporting DRM 3.64+) still applies. The PR validated the patched paths on dual gfx1100.
+
+## 2026-11-13 ~17:00 (Europe/Paris)
+
+- [TheRock#9306](https://github.com/ROCm/TheRock/issues/9306): AMD (`lucbruni-amd`, 2026-11-13 15:00 UTC) reproduced the gfx1030 stall on an RX 6800 XT with MEC `0x86` on ROCm 10.2.0 and the 10.3.0a20261112 nightly, saw no stalls with GFXOFF disabled, and suspects a doorbell lost around a GFXOFF transition after an idle internal queue was unmapped. Hypothesis only, no fix yet. Added to [runtime/](../runtime/README.md) with GFXOFF-off as a diagnostic.
+
+## 2026-11-16 ~09:00 (Europe/Paris)
+
+- [TheRock#9306](https://github.com/ROCm/TheRock/issues/9306): `Vop3p` (2026-11-14 00:26 UTC) says their gfx1030 hang still happens with GFXOFF disabled and splits it into two classes: an October unmap-never-remapped hang that GFXOFF off fixed, and a November oversubscription hang (queues mapped, signal −1) that only the queue cap clears. `router0mail` (2026-11-15 11:36 UTC) reports the same stall on gfx1201 R9700 with GFXOFF off (9/9) and no oversubscription line, cleared by `GPU_MAX_HW_QUEUES=3`. [runtime/](../runtime/README.md) updated: GFXOFF off is a diagnostic, not a substitute for the HQD budget.
+- [rocm-libraries#15586](https://github.com/ROCm/rocm-libraries/pull/15586) (RDNA split-KV decode NaN on lowest-value masks, gfx11/gfx12 only) merged 2026-11-16 03:57 UTC; [libraries/](../libraries/README.md) updated.
+- TheRock main at `1e21477a5ca2` (weekend: bumps, ASAN wheels, CI); releases unchanged (therock-10.1, rocm-7.14.0).
+
+## 2026-11-18 ~12:00 (Europe/Paris)
+
+- [therock-10.2](https://github.com/ROCm/TheRock/releases/tag/therock-10.2) published 2026-11-18 10:12 UTC (11:12 Paris) by `amd-chiranjeevi`, marked Latest, not a prerelease. The release has no assets and its body is only "therock release v10.2". `version.json` at the tag reads `rocm-version: 10.2.0`. The newest commit on the tag is `9a27442c51d1` (2026-11-06, rocm-systems bump #9782). The RDNA/Vega target lines in `cmake/therock_amdgpu_targets.cmake` (gfx900, gfx906, gfx1030/1031/1032, gfx1100/1101/1102) are the same as in therock-10.1. Not yet checked: whether 10.2.0 still has the gfx1100 non-blocking stream SIGSEGV from [TheRock#10048](https://github.com/ROCm/TheRock/issues/10048) (reported on 10.1.0) and whether it carries the [rocm-systems#9821](https://github.com/ROCm/rocm-systems/pull/9821) VMM fix. Live dest stays **7.14.0**. A bump is not for this wiki; route it to VLLM_FORK_Manager.
+
