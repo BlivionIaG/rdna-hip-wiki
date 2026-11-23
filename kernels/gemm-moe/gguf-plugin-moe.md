@@ -2,6 +2,8 @@
 title: "GGUF plugin MoE kernels (vllm-gguf-plugin fork) on gfx1030 — silicon lock"
 updated: 2026-11-17
 sources:
+  - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/vllm/envs.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/tools/rdna/recipes/flashnext-gguf-mtp0.env
   - https://github.com/opengfx1030/vllm-rdna/compare/34e2ebc52ade9dd314aa77f65fdcc792f133cb8c...b56907c4339779d2076f0886532833689aec93ec
   - https://github.com/opengfx1030/vllm-rdna/commit/b56907c4339779d2076f0886532833689aec93ec
   - https://github.com/opengfx1030/vllm-rdna/blob/b56907c4339779d2076f0886532833689aec93ec/docker/Dockerfile.rdna
@@ -47,7 +49,7 @@ Read at dest `rdna_extras` tip `b56907c4` (`b56907c4339779d2076f0886532833689aec
 
 ## Recipe env (opt-in)
 
-`tools/rdna/recipes/flashnext-gguf-mtp0.env` sets `--load-format qwen4exp_gguf`, `ATTN=fa`, `VLLM_GDN_HIP_PREFILL=1`, `VLLM_RDNA_FUSED_SE=1`, `VLLM_RDNA_DENSE_INT8=0`, `VLLM_RDNA_DENSE_GEMV=0`, `VLLM_RDNA_AR=1` with `AR_MAX_KB`/`AR_ONESHOT_KB` 64, `GPU_MAX_HW_QUEUES=4`, and both `VLLM_CAUSAL_CONV1D_RDNA2_*` off.[^recipe] No C++ default changed.[^cmp]
+`tools/rdna/recipes/flashnext-gguf-mtp0.env` sets `--load-format qwen4exp_gguf`, `ATTN=fa`, `VLLM_GDN_HIP_PREFILL=1`, `VLLM_RDNA_FUSED_SE=1`, `VLLM_RDNA_DENSE_INT8=0`, `VLLM_RDNA_DENSE_GEMV=0` *(historical @ `b56907c4`: the variable was removed by the v0.34 merge `2bf77978`, setting it now raises at boot, and the recipe no longer sets it at `00f106c5`; do not copy)*,[^gemv-removed] `VLLM_RDNA_AR=1` with `AR_MAX_KB`/`AR_ONESHOT_KB` 64, `GPU_MAX_HW_QUEUES=4`, and both `VLLM_CAUSAL_CONV1D_RDNA2_*` off.[^recipe] No C++ default changed.[^cmp]
 
 ## Not covered
 
@@ -70,3 +72,4 @@ MTP (the GGUF has no MTP head), vision, TP2/TP8/EP, gfx1100 and CDNA were not ru
 [^seam-hard]: [gguf_plugin_compat.py:115–154](https://github.com/opengfx1030/vllm-rdna/blob/b56907c4339779d2076f0886532833689aec93ec/vllm/model_executor/model_loader/gguf_plugin_compat.py#L115-L154) @ b56907c4339779d2076f0886532833689aec93ec.
 [^doc]: [docs/rdna2/gguf-flashnext-2026-11-16.md](https://github.com/opengfx1030/vllm-rdna/blob/b56907c4339779d2076f0886532833689aec93ec/docs/rdna2/gguf-flashnext-2026-11-16.md) @ b56907c4339779d2076f0886532833689aec93ec (lines 10, 46–52, 84).
 [^recipe]: [tools/rdna/recipes/flashnext-gguf-mtp0.env](https://github.com/opengfx1030/vllm-rdna/blob/b56907c4339779d2076f0886532833689aec93ec/tools/rdna/recipes/flashnext-gguf-mtp0.env) @ b56907c4339779d2076f0886532833689aec93ec.
+[^gemv-removed]: `vllm/envs.py` @ `00f106c5` L729-L738 lists `VLLM_RDNA_DENSE_GEMV` as removed; `tools/rdna/recipes/flashnext-gguf-mtp0.env` @ `00f106c5` no longer sets it. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/vllm/envs.py#L729-L738> ; <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/tools/rdna/recipes/flashnext-gguf-mtp0.env>
