@@ -1,7 +1,8 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-19
+updated: 2026-11-23
 sources:
+  - https://github.com/ROCm/rocm-libraries/issues/16488
   - https://github.com/ROCm/TheRock/pull/10071
   - https://github.com/ROCm/rocm-systems/issues/15656
   - https://github.com/ROCm/rocm-systems/pull/15786
@@ -151,6 +152,10 @@ To see which archive is missing, run with `AMD_LOG_LEVEL=4` and `ROCM_KPACK_DEBU
 
 [rocm-libraries#14993](https://github.com/ROCm/rocm-libraries/issues/14993) (open, filed 2026-11-03) reports that on gfx1100, for fp16 GEMMs with `HIPBLAS_COMPUTE_32F`, transA=T, transB=N, a small output and a long k, every algorithm the heuristic returns is unsplit. Measured on a Radeon Pro W7800, the same on ROCm 10.1.0 (hipBLASLt 1.4.1) and the 10.3.0a20261103 nightly (hipBLASLt 1.5.0): at 16 x 2 output the error is 0.57, 2.44 and 8.34 fp16 ulp at k = 2^16, 2^18 and 2^20, and all 32 returned algorithms report a workspace size of 0.[^lt14993] Forcing split-k with `hipblaslt_ext::GemmTuning::setSplitK` on the same kernel brings that case to 0.63 ulp at 16 splits or more and from 2294 us to about 50 us at 64 splits; the issue attributes the error to accumulating the whole k chain in the WMMA accumulator, and says `torch.matmul` inherits it.[^lt14993] For gfx1100 reductions with very long k (for example long-sequence dot products), force split-k or accumulate in fp32 outside hipBLASLt until this is fixed. gfx1030 was not measured.
 
+### hipBLASLt fp32 GEMM on gfx1100 is about 8x below rocBLAS
+
+[rocm-libraries#16488](https://github.com/ROCm/rocm-libraries/issues/16488) (open, filed 2026-11-21 by the AMD Radeon Cloud team) measured square `torch.matmul` on a Radeon PRO W7900D (gfx1100). fp32 through hipBLASLt, PyTorch's default ROCm BLAS backend, reached 2.5 / 2.6 / 2.6 / 1.3 TFLOPS at N = 1024 / 2048 / 4096 / 8192. rocBLAS reached 11.7 / 19.4 / 20.6 / 20.3, and TunableOp reached 14.3 to 22.1. bf16 and fp16 through hipBLASLt were fine (25 to 60 TFLOPS). The numbers were the same within 4% on PyTorch 2.13.0+rocm10.0.0 and 2.10.0+rocm7.2.4, and `allow_tf32=True` changed nothing. The issue calls fp32 on gfx11 a known limitation and asks hipBLASLt or PyTorch to route fp32 to rocBLAS by default. Workarounds it lists: `torch.backends.cuda.preferred_blas_library("cublas")` (rocBLAS on ROCm), `TORCH_BLAS_PREFER_HIPBLASLT=0`, or `PYTORCH_TUNABLEOP_ENABLED=1`.[^lt16488] For gfx1100 tools and benchmarks that run fp32 GEMMs (reference checks, fp32 baselines, fp32 heads), force rocBLAS or TunableOp and say which one the result used. gfx1030 is not affected in the same way: hipBLASLt has no gfx1030 kernels, so those GEMMs already go to rocBLAS (see above).
+
 ### hipBLASLt uniform summation order off by default on gfx11*/gfx120*
 
 [rocm-libraries#15079](https://github.com/ROCm/rocm-libraries/pull/15079) (merged 2026-11-05, commit `ab45d0bba4f1`) defaults `uniform_summation_order` to 0 when `gcnArchName` contains `gfx11` or `gfx120`, because USO disables StaggerU and slowed some RDNA GEMMs after #14010 (bf16 / `F.linear` reports up to ~1.9×). Explicit settings still override; non-RDNA stays default-on.[^lt15079] **gfx1030 is not in that arch check**, so RDNA2 keeps the previous default. **In TheRock tip** as of 2026-11-06 ~13:53 Europe/Paris: TheRock [#9759](https://github.com/ROCm/TheRock/pull/9759) merged libraries `98e132f` → `37f616f` (main `be87ca4970ff`); ancestry check shows `ab45d0bb` is an ancestor of `37f616f`.[^tr9759] Sibling bumps #9769 / #9781 closed unmerged (superseded). Dest stays 7.14.0 — tip Watch for gfx1100 nightlies that rebuild on this pin.
@@ -205,6 +210,7 @@ Two open ComfyUI PRs filed 2026-11-11 say that models whose `supported_inference
 [^mi14965]: rocm-libraries#14965, open, filed 2026-11-03 11:27 UTC (solver list, timings on gfx1151/gfx1201, failure with naive disabled). https://github.com/ROCm/rocm-libraries/issues/14965
 [^mi14966]: rocm-libraries#14966, open (motivation, applicability table, known gaps). https://github.com/ROCm/rocm-libraries/pull/14966
 [^lt14837]: rocm-libraries#14837, open (device table, W7800 chip row, RDNA architecture rows). https://github.com/ROCm/rocm-libraries/pull/14837
+[^lt16488]: rocm-libraries#16488, open, filed 2026-11-21 01:44 UTC (W7900D gfx1100 TFLOPS table: hipBLASLt vs rocBLAS vs TunableOp, fp32/bf16/fp16; three images; workarounds). https://github.com/ROCm/rocm-libraries/issues/16488
 [^lt14859]: rocm-libraries#14859, open. https://github.com/ROCm/rocm-libraries/pull/14859
 [^hkp14111]: rocm-libraries#14111, merged 2026-10-30 21:15 UTC (engine/target table). https://github.com/ROCm/rocm-libraries/pull/14111
 [^lt14993]: rocm-libraries#14993, open, filed 2026-11-03 18:29 UTC by `jeffdaily` (W7800 ulp table, split-k sweep, torch repro). https://github.com/ROCm/rocm-libraries/issues/14993

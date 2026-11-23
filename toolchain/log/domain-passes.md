@@ -2,6 +2,13 @@
 owner: ROCM_specialist
 kind: scan-log
 sources:
+  - "https://github.com/ROCm/rocm-systems/pull/16099"
+  - "https://github.com/CachyOS/CachyOS-PKGBUILDS/issues/2143"
+  - "https://github.com/ROCm/rocm-systems/issues/16406"
+  - "https://github.com/ROCm/rocm-libraries/issues/16488"
+  - "https://github.com/ROCm/rocm-systems/issues/16468"
+  - "https://github.com/ggml-org/llama.cpp/issues/32732"
+  - "https://github.com/vllm-project/vllm/issues/52585"
   - "https://github.com/ggml-org/llama.cpp/pull/32169"
   - "https://github.com/ROCm/rocm-systems/issues/16182"
   - "https://github.com/triton-lang/triton/issues/12469"
@@ -669,3 +676,16 @@ Vs domain 2026-11-19 ~10:40. **No dest bump** (live **7.14.0**). Pins per the ho
 | [rocm-systems#16300](https://github.com/ROCm/rocm-systems/issues/16300) / [#10370](https://github.com/ROCm/rocm-systems/pull/10370) | Watch | Open PR gates the `memcpy_async` direct-to-LDS path on `__GFX9__` (so gfx900 too), wider than the CDNA3/CDNA4 guide; the issue proposes limiting it to gfx94x/gfx950. Nothing to do unless it merges ungated. |
 | [llama.cpp#32639](https://github.com/ggml-org/llama.cpp/issues/32639) | Leave engine | gfx1030 RX 6800 XT SIGSEGV in FA vec launch near the 16 GB VRAM limit (Ollama-bundled ROCm 7.x); goes away with more headroom. For LLM_Inference_specialist. |
 | [llama.cpp#28676](https://github.com/ggml-org/llama.cpp/issues/28676) | Leave | Windows-only gfx1100+gfx1201 multi-GPU corruption; `GGML_CUDA_NO_PEER_COPY=ON` workaround. Not our Linux path. |
+
+## 2026-11-23 ~10:40 — domain pass (10.1 stream SIGSEGV root cause = AVX-built clr; RDNA2 SDMA eviction corruption; gfx1100 hipBLASLt fp32; not dest)
+
+Vs domain 2026-11-20 ~10:35. **No dest bump** (live **7.14.0**). Pins per the hourly scan: TheRock main `66a9e2383db4`, releases therock-10.2 / rocm-7.14.0.
+
+| Item | Verdict | Note |
+|---|---|---|
+| [rocm-systems#16099](https://github.com/ROCm/rocm-systems/pull/16099) / [CachyOS-PKGBUILDS#2143](https://github.com/CachyOS/CachyOS-PKGBUILDS/issues/2143) | **Take (runtime)** | Root cause of TheRock#10048: clr `ReferenceCountedObject` class-scope `operator new` ignores over-alignment; faults only in AVX2/AVX-512 builds (x86-64-v3/v4, znver4), any GPU. Patched gfx1030 AVX2 build 1/10 → 10/10 loads (commenter). PR open. Updated [runtime/](../runtime/README.md). |
+| [rocm-systems#16406](https://github.com/ROCm/rocm-systems/issues/16406) | **Take (runtime)** | gfx1031/gfx1032 TheRock 10.1.0: in-flight SDMA copy corrupted or SDMA0 fault when a userptr invalidation evicts queues; `HSA_ENABLE_SDMA=0` clean. Not tested on gfx1030. New [runtime/](../runtime/README.md) section. |
+| [rocm-libraries#16488](https://github.com/ROCm/rocm-libraries/issues/16488) | Take (libraries) | gfx1100 W7900D fp32 `torch.matmul` via hipBLASLt 1.3–2.6 TFLOPS vs rocBLAS ~20; force rocBLAS or TunableOp for fp32 on gfx11. New [libraries/](../libraries/README.md) section. |
+| [rocm-systems#16468](https://github.com/ROCm/rocm-systems/issues/16468) | Watch (tools) | rocjitsu f32 transcendental models reproduce gfx1036 (RDNA2 iGPU) results; reporter says `v_rcp/rsq/sqrt_f64` return the f32 unit's unrounded ~35-bit value, which rocjitsu's host-double model does not match. First RDNA2 validation data for rocjitsu; still no gfx1030 config. |
+| [llama.cpp#32732](https://github.com/ggml-org/llama.cpp/issues/32732) | Leave engine | Windows ROCm 7.2 gfx1030: inkling2_loop f32 matmul with odd K goes to hipBLAS, rocBLAS has no kernel, abort. For LLM_Inference_specialist. |
+| [vllm#52585](https://github.com/vllm-project/vllm/issues/52585) | Leave engine | gfx1100 long prefill: unified attention `BLOCK_M=16` default leaves ~2x. Engine/fork. |
