@@ -6,6 +6,12 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/skinny_gemms_int4.cu
   - https://github.com/opengfx1030/vllm-rdna/commit/c6d99ca30580f0ce6a97a168fa53bf9c6ee6b2af
   - https://llvm.org/docs/AMDGPUUsage.html
+  - https://github.com/opengfx1030/vllm-rdna/commit/5864b4e567c8a5591703edba69cfa7b0537e3eed
+  - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/gdn_prefill_delta_h_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/mono_qsa_decode_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/inkling2_attn_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/inkling2_fuse_attn_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/docs/rdna2/rebase-v0.32.0-inventory.md
 ---
 
 # Cross-lane ops (DPP / permlane / ds_bpermute / wave.reduce) vs effective occupancy (gfx1030)
@@ -94,6 +100,12 @@ Files: `/workspace/dpp-probe/` (`p.hip`, `q.hip`, `m.hip`, `h.hip`, `ao.hip`, `*
 - `attention.cu` `v_nop; v_nop; v_*_dpp row_ror` inline asm sits under `__HIP__GFX9__` (MFMA paged attention) → **Leave**; not a gfx1030 path.
 - No `wave_reduce_*`, `permlane*`, or `row_bcast` in the 52 rdna/rocm sources read.
 
+## Dest @ `00f106c5`: DPP `row_xmask` gated per device arch; Inkling-2 cross-lane use (2026-11-23)
+
+- **Gate (`5864b4e5`).** `gdn_ksum_dpp` (GDN prefill delta-h) and `xor_dpp<M>` (monolithic QSA decode) now emit `update_dpp` only under `__GFX10__ || __GFX11__ || __GFX12__`. Other device passes use the shuffle tree (`gdn_ksum`, `__shfl_xor(v, M, 32)`). The fork's inventory doc says the first six-architecture build stopped on these GFX10-only `row_xmask` controls. The gfx1030 instruction path is unchanged.[^f-00f106c5-gdn-dpp][^f-00f106c5-qsa-dpp][^c-5864b4e5]
+- **Inkling-2 attention.** `i2_row_xor<M>` is `update_dpp` control `0x160 + M` (`row_xmask`, M < 16), and `i2_row_share<N>` is `0x150 + N` (`row_share`). The pipelined prefill tile uses `row_xmask` for the row max instead of `ds_bpermute`, and uses `row_share` to hand register-resident probability pairs to the row, so no P tile goes through LDS.[^f-00f106c5-i2-dpp][^f-00f106c5-i2-pipe]
+- **Inkling-2 fused chain / glue.** The `xor_lane<O>` butterfly is `permlanex16` for lane^16, then `row_xmask:8` (`0x168`), `row_xmask:4` (`0x164`), and `quad_perm` `0x4E` / `0xB1`. This is the full-wave reduce shape in the Take row above, with no LDS ops. These files compile device code only for gfx1030.[^f-00f106c5-fuse-xor]
+
 ## Sources
 
 1. RDNA 2 ISA Reference Guide (AMD, Document 70648) — §4.5, §6.9, §6.10, Table 91 DPP_CTRL, §10.4.4, DS_BPERMUTE_B32 / V_PERMLANEX16_B32 opcode entries.
@@ -110,3 +122,9 @@ Footnotes:
 [^probe-dpp]: Box compiler probe `/workspace/dpp-probe/` (HIP sources and `.s` output; `.ident` "Debian clang version 22.1.8 (1~deb13u4)", upstream clang 22.1.8, not the ROCm 7.14.0 pin). Local box path, not a public URL; re-run to reproduce.
 [^llvm-amdgpuusage]: LLVM User Guide for AMDGPU Backend (AMDGPUUsage). https://llvm.org/docs/AMDGPUUsage.html (checked 2026-10-11)
 [^dpp-tip-shfl]: `__shfl_xor` reduces in `csrc/rocm/rdna_fused_glue.cu` L137-L141 (`wave_reduce`), `csrc/rocm/rdna/dsv4/sparse_mla_decode.cu` L220 / L690 and `csrc/rocm/layernorm.cu` L43 / L58 (`__shfl_xor_sync`), dest at 1dc3bac4. https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/rdna_fused_glue.cu#L137-L141 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/rdna/dsv4/sparse_mla_decode.cu#L220 ; https://github.com/opengfx1030/vllm-rdna/blob/1dc3bac4cda3201a1b4fb345e044578e84a272cf/csrc/rocm/layernorm.cu#L43-L58
+[^c-5864b4e5]: opengfx1030/vllm-rdna commit [`5864b4e5`](https://github.com/opengfx1030/vllm-rdna/commit/5864b4e567c8a5591703edba69cfa7b0537e3eed) (2026-11-18 20:14 Paris): "fix(rocm): gate RDNA DPP row XOR on supported architectures"; inventory note in `docs/rdna2/rebase-v0.32.0-inventory.md`. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/docs/rdna2/rebase-v0.32.0-inventory.md>
+[^f-00f106c5-gdn-dpp]: `csrc/rocm/gdn_prefill_delta_h_rdna2.cu` @ `00f106c5` L341-L353. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/gdn_prefill_delta_h_rdna2.cu#L341-L353>
+[^f-00f106c5-qsa-dpp]: `csrc/rocm/mono_qsa_decode_rdna2.cu` @ `00f106c5` L799-L807. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/mono_qsa_decode_rdna2.cu#L799-L807>
+[^f-00f106c5-i2-dpp]: `csrc/rocm/inkling2_attn_rdna2.cu` @ `00f106c5` L114-L134. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/inkling2_attn_rdna2.cu#L114-L134>
+[^f-00f106c5-i2-pipe]: `csrc/rocm/inkling2_attn_rdna2.cu` @ `00f106c5` L1519-L1546. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/inkling2_attn_rdna2.cu#L1519-L1546>
+[^f-00f106c5-fuse-xor]: `csrc/rocm/inkling2_fuse_attn_rdna2.cu` @ `00f106c5` L34-L36, L61-L83. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/inkling2_fuse_attn_rdna2.cu#L61-L83>

@@ -14,6 +14,9 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/compare/64d59b8942d3b982f1d91f0f3e625dfda4418106...15e9e7adbd0de5c56bda1b4644ddf10bcbdfc17c
   - https://github.com/opengfx1030/vllm-rdna/commit/b74028935393d1e21f73f80f65f506c9ea4639af
   - https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af
+  - https://github.com/opengfx1030/vllm-rdna/commit/00f106c5b035bd6d562267bfee9e4ac020b7055d
+  - https://github.com/opengfx1030/vllm-rdna/commit/2bf779784d938e2981c56405f2586c3623e20b7e
+  - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/CMakeLists.txt
 ---
 # Kernels
 
@@ -30,7 +33,7 @@ Pages are grouped by topic. Each folder has its own README index; this page is t
 | [attention/](attention/README.md) | Attention-side kernels: stock Triton baseline, KV INT8, Sage QK, sparse MLA, indexer. | 5 |
 | [linear-attn/](linear-attn/README.md) | Linear-attention / recurrent kernels: GDN decode + prefill, causal conv1d, FlashKDA. | 4 |
 | [aot-glue/](aot-glue/README.md) | Small HIP glue that replaces Triton JIT: RMSNorm, AOT list. | 2 |
-| [models/](models/README.md) | Model-specific HIP glue (one page per model family). | 2 |
+| [models/](models/README.md) | Model-specific HIP glue (one page per model family). | 3 |
 | [persistent/](persistent/README.md) | Persistent single-launch decode kernels (MonoKernel class): gfx1030 port plan. | 1 |
 | [overlays/](overlays/README.md) | Reviews of other gfx1030 trees we harvest from (read-only). | 2 |
 
@@ -38,7 +41,9 @@ Figures: [img/](img/) holds primary-source figures (each with caption, source an
 
 ## Silicon tip watermark
 
-Kernel pages are read through dest `rdna_extras` tip **`b7402893`** (`b74028935393d1e21f73f80f65f506c9ea4639af`, merge of PR #147, read 2026-10-29).[^c-b7402893] From `8015ea48` the range adds two new HIP sources (`rdna_hint_flex_rdna2.cu` in the gfx1030 list, `rdna_expert_cache.cu` in the base ROCm list) and a Q32 fixed-point epilogue on the W4A16 kernels. Existing kernels keep their tiles, `__launch_bounds__` and DOT; the other changes are new template specializations (K2 offload stages, GDN diagnostics), the GDN norm reduction, and a 2 KiB static-LDS sort in QSA index expansion. Locks: [quant/rdna-hint-flex.md](quant/rdna-hint-flex.md), [gemm-moe/rdna2-moe-offload-q32.md](gemm-moe/rdna2-moe-offload-q32.md), [persistent/monokernel-gfx1030-dest.md](persistent/monokernel-gfx1030-dest.md) (GDN FP32 norm partials, K2 offload stages), [models/qwen4exp-flash-next-hip.md](models/qwen4exp-flash-next-hip.md) (QSA canonical order).[^c-b7402893-cmp]
+Kernel pages are read through dest `rdna_extras` tip **`00f106c5`** (`00f106c5b035bd6d562267bfee9e4ac020b7055d`, merge of PR #196, 2026-11-23 03:44 Paris, read 2026-11-23).[^c-00f106c5] The range from `1e1cac53` brings in the upstream vLLM v0.34.0 merge (`2bf77978`).[^c-2bf77978] That merge splits the skinny GEMM build into per-family translation units and moves the fork's gfx10 GEMV/MoE kernels into `skinny_gemms_rdna2.cu`, while `HIP_SUPPORTED_ARCHS` and the gfx1030 source gate stay the same ([gemm-moe/skinny-gemm.md](gemm-moe/skinny-gemm.md)).[^f-00f106c5-cmake] The range also adds eight gfx1030-only Inkling-2-Mini sources ([models/inkling2-mini-hip.md](models/inkling2-mini-hip.md)), DPP `row_xmask` guards for non-gfx10+ device passes ([silicon/occupancy/dpp-crosslane-occupancy.md](../silicon/occupancy/dpp-crosslane-occupancy.md)), the EXL3 v2 geometry move ([silicon/formats/exl3.md](../silicon/formats/exl3.md)) and the `topk_log_softmax_rdna2` partial-block mask ([aot-glue/rdna-all-hip.md](aot-glue/rdna-all-hip.md)).[^c-00f106c5]
+
+*(Historical, `b7402893`, read 2026-10-29)* Kernel pages are read through dest `rdna_extras` tip **`b7402893`** (`b74028935393d1e21f73f80f65f506c9ea4639af`, merge of PR #147, read 2026-10-29).[^c-b7402893] From `8015ea48` the range adds two new HIP sources (`rdna_hint_flex_rdna2.cu` in the gfx1030 list, `rdna_expert_cache.cu` in the base ROCm list) and a Q32 fixed-point epilogue on the W4A16 kernels. Existing kernels keep their tiles, `__launch_bounds__` and DOT; the other changes are new template specializations (K2 offload stages, GDN diagnostics), the GDN norm reduction, and a 2 KiB static-LDS sort in QSA index expansion. Locks: [quant/rdna-hint-flex.md](quant/rdna-hint-flex.md), [gemm-moe/rdna2-moe-offload-q32.md](gemm-moe/rdna2-moe-offload-q32.md), [persistent/monokernel-gfx1030-dest.md](persistent/monokernel-gfx1030-dest.md) (GDN FP32 norm partials, K2 offload stages), [models/qwen4exp-flash-next-hip.md](models/qwen4exp-flash-next-hip.md) (QSA canonical order).[^c-b7402893-cmp]
 
 *(Historical, `8bb8ff36`, read 2026-10-14)* Kernel pages are read through dest `rdna_extras` tip **`8bb8ff36`** (`8bb8ff36cdb2e885553a151a824706d2d920fe3a`, merge of PR #98, read 2026-10-14).[^c-8bb8ff36] From `64d59b89` to `15e9e7ad` there is no `csrc/` or `CMakeLists.txt` change; `15e9e7ad` → `8bb8ff36` changes only the MoE W4A16 zero-point plumbing (`zero_offset` runtime argument, asymmetric 4-bit compressed-tensors MoE stays native). Lock: [quant/w4a16.md](quant/w4a16.md#extras-lock-2026-10-14-tip-8bb8ff36-pr-98--moe-w4a16-asymmetric-zero-points).[^c-15e9e7ad][^c-8bb8ff36]
 
@@ -131,6 +136,7 @@ Do not conflate W8A16 / W8A16-FP8 / W8A8-FP8 (`fdot2`) with spec W8A8 INT8 (`sdo
 | Page | Inner loop | Completeness |
 |---|---|---|
 | [models/qwen4exp-flash-next-hip.md](models/qwen4exp-flash-next-hip.md) | T46 fdot2 glue; T47–T49 HC/QSA/PLE scalar | HC compute-correct @ `8960a3bc`. At `1dc3bac4`: `VLLM_RDNA_FUSED_HC` default **on**; fused HC prefill (`hc_prefill_rdna2.cu`) default mode 2; HC_PREFILL_HIP / QSA / PLE default off |
+| [models/inkling2-mini-hip.md](models/inkling2-mini-hip.md) | fdot2 (opt-in W4A8 prefill: sdot4); DPP `row_xmask` / `row_share` | Inkling-2-Mini native HIP at `00f106c5`: attention, conv-state ring, glue, linear, ViT, DSpark, NVFP4/MXFP8 MoE decode + 32-row prefill [^c-00f106c5] |
 | [models/dsv4-mhc-hip.md](models/dsv4-mhc-hip.md) | scalar fp32 (no DOT); 16-lane xor-shuffle Sinkhorn | DSv4 mHC pre/post HIP (`rdna/dsv4/mhc.cu`, `ec349e90` + `0f596e6e`, unchanged at `64d59b89`); decode pre GEMM split over 32 blocks; ≤16 tokens fused GEMM, else rocBLAS. Selected after AITER / TileLang for 4 streams fp16/bf16 [^c-0f596e6e] |
 
 ### Overlays — [overlays/](overlays/README.md)
@@ -157,3 +163,7 @@ Index rows summarise the linked pages; each page carries its own footnoted prima
 [^c-15e9e7ad]: `gh api repos/opengfx1030/vllm-rdna/compare/64d59b89...15e9e7ad` (read 2026-10-14): 23 commits ahead, 24 files, none under `csrc/` or `CMakeLists.txt`. <https://github.com/opengfx1030/vllm-rdna/compare/64d59b8942d3b982f1d91f0f3e625dfda4418106...15e9e7adbd0de5c56bda1b4644ddf10bcbdfc17c>
 [^c-b7402893]: opengfx1030/vllm-rdna commit [`b7402893`](https://github.com/opengfx1030/vllm-rdna/commit/b74028935393d1e21f73f80f65f506c9ea4639af) (2026-10-29 01:23 Paris) — "Merge pull request #147 from opengfx1030/codex/rdna2-moe-offload-improvements".
 [^c-b7402893-cmp]: Compare [`8015ea48...b7402893`](https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af) (59 commits, PRs #142–#147 plus the HI2 / rdna_hint_flex series); `CMakeLists.txt` +2 lines, both new sources.
+[^c-00f106c5]: opengfx1030/vllm-rdna commit [`00f106c5`](https://github.com/opengfx1030/vllm-rdna/commit/00f106c5b035bd6d562267bfee9e4ac020b7055d) (2026-11-23 03:44 Paris): "Inkling-2-Mini: faster prefill attention at depth, DSpark recipes and adaptive K (#196)". Range: [compare `1e1cac53...00f106c5`](https://github.com/opengfx1030/vllm-rdna/compare/1e1cac5340a9c9af8c9df3db331978548d709b42...00f106c5b035bd6d562267bfee9e4ac020b7055d).
+[^c-2bf77978]: opengfx1030/vllm-rdna commit [`2bf77978`](https://github.com/opengfx1030/vllm-rdna/commit/2bf779784d938e2981c56405f2586c3623e20b7e) (2026-11-18 14:11 Paris): "Merge upstream vLLM v0.34.0 into RDNA integration branch".
+[^f-00f106c5-cmake]: `CMakeLists.txt` @ `00f106c5` L55 (`HIP_SUPPORTED_ARCHS`, identical line at `1e1cac53`), L1620-L1645 (`VLLM_SKINNY_SRC`), L1780-L1831 (gfx1030 list). <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/CMakeLists.txt#L55>
+

@@ -10,6 +10,9 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/d6267ee3b09ef7d1ccbdfb9bc0d39e66809e4bd3
   - https://github.com/opengfx1030/vllm-rdna/blob/c4a05415cbda030c784bdc91c7d32e55c287a828/csrc/rocm/v1_worker_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/c4a05415cbda030c784bdc91c7d32e55c287a828/csrc/rocm/v1_input_batch_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/commit/7128797f6ab62853b77e6b3ad44388fddea568c1
+  - https://github.com/opengfx1030/vllm-rdna/commit/9031c79a047b54d19e96b2105c74e7c45fa3be1e
+  - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/v1_sample_rdna2.cu
 ---
 # `VLLM_RDNA_ALL_HIP`: the RDNA2 HIP kernel set (dest `30d6e82d`)
 
@@ -38,6 +41,10 @@ The v0.33 merge left two worker paths falling back to Triton or reading out of b
 
 GDN prefill changes in the same range are on [linear-attn/gdn-prefill.md](../linear-attn/gdn-prefill.md).
 
+## Update at dest tip `00f106c5` (checked 2026-11-23): `topk_log_softmax_rdna2` partial-block mask
+
+The fp32 `VEC == 4` fast path of `topk_log_softmax_kernel` in `v1_sample_rdna2.cu` loads two 512-element groups per thread (one 1024-element block). It used to check only the first group (`begin + 4 * threadIdx.x < limit`). It now takes the fast path only when the whole block is in range (`begin + kTopkBlock <= vocab_size`), and a partial last block uses the masked scalar path. The commit message says the bug triggered when `vocab % 16 == 0` and `vocab % 1024 != 0`, including vocab 151936. Merged as PR #194 (`9031c79a`).[^f-00f106c5-topk][^c-7128797f][^c-9031c79a]
+
 ## Sources
 
 [^ah-env]: `vllm/envs.py` L337-L348 (type stubs and comments) and L2202-L2207 (defaults `"1"`, PLE conv `"0"`), dest at 30d6e82dcd6e649d0421c2c20fb6813454efbdb1. https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/vllm/envs.py#L337-L348 ; https://github.com/opengfx1030/vllm-rdna/blob/30d6e82dcd6e649d0421c2c20fb6813454efbdb1/vllm/envs.py#L2202-L2207
@@ -47,3 +54,6 @@ GDN prefill changes in the same range are on [linear-attn/gdn-prefill.md](../lin
 [^ah-c4a0-worker]: `csrc/rocm/v1_worker_rdna2.cu` L38 and L65-L77 (window nulling), L158-L171 (`valid` bound, `PAD_SLOT_ID`) @ c4a05415cbda030c784bdc91c7d32e55c287a828. https://github.com/opengfx1030/vllm-rdna/blob/c4a05415cbda030c784bdc91c7d32e55c287a828/csrc/rocm/v1_worker_rdna2.cu#L38-L171
 [^ah-c4a0-d626]: opengfx1030/vllm-rdna commit [`d6267ee3`](https://github.com/opengfx1030/vllm-rdna/commit/d6267ee3b09ef7d1ccbdfb9bc0d39e66809e4bd3) "perf(rdna2): scatter drafts in the HIP post_update kernel"; an ancestor of `c4a05415cbda030c784bdc91c7d32e55c287a828`.
 [^ah-c4a0-ib]: `csrc/rocm/v1_input_batch_rdna2.cu` L214-L219 (draft scatter) @ c4a05415cbda030c784bdc91c7d32e55c287a828. https://github.com/opengfx1030/vllm-rdna/blob/c4a05415cbda030c784bdc91c7d32e55c287a828/csrc/rocm/v1_input_batch_rdna2.cu#L214-L219
+[^f-00f106c5-topk]: `csrc/rocm/v1_sample_rdna2.cu` @ `00f106c5` L800-L810. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/v1_sample_rdna2.cu#L800-L810>
+[^c-7128797f]: opengfx1030/vllm-rdna commit [`7128797f`](https://github.com/opengfx1030/vllm-rdna/commit/7128797f6ab62853b77e6b3ad44388fddea568c1) (2026-11-22 03:29 Paris): "fix(sample): mask the second vec4 group of a partial last block in topk_log_softmax_rdna2".
+[^c-9031c79a]: opengfx1030/vllm-rdna commit [`9031c79a`](https://github.com/opengfx1030/vllm-rdna/commit/9031c79a047b54d19e96b2105c74e7c45fa3be1e) (2026-11-22 06:38 Paris): "Merge PR #194 …".

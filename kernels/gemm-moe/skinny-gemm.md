@@ -34,6 +34,14 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/e131562936f9c6f27c26449b00aaaeeb34159b4c/csrc/rocm/moe_q_gemm_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/e131562936f9c6f27c26449b00aaaeeb34159b4c/csrc/rocm/mxfp4_dot2_common.cuh
   - https://github.com/opengfx1030/vllm-rdna/blob/e131562936f9c6f27c26449b00aaaeeb34159b4c/vllm/envs.py
+  - https://github.com/opengfx1030/vllm-rdna/commit/2bf779784d938e2981c56405f2586c3623e20b7e
+  - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/CMakeLists.txt
+  - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/skinny_gemms_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/skinny_gemms.cuh
+  - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/skinny_gemms_wvsplitk.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/vllm/envs.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/vllm/model_executor/layers/utils.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/1e1cac5340a9c9af8c9df3db331978548d709b42/csrc/rocm/skinny_gemms_int4.cu
 ---
 # Skinny GEMM — silicon / HIP contract
 
@@ -42,7 +50,7 @@ sources:
 These are unchanged at the tip:
 - `wvSplitKrc_` still carries `amdgpu_waves_per_eu(1, 1)`.
 - `VLLM_ROCM_MOE_SKINNY` is still default on.
-- `VLLM_RDNA_DENSE_GEMV` is still default off.
+- *(Historical @ `1dc3bac4`; the variable was removed by the v0.34 merge `2bf77978`, see [Dest @ `00f106c5`](#dest--00f106c5-v034-merge-splits-the-skinny-build-2026-11-23))* `VLLM_RDNA_DENSE_GEMV` is still default off.
 - Resident MoE (`VLLM_RDNA_MOE_RESIDENT` / `_SKINNY`) is still default off.
 - `_rocm_C_skinny` (`VLLM_SKINNY_SRC`) is still built for all archs except gfx1250.[^sk-tip]
 
@@ -73,7 +81,7 @@ PR #11 / donor PR #5 (George Muravei-Alkhavoi / GeorgeMA-Strong). Dest: `opengfx
 |---|---|
 | `csrc/rocm/skinny_gemms.cu` `wvSplitK` | Drop shared static `Rdna2PersistBuf` + `rdna2_persist_zeros`. Output is per-call `torch::empty({N,M}, …)`. Shared persist storage aliased live projection outs across later GEMV / graph nodes. [^f-3092d635-skinny-gemms-cu] |
 | `vllm/.../layers/utils.py` | gfx1030 FP16/BF16 decode: qualified `wvSplitK` for **n = 1..5**. `gemv_f16_rdna2` for other gfx10x, for **n = 6..8** on gfx1030, and when `VLLM_RDNA_DENSE_GEMV=1`. New `on_gfx1030()` gate. [^f-3092d635-skinny-gemms-cu][^f-3092d635-envs-py] |
-| `vllm/envs.py` | `VLLM_RDNA_DENSE_GEMV` default off (force GEMV for A/B). [^f-3092d635-envs-py] |
+| `vllm/envs.py` | *(Historical @ `3092d635`; removed at `2bf77978`)* `VLLM_RDNA_DENSE_GEMV` default off (force GEMV for A/B). [^f-3092d635-envs-py] |
 | `rdna_all_reduce.py` | Integer device-index normalize for opt-in `rdna_ar` (still `VLLM_RDNA_AR=0` default; not production AR). [^f-3092d635-rdna-all-reduce-py][^f-3092d635-envs-py] |
 
 No `__launch_bounds__` / `waves_per_eu` change on `wvSplitKrc_`. No DOT builtin, LDS-tile, KV-quant, or CMake gfx1030 list change. Occupancy leftover still FA + skinny `(1,1)`. Do not invent numbers.[^f-3092d635-skinny-gemms-cu]
@@ -123,6 +131,20 @@ Occupancy: no `__launch_bounds__` / `waves_per_eu` change. `wvSplitKrc_` still c
 
 `rocm_unquantized_gemm_impl` gains `max_gemv_rows` (default 8): the gfx10x `gemv_f16_rdna2` branch now fires for `0 < n <= max_gemv_rows`. Only a `ParallelLMHead` layer passes more than 8, from `VLLM_RDNA_LM_HEAD_GEMV_MAX_M` clamped to [8, 32] (default 8 = previous behaviour); every other dense GEMM keeps 8. The source comment says `gemv_f16_rdna2` serves 1..32 rows. The `27b-hi2-tp2` recipe sets 32.[^f-2c6d5d45-utils][^f-2c6d5d45-recipe] No kernel, `__launch_bounds__` or `waves_per_eu` change in `skinny_gemms.cu`; `wvSplitKrc_` `(1, 1)` leftover unchanged.
 
+## Dest @ `00f106c5`: v0.34 merge splits the skinny build (2026-11-23)
+
+The upstream vLLM v0.34.0 merge `2bf77978` is in the range `1e1cac53` → `00f106c5`.[^c-2bf77978-sk]
+
+| Where | Lock |
+|---|---|
+| Build split | The skinny GEMM launchers are now one translation unit per family (`skinny_gemms_llmm1.cu`, `_wvsplitk.cu`, `_wvsplitkrc.cu`, `_wvsplitkq.cu`), sharing kernels through `skinny_gemms.cuh`. The int4 skinny GEMM is split per `N_in` (`skinny_gemms_int4_api.cu` + `_n1`…`_n5`). All of them still go into `_rocm_C_skinny`, which is built for every arch except gfx1250.[^f-00f106c5-sk-cmake] |
+| Fork gfx10 kernels | The fork-only `gemv_f16_rdna2_` / `gemv_i8_rdna2_` and the MoE decode GEMVs (`moe_w13_silu_gemv_`, `moe_w2_gemv_`) moved from `skinny_gemms_int4.cu` (at `1e1cac53`) to the new `skinny_gemms_rdna2.cu`. They are still `__launch_bounds__(WAVES * 32)`.[^f-00f106c5-sk-rdna2][^f-1e1cac53-sk-int4] |
+| `wvSplitKrc_` occupancy | Still `__launch_bounds__(WvPrGrp * THRDS)` + `amdgpu_waves_per_eu(1, 1)`, now in `skinny_gemms.cuh` L1178-L1179, so the `(1,1)` leftover is unchanged.[^f-00f106c5-sk-cuh] |
+| gfx10 refusal | `wvSplitK` still has `TORCH_CHECK(!on_gfx10(), "wvSplitK is not built for gfx10 (RDNA2); use gemv_f16_rdna2")`, now in `skinny_gemms_wvsplitk.cu`.[^f-00f106c5-sk-wvsplitk] |
+| `VLLM_RDNA_DENSE_GEMV` | **Removed.** It now sits in `removed_environment_variables`, and setting it raises an error ("gfx1030 FP16 decode already uses gemv_f16_rdna2 unconditionally"). The gfx10x FP16 branch in `layers/utils.py` fires for `0 < n <= max_gemv_rows`, with no env opt-in.[^f-00f106c5-sk-envs][^f-00f106c5-sk-utils] |
+
+No change to the gfx1030 arch list (`HIP_SUPPORTED_ARCHS` is the same line as at `1e1cac53`). No new DOT path in the skinny kernels.[^f-00f106c5-sk-cmake]
+
 ## Sources
 
 [^f-3b59ee16-skinny-gemms-cu]: opengfx1030/vllm-rdna `csrc/rocm/skinny_gemms.cu` @ [`3b59ee16`](https://github.com/opengfx1030/vllm-rdna/blob/3b59ee16e553168b1e3809c9a141088662171448/csrc/rocm/skinny_gemms.cu).
@@ -163,3 +185,11 @@ Occupancy: no `__launch_bounds__` / `waves_per_eu` change. `wvSplitKrc_` still c
 [^f-a63a6b00-utils]: `vllm/model_executor/layers/utils.py` @ `a63a6b0010fd4e761fb14393e32d3491f4a1460b` L361-L376. https://github.com/opengfx1030/vllm-rdna/blob/a63a6b0010fd4e761fb14393e32d3491f4a1460b/vllm/model_executor/layers/utils.py#L361-L376
 [^f-2c6d5d45-utils]: opengfx1030/vllm-rdna `vllm/model_executor/layers/utils.py` [L33–51, 359–398](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/vllm/model_executor/layers/utils.py#L33-L51) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
 [^f-2c6d5d45-recipe]: opengfx1030/vllm-rdna `tools/rdna/recipes/27b-hi2-tp2.env` [L114](https://github.com/opengfx1030/vllm-rdna/blob/2c6d5d450d0c74893ae8c10daee8352dac234e11/tools/rdna/recipes/27b-hi2-tp2.env#L114) @ 2c6d5d450d0c74893ae8c10daee8352dac234e11.
+[^c-2bf77978-sk]: opengfx1030/vllm-rdna commit [`2bf77978`](https://github.com/opengfx1030/vllm-rdna/commit/2bf779784d938e2981c56405f2586c3623e20b7e) (2026-11-18 14:11 Paris): "Merge upstream vLLM v0.34.0 into RDNA integration branch".
+[^f-00f106c5-sk-cmake]: `CMakeLists.txt` @ `00f106c5` L55, L1620-L1645, L1751-L1774. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/CMakeLists.txt#L1620-L1645>
+[^f-00f106c5-sk-rdna2]: `csrc/rocm/skinny_gemms_rdna2.cu` @ `00f106c5` L45, L99, L225-L227, L380-L381. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/skinny_gemms_rdna2.cu#L225-L227>
+[^f-1e1cac53-sk-int4]: `csrc/rocm/skinny_gemms_int4.cu` @ `1e1cac53` L1222 (`moe_w13_silu_gemv_`), L1401-L1402 (`gemv_f16_rdna2_`). <https://github.com/opengfx1030/vllm-rdna/blob/1e1cac5340a9c9af8c9df3db331978548d709b42/csrc/rocm/skinny_gemms_int4.cu#L1401-L1402>
+[^f-00f106c5-sk-cuh]: `csrc/rocm/skinny_gemms.cuh` @ `00f106c5` L1176-L1180. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/skinny_gemms.cuh#L1176-L1180>
+[^f-00f106c5-sk-wvsplitk]: `csrc/rocm/skinny_gemms_wvsplitk.cu` @ `00f106c5` L33-L34; `on_gfx10()` at `skinny_gemms.cuh` L92. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/skinny_gemms_wvsplitk.cu#L33-L34>
+[^f-00f106c5-sk-envs]: `vllm/envs.py` @ `00f106c5` L729-L738. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/vllm/envs.py#L729-L738>
+[^f-00f106c5-sk-utils]: `vllm/model_executor/layers/utils.py` @ `00f106c5` L486-L503. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/vllm/model_executor/layers/utils.py#L486-L503>
