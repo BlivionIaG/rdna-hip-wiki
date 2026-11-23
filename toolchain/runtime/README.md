@@ -2,6 +2,7 @@
 owner: ROCM_specialist
 updated: 2026-11-23
 sources:
+  - https://github.com/opengfx1030/vllm-rdna/pull/202
   - https://github.com/ROCm/rocm-systems/pull/16099
   - https://github.com/ROCm/rocm-systems/issues/11256
   - https://github.com/ROCm/rocm-systems/issues/14003
@@ -253,6 +254,12 @@ For our boxes: a global `HSA_OVERRIDE_GFX_VERSION=10.3.0` (common in RDNA2 image
 
 [rocm-systems#14778](https://github.com/ROCm/rocm-systems/issues/14778) (open, filed 2026-11-01) reports that a process started with `ROCR_VISIBLE_DEVICES=0` sees one HIP device but still opens the DRM render node of every GPU and acquires a GPU VM on each. Every `hipHostRegister` then maps the registration into the hidden GPUs too: about 2 MiB per 1 GiB registration on each hidden card, held until the process exits. The reporter measured it on eight W7900D (gfx1100) with ROCm 7.2.1, TheRock 10.1.0a20260822 and `develop` at `8915864`, and points at `hsakmt_fmm_init_process_apertures()` in libhsakmt `fmm.c`, which runs before ROCr applies the filter.[^vis14778] The code path is not arch-specific, but this page has no gfx1030 repro. For a multi-V620 host that runs one engine per card: the mask hides devices, it does not keep a job's host registrations off the other cards. Exposing only one card's render node is not a workaround on current builds: [rocm-systems#14764](https://github.com/ROCm/rocm-systems/issues/14764) (filed 2026-10-31, label `status: fix submitted`) shows that a sandbox with `/dev/kfd` and one render node, the others absent, finds no GPU at all (`rocminfo` returns `HSA_STATUS_ERROR_OUT_OF_RESOURCES`, HIP returns `hipErrorNoDevice`; libhsakmt logs `Failed to set mem policy for GPU`). The reporter used bubblewrap on gfx1201 + gfx1036, and a second reporter reproduced it with a fresh-`/dev` user namespace on 8× W7900D (gfx1100) with ROCm 7.2.1, TheRock 10.1.0 nightly wheels and `develop` `8915864`.[^vis14764] The fix, [rocm-systems#15264](https://github.com/ROCm/rocm-systems/pull/15264) ("skip GPUs without an acquired VM when setting memory policy"), is open as of 2026-11-09 and an AMD maintainer said it should merge soon.[^vis14764] Whether a Docker `--device` subset hits the same path was not tested here (unsourced); until the fix is in the TheRock pin, keep every render node visible and use `ROCR_VISIBLE_DEVICES` to pick the card.
 
+### Empty `ROCR_VISIBLE_DEVICES` and a zero device count before init
+
+Two launcher pitfalls were found while validating dest scripts on a V620 host (gfx1030) with the `venv-7.14.0_0.34.0` environment.[^dest202]
+- **Empty value.** If `ROCR_VISIBLE_DEVICES` is exported with an empty value, every GPU is hidden. torch boots with `RuntimeError: No CUDA GPUs are available`. To remove the mask for a child process, use `env -u ROCR_VISIBLE_DEVICES`. Don't pass `ROCR_VISIBLE_DEVICES=` as an empty argument.[^dest202]
+- **Count before init.** In that venv, `torch.cuda.device_count()` (and `torch.accelerator.device_count()`) returned 0 before `torch.cuda.init()`, even after `is_available()` returned True. After init it returned 4. Older 7.14.0 venvs (0.31/0.32) returned 4 either way. Calling init did not create a context: VRAM stayed at 17 MiB per card.[^dest202] Any probe script that counts or maps PCI buses should call `torch.cuda.init()` first. The PR does not say which torch version introduced this, so treat it as specific to that environment. No other source confirms it beyond this PR.
+
 ## Graphs
 
 [rocm-systems#12638](https://github.com/ROCm/rocm-systems/issues/12638) (open) reports that on Core SDK **10.0.0**, a retained fork/join graph whose root segment holds only empty nodes can hang on first replay. `GraphExecSegmented::BuildSyncPlan()` allocates a completion signal for that segment and never attaches a producer, so the successor's barrier waits. The issue names released source commit `6b0e43f341195e203754e08f850e437ff2fc09f9` (`therock-10.0`).[^graph12638] The 7.14.0 release notes are dated 2026-07-15, before that 10.0.0 report.[^rn7140] Check this before any 10.x move if a capture uses empty join roots. No 7.14.0 pin change.
@@ -272,6 +279,7 @@ Since Linux 6.14 the `dmem` cgroup controller can cap a container's VRAM on amdg
 [^sys3573]: rocm-systems#3573, closed 2026-11-18 20:04 UTC by nartmada ("please reopen the ticket if this issue can still be observed"); body by jhuber6 (gfx1030 repro, `--lto-partitions=1` workaround, duplicated `amdhsa.printf` notes). https://github.com/ROCm/rocm-systems/issues/3573
 
 [^vis14764]: rocm-systems#14764, issue body (bubblewrap repro, gfx1201/gfx1036, rocm-sdk-core 10.1.0) and comments by `harkgill-amd` 2026-11-06 20:49 UTC (patch tested, PR opened) and `vivienfanghuagood` 2026-11-08 01:26 UTC (8× W7900D gfx1100 repro table); fix PR rocm-systems#15264 open. https://github.com/ROCm/rocm-systems/issues/14764
+[^dest202]: opengfx1030/vllm-rdna#202 (merged 2026-11-23 16:56 UTC, merge f65f058a), PR body "Claims" and "Validation" sections, box par1-cs25, venv `venv-7.14.0_0.34.0-rebase-1e1cac5340`. https://github.com/opengfx1030/vllm-rdna/pull/202
 [^vis14778]: rocm-systems#14778, open, issue body (fdinfo table, versions, `fmm.c` analysis). https://github.com/ROCm/rocm-systems/issues/14778
 
 [^malloc10943]: rocm-systems#10943, open, including the gfx1100 follow-up comment. https://github.com/ROCm/rocm-systems/issues/10943
