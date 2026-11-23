@@ -30,6 +30,8 @@ sources:
 
 # gfx1030 FA occupancy report
 
+See also: [fa-prefill-tile-caps.md](fa-prefill-tile-caps.md) (2026-11-23). It covers stew675 r334's removal of the RDNA2 llama.cpp FA `cols_per_block` caps, the HIP occupancy-0 assert the caps worked around, and the dest GQA prefill 16-row tile as a VGPR-bound Later audit. That page also re-derives the current plain D=256 prefill LDS byte count, which differs from §2's older snapshot. The sources are footnoted there.
+
 ## Current state at dest tip `1dc3bac4` (v0.31.0 port, checked 2026-10-11)
 
 Everything below this section is dated history; where it disagrees with this table, this table wins.
