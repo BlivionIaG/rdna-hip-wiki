@@ -22,6 +22,8 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/9ba5d5f4611de4cfd042edabc4cbc8d8f5b13e17
   - https://github.com/opengfx1030/vllm-rdna/commit/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0
   - https://github.com/turboderp-org/exllamav3
+  - https://github.com/opengfx1030/vllm-rdna/commit/6333bc722e7ecb29bc0bd72bda9fccfbcdc80bf5
+  - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/exl3_dot2_dense.cu
 ---
 
 # EXL3 / QTIP on gfx1030 — silicon
@@ -199,6 +201,10 @@ HIP/ISA delta since `3a0786ea` (W4A8 lock). Companion: [../kernels/exl3.md](../.
 
 Same tip also lands MoE epilogue dual-mode (`moe_accum_rdna2.cuh`) — see [../kernels/w4a8.md](../../kernels/quant/w4a8.md) + [../kernels/w4a16.md](../../kernels/quant/w4a16.md) (W4A16/W4A8 MoE; not EXL3 CAS).
 
+## extras lock 2026-11-23 (dest tip `00f106c5`)
+
+`6333bc72` moves the v2 decode geometry macros (`V2_THREADS_X 64`, `V2_BLOCK_N 1024` = 16 cols × 64 threads, `V2_BLOCK_K 128`) out of the RDNA device-body guard in `exl3_dot2_dense.cu`, next to the v3 geometry (`V3_THREADS 128`). Non-RDNA device passes can then compile the launchers. The values and the RDNA kernel computation are unchanged; the commit message calls this the six-architecture EXL3 dense launcher build fix. There is no new DOT, LDS or launch-bounds change.[^f-00f106c5-exl3-geom][^c-6333bc72]
+
 ## Sources
 
 - [turboderp-org/exllamav3](https://github.com/turboderp-org/exllamav3) `codebook.cuh`, `exl3_dq.cuh`, `exl3_gemm_inner.cuh`, `exl3_gemv.cu`, `doc/exl3.md` (read 2026-08-21)
@@ -229,3 +235,5 @@ Footnotes:
 [^commit-3a0786ea]: opengfx1030/vllm-rdna commit `3a0786eaa70f`. https://github.com/opengfx1030/vllm-rdna/commit/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0 (exists, verified via GitHub API 2026-10-11)
 [^github-turboderp-org-exllamav3]: GitHub - turboderp-org/exllamav3: An optimized quantization and inference library for running LLMs locally on modern consumer-class GPUs. https://github.com/turboderp-org/exllamav3 (checked 2026-10-11)
 [^v620-product]: AMD Radeon PRO V620 product page (72 CU, 4608 stream processors, 32 GB GDDR6, 256-bit, 512 GB/s, 300 W TBP, 2.2 GHz peak engine clock, 20.28 TFLOPs FP32 / 40.55 TFLOPs FP16 vector). https://www.amd.com/en/products/accelerators/radeon-pro/amd-radeon-pro-v620.html (checked 2026-10-11)
+[^f-00f106c5-exl3-geom]: `csrc/rocm/exl3_dot2_dense.cu` @ `00f106c5` L62-L69. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/exl3_dot2_dense.cu#L62-L69>
+[^c-6333bc72]: opengfx1030/vllm-rdna commit [`6333bc72`](https://github.com/opengfx1030/vllm-rdna/commit/6333bc722e7ecb29bc0bd72bda9fccfbcdc80bf5) (2026-11-18 21:22 Paris): "fix(rocm): expose EXL3 launch geometry to every device pass".
