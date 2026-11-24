@@ -1,6 +1,6 @@
 ---
 title: "Inkling-2-Mini HIP kernels on gfx1030 — tip `00f106c5`"
-updated: 2026-11-23
+updated: 2026-11-24
 sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/00f106c5b035bd6d562267bfee9e4ac020b7055d
   - https://github.com/opengfx1030/vllm-rdna/compare/1e1cac5340a9c9af8c9df3db331978548d709b42...00f106c5b035bd6d562267bfee9e4ac020b7055d
@@ -30,6 +30,11 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/eefc5ddba941868cf4d06fc84ac7b42b4e175835
   - https://github.com/opengfx1030/vllm-rdna/commit/0fd3e424dcb4f2921242ebe3f6ff8d1b661f05c8
   - https://github.com/opengfx1030/vllm-rdna/commit/0cd91cb62cf538fe404c4152230bdb7602296546
+  - https://github.com/opengfx1030/vllm-rdna/commit/d71bddca6e0f9d9f22390b8dde758cf7baf60481
+  - https://github.com/opengfx1030/vllm-rdna/commit/268dd22031c125ecf46d60734a0e30733b0f132e
+  - https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/csrc/rocm/moe_prefill_bm_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/vllm/models/inkling2_loop/amd/moe.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/5ba9a09af6257395022a5e86254368b132fa17dd/vllm/models/inkling2_loop/amd/moe.py
 ---
 
 # Inkling-2-Mini HIP kernels on gfx1030 — tip `00f106c5`
@@ -117,6 +122,9 @@ Compiler-reported resources are quoted from the fork's committed docs (`-Rpass-a
 - The LDS chunk is `kNvfp4Kc = 128` (double-buffered), `kMxfp8Kc = 256`, or `kI8Kc = 256`.
 - NVFP4 activations are K-permuted (0,4,1,5,2,6,3,7) inside each 8-K word with `v_perm`, so one shift and mask decodes two nibbles.[^pbm-head][^pbm-perm]
 - **W4A8 (opt-in).** The first dot of a chain is inline asm `v_dot4_i32_i8 %0, %1, %2, 0`, the untied VOP3P form with an inline 0. The source says the tied `v_dot4c` chosen for `sdot4(a,b,0)` would need a `v_mov 0`. e2m1 → int8 uses a three-`v_perm` LUT.[^pbm-sdot4]
+- **K-tail gate (update @ `d71bddca`).** The NVFP4 prefill kernel now accepts any `K % 32 == 0`: the host check is `size_k % 32 == 0` (was `size_k % kNvfp4Kc`, i.e. 128), the chunk count rounds up (`nchunks = (size_k + KC - 1) / KC`), activation staging zero-fills K offsets at or past `size_k`, and each chunk runs `ng = min(KC, size_k - ck*KC) >> 4` 16-K scale groups in steps of two (32 K per step). `kNvfp4Kc` stays 128 and `__launch_bounds__(NT)` is unchanged. The initial weight/scale prefetch is now predicated on `active`.[^pbm-ktail]
+- **Eligibility (update @ `d71bddca`).** `_prefill_supported()` now requires only `hidden % 32 == 0` and `intermediate % 32 == 0` for both formats, so at TP = 2 (I = 576) and TP = 4 (I = 288) the NVFP4 layers also take the 32-row prefill kernels.[^py-moe-ktail] *Historical @ `5ba9a09a`:* NVFP4 needed K % 128 (MXFP8 K % 32), so at TP = 2 / 4 only the MXFP8 layers used them and NVFP4 kept the decode-shaped kernels.[^py-moe-old]
+- The fork's §7.4 resource receipt (source of the occupancy table above) was not re-issued in this change, so VGPR / LDS for the K-tail build are not re-reported and those rows stay pinned to `00f106c5`.[^tip2]
 - **Python gates.** `VLLM_INKLING2_PREFILL_BM` defaults to `1`, with `VLLM_INKLING2_PREFILL_BM_MIN_TOKENS` = 128. `VLLM_INKLING2_PREFILL_INT8` defaults to `0`.[^py-moe-prefill]
 
 ## Env defaults that gate HIP kernels
@@ -184,3 +192,7 @@ Compiler-reported resources are quoted from the fork's committed docs (`-Rpass-a
 [^py-glue]: `vllm/models/inkling2_loop/amd/glue.py` @ `00f106c5` L32-L38. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/vllm/models/inkling2_loop/amd/glue.py#L32-L38>
 [^py-moe-swiglu]: `vllm/models/inkling2_loop/amd/moe.py` @ `00f106c5` L625-L631 (`_FUSE_SWIGLU_MAX_TOKENS = 16`). <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/vllm/models/inkling2_loop/amd/moe.py#L625-L631>
 [^py-moe-prefill]: `vllm/models/inkling2_loop/amd/moe.py` @ `00f106c5` L633-L651 (`_prefill_switches`). <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/vllm/models/inkling2_loop/amd/moe.py#L633-L651>
+[^tip2]: opengfx1030/vllm-rdna commit [`d71bddca`](https://github.com/opengfx1030/vllm-rdna/commit/d71bddca6e0f9d9f22390b8dde758cf7baf60481) (2026-11-24 12:01 Paris): "Merge #205: 32-row NVFP4 prefill K-tails for TP=2/TP=4 and TP=2 MAXBAT=320", from [`268dd220`](https://github.com/opengfx1030/vllm-rdna/commit/268dd22031c125ecf46d60734a0e30733b0f132e). Compare [`5ba9a09a...d71bddca`](https://github.com/opengfx1030/vllm-rdna/compare/5ba9a09af6257395022a5e86254368b132fa17dd...d71bddca6e0f9d9f22390b8dde758cf7baf60481); `docs/rdna2/inkling2-moe-prefill-bm.md` changed only in its L56-L67 hunk.
+[^pbm-ktail]: `csrc/rocm/moe_prefill_bm_rdna2.cu` @ `d71bddca` L25, L54, L216, L245, L267, L280, L346, L351-L354, L927. <https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/csrc/rocm/moe_prefill_bm_rdna2.cu#L245-L354>
+[^py-moe-ktail]: `vllm/models/inkling2_loop/amd/moe.py` @ `d71bddca` L827-L831. <https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/vllm/models/inkling2_loop/amd/moe.py#L827-L831>
+[^py-moe-old]: `vllm/models/inkling2_loop/amd/moe.py` @ `5ba9a09a` `_prefill_supported()` (`align = 32 if self.quant_format == "mxfp8" else 128`). <https://github.com/opengfx1030/vllm-rdna/blob/5ba9a09af6257395022a5e86254368b132fa17dd/vllm/models/inkling2_loop/amd/moe.py#L827-L833>
