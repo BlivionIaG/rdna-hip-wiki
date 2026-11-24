@@ -4,6 +4,7 @@ updated: 2026-11-24
 sources:
   - https://github.com/pantheongpu/pantheonsim/issues/728
   - https://github.com/pantheongpu/pantheonsim/issues/722
+  - https://github.com/ROCm/rocm-systems/issues/16468
   - https://github.com/ROCm/TheRock/issues/9865
   - https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.14.0/reference/rocmcc.html
   - https://rocm.docs.amd.com/projects/HIP/en/docs-7.14.0/how-to/hip_cpp_language_extensions.html
@@ -150,7 +151,7 @@ For us: on gfx1100 with Triton 3.9, check the spill count in the AMDGPU metadata
 
 ## Gotcha — raw `rcp` / `rsq` / `sqrt` builtins on gfx1030 are not IEEE
 
-The pantheonsim GPU-simulator project compared its model against an RX 6800 and RX 6700 XT (gfx1030/gfx1031) and filed what differs. Measured on those cards, `v_rcp_f64`, `v_rsq_f64` and `v_sqrt_f64` return about 24 significant bits (22 to 26 over 2^27 random operands; `v_sqrt_f64(1.0)` is 1 + 2^-24), not a correctly rounded double. Compiled `sqrt()` / `1.0/x` agree because the compiler refines the result with FMAs, but code that calls `__builtin_amdgcn_rcp` / `__builtin_amdgcn_rsq` on doubles, or hand assembly, gets the raw bits.[^pan728] On the same card, `v_rcp_f32`, `v_rsq_f32`, `v_sqrt_f32`, `v_exp_f32` and `v_log_f32` flush denormal operands and results (for example `v_rcp_f32` of a denormal gives +inf).[^pan722] A separate rocjitsu report on gfx1036 also says the f64 forms are not correctly rounded but describes the precision differently (see [tools/](../tools/README.md)), so treat the exact bit count as unsettled. For gfx1030 kernels: use the raw builtins only where about 24 bits and denormal flush are acceptable (softmax `exp`, norm `rsq` in f32), and use the library `sqrt` / `rsqrt` or add a Newton step for f64 and for reference kernels. No other RDNA target was measured.
+The pantheonsim GPU-simulator project compared its model against an RX 6800 and RX 6700 XT (gfx1030/gfx1031) and filed what differs. Measured on those cards, `v_rcp_f64`, `v_rsq_f64` and `v_sqrt_f64` return about 24 significant bits (22 to 26 over 2^27 random operands; `v_sqrt_f64(1.0)` is 1 + 2^-24), not a correctly rounded double. Compiled `sqrt()` / `1.0/x` agree because the compiler refines the result with FMAs, but code that calls `__builtin_amdgcn_rcp` / `__builtin_amdgcn_rsq` on doubles, or hand assembly, gets the raw bits.[^pan728] On the same card, `v_rcp_f32`, `v_rsq_f32`, `v_sqrt_f32`, `v_exp_f32` and `v_log_f32` flush denormal operands and results (for example `v_rcp_f32` of a denormal gives +inf).[^pan722] A separate rocjitsu report on gfx1036, [rocm-systems#16468](https://github.com/ROCm/rocm-systems/issues/16468), also says the f64 forms are not correctly rounded but describes the precision differently (see the [2026-11-23 domain pass](../log/domain-passes.md)), so treat the exact bit count as unsettled. For gfx1030 kernels: use the raw builtins only where about 24 bits and denormal flush are acceptable (softmax `exp`, norm `rsq` in f32), and use the library `sqrt` / `rsqrt` or add a Newton step for f64 and for reference kernels. No other RDNA target was measured.
 
 ## `-O0` integer divide, and wave64
 
