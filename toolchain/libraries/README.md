@@ -1,7 +1,8 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-23
+updated: 2026-11-24
 sources:
+  - https://github.com/ROCm/rocm-libraries/issues/16595
   - https://github.com/ROCm/rocm-libraries/issues/16488
   - https://github.com/ROCm/TheRock/pull/10071
   - https://github.com/ROCm/rocm-systems/issues/15656
@@ -156,6 +157,10 @@ To see which archive is missing, run with `AMD_LOG_LEVEL=4` and `ROCM_KPACK_DEBU
 
 [rocm-libraries#16488](https://github.com/ROCm/rocm-libraries/issues/16488) (open, filed 2026-11-21 by the AMD Radeon Cloud team) measured square `torch.matmul` on a Radeon PRO W7900D (gfx1100). fp32 through hipBLASLt, PyTorch's default ROCm BLAS backend, reached 2.5 / 2.6 / 2.6 / 1.3 TFLOPS at N = 1024 / 2048 / 4096 / 8192. rocBLAS reached 11.7 / 19.4 / 20.6 / 20.3, and TunableOp reached 14.3 to 22.1. bf16 and fp16 through hipBLASLt were fine (25 to 60 TFLOPS). The numbers were the same within 4% on PyTorch 2.13.0+rocm10.0.0 and 2.10.0+rocm7.2.4, and `allow_tf32=True` changed nothing. The issue calls fp32 on gfx11 a known limitation and asks hipBLASLt or PyTorch to route fp32 to rocBLAS by default. Workarounds it lists: `torch.backends.cuda.preferred_blas_library("cublas")` (rocBLAS on ROCm), `TORCH_BLAS_PREFER_HIPBLASLT=0`, or `PYTORCH_TUNABLEOP_ENABLED=1`.[^lt16488] For gfx1100 tools and benchmarks that run fp32 GEMMs (reference checks, fp32 baselines, fp32 heads), force rocBLAS or TunableOp and say which one the result used. gfx1030 is not affected in the same way: hipBLASLt has no gfx1030 kernels, so those GEMMs already go to rocBLAS (see above).
 
+### MIOpen FP16 Winograd returns inf on gfx1100
+
+[rocm-libraries#16595](https://github.com/ROCm/rocm-libraries/issues/16595) (open, filed 2026-11-23) reports that MIOpen's FP16 Winograd forward convolution returns inf or NaN for inputs whose exact result is well inside the FP16 range. On a Radeon PRO W7800 (gfx1100), Winograd is the default solver for a 512-channel 3x3 conv at 64x64. With TheRock 10.2.0a20261022 and PyTorch 2.16.0a0, inputs of magnitude 30000 (exact output max 3360) gave inf in every output with the default `ConvWinoFuryRxS<2-3>`. `MIOPEN_DEBUG_AMD_WINOGRAD_FURY_RXS_F2X3=0` stayed finite at 30000 but gave inf at 40000. `MIOPEN_DEBUG_CONV_WINOGRAD=0` stayed finite at both, with the smallest error. On gfx950 the default solver is not Winograd and stays finite.[^mi16595] For FP16 conv workloads on gfx1100 (vision encoders, diffusion) that see sudden inf with large activations, retry with `MIOPEN_DEBUG_CONV_WINOGRAD=0` before you suspect the model. gfx1030 was not tested.
+
 ### hipBLASLt uniform summation order off by default on gfx11*/gfx120*
 
 [rocm-libraries#15079](https://github.com/ROCm/rocm-libraries/pull/15079) (merged 2026-11-05, commit `ab45d0bba4f1`) defaults `uniform_summation_order` to 0 when `gcnArchName` contains `gfx11` or `gfx120`, because USO disables StaggerU and slowed some RDNA GEMMs after #14010 (bf16 / `F.linear` reports up to ~1.9×). Explicit settings still override; non-RDNA stays default-on.[^lt15079] **gfx1030 is not in that arch check**, so RDNA2 keeps the previous default. **In TheRock tip** as of 2026-11-06 ~13:53 Europe/Paris: TheRock [#9759](https://github.com/ROCm/TheRock/pull/9759) merged libraries `98e132f` → `37f616f` (main `be87ca4970ff`); ancestry check shows `ab45d0bb` is an ancestor of `37f616f`.[^tr9759] Sibling bumps #9769 / #9781 closed unmerged (superseded). Dest stays 7.14.0 — tip Watch for gfx1100 nightlies that rebuild on this pin.
@@ -226,3 +231,4 @@ Two open ComfyUI PRs filed 2026-11-11 say that models whose `supported_inference
 [^cf17684]: ComfyUI#17684, open, filed 2026-11-11 (MOSS-Image FP16, gfx1030 timings and numerics). https://github.com/Comfy-Org/ComfyUI/pull/17684
 [^cf17686]: ComfyUI#17686, open, filed 2026-11-11 (Qwen Image 2.1 FP16, gfx1030 timings and numerics, `--fp16-unet` note). https://github.com/Comfy-Org/ComfyUI/pull/17686
 [^sys16097]: rocm-systems#16097, open, filed 2026-11-18 04:43 UTC by saman-amd (default-level silence in clr hip_fatbin.cpp, debug switches, flat-directory trace from llama.cpp#27557 on ROCm 10.1). https://github.com/ROCm/rocm-systems/issues/16097
+[^mi16595]: rocm-libraries#16595, open, filed 2026-11-23 (PyTorch repro, gfx1100 W7800 solver table at 16000/30000/40000, gfx950 forced-Winograd table, TheRock 10.2.0a20261022). https://github.com/ROCm/rocm-libraries/issues/16595

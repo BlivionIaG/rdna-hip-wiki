@@ -2,6 +2,13 @@
 owner: ROCM_specialist
 kind: scan-log
 sources:
+  - "https://github.com/ROCm/rocm-systems/issues/16578"
+  - "https://github.com/ROCm/rocm-libraries/issues/16595"
+  - "https://github.com/pantheongpu/pantheonsim/issues/728"
+  - "https://github.com/pantheongpu/pantheonsim/issues/722"
+  - "https://github.com/Niko1221/Strata/issues/6912"
+  - "https://github.com/franktheglock/yue2-rocm-v620"
+  - "https://github.com/d1c0n/ComfyUI-RDNA2-Attention"
   - "https://github.com/ROCm/rocm-systems/pull/16099"
   - "https://github.com/CachyOS/CachyOS-PKGBUILDS/issues/2143"
   - "https://github.com/ROCm/rocm-systems/issues/16406"
@@ -689,3 +696,16 @@ Vs domain 2026-11-20 ~10:35. **No dest bump** (live **7.14.0**). Pins per the ho
 | [rocm-systems#16468](https://github.com/ROCm/rocm-systems/issues/16468) | Watch (tools) | rocjitsu f32 transcendental models reproduce gfx1036 (RDNA2 iGPU) results; reporter says `v_rcp/rsq/sqrt_f64` return the f32 unit's unrounded ~35-bit value, which rocjitsu's host-double model does not match. First RDNA2 validation data for rocjitsu; still no gfx1030 config. |
 | [llama.cpp#32732](https://github.com/ggml-org/llama.cpp/issues/32732) | Leave engine | Windows ROCm 7.2 gfx1030: inkling2_loop f32 matmul with odd K goes to hipBLAS, rocBLAS has no kernel, abort. For LLM_Inference_specialist. |
 | [vllm#52585](https://github.com/vllm-project/vllm/issues/52585) | Leave engine | gfx1100 long prefill: unified attention `BLOCK_M=16` default leaves ~2x. Engine/fork. |
+
+## 2026-11-24 ~10:40 — domain pass (clr host-unregister abort; MIOpen FP16 Winograd inf on gfx1100; raw f64 rcp/rsq on gfx1030; not dest)
+
+Vs domain 2026-11-23 ~10:40. **No dest bump** (live **7.14.0**). Pins per the hourly scan: TheRock main `4e97198e3358`, releases therock-10.2 / rocm-7.14.0. hipBLASLt gfx1100/gfx1201 bf16 tuning [rocm-libraries#16436](https://github.com/ROCm/rocm-libraries/pull/16436) left draft 2026-11-23 21:24 UTC (hourly scan already reported it); ck-tile 16-row paged KV [#12343](https://github.com/ROCm/rocm-libraries/pull/12343) and clr alignment fix [rocm-systems#16099](https://github.com/ROCm/rocm-systems/pull/16099) still open.
+
+| Item | Verdict | Note |
+|---|---|---|
+| [rocm-systems#16578](https://github.com/ROCm/rocm-systems/issues/16578) | **Take (runtime)** | `hipFree` / `hipHostUnregister` on an address inside a `hipHostRegister` range abort the process (gfx1100 W7900, develop, 10.1.0, 10.3 nightly); Linux device-VA case returns success and frees. Free with the exact base pointer. New [runtime/](../runtime/README.md) section. |
+| [rocm-libraries#16595](https://github.com/ROCm/rocm-libraries/issues/16595) | Take (libraries) | gfx1100 W7800: default FP16 Winograd solver returns all-inf at in-range outputs; `MIOPEN_DEBUG_CONV_WINOGRAD=0` is clean. New [libraries/](../libraries/README.md) section. |
+| [pantheonsim#728](https://github.com/pantheongpu/pantheonsim/issues/728) / [#722](https://github.com/pantheongpu/pantheonsim/issues/722) | Take (compiler, caveat) | RX 6800 / 6700 XT measured: raw `v_rcp/rsq/sqrt_f64` about 24 bits; f32 transcendentals flush denormals. Matters for raw `__builtin_amdgcn_*` use. New [compiler/](../compiler/README.md) gotcha. |
+| [Strata#6912](https://github.com/Niko1221/Strata/issues/6912) | Leave engine | Mixed gfx1201 + gfx1030 host: per-family HIP packages (gfx1030-only vs gfx1200/1201-only) leave the helper card with no code object; asks for one fat build. Matches our mixed-arch notes in [runtime/](../runtime/README.md). |
+| [franktheglock/yue2-rocm-v620](https://github.com/franktheglock/yue2-rocm-v620) | Leave | New repo: HIP runtime + web UI for YuE2-3B music model on V620 gfx1030. Not toolchain. |
+| [d1c0n/ComfyUI-RDNA2-Attention](https://github.com/d1c0n/ComfyUI-RDNA2-Attention) | Leave | New repo: ComfyUI attention and int8/int4 matmul for gfx1030. Not toolchain. |

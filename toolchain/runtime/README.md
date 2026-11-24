@@ -1,7 +1,8 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-23
+updated: 2026-11-24
 sources:
+  - https://github.com/ROCm/rocm-systems/issues/16578
   - https://github.com/opengfx1030/vllm-rdna/pull/202
   - https://github.com/ROCm/rocm-systems/pull/16099
   - https://github.com/ROCm/rocm-systems/issues/11256
@@ -191,6 +192,12 @@ This differs from the cross-queue stall above: the stuck work is an SDMA copy af
 
 For V620 (gfx1030, same RDNA2 SDMA generation as the reporter's cards, not tested here): when an upload is corrupt or SDMA0 faults during a model load on a host under memory pressure, retry with `HSA_ENABLE_SDMA=0` first. This is the same switch as the GFXOFF stall above. Verify uploaded weights (checksum or read-back) when you compare runs on a host that is close to full RAM.
 
+### `hipFree` / `hipHostUnregister` abort on an address inside a registration
+
+[rocm-systems#16578](https://github.com/ROCm/rocm-systems/issues/16578) (open, filed 2026-11-23) reports that `hipHostUnregister` and `hipFree` abort the process (`rocclr/device/device.cpp:366 : Memobj map does not have ptr`) when they get an address inside a `hipHostRegister` range (for example `host + 4096`) instead of the base address, and on Windows also for the device VA from `hipHostGetDevicePointer`. They should return an error. The issue says that on Linux the device-VA case returns `hipSuccess` instead, releases the registration, and leaves the host address pointing at a freed object. It was reproduced on 2x Radeon PRO W7900 (gfx1100), Windows, on develop, ROCm 10.1.0 and nightly 10.3.0a20261117; a commenter reproduced the abort on gfx1151 with the ROCm 7.2 runtime. The cause given is that `getMemoryObject()` resolves any address in the range, while the free path erases one exact key and asserts that it existed.[^sys16578]
+
+For engines that register host memory (pinned expert or KV pools, see [pinned-host-mlock-hwq.md](pinned-host-mlock-hwq.md)): always free and unregister with the exact base pointer you registered, and keep that pointer next to any sub-allocation. A bad pointer here is a process abort, not an error code. gfx1030 was not tested.
+
 ### gfx1100 idle power with a pending barrier (MES)
 
 [TheRock#9484](https://github.com/ROCm/TheRock/issues/9484) (open, filed 2026-10-26 01:39 UTC, no AMD reply yet) reports that on an RX 7900 XTX (gfx1100, MES firmware 0x80), a single HSA queue holding one unsatisfied AQL `BARRIER_AND` packet raises idle board power from 9–10 W to 92–94 W at 100% GFX activity, with no compute wave resident. Drained queues idle normally. The reporter reproduced it on ROCm 7.2.4, 7.14 and 10.1, and says `sched_policy=2` and the August gfx11 MES timer correction did not fix it.[^q-9484] The reporter links it to [TheRock#9141](https://github.com/ROCm/TheRock/issues/9141), an older 100%-utilisation report where an AMD contributor reproduced stuck 100% GPU use on gfx1100 with three or more llama.cpp instances and suggested `GPU_MAX_HW_QUEUES=1` as a partial workaround.[^q-9141]
@@ -350,3 +357,4 @@ Since Linux 6.14 the `dmem` cgroup controller can cap a container's VRAM on amdg
 [^sys14258]: rocm-systems#14258, open (SDMA0 page fault on hipMemcpyAsync from file-backed mmap; maintainer repro comment 2026-10-30). https://github.com/ROCm/rocm-systems/issues/14258
 [^sys16182]: rocm-systems#16182, open, filed 2026-11-19 03:22 UTC (MI355X gfx950, HIP 7.13.99004 to 7.18.26461, hipRTC reproducer); `nigelhutch` comment 2026-11-19 14:04 UTC (Windows gfx1151, static kernels, query only). https://github.com/ROCm/rocm-systems/issues/16182
 [^llama32169]: llama.cpp#32169, "HIP: fall back to 1 block when FA occupancy query returns 0", closed without merge 2026-11-19 22:17 UTC; PR description and `IMbackK` closing comment. https://github.com/ggml-org/llama.cpp/pull/32169
+[^sys16578]: rocm-systems#16578, open, filed 2026-11-23 (W7900 gfx1100 Windows repro table on develop cce620306a, 10.1.0, 10.3.0a20261117; Linux device-VA case; cause in getMemoryObject/RemoveMemObj; gfx1151 commenter repro). https://github.com/ROCm/rocm-systems/issues/16578
