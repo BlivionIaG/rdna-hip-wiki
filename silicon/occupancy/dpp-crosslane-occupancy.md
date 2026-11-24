@@ -14,6 +14,8 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/docs/rdna2/rebase-v0.32.0-inventory.md
   - https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_glue_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/csrc/rocm/inkling2_glue_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/ba9b43bcd479acc4bddcc98a375a31152279a872/csrc/rocm/inkling2_dspark_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_dspark_rdna2.cu
 ---
 
 # Cross-lane ops (DPP / permlane / ds_bpermute / wave.reduce) vs effective occupancy (gfx1030)
@@ -108,6 +110,7 @@ Files: `/workspace/dpp-probe/` (`p.hip`, `q.hip`, `m.hip`, `h.hip`, `ao.hip`, `*
 - **Inkling-2 attention.** `i2_row_xor<M>` is `update_dpp` control `0x160 + M` (`row_xmask`, M < 16), and `i2_row_share<N>` is `0x150 + N` (`row_share`). The pipelined prefill tile uses `row_xmask` for the row max instead of `ds_bpermute`, and uses `row_share` to hand register-resident probability pairs to the row, so no P tile goes through LDS.[^f-00f106c5-i2-dpp][^f-00f106c5-i2-pipe]
 - **Inkling-2 fused chain / glue.** The `xor_lane<O>` butterfly is `permlanex16` for lane^16, then `row_xmask:8` (`0x168`), `row_xmask:4` (`0x164`), and `quad_perm` `0x4E` / `0xB1`. This is the full-wave reduce shape in the Take row above, with no LDS ops. These files compile device code only for gfx1030.[^f-00f106c5-fuse-xor]
 - **Inkling-2 glue (update @ `f22c794a`, 2026-11-24).** `inkling2_glue_rdna2.cu` now has the same butterfly as `xor_lane_i32<O>` / `xor_lane<O>` under `__HIP__RDNA2__`, with `__shfl_xor` kept for other device passes. `wave_sum`, `wave_max`, `block_sum` (so `rms_norm`), a new interleaved `wave_sum_n<N>` and the router top-k arg-max (value and id) all use it. The source calls it "bit-identical to shfl_xor". *Correction / historical @ `d71bddca`:* the glue file's `wave_sum` / `wave_max` and top-k were still `__shfl_xor` loops until this change, so the bullet above held only for the fused chain at `00f106c5`. Details: [inkling2-mini-hip.md](../../kernels/models/inkling2-mini-hip.md).[^f-f22c794a-glue-xor][^f-d71bddca-glue-shfl]
+- **Inkling-2 DSpark draft (update @ `ba9b43bc`, 2026-11-24).** `inkling2_dspark_rdna2.cu` adds `dspark_xor_lane<O>` under `__HIP__RDNA2__`. It is the same butterfly: `permlanex16` with selects `0x76543210` / `0xfedcba98`, then `update_dpp` `0x168` / `0x164` / `0x4E` / `0xB1`, all with row and bank mask `0xF` and `bound_ctrl` off. Other device passes keep `__shfl_xor`. `warp_sum` and `warp_max` use it, so the split-KV online softmax max and sum have no `ds_bpermute`. The GEMV K-split, Markov-step and argmax `__shfl_xor` loops in that file are unchanged. Kernel geometry and LDS are on the [Inkling-2 page](../../kernels/models/inkling2-mini-hip.md).[^f-ba9b43bc-dspark-xor] *Historical @ `f22c794a`:* `warp_sum` / `warp_max` were the 5-step `__shfl_xor` loop.[^f-f22c794a-dspark-shfl]
 
 ## Sources
 
@@ -133,3 +136,5 @@ Footnotes:
 [^f-00f106c5-fuse-xor]: `csrc/rocm/inkling2_fuse_attn_rdna2.cu` @ `00f106c5` L34-L36, L61-L83. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/inkling2_fuse_attn_rdna2.cu#L61-L83>
 [^f-f22c794a-glue-xor]: `csrc/rocm/inkling2_glue_rdna2.cu` @ `f22c794a` L88-L153 and L1210-L1214. <https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_glue_rdna2.cu#L88-L153>
 [^f-d71bddca-glue-shfl]: *Historical* `csrc/rocm/inkling2_glue_rdna2.cu` @ `d71bddca` L88-L100 and L1134-L1144. <https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/csrc/rocm/inkling2_glue_rdna2.cu#L88-L100>
+[^f-ba9b43bc-dspark-xor]: `csrc/rocm/inkling2_dspark_rdna2.cu` @ `ba9b43bc` L155-L196 (`dspark_xor_lane`, `warp_sum`, `warp_max`); remaining `__shfl_xor` at L550-L556, L997-L1002, L1073-L1090. <https://github.com/opengfx1030/vllm-rdna/blob/ba9b43bcd479acc4bddcc98a375a31152279a872/csrc/rocm/inkling2_dspark_rdna2.cu#L155-L196>
+[^f-f22c794a-dspark-shfl]: *Historical* `csrc/rocm/inkling2_dspark_rdna2.cu` @ `f22c794a` L155-L165. <https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_dspark_rdna2.cu#L155-L165>

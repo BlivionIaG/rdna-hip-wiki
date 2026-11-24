@@ -6,6 +6,7 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/0f596e6e0e9b2683ef7a4ec3eb6ef93eac9e1fd9
   - https://github.com/opengfx1030/vllm-rdna/commit/00f106c5b035bd6d562267bfee9e4ac020b7055d
   - https://github.com/opengfx1030/vllm-rdna/commit/f22c794a00e609fc8c03f35d374c5258f8e5187c
+  - https://github.com/opengfx1030/vllm-rdna/commit/ba9b43bcd479acc4bddcc98a375a31152279a872
 ---
 # Models
 
@@ -14,7 +15,7 @@ Model-specific HIP glue (one page per model family). Back to the [kernels index]
 | Page | Inner loop | Completeness |
 |---|---|---|
 | [qwen4exp-flash-next-hip.md](qwen4exp-flash-next-hip.md) | T46 fdot2 glue; T47–T49 HC/QSA/PLE scalar | HC compute-correct @ `8960a3bc`. At `1dc3bac4`: `VLLM_RDNA_FUSED_HC` default **on**; fused HC prefill (`hc_prefill_rdna2.cu`) default mode 2; HC_PREFILL_HIP / QSA / PLE default off [^c-8960a3bc] |
-| [inkling2-mini-hip.md](inkling2-mini-hip.md) | fdot2 everywhere (opt-in W4A8 prefill: sdot4); DPP `row_xmask` / `row_share`, `permlanex16` | Native HIP serving at `00f106c5`: attention (split-K / fused decode, tile and pipelined tile, 244 VGPR / 32.5 KB LDS at G = 3), conv-state ring, glue, linear, ViT, DSpark, NVFP4/MXFP8 decode and 32-row prefill expert GEMMs. Fused decode, pipelined tile, FUSE_ATTN_CHAIN and FUSE_GLUE are on by default [^c-00f106c5]. Glue update @ `f22c794a`: DPP/permlanex16 wave reductions, `attn_res` LDS/barrier cut, 128-thread one-expert-per-CTA router for T ≤ 4, `gate_mix_split` to T ≤ 8 [^c-f22c794a] |
+| [inkling2-mini-hip.md](inkling2-mini-hip.md) | fdot2 everywhere (opt-in W4A8 prefill: sdot4); DPP `row_xmask` / `row_share`, `permlanex16` | Native HIP serving at `00f106c5`: attention (split-K / fused decode, tile and pipelined tile, 244 VGPR / 32.5 KB LDS at G = 3), conv-state ring, glue, linear, ViT, DSpark, NVFP4/MXFP8 decode and 32-row prefill expert GEMMs. Fused decode, pipelined tile, FUSE_ATTN_CHAIN and FUSE_GLUE are on by default [^c-00f106c5]. Glue update @ `f22c794a`: DPP/permlanex16 wave reductions, `attn_res` LDS/barrier cut, 128-thread one-expert-per-CTA router for T ≤ 4, `gate_mix_split` to T ≤ 8 [^c-f22c794a]. DSpark update @ `ba9b43bc`: split-KV K/V staged in a padded 30,880 B LDS tile (LDS-bound 4 CTAs/WGP), DPP/permlanex16 `warp_sum`/`warp_max`, combine one CTA per query [^c-ba9b43bc] |
 | [dsv4-mhc-hip.md](dsv4-mhc-hip.md) | scalar fp32 (no DOT); 16-lane xor-shuffle Sinkhorn | DSv4 mHC pre/post HIP (`rdna/dsv4/mhc.cu`, `ec349e90` + `0f596e6e`, unchanged at `64d59b89`); decode pre GEMM split over 32 blocks; ≤16 tokens fused GEMM, else rocBLAS. Selected after AITER / TileLang for 4 streams fp16/bf16 [^c-0f596e6e] |
 
 ## Sources
@@ -25,3 +26,4 @@ Index rows summarise the linked pages; each page carries its own footnoted prima
 [^c-0f596e6e]: opengfx1030/vllm-rdna commit [`0f596e6e`](https://github.com/opengfx1030/vllm-rdna/commit/0f596e6e0e9b2683ef7a4ec3eb6ef93eac9e1fd9) (2026-10-09) — "perf(rdna): split the decode mHC pre GEMM across blocks, parallel Sinkhorn" (file last touched before tip `64d59b89`; first added in [`ec349e90`](https://github.com/opengfx1030/vllm-rdna/commit/ec349e9079f6d19865362010bebcd36bfbbe0f8d)).
 [^c-00f106c5]: opengfx1030/vllm-rdna commit [`00f106c5`](https://github.com/opengfx1030/vllm-rdna/commit/00f106c5b035bd6d562267bfee9e4ac020b7055d) (2026-11-23 03:44 Paris): "Inkling-2-Mini: faster prefill attention at depth, DSpark recipes and adaptive K (#196)". Kernel facts and per-line permalinks are on the linked page.
 [^c-f22c794a]: opengfx1030/vllm-rdna commit [`f22c794a`](https://github.com/opengfx1030/vllm-rdna/commit/f22c794a00e609fc8c03f35d374c5258f8e5187c) (2026-11-24 13:07 Paris), Merge #206.
+[^c-ba9b43bc]: opengfx1030/vllm-rdna merge [`ba9b43bc`](https://github.com/opengfx1030/vllm-rdna/commit/ba9b43bcd479acc4bddcc98a375a31152279a872) (2026-11-24 14:28 Paris), Merge #207 (content commit `08a30fad`). LDS arithmetic and per-line permalinks are on the linked page.
