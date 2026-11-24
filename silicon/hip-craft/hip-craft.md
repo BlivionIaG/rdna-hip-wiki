@@ -438,7 +438,7 @@ GPUOpen WMMA-on-RDNA3 table (official RDNA2 vs RDNA3 FLOPS/clk/CU): RX 6950 XT F
 | `__builtin_amdgcn_permlane64` | `v_permlane64_b32` | Swaps wave64 halves. **No-op in wave32.** |
 | `__builtin_amdgcn_update_dpp(old, src, dpp_ctrl, row_mask, bank_mask, bound_ctrl)` | `v_mov_b32` + DPP | Preferred over deprecated `mov.dpp`. |
 | `llvm.amdgcn.wave.reduce.{add,fadd,min,fmin,max,fmax,and,or,xor}` (`__builtin_amdgcn_wave_reduce_*`) | iterative `v_readlane` loop | Hint: 0 default, 1 iterative, 2 DPP — but clang 22.1.8 emits the serial `s_ff1`/`v_readlane` loop for **all** hints on gfx1030 (≤ 32 trips). Hand-roll DPP for hot paths ([dpp-crosslane-occupancy.md](../occupancy/dpp-crosslane-occupancy.md)). |
-| HIP `__shfl` / `__shfl_xor` / `__shfl_down` | backend-picked | Portable. Masks are **64-bit** in HIP even on wave32 (high bits unused). |
+| HIP `__shfl` / `__shfl_xor` / `__shfl_down` | backend-picked | Portable. Masks are **64-bit** in HIP even on wave32 (high bits unused). `*_sync` mask width, `NDEBUG` trap and 7.14.0 ISA: see [warp-sync-mask-wave32.md](warp-sync-mask-wave32.md). |
 | HIP `__reduce_*_sync` | backend-picked | ROCm 7+; extra types behind `HIP_ENABLE_EXTRA_WARP_SYNC_TYPES`. |
 | `__builtin_amdgcn_readlane` / `readfirstlane` / `writelane` | `v_readlane_b32` etc. | Uniform-ize a pointer / scale. |
 
