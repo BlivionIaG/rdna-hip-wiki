@@ -35,11 +35,20 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/csrc/rocm/moe_prefill_bm_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/vllm/models/inkling2_loop/amd/moe.py
   - https://github.com/opengfx1030/vllm-rdna/blob/5ba9a09af6257395022a5e86254368b132fa17dd/vllm/models/inkling2_loop/amd/moe.py
+  - https://github.com/opengfx1030/vllm-rdna/commit/f22c794a00e609fc8c03f35d374c5258f8e5187c
+  - https://github.com/opengfx1030/vllm-rdna/commit/c1ce3ec355f946849fee47be9fbae111e9a6fcbc
+  - https://github.com/opengfx1030/vllm-rdna/compare/d71bddca6e0f9d9f22390b8dde758cf7baf60481...f22c794a00e609fc8c03f35d374c5258f8e5187c
+  - https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_glue_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/csrc/rocm/inkling2_glue_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/docs/rdna2/inkling2-decode-glue.md
+  - https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/tests/kernels/core/test_inkling2_glue_rdna2.py
+  - https://github.com/llvm/llvm-project/blob/278221a5b0be60d025312c5e007a4c4dc01eb59a/llvm/lib/Target/AMDGPU/SIDefines.h
+  - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
 ---
 
 # Inkling-2-Mini HIP kernels on gfx1030 — tip `00f106c5`
 
-Native HIP serving kernels for Inkling-2-Mini (`inkling2_loop`) on dest `rdna_extras`, read at tip [`00f106c5`](https://github.com/opengfx1030/vllm-rdna/commit/00f106c5b035bd6d562267bfee9e4ac020b7055d) (2026-11-23 03:44 Paris, merge of PR #196). Previous watched tip: `1e1cac53`.[^tip][^cmp] Back to the [models index](README.md).
+Native HIP serving kernels for Inkling-2-Mini (`inkling2_loop`) on dest `rdna_extras`, read at tip [`00f106c5`](https://github.com/opengfx1030/vllm-rdna/commit/00f106c5b035bd6d562267bfee9e4ac020b7055d) (2026-11-23 03:44 Paris, merge of PR #196). Previous watched tip: `1e1cac53`.[^tip][^cmp] Glue section updated at `f22c794a` (2026-11-24).[^tip3] Back to the [models index](README.md).
 
 Every kernel here is wave32 and uses `V_DOT2_F32_F16` (`__builtin_amdgcn_fdot2`) as its matrix primitive, with fp32 accumulation; the one exception is the opt-in W4A8 prefill expert kernel, which uses `V_DOT4_I32_I8`.[^attn-head][^pbm-head][^pbm-sdot4] No WMMA, no MFMA. Benchmarks and tok/s are left out on purpose; see the fork's `docs/rdna2/inkling2-benchmarks.md`.
 
@@ -98,9 +107,42 @@ Compiler-reported resources are quoted from the fork's committed docs (`-Rpass-a
 
 ## Glue (`inkling2_glue_rdna2.cu`)
 
-- The `gate_mix` R-split kernel is 8 waves (`kMixWaves = 8`, `kMixRpw = 8`, R = 64). It is taken when `VLLM_INKLING2_FUSE_GLUE` is on, the weights are fp32 and T ≤ 4.[^glue-mix]
+- The `gate_mix` R-split kernel is 8 waves (`kMixWaves = 8`, `kMixRpw = 8`, R = 64). It is taken when `VLLM_INKLING2_FUSE_GLUE` is on, the weights are fp32 and T ≤ 8 (update @ `f22c794a`, below). *Historical @ `00f106c5` … `d71bddca`:* the limit was T ≤ 4.[^glue-mix][^g2-split][^g2-old-split]
 - The C++ host reads `VLLM_INKLING2_FUSE_GLUE` once and treats it as default on. The Python side (`glue.py`) also defaults it to on.[^glue-env][^py-glue]
-- The router (`inkling2_glue_moe_route`) is 256 threads (8 waves, one expert row per wave). It produces logits, sigmoid, top-k and the `moe_align_block_size` layout in one launch.[^glue-route]
+- The router (`inkling2_glue_moe_route`) is 256 threads (8 waves, one expert row per wave). It produces logits, sigmoid, top-k and the `moe_align_block_size` layout in one launch.[^glue-route] Since `f22c794a` this is the path for T ≥ 5 only (or any T with `FUSE_GLUE=0`); T ≤ 4 takes `moe_route_small_kernel` (below). *Historical @ `d71bddca`:* this one kernel served every T.[^g2-host-route][^g2-old-grid]
+
+### Glue update @ `f22c794a`: DPP reductions, small-T router, `gate_mix_split` to T ≤ 8 (2026-11-24)
+
+Dest moved `d71bddca` → [`f22c794a`](https://github.com/opengfx1030/vllm-rdna/commit/f22c794a00e609fc8c03f35d374c5258f8e5187c) (Merge #206, content commit `c1ce3ec3`). The only kernel file in the delta is `inkling2_glue_rdna2.cu`; the rest is the fork doc (§8), the glue test and the JIT wrapper.[^tip3]
+
+**Gate scope (read from the code, not the doc).** `fuse_glue()` is unchanged: `VLLM_INKLING2_FUSE_GLUE` unset means on, `0` or empty means off, read once.[^g2-env] In the C++ only two call sites test it: the `gate_mix` split choice and the small-T router branch.[^g2-split][^g2-host-route] The DPP helpers and the `attn_res` rewrite are compile-time on `__HIP__RDNA2__` and are **not** behind the env var, so `FUSE_GLUE=0` does not bring back the `__shfl_xor` reductions or the old `attn_res` barriers. The fork doc's "`=0` restores the previous paths" holds for the router and `gate_mix` split only.[^g2-xor][^g2-doc]
+
+**Wave32 cross-lane butterfly (`xor_lane_i32<O>`, `xor_lane<O>`, `wave_sum`, `wave_max`, new `wave_sum_n<N>`).**[^g2-xor]
+- Under `#if defined(__HIP__RDNA2__)`: O = 16 is `__builtin_amdgcn_permlanex16(x, x, 0x76543210, 0xfedcba98, false, false)`; O = 8 / 4 / 2 / 1 are `__builtin_amdgcn_update_dpp(x, x, ctrl, 0xF, 0xF, false)` with `ctrl` = `0x168` / `0x164` / `0x4E` / `0xB1`. Other device passes keep `__shfl_xor(x, O)`. The source comment calls the butterfly "bit-identical to shfl_xor".
+- Encodings: in LLVM's `DppCtrl` enum `ROW_XMASK0 = 0x160` … `ROW_XMASK_LAST = 0x16F` and `QUAD_PERM` is `0x00`–`0xFF`, so `0x168` / `0x164` are `row_xmask:8` / `row_xmask:4`.[^llvm-dppctrl] `quad_perm` packs four 2-bit source lanes, lane 0 in the low bits: `0x4E` is `[2,3,0,1]` (lane ^ 2) and `0xB1` is `[1,0,3,2]` (lane ^ 1).[^isa70648-g2] With identity selects, `v_permlanex16_b32` has every lane read the same lane index in the other 16-lane row, i.e. lane ^ 16.[^isa70648-g2] Same shape as the fused-chain butterfly above and the full-wave Take row in [dpp-crosslane-occupancy.md](../../silicon/occupancy/dpp-crosslane-occupancy.md).[^fuse-xor]
+- `wave_sum_n<N>` runs the five steps across an array of N values one step at a time, so N independent reductions are interleaved.[^g2-xor]
+- Users in this file: `block_sum` (so `rms_norm`) calls `wave_sum`; `attn_res`, the gate kernels and the routers call `wave_sum` / `wave_sum_n` / `wave_max`; `route_topk_wave`'s arg-max runs the butterfly on both the value and the expert id (`xor_lane` + `xor_lane_i32`).[^g2-xor][^g2-topk]
+- `route_topk_wave` now broadcasts the selected weight with `__shfl(mine, bi & 31)` from the owning lane, not a `wave_sum` over a one-hot vector.[^g2-topk]
+- *Historical @ `d71bddca`:* `wave_sum` / `wave_max` were a `for (o = 16; o > 0; o >>= 1) __shfl_xor` loop on all archs (each step a `ds_bpermute` + `lgkmcnt` wait on gfx1030, see the DPP page), and the top-k arg-max used the same `__shfl_xor` loop.[^g2-old-xor][^g2-old-topk]
+
+**`attn_res` (`attn_res_body`, still `__launch_bounds__(256)`).**[^g2-attn][^g2-attn-lb]
+- Pass 1 issues `fetch()` for all register-resident states (`kNReg = 6`) before reducing any of them, then reduces with `wave_sum_n<Q+1>`.
+- `s_tot[kMaxStates*(Q+1)]` and `s_coef[Q][kMaxStates]` are gone. After the one barrier that publishes `s_red`, **every wave** sums `s_red` across waves itself and computes `rsqrt`, the softmax and the coefficients in registers (two states per lane). Pass 2 reads each coefficient with `__shfl(coef[q][u], j)`. That is `kMaxStates·(2Q+1)·4 B` less static LDS per CTA (`kMaxStates = 64`), and the softmax section drops from three barriers to one.
+- RMSNorm epilogue (`NORM`): `wave_sum_n<Q>` replaces the barrier before the `s_nrm` write, and the `norm_w` row(s) are loaded into registers before the single remaining barrier. NORM build: five barriers become two; non-NORM: three become one.
+- Occupancy: block size and launch bounds are unchanged and the static LDS only shrinks. The cost moves to VGPRs (`coef[Q][2]`, `tot_q[Q][2]` and `nw[Q][ITER]` held live). The fork did not publish a new VGPR count for this kernel, so none is given here.[^g2-doc]
+- *Historical @ `d71bddca`:* threads striped over `s_tot`, wave 0 alone did the softmax into `s_coef`, and pass 2 read `s_coef` from LDS, with three barriers in that section and two in the norm epilogue.[^g2-old-attn]
+
+**`moe_route_small_kernel<WT, TB>` (T ≤ 4, `FUSE_GLUE` on).**[^g2-small][^g2-host-route]
+- `__launch_bounds__(kRouteSmallThreads)` with `kRouteSmallThreads = 128` (4 waves); `TB` is 1 / 2 / 4 by T. Launched with **0 B dynamic LDS**; grid = `nzero + E`, i.e. one CTA per expert plus the zero-fill CTAs (`NT = 1`, `NEG = E`).
+- Each expert CTA's 128 threads split H for that expert's row: fp32 weights via `fmaf` on fp16 `x`, fp16 weights via four `__builtin_amdgcn_fdot2` per `uint4`. `x` is read straight from global memory (no staging in LDS). The result is `wave_sum_n<TB>`, then a 4-way sum through `s_part[4][TB]`.
+- One device-wide "barrier": each CTA writes its logits, `__threadfence()`, then `atomicAdd` on `counters[0]`. The CTA that sees `E - 1` does top-k (`route_topk_wave`, which now also writes ids as bytes into `s_flat_ids[8*16]`) and the align in LDS. Each thread owns experts `tid` and `tid + 128` (so E ≤ 255 is covered), counts with a linear scan, prefix-sums with `__shfl_up`, and writes `expert_ids` / `sorted_ids` / `post_pad`. No histogram, ballot or sort pass. The last arriver resets `counters[0]`.
+- Static LDS only: `s_part`, `s_flag`, `s_flat_ids`, `s_ws[8]`, plus `route_topk_wave`'s `s_sel_id` / `s_sel_w` (`[8][16]`, sized for 8 waves even though this kernel has 4).
+- The host branch is capped at T ≤ 4. The source says that at T = 5..8 "per-CTA register pressure and the serial align loop make the 16-CTA path faster". The device-side comment still says "T <= 8"; the host gate is the one that applies.
+- The large path (T ≥ 5) is unchanged: `kRouteThreads = 256`, `NEG = clamp(ceil(kMinCtas/NT), 1, ceil(E/8))` (16 for E = 128), dynamic LDS `max(tb·H·xsz, kAlignSmemBytes)`.[^g2-host-route]
+
+**`gate_mix_split_kernel` to T ≤ 8.** The split condition is now `fuse_glue() && !w16 && T <= 8 && R == kMixWaves * kMixRpw`, with `tb = gate_tb(T, 4)`. So T = 5..8 runs `ntiles = 2` tiles of TB = 4 instead of falling back to the 1-wave `gate_mix` kernel. Block (`kMixWaves*32` = 256) and launch bounds are unchanged.[^g2-split][^g2-gate-tb]
+
+**Qualification (fork doc, not re-run here).** §8 reports the glue oracle `test_inkling2_glue_rdna2.py` passing with both `FUSE_GLUE=1` and `=0`, 5/5 hand mutants killed, and a 6-arch `archdiff` with no differences outside gfx1030. The test adds an `E = 255, K = 16, T = 2` route case and runs the repeated-launch race test at T = 1, 3, 4, 8, 17.[^g2-doc][^g2-test] Microbench and serving numbers are left in the fork doc on purpose.
 
 ## Dense linear, ViT, DSpark
 
@@ -134,7 +176,7 @@ Compiler-reported resources are quoted from the fork's committed docs (`-Rpass-a
 | `VLLM_INKLING2_DECODE_FUSED` | `1` | fused sliding-window decode; `2` also fuses full layers for a single request (opt-in); `0` uses split-K + combine | once at import (baked into graphs) [^ops-env] |
 | `VLLM_INKLING2_PREFILL_ATTN_TILE` | `1` | `i2_tile_pipe_kernel`, except sliding layers with ≤ 32 query tokens, which keep `i2_tile_kernel` | once at import [^ops-env][^ops-tile] |
 | `VLLM_INKLING2_FUSE_ATTN_CHAIN` | on | `attn_res_fused_kernel` / one-launch messages for batches ≤ 16 tokens | Python module import [^py-fuse] |
-| `VLLM_INKLING2_FUSE_GLUE` | on | SwiGLU fused into the w2 expert GEMM (≤ 16 tokens), 8-wave `gate_mix` split | Python + C++ host, once [^py-glue][^glue-env][^py-moe-swiglu] |
+| `VLLM_INKLING2_FUSE_GLUE` | on | SwiGLU fused into the w2 expert GEMM (≤ 16 tokens), 8-wave `gate_mix` split (T ≤ 8 since `f22c794a`), `moe_route_small_kernel` (T ≤ 4, since `f22c794a`). Not the DPP / `attn_res` changes, which are unconditional on gfx1030 | Python + C++ host, once [^py-glue][^glue-env][^py-moe-swiglu][^g2-env] |
 | `VLLM_INKLING2_PREFILL_BM` / `_MIN_TOKENS` / `_INT8` | `1` / `128` / `0` | 32-row prefill expert kernels / W4A8 | Python [^py-moe-prefill] |
 
 ## Sources
@@ -196,3 +238,22 @@ Compiler-reported resources are quoted from the fork's committed docs (`-Rpass-a
 [^pbm-ktail]: `csrc/rocm/moe_prefill_bm_rdna2.cu` @ `d71bddca` L25, L54, L216, L245, L267, L280, L346, L351-L354, L927. <https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/csrc/rocm/moe_prefill_bm_rdna2.cu#L245-L354>
 [^py-moe-ktail]: `vllm/models/inkling2_loop/amd/moe.py` @ `d71bddca` L827-L831. <https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/vllm/models/inkling2_loop/amd/moe.py#L827-L831>
 [^py-moe-old]: `vllm/models/inkling2_loop/amd/moe.py` @ `5ba9a09a` `_prefill_supported()` (`align = 32 if self.quant_format == "mxfp8" else 128`). <https://github.com/opengfx1030/vllm-rdna/blob/5ba9a09af6257395022a5e86254368b132fa17dd/vllm/models/inkling2_loop/amd/moe.py#L827-L833>
+[^tip3]: opengfx1030/vllm-rdna commit [`f22c794a`](https://github.com/opengfx1030/vllm-rdna/commit/f22c794a00e609fc8c03f35d374c5258f8e5187c) (2026-11-24 13:07 Paris): "Merge #206: Inkling-2 glue DPP reductions, small-T moe_route, and T<=8 gate_mix_split", from [`c1ce3ec3`](https://github.com/opengfx1030/vllm-rdna/commit/c1ce3ec355f946849fee47be9fbae111e9a6fcbc) (13:05 Paris). Compare [`d71bddca...f22c794a`](https://github.com/opengfx1030/vllm-rdna/compare/d71bddca6e0f9d9f22390b8dde758cf7baf60481...f22c794a00e609fc8c03f35d374c5258f8e5187c): `csrc/rocm/inkling2_glue_rdna2.cu`, `docs/rdna2/inkling2-decode-glue.md`, `tests/kernels/core/test_inkling2_glue_rdna2.py`, `tools/rdna/inkling2/glue_jit.py`. A grep for `amdgpu_waves_per_eu` in the glue file at this SHA has 0 hits.
+[^g2-xor]: `csrc/rocm/inkling2_glue_rdna2.cu` @ `f22c794a` L88-L147 (`xor_lane_i32`, `xor_lane`, `wave_sum`, `wave_max`, `wave_sum_n`) and L151-L153 (`block_sum` → `wave_sum`). <https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_glue_rdna2.cu#L88-L153>
+[^g2-topk]: `csrc/rocm/inkling2_glue_rdna2.cu` @ `f22c794a` L1171-L1242 (`route_topk_wave`: `step_max` butterfly L1210-L1214, `__shfl(mine, bi & (kWave - 1))` L1225, `flat_ids_out` L1239). <https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_glue_rdna2.cu#L1171-L1242>
+[^g2-attn]: `csrc/rocm/inkling2_glue_rdna2.cu` @ `f22c794a` L261-L493 (`attn_res_body`: `s_red` only L273; bulk fetch L326-L331; one barrier L355; per-wave coefficients L357-L398; `__shfl` coefficient reads L411, L423; `wave_sum_n<Q>` L448; `norm_w` prefetch L453-L466; single norm barrier L467). <https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_glue_rdna2.cu#L261-L493>
+[^g2-attn-lb]: `csrc/rocm/inkling2_glue_rdna2.cu` @ `f22c794a` L496 (`__launch_bounds__(256) attn_res_kernel`). <https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_glue_rdna2.cu#L496>
+[^g2-small]: `csrc/rocm/inkling2_glue_rdna2.cu` @ `f22c794a` L74 (`kRouteSmallThreads = 128`), L1473-L1633 (`moe_route_small_body`), L1645-L1650 (`__launch_bounds__(kRouteSmallThreads) moe_route_small_kernel`), L2401-L2419 (`launch_route_small`, 0 B dynamic LDS). <https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_glue_rdna2.cu#L1473-L1650>
+[^g2-host-route]: `csrc/rocm/inkling2_glue_rdna2.cu` @ `f22c794a` L2560-L2611 (small-T branch `fuse_glue() && T <= 4`, `NT = 1`, `NEG = E`, `sgrid = nzero + E`; large path `NEG` clamp and `shmem`). <https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_glue_rdna2.cu#L2560-L2611>
+[^g2-split]: `csrc/rocm/inkling2_glue_rdna2.cu` @ `f22c794a` L2091-L2094, L2132-L2140. <https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_glue_rdna2.cu#L2091-L2140>
+[^g2-gate-tb]: `csrc/rocm/inkling2_glue_rdna2.cu` @ `f22c794a` L1878-L1882 (`gate_tb`). <https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_glue_rdna2.cu#L1878-L1882>
+[^g2-env]: `csrc/rocm/inkling2_glue_rdna2.cu` @ `f22c794a` L1713-L1721 (`fuse_glue()`, default on); only call sites L2092 and L2568. <https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_glue_rdna2.cu#L1713-L1721>
+[^g2-doc]: `docs/rdna2/inkling2-decode-glue.md` @ `f22c794a` §8 (L450-L473). <https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/docs/rdna2/inkling2-decode-glue.md#L450-L473>
+[^g2-test]: `tests/kernels/core/test_inkling2_glue_rdna2.py` @ `f22c794a` (`t2_e255_k16_f32w`; `test_moe_route_repeated_launches_do_not_race` parametrised over T). <https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/tests/kernels/core/test_inkling2_glue_rdna2.py>
+[^g2-old-xor]: *Historical* `csrc/rocm/inkling2_glue_rdna2.cu` @ `d71bddca` L88-L100 (`wave_sum` / `wave_max` as `__shfl_xor` loops, "arch independent"). <https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/csrc/rocm/inkling2_glue_rdna2.cu#L88-L100>
+[^g2-old-topk]: *Historical* `csrc/rocm/inkling2_glue_rdna2.cu` @ `d71bddca` L1134-L1153 (`__shfl_xor` arg-max loop; `wave_sum(mine)` weight broadcast). <https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/csrc/rocm/inkling2_glue_rdna2.cu#L1134-L1153>
+[^g2-old-attn]: *Historical* `csrc/rocm/inkling2_glue_rdna2.cu` @ `d71bddca` L225-L227 (`s_red`, `s_tot`, `s_coef`), L308-L346 (three barriers, wave-0 softmax), L359 / L370 (`s_coef` reads), L395-L400 (two norm barriers). <https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/csrc/rocm/inkling2_glue_rdna2.cu#L225-L400>
+[^g2-old-split]: *Historical* `csrc/rocm/inkling2_glue_rdna2.cu` @ `d71bddca` L1848 (`T <= 4`). <https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/csrc/rocm/inkling2_glue_rdna2.cu#L1848>
+[^g2-old-grid]: *Historical* `csrc/rocm/inkling2_glue_rdna2.cu` @ `d71bddca` L2316 (single route grid `nzero + NT*NEG` for all T). <https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/csrc/rocm/inkling2_glue_rdna2.cu#L2290-L2322>
+[^llvm-dppctrl]: LLVM `llvm/lib/Target/AMDGPU/SIDefines.h` `DppCtrl` enum (`QUAD_PERM_FIRST = 0`, `QUAD_PERM_LAST = 0xFF`, `ROW_XMASK0 = 0x160`, `ROW_XMASK_LAST = 0x16F`) @ llvm-project `278221a5b0be60d025312c5e007a4c4dc01eb59a`. <https://github.com/llvm/llvm-project/blob/278221a5b0be60d025312c5e007a4c4dc01eb59a/llvm/lib/Target/AMDGPU/SIDefines.h#L1207-L1248>
+[^isa70648-g2]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648: DPP_CTRL `QUAD_PERM` (Table 91) and the `V_PERMLANEX16_B32` opcode entry. <https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture>
