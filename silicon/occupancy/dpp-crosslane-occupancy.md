@@ -12,6 +12,8 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/inkling2_attn_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/inkling2_fuse_attn_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/docs/rdna2/rebase-v0.32.0-inventory.md
+  - https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_glue_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/csrc/rocm/inkling2_glue_rdna2.cu
 ---
 
 # Cross-lane ops (DPP / permlane / ds_bpermute / wave.reduce) vs effective occupancy (gfx1030)
@@ -105,6 +107,7 @@ Files: `/workspace/dpp-probe/` (`p.hip`, `q.hip`, `m.hip`, `h.hip`, `ao.hip`, `*
 - **Gate (`5864b4e5`).** `gdn_ksum_dpp` (GDN prefill delta-h) and `xor_dpp<M>` (monolithic QSA decode) now emit `update_dpp` only under `__GFX10__ || __GFX11__ || __GFX12__`. Other device passes use the shuffle tree (`gdn_ksum`, `__shfl_xor(v, M, 32)`). The fork's inventory doc says the first six-architecture build stopped on these GFX10-only `row_xmask` controls. The gfx1030 instruction path is unchanged.[^f-00f106c5-gdn-dpp][^f-00f106c5-qsa-dpp][^c-5864b4e5]
 - **Inkling-2 attention.** `i2_row_xor<M>` is `update_dpp` control `0x160 + M` (`row_xmask`, M < 16), and `i2_row_share<N>` is `0x150 + N` (`row_share`). The pipelined prefill tile uses `row_xmask` for the row max instead of `ds_bpermute`, and uses `row_share` to hand register-resident probability pairs to the row, so no P tile goes through LDS.[^f-00f106c5-i2-dpp][^f-00f106c5-i2-pipe]
 - **Inkling-2 fused chain / glue.** The `xor_lane<O>` butterfly is `permlanex16` for lane^16, then `row_xmask:8` (`0x168`), `row_xmask:4` (`0x164`), and `quad_perm` `0x4E` / `0xB1`. This is the full-wave reduce shape in the Take row above, with no LDS ops. These files compile device code only for gfx1030.[^f-00f106c5-fuse-xor]
+- **Inkling-2 glue (update @ `f22c794a`, 2026-11-24).** `inkling2_glue_rdna2.cu` now has the same butterfly as `xor_lane_i32<O>` / `xor_lane<O>` under `__HIP__RDNA2__`, with `__shfl_xor` kept for other device passes. `wave_sum`, `wave_max`, `block_sum` (so `rms_norm`), a new interleaved `wave_sum_n<N>` and the router top-k arg-max (value and id) all use it. The source calls it "bit-identical to shfl_xor". *Correction / historical @ `d71bddca`:* the glue file's `wave_sum` / `wave_max` and top-k were still `__shfl_xor` loops until this change, so the bullet above held only for the fused chain at `00f106c5`. Details: [inkling2-mini-hip.md](../../kernels/models/inkling2-mini-hip.md).[^f-f22c794a-glue-xor][^f-d71bddca-glue-shfl]
 
 ## Sources
 
@@ -128,3 +131,5 @@ Footnotes:
 [^f-00f106c5-i2-dpp]: `csrc/rocm/inkling2_attn_rdna2.cu` @ `00f106c5` L114-L134. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/inkling2_attn_rdna2.cu#L114-L134>
 [^f-00f106c5-i2-pipe]: `csrc/rocm/inkling2_attn_rdna2.cu` @ `00f106c5` L1519-L1546. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/inkling2_attn_rdna2.cu#L1519-L1546>
 [^f-00f106c5-fuse-xor]: `csrc/rocm/inkling2_fuse_attn_rdna2.cu` @ `00f106c5` L34-L36, L61-L83. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/inkling2_fuse_attn_rdna2.cu#L61-L83>
+[^f-f22c794a-glue-xor]: `csrc/rocm/inkling2_glue_rdna2.cu` @ `f22c794a` L88-L153 and L1210-L1214. <https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_glue_rdna2.cu#L88-L153>
+[^f-d71bddca-glue-shfl]: *Historical* `csrc/rocm/inkling2_glue_rdna2.cu` @ `d71bddca` L88-L100 and L1134-L1144. <https://github.com/opengfx1030/vllm-rdna/blob/d71bddca6e0f9d9f22390b8dde758cf7baf60481/csrc/rocm/inkling2_glue_rdna2.cu#L88-L100>
