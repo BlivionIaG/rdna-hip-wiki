@@ -1,0 +1,17 @@
+code 1
+ERR In file included from <source>:1:
+ERR In file included from /opt/compiler-explorer/libs/rocm/7.14.0/include/hip/hip_runtime.h:41:
+ERR In file included from /opt/compiler-explorer/libs/rocm/7.14.0/include/hip/amd_detail/amd_hip_runtime.h:89:
+ERR In file included from /opt/compiler-explorer/libs/rocm/7.14.0/include/hip/amd_detail/amd_hip_atomic.h:10:
+ERR In file included from /opt/compiler-explorer/libs/rocm/7.14.0/include/hip/amd_detail/amd_device_functions.h:335:
+ERR /opt/compiler-explorer/libs/rocm/7.14.0/include/hip/amd_detail/amd_warp_sync_functions.h:298:62: error: static assertion failed due to requirement 'sizeof(unsigned int) == 8': The mask must be a 64-bit integer. Implicitly promoting a smaller integer is almost always an error.
+ERR   298 |   static_assert(__hip_internal::is_integral<MaskT>::value && sizeof(MaskT) == 8,
+ERR       |                                                              ^~~~~~~~~~~~~~~~~~
+ERR <source>:4:8: note: in instantiation of function template specialization '__shfl_xor_sync<unsigned int, float>' requested here
+ERR     4 |   v += __shfl_xor_sync(0xffffffffu, v, 1);
+ERR       |        ^
+ERR /opt/compiler-explorer/libs/rocm/7.14.0/include/hip/amd_detail/amd_warp_sync_functions.h:298:76: note: expression evaluates to '4 == 8'
+ERR   298 |   static_assert(__hip_internal::is_integral<MaskT>::value && sizeof(MaskT) == 8,
+ERR       |                                                              ~~~~~~~~~~~~~~^~~~
+ERR 1 error generated when compiling for gfx1030.
+<Compilation failed>
