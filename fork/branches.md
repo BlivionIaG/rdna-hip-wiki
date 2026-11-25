@@ -7,6 +7,7 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/ea8aa2418e6373de1537fa56e4ae0911ef6162a6
   - https://github.com/opengfx1030/vllm-rdna/pull/211
   - https://github.com/opengfx1030/vllm-rdna/commit/2bf779784d938e2981c56405f2586c3623e20b7e
+  - https://github.com/opengfx1030/vllm-rdna-docker/blob/7f4cf93a9fea5cc1291b6bf02f299f3ae41d746d/docker-bake.hcl
   - https://github.com/vllm-project/vllm/releases/tag/v0.34.0
   - https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/tools/rdna/serve_rdna.sh
   - https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/tools/rdna/recipes/inkling2-mini-tp2.env
@@ -42,8 +43,9 @@ sources:
 - Tip **`ea8aa241`** is the merge of PR #211, TP=1 MoE expert offloading and a unified 16/32 GiB recipe for Inkling-2-Mini (merged 2026-11-25 08:24 Europe/Paris)[^tip211].
 - The line is now based on **vLLM v0.34.0**. Merge `2bf77978` (2026-11-18) has parents `1e1cac53` (the previous fork tip) and `62d4bc3c`, which is the upstream `v0.34.0` tag[^m034][^v034]. `ea8aa241` is 131 commits ahead of `2bf77978` and 0 behind (GitHub compare, 2026-11-25).
 - Prefix caching: `serve_rdna.sh` defaults `ENABLE_PREFIX_CACHING=1` and passes `--enable-prefix-caching` only when a recipe lists the `prefix-caching` feature[^apc]. The Inkling-2-Mini recipes list it (`FEATURES="prefix-caching prompt-tokens-details"`)[^apcrecipe]. That it stays off for other recipes under a global lock is per VLLM_FORK_Manager, 2026-11-25 (unsourced in the repo).
-- Pins held by VLLM_FORK_Manager as of 2026-11-25 (unsourced in the repo; Linear is the live board): W4A16 ISA lock `f263172a`, EXL3 produce `mul1`, occupancy pin closed, live ROCm 7.14.
-- Bots never edit `rdna_extras` or `rdna2_extras`; bot patches go only on `perf/rdna2_w4a16_bot`; no upstream PRs (per VLLM_FORK_Manager, unsourced as a rule). `perf/rdna2_w4a16_bot` does not exist on `opengfx1030/vllm-rdna` (GitHub API 404, 2026-11-25). Still nothing enforces the PR rule: `rdna_extras` has `"protected": false` and the repo has no rulesets (GitHub API, 2026-11-25)[^ghprot].
+- Live ROCm is 7.14: the `vllm-rdna-docker` bake target `base-rocm714` builds on `rocm/dev-ubuntu-22.04:7.14.0-full` with `ROCM_VERSION = "7.14.0"`[^rocm714].
+- Pins held by VLLM_FORK_Manager as of 2026-11-25 (unsourced in the repo; Linear is the live board): W4A16 ISA lock `f263172a`, EXL3 produce `mul1`, occupancy pin closed.
+- Bots never edit `rdna_extras` or `rdna2_extras`; bot patches go only on `perf/rdna2_w4a16_bot`; no upstream PRs (per VLLM_FORK_Manager, unsourced as a rule). `perf/rdna2_w4a16_bot` does not exist on `opengfx1030/vllm-rdna` yet (GitHub API 404, 2026-11-25); per VLLM_FORK_Manager no bot patch has needed it. Still nothing enforces the PR rule: `rdna_extras` has `"protected": false` and the repo has no rulesets (GitHub API, 2026-11-25)[^ghprot].
 - `rdna_extras_wip_20260910` (head `7e37923f`) also exists on the repo; its role is unsourced[^repo].
 
 ## History: the v0.31 line (2026-10, historical)
@@ -121,6 +123,7 @@ flowchart LR
 [^m034]: `2bf779784d938e2981c56405f2586c3623e20b7e` "Merge upstream vLLM v0.34.0 into RDNA integration branch": <https://github.com/opengfx1030/vllm-rdna/commit/2bf779784d938e2981c56405f2586c3623e20b7e>
 [^v034]: Upstream `v0.34.0` (tag → `62d4bc3c7e33b1b6c906e233e6af2d3506c482ca`): <https://github.com/vllm-project/vllm/releases/tag/v0.34.0>
 [^apc]: `serve_rdna.sh` default and `prefix-caching` feature case: <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/tools/rdna/serve_rdna.sh#L219> · <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/tools/rdna/serve_rdna.sh#L450-L458>
+[^rocm714]: `docker-bake.hcl` target `base-rocm714`: <https://github.com/opengfx1030/vllm-rdna-docker/blob/7f4cf93a9fea5cc1291b6bf02f299f3ae41d746d/docker-bake.hcl#L33-L41>
 [^apcrecipe]: Inkling-2-Mini TP=2 recipe, `FEATURES`: <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/tools/rdna/recipes/inkling2-mini-tp2.env#L30>
 [^repo]: Repo, default branch and branch list: <https://github.com/opengfx1030/vllm-rdna>
 [^tip]: Tip `64d59b89`, "Merge fix/rdna2-moe-asymmetric: native MoE path declines asymmetric checkpoints (#84)": <https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106>
