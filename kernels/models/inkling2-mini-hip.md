@@ -1,6 +1,6 @@
 ---
 title: "Inkling-2-Mini HIP kernels on gfx1030 — tip `00f106c5`"
-updated: 2026-11-24
+updated: 2026-11-25
 sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/00f106c5b035bd6d562267bfee9e4ac020b7055d
   - https://github.com/opengfx1030/vllm-rdna/compare/1e1cac5340a9c9af8c9df3db331978548d709b42...00f106c5b035bd6d562267bfee9e4ac020b7055d
@@ -53,11 +53,36 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/vllm/models/inkling2_loop/amd/dspark.py
   - https://github.com/opengfx1030/vllm-rdna/blob/ba9b43bcd479acc4bddcc98a375a31152279a872/docs/rdna2/inkling2-dspark.md
   - https://rocm.docs.amd.com/en/docs-7.2.4/reference/gpu-arch-specs.html
+  - https://github.com/opengfx1030/vllm-rdna/commit/ea8aa2418e6373de1537fa56e4ae0911ef6162a6
+  - https://github.com/opengfx1030/vllm-rdna/compare/1fdcb3a66e82b1c0b9ebe3ce1da1e0b25fc3c4fa...ea8aa2418e6373de1537fa56e4ae0911ef6162a6
+  - https://github.com/opengfx1030/vllm-rdna/commit/97e70270d045ecd80e65c18a6de99d603b5a35fb
+  - https://github.com/opengfx1030/vllm-rdna/commit/fae1b90d22168965dea32f8c8138e348e553cdf7
+  - https://github.com/opengfx1030/vllm-rdna/commit/e31906640fb3d3e5f0403af6868b553d17789d18
+  - https://github.com/opengfx1030/vllm-rdna/commit/56587204cc664ecb75957e46ab42368789852029
+  - https://github.com/opengfx1030/vllm-rdna/commit/6e0dbd586bdba484b761e65cb6cf4b279b22fe0e
+  - https://github.com/opengfx1030/vllm-rdna/commit/3aee7f0a76337e56e460077535cc5336a45ffaea
+  - https://github.com/opengfx1030/vllm-rdna/commit/1850737d284c54160487479857d38581900ea29c
+  - https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/inkling2_attn_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/inkling2_glue_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/inkling2_dspark_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/moe_lowp_dot2_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/rdna_expert_cache.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/vllm/models/inkling2_loop/amd/attention.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/vllm/models/inkling2_loop/amd/moe.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/vllm/models/inkling2_loop/amd/glue.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/vllm/models/inkling2_loop/amd/model.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/vllm/models/inkling2_loop/amd/loopcd.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/vllm/_custom_ops.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/vllm/envs.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/tools/rdna/recipes/inkling2-mini-tp1-offload.env
+  - https://github.com/opengfx1030/vllm-rdna/blob/1fdcb3a66e82b1c0b9ebe3ce1da1e0b25fc3c4fa/csrc/rocm/inkling2_attn_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/1fdcb3a66e82b1c0b9ebe3ce1da1e0b25fc3c4fa/csrc/rocm/moe_lowp_dot2_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/1fdcb3a66e82b1c0b9ebe3ce1da1e0b25fc3c4fa/vllm/models/inkling2_loop/amd/moe.py
 ---
 
 # Inkling-2-Mini HIP kernels on gfx1030 — tip `00f106c5`
 
-Native HIP serving kernels for Inkling-2-Mini (`inkling2_loop`) on dest `rdna_extras`, read at tip [`00f106c5`](https://github.com/opengfx1030/vllm-rdna/commit/00f106c5b035bd6d562267bfee9e4ac020b7055d) (2026-11-23 03:44 Paris, merge of PR #196). Previous watched tip: `1e1cac53`.[^tip][^cmp] Glue section updated at `f22c794a` (2026-11-24).[^tip3] DSpark draft-attention section updated at `ba9b43bc` (2026-11-24).[^tip4] Back to the [models index](README.md).
+Native HIP serving kernels for Inkling-2-Mini (`inkling2_loop`) on dest `rdna_extras`, read at tip [`00f106c5`](https://github.com/opengfx1030/vllm-rdna/commit/00f106c5b035bd6d562267bfee9e4ac020b7055d) (2026-11-23 03:44 Paris, merge of PR #196). Previous watched tip: `1e1cac53`.[^tip][^cmp] Glue section updated at `f22c794a` (2026-11-24).[^tip3] DSpark draft-attention section updated at `ba9b43bc` (2026-11-24).[^tip4] Attention decode, MoE decode tiles, glue, DSpark GEMM/argmax and env gates updated at `ea8aa241` (2026-11-25), see [Update @ `ea8aa241`](#update--ea8aa241-tp1-gqa-fused-decode-nvfp4-tile-variant-attn_res_sconv-loopcd-2026-11-25).[^e5-tip] Back to the [models index](README.md).
 
 Every kernel here is wave32 and uses `V_DOT2_F32_F16` (`__builtin_amdgcn_fdot2`) as its matrix primitive, with fp32 accumulation; the one exception is the opt-in W4A8 prefill expert kernel, which uses `V_DOT4_I32_I8`.[^attn-head][^pbm-head][^pbm-sdot4] No WMMA, no MFMA. Benchmarks and tok/s are left out on purpose; see the fork's `docs/rdna2/inkling2-benchmarks.md`.
 
@@ -66,7 +91,7 @@ Every kernel here is wave32 and uses `V_DOT2_F32_F16` (`__builtin_amdgcn_fdot2`)
 - Eight new translation units join the **gfx1030-only** source list (`if(VLLM_GPU_ARCHES MATCHES "gfx1030")`): `moe_lowp_dot2_rdna2.cu`, `moe_prefill_bm_rdna2.cu`, `inkling2_attn_rdna2.cu`, `inkling2_dspark_rdna2.cu`, `inkling2_vit_rdna2.cu`, `inkling2_linear_rdna2.cu`, `inkling2_glue_rdna2.cu`, `inkling2_fuse_attn_rdna2.cu`.[^cmake-list]
 - `inkling2_vit_rdna2` and `inkling2_linear_rdna2` are compiled at `-O3`, joining `rdna_hint_flex_dense_gemm_rdna2` (RelWithDebInfo would otherwise give `-O2`).[^cmake-o3]
 - Device code exists only for `__gfx1030__` (`__HIP__RDNA2__`). Other device passes get empty kernel bodies with the same signature, so a multi-arch build still compiles.[^attn-gate][^glue-gate][^fuse-gate] The attention TU also rejects anything but wave32 with `#error`.[^attn-gate]
-- None of the Inkling-2 kernels uses `amdgpu_waves_per_eu`; occupancy comes from `__launch_bounds__` plus VGPR and LDS use (checked by grep over all eight files at the tip).[^tip]
+- None of the Inkling-2 kernels uses `amdgpu_waves_per_eu`; occupancy comes from `__launch_bounds__` plus VGPR and LDS use (checked by grep over all eight files at the tip).[^tip] Still 0 hits for `waves_per_eu` in the attention, glue, DSpark and `moe_lowp_dot2` files at `ea8aa241`.[^e5-tip]
 
 ## Occupancy first
 
@@ -77,7 +102,9 @@ Compiler-reported resources are quoted from the fork's committed docs (`-Rpass-a
 | `i2_tile_pipe_kernel<3>` (prefill / verify tile, **default**) | 128 thr | 244 | 32,512 B | 4 | [^doc-tile-res] |
 | `i2_tile_kernel<3>` (prior tile kernel, `tile_impl=0`) | 128 thr | 255 | 55,552 B | 2 | [^doc-tile-res] |
 | `i2_tile_pipe_kernel<4>` (not a model shape) | 128 thr | 256, 84 VGPRs spilled | 37,376 B | 3 | [^doc-tile-res] |
-| `i2_decode_fused_kernel<G,16>` (sliding-window decode, default) | 16 waves = 512 thr | 124, 0 spills | 8.4 KB | 8 | [^doc-fused-res] |
+| *Historical @ `00f106c5`…`1fdcb3a6`:* `i2_decode_fused_kernel<G,16>` (sliding-window decode, default then). Renamed `i2_decode_fused_nh_kernel` and extended to q ≤ 8 at `ea8aa241`; this receipt was not re-issued | 16 waves = 512 thr | 124, 0 spills | 8.4 KB | 8 | [^doc-fused-res][^e5-nh] |
+| `i2_decode_fused_gqa_kernel<G,NW>` (new @ `ea8aa241`, default fused decode / verify ≤ 8 q) | `NW*32` thr, NW = 16 or 8 | not reported (source: 34-VGPR half-tiles, "zero spills up to G = 4") | 25,152 B (G = 3, NW = 16); 33,536 B (G = 4, NW = 16); 12,576 B (G = 3, NW = 8), arithmetic from the declarations | not reported | [^e5-gqa-lds][^e5-gqa-head] |
+| `attn_res_sconv_kernel<Q,IT,NORM,MODE>` (new @ `ea8aa241`, TP = 1) | ≤ 256 thr (`row_launch_shape`) | source comment: ~104 (vs 164 with all loads overlapped) | `s_red[8][kMaxStates·(Q+1)]` fp32 with `kMaxStates = 64`: 4,096 B at Q = 1 (arithmetic; same array as `attn_res`) | not reported | [^e5-sconv-vgpr][^e5-sconv-lb] |
 | `nvfp4_prefill_kernel<32,128,128>` | 128 thr | 231 (SGPR 38) | 16,512 B | 4 | [^doc-pbm-res] |
 | `mxfp8_prefill_kernel<32,128,256>` | 128 thr | 243 (SGPR 52) | 16,512 B | 4 | [^doc-pbm-res] |
 | `nvfp4_i8_prefill_kernel<32,128,256>` (opt-in W4A8) | 128 thr | 234 (SGPR 49) | 9,344 B | 4 | [^doc-pbm-res] |
@@ -94,7 +121,8 @@ Compiler-reported resources are quoted from the fork's committed docs (`-Rpass-a
 | Path | Geometry | Notes |
 |---|---|---|
 | Split-K decode (`i2_decode_kernel`, q_len = 1) | grid `(H_kv, ceil(S_A/4), R)`, 128 thr. One wave per (request, kv head, split), 8 lanes per key | K and V stream straight from the paged cache, with **no LDS**. [^attn-head][^attn-launch] |
-| Fused decode (`i2_decode_fused_kernel`) | grid `(H_q, 1, R)`, 16 waves (`kI2FusedWaves`). One CTA per (request, q head) | Wave partials merge in LDS (`s_acc[NW][128]` fp32), so there is no workspace and no combine launch. [^attn-fused][^attn-launch] |
+| *Historical @ `00f106c5`…`1fdcb3a6`:* Fused decode (`i2_decode_fused_kernel`) | grid `(H_q, 1, R)`, 16 waves (`kI2FusedWaves`). One CTA per (request, q head) | Wave partials merge in LDS (`s_acc[NW][128]` fp32), so there is no workspace and no combine launch. [^attn-fused][^attn-launch] At `ea8aa241` this is `i2_decode_fused_nh_kernel`, grid `(H_q, fused_max_q, R)` (see update). [^e5-nh] |
+| GQA fused decode / verify (`i2_decode_fused_gqa_kernel`, `ea8aa241`) | grid `(H_kv, fused_max_q, R)`, `NW*32` thr. One CTA per (kv head, query offset, request) owns all G q heads | Removes the G-way repeated K/V/`proj_t` reads of the nh grid; LDS `s_acc[G][NW][128]`. [^e5-gqa-head][^e5-gqa-lds] |
 | Tile (`i2_tile_kernel`) | grid `(ceil(max_q/16), H_kv*S_B, R)`, 128 thr. 16 query tokens × G heads per CTA, 64-key tiles | sQ / sK rows are 136 halves (16 B aligned, bank skew). Separate sV and sP tiles. [^attn-tile] |
 | Pipelined tile (`i2_tile_pipe_kernel`) | same grid | One `sKV` buffer holds K during QK and V during PV. P stays in registers and is handed out by DPP `row_share`. Row max uses DPP `row_xmask`, not `ds_bpermute`. The V tile layout is bank-conflict free. The page table is double-buffered by tile parity. [^attn-pipe] |
 | Combine (`i2_combine_kernel`) | grid `(tiles, H_kv, R)`, 128 thr | Runs only when split-K partials exist. [^attn-launch] |
@@ -102,7 +130,7 @@ Compiler-reported resources are quoted from the fork's committed docs (`-Rpass-a
 - Constants: head dim 128, `kI2BR = 16` query tokens per tile CTA, `kI2BC = 64` keys per tile, `kI2MaxSplits = 256`, `kI2FusedWaves = 16`.[^attn-const]
 - KV page layout: `[num_blocks, H_kv, block_size, 2*128]` fp16, with K at [0,128) and V at [128,256). The KV cache is fp16, so this file has **no KV quant path**.[^attn-head]
 - DPP helpers: `i2_row_xor<M>` is `update_dpp` control `0x160 + M` (`row_xmask`), and `i2_row_share<N>` is `0x150 + N` (`row_share`). Both are gfx10+ encodings and stay within a row of 16 lanes.[^attn-dpp]
-- Split policy (host): fused decode is selected for sliding-window layers when `VLLM_INKLING2_DECODE_FUSED` is on. Otherwise `splits_decode = min(ceil(256/groups), ceil(keys/16)/2, 256)`. `splits_tile` grows only while the tile grid is under 144 CTAs (cap 16).[^ops-splits]
+- *Historical @ `00f106c5` (policy text unchanged in `inkling2_attention_splits` at `ea8aa241`, but serving now calls `attention_splits_hip` first, see update):* Split policy (host): fused decode is selected for sliding-window layers when `VLLM_INKLING2_DECODE_FUSED` is on. Otherwise `splits_decode = min(ceil(256/groups), ceil(keys/16)/2, 256)`. `splits_tile` grows only while the tile grid is under 144 CTAs (cap 16).[^ops-splits]
 
 ## Short conv and conv-state ring
 
@@ -116,7 +144,7 @@ Compiler-reported resources are quoted from the fork's committed docs (`-Rpass-a
 
 ## Glue (`inkling2_glue_rdna2.cu`)
 
-- The `gate_mix` R-split kernel is 8 waves (`kMixWaves = 8`, `kMixRpw = 8`, R = 64). It is taken when `VLLM_INKLING2_FUSE_GLUE` is on, the weights are fp32 and T ≤ 8 (update @ `f22c794a`, below). *Historical @ `00f106c5` … `d71bddca`:* the limit was T ≤ 4.[^glue-mix][^g2-split][^g2-old-split]
+- The `gate_mix` R-split kernel is 8 waves (`kMixWaves = 8`, `kMixRpw = 8`, R = 64). It is taken when `VLLM_INKLING2_FUSE_GLUE` is on, the weights are fp32 and **T ≤ 16** (since `56587204`, at `ea8aa241`).[^e5-mix] *Historical @ `f22c794a` … `1fdcb3a6`:* T ≤ 8. *Historical @ `00f106c5` … `d71bddca`:* the limit was T ≤ 4.[^glue-mix][^g2-split][^g2-old-split]
 - The C++ host reads `VLLM_INKLING2_FUSE_GLUE` once and treats it as default on. The Python side (`glue.py`) also defaults it to on.[^glue-env][^py-glue]
 - The router (`inkling2_glue_moe_route`) is 256 threads (8 waves, one expert row per wave). It produces logits, sigmoid, top-k and the `moe_align_block_size` layout in one launch.[^glue-route] Since `f22c794a` this is the path for T ≥ 5 only (or any T with `FUSE_GLUE=0`); T ≤ 4 takes `moe_route_small_kernel` (below). *Historical @ `d71bddca`:* this one kernel served every T.[^g2-host-route][^g2-old-grid]
 
@@ -204,14 +232,57 @@ Dest moved `f22c794a` → [`ba9b43bc`](https://github.com/opengfx1030/vllm-rdna/
 - The fork's §7.4 resource receipt (source of the occupancy table above) was not re-issued in this change, so VGPR / LDS for the K-tail build are not re-reported and those rows stay pinned to `00f106c5`.[^tip2]
 - **Python gates.** `VLLM_INKLING2_PREFILL_BM` defaults to `1`, with `VLLM_INKLING2_PREFILL_BM_MIN_TOKENS` = 128. `VLLM_INKLING2_PREFILL_INT8` defaults to `0`.[^py-moe-prefill]
 
+## Update @ `ea8aa241`: TP=1 GQA fused decode, NVFP4 tile variant, `attn_res_sconv`, LoopCD (2026-11-25)
+
+Dest moved `1fdcb3a6` → [`ea8aa241`](https://github.com/opengfx1030/vllm-rdna/commit/ea8aa2418e6373de1537fa56e4ae0911ef6162a6) (2026-11-25 08:24 Paris, merge of PR #211; the range also merges #209 and #210, 17 commits). The kernel files that changed are `inkling2_attn_rdna2.cu`, `inkling2_dspark_rdna2.cu`, `inkling2_glue_rdna2.cu`, `moe_lowp_dot2_rdna2.cu` and `rdna_expert_cache.cu`. `CMakeLists.txt` and `cmake/` are not in the diff, so the gfx1030 source list and arch list are as above. The range `ba9b43bc` → `1fdcb3a6` (PR #208) touches no `csrc/` file, so the `ba9b43bc` sections still describe `1fdcb3a6`.[^e5-tip][^e5-cmp]
+
+**Occupancy first.**
+- New `i2_decode_fused_gqa_kernel<G, NW>` with `__launch_bounds__(NW * 32)`. NW is `kI2FusedWaves = 16` or the new `kI2FusedWavesShort = 8`, and `static_assert(NW >= G)` holds. The LDS is `s_acc[G][NW][128]` fp32 plus `s_ml[G][NW][2]` and `s_w[G][NW]`. That is (12·G·NW + 512·G·NW) B, or 25,152 B at G = 3, NW = 16, and 12,576 B at G = 3, NW = 8 (arithmetic from the declarations, not a compiler receipt).[^e5-gqa-lds]
+- The source says each 16-key super-tile is streamed in two 8-key halves (`I2FdHalf`, "34 VGPRs instead of 68") so all G query accumulators stay in registers, with "zero spills up to G = 4". The fork did not commit a resource receipt for this kernel, so VGPR count and waves/SIMD are not recorded here.[^e5-gqa-head]
+- The old per-q-head kernel is now `i2_decode_fused_nh_kernel<G, NW>`. It has the same `NW*32` launch bounds and the same `s_acc[NW][128]` LDS (8,384 B at NW = 16), but its grid is now `(H_q, fused_max_q, R)`, and it returns on `q_len > fused_max_q` instead of `q_len != 1`.[^e5-nh]
+- New `attn_res_sconv_kernel` is `__launch_bounds__(256)` and launches at the `row_launch_shape` block (≤ 256 threads, 1–4 float4 per thread). The source comment says it computes the conv partial in its own prologue scope "(~104 VGPRs vs 164 VGPRs when all loads overlap)". That is a source comment, not a receipt.[^e5-sconv-vgpr][^e5-sconv-lb]
+- New launch bounds: DSpark `indexed_gemm_kernel` `__launch_bounds__(P::T)`; LoopCD `loopcd_{blend,readout,prepare_hidden,logits_stats,logits_apply}_kernel` all `__launch_bounds__(256)`. The tile kernels, split-K decode and combine keep their bounds and LDS (no `__shared__` change outside the two fused-decode kernels).[^e5-indexed][^e5-loopcd]
+
+**Attention host policy (`inkling2_attention`, `fae1b90d` + `97e70270`).**[^e5-policy][^c-fae1b90d][^c-97e70270]
+- `splits_decode = splits_tile = 0` (`fused_all`) is now valid for `max_query_len ≤ kI2FusedMaxQ = 8`. That runs one fused launch for every request with no tile or combine launch.[^e5-fusedall]
+- `tile_impl` bits: bit 0 picks the pipelined tile; bit 1 skips the `i2_decode_*` launch on uniform multi-query batches (`skip_decode`); bits 2–3 force NW = 8 / 16; bit 4 forces the nh grid.[^e5-tileimpl]
+- Default choice: the nh grid when `fused_max_q == 1` and `H_kv · R < 24` (no NW override). Otherwise the GQA grid, with NW = 8 when `H_kv · q · R > 36` and `0 < window ≤ 1024`, else NW = 16. The source comment's reason is that the nh grid fills all 36 WGPs at q = 1 with few CTAs. `VLLM_INKLING2_DECODE_FUSED=nh` and `VLLM_INKLING2_FUSED_WAVES` override it.[^e5-policy]
+- Python side (`attention_splits_hip`): it returns `(0, 0, None)` when `1 ≤ max_query_len ≤ 8` and (`0 < window ≤ 1024` or `max_seq_len ≤ 1024`). Uniform multi-query batches on the tile path get `tile_impl = base | 2` (skip decode), with `base` = pipelined tile unless `PREFILL_ATTN_TILE=0` or a sliding layer has ≤ 32 query tokens.[^e5-py-splits]
+- `e3190664` moves `kI2BC = 64` and `kI2SubTile = 16` inside the `__HIP__RDNA2__ || !__HIP_DEVICE_COMPILE__` guard, together with the wave32 `#error`. The parameter structs (`I2ConvMeta`, `I2AttnArgs`) moved to global scope so the non-gfx1030 empty stubs share them. Values are unchanged.[^e5-guard][^c-e3190664]
+
+**Conv state written in-op (Python gate, `97e70270`).** `conv_writes_in_op` now lets the conv op write the state when `max_query_len ≤ max(1, ring_rows − (k − 1))` (and not in a piecewise capture). *Historical @ `1fdcb3a6`:* only `max_query_len == 1`. The C++ `write_state` handling did not change.[^e5-convwr]
+
+**MoE decode expert GEMM (`moe_lowp_dot2_rdna2.cu`, `56587204` + `fae1b90d`).**[^c-56587204][^c-fae1b90d]
+- `moe_gemm_nvfp4_kernel_rdna2` is now templated on `TX` (threads) and `BK` (K tile), defaulting to `THREADS_X = 256` and `BLOCK_KN_SIZE = 256`, with `static_assert(BK % 32 == 0)`. LDS is `block_a[BLOCK_SIZE_M][BK + 8]` fp16. Activation staging loops `tk = t; tk < BK; tk += TX`. Still no `__launch_bounds__`.[^e5-lowp-kernel]
+- Tile variants: `0` (default) = TX 256 × BK 256. `1` = TX 128 × BK 256, only for `block_size_m ≤ 4`. Picked by `VLLM_INKLING2_NVFP4_VARIANT` (read once) or `moe_nvfp4_set_variant_rdna2`, which only the microbench binds. A third variant (TX 256 × BK 384) was removed in `fae1b90d`. The MXFP8 decode kernel has no variant switch and keeps the 256 × 256 tile.[^e5-variant][^e5-bk384]
+- Python `block_size_m` (FUSE_GLUE spec table). MXFP8 is now `(1→1, 12→2, 48→4)` (`56587204`); *historical @ `1fdcb3a6`:* `(4→1, 48→2)`. NVFP4 is raised to ≥ 4 when `max_query_len ≥ 6` and `num_tokens ≥ 8` (`fae1b90d`).[^e5-bm][^e5-bm-old]
+
+**Glue (`inkling2_glue_rdna2.cu`, `56587204` + `3aee7f0a`).**[^c-56587204][^c-3aee7f0a]
+- `attn_res_sconv_kernel<Q, ITER, NORM, SCONV_MODE>` fuses the 4-tap static short conv (fp32 weight `[H, 1, 4]`, scale `1/√5`) into the `attn_res` prologue. In-chunk taps come from `x`, earlier ones from the paged conv ring (`GlueConvMeta`). Mode 1 is `x0 + sconv(cx)`; mode 2 is `sconv(cx)`. It can write the conv state and a bf16 or fp32 second norm output (Q = 1). The Python gate is TP = 1 and ≤ 64 tokens (`_SCONV_FUSE_MAX_TOKENS`).[^e5-sconv-vgpr][^e5-model-sconv]
+- `gate_mix_split_kernel` gate raised to T ≤ 16 (above).[^e5-mix]
+- LoopCD kernels (`3aee7f0a`) are fp32 streaming kernels with no DOT and no `fdot2`. `loopcd_logits_*` split the vocab over `S = clamp(72 / B, 1, 32)` CTAs per row (capped at `ceil(V/256)`), with `s_m[8]` / `s_l[8]` LDS and wave reductions.[^e5-loopcd]
+
+**DSpark (`inkling2_dspark_rdna2.cu`, `6e0dbd58`).**[^c-6e0dbd58]
+- `gemv_kernel` takes an optional `w_row_ids` (int32/int64) and reads weight rows `w + w_row_ids[r]·ldw` in place, with no subset copy. The row/wave layout (`kGemvWaves = 8`) and the `dot8` = four `fdot2` loop are unchanged.[^e5-gemv]
+- New `indexed_gemm_kernel<P>` is the same `rdna_hint_flex` designs D1–D6 (`IdxD1..IdxD6`, DMA = 0), with weight rows gathered through `w_row_ids`. The source says this keeps "exact fp32 accumulation order and single fp16 store rounding". LDS is `P::LDS_BYTES` per design (not re-derived here).[^e5-indexed]
+- `argmax_rows_kernel` (`__launch_bounds__(512)`) can remap the winning index through `token_map` and write to a strided column.[^e5-argmax]
+
+**Expert offload (`1850737d`).** `rdna2_expert_cache_copy` accepts 1–8 payload tensors (was exactly 6). It is a host `hipMemcpyBatchAsync` path gated to `gfx103x`, with no device kernel. The new recipe `inkling2-mini-tp1-offload.env` sets only `VLLM_INKLING2_MOE_OFFLOAD_*` and `VLLM_KV_CACHE_MARGIN_FLOOR_MIB`. None of the TP = 1 recipes in the range set a HIP-kernel gate, so the defaults above apply.[^e5-offload][^c-1850737d]
+
 ## Env defaults that gate HIP kernels
 
 | Variable | Default | Selects | Read |
 |---|---|---|---|
-| `VLLM_INKLING2_DECODE_FUSED` | `1` | fused sliding-window decode; `2` also fuses full layers for a single request (opt-in); `0` uses split-K + combine | once at import (baked into graphs) [^ops-env] |
+| `VLLM_INKLING2_DECODE_FUSED` | `1` | fused sliding-window decode; `2` also fuses full layers for a single request (opt-in); `0` uses split-K + combine. Since `ea8aa241`: any value other than `""`/`0`/`nh` sends 1 ≤ q ≤ 8 batches with short keys to the one-launch GQA path; `nh` forces the per-q-head grid (C++ host reads it once) | once at import (baked into graphs) [^ops-env][^e5-py-splits][^e5-policy] |
+| `VLLM_INKLING2_FUSED_WAVES` (new) | unset | `8` or `16` forces the GQA fused-decode CTA wave count; other values ignored | C++ host, once (static) [^e5-policy] |
+| `VLLM_INKLING2_FUSE_SCONV_ATTN_RES` (new) | on | fuses post-attention / post-MLP 4-tap static convs into `attn_res_sconv_kernel` at TP = 1 for steps of ≤ 64 tokens | Python module import [^e5-py-sconv][^e5-model-sconv] |
+| `VLLM_INKLING2_NVFP4_VARIANT` (new) | `0` | NVFP4 decode expert tile: `0` = 256 thr × BK 256; `1` = 128 thr × BK 256 for `block_size_m` ≤ 4 | C++ host, once (static) [^e5-variant] |
+| `VLLM_INKLING2_SPEC_BM4_MIN` (new) | `0` (off) | forces `block_size_m` ≥ 4 from that token count under FUSE_GLUE (A/B knob) | Python [^e5-bm] |
+| `VLLM_INKLING2_MOE_OFFLOAD_SLOTS` / `_COPY` / `_POLICY` / `_DECAY` (new) | `0` / `tensor` / `lfu_lru` / `128` | TP = 1 expert offload (`0` = off). Host copies only, no new device kernel | `vllm/envs.py` + `moe.py` [^e5-envs][^e5-offload] |
+| `VLLM_INKLING2_LOOPCD_*` (new) | `ALPHA` 0.0 (off), `MODE` hidden, `BETA` 0.1 | LoopCD blend / readout / logits kernels (only run when alpha ≠ 0) | Python [^e5-loopcd-env] |
 | `VLLM_INKLING2_PREFILL_ATTN_TILE` | `1` | `i2_tile_pipe_kernel`, except sliding layers with ≤ 32 query tokens, which keep `i2_tile_kernel` | once at import [^ops-env][^ops-tile] |
 | `VLLM_INKLING2_FUSE_ATTN_CHAIN` | on | `attn_res_fused_kernel` / one-launch messages for batches ≤ 16 tokens | Python module import [^py-fuse] |
-| `VLLM_INKLING2_FUSE_GLUE` | on | SwiGLU fused into the w2 expert GEMM (≤ 16 tokens), 8-wave `gate_mix` split (T ≤ 8 since `f22c794a`), `moe_route_small_kernel` (T ≤ 4, since `f22c794a`). Not the DPP / `attn_res` changes, which are unconditional on gfx1030 | Python + C++ host, once [^py-glue][^glue-env][^py-moe-swiglu][^g2-env] |
+| `VLLM_INKLING2_FUSE_GLUE` | on | SwiGLU fused into the w2 expert GEMM (≤ 16 tokens), 8-wave `gate_mix` split (T ≤ 16 since `ea8aa241`; T ≤ 8 @ `f22c794a`…`1fdcb3a6`), `moe_route_small_kernel` (T ≤ 4, since `f22c794a`). Not the DPP / `attn_res` changes, which are unconditional on gfx1030 | Python + C++ host, once [^py-glue][^glue-env][^py-moe-swiglu][^g2-env] |
 | `VLLM_INKLING2_PREFILL_BM` / `_MIN_TOKENS` / `_INT8` | `1` / `128` / `0` | 32-row prefill expert kernels / W4A8 | Python [^py-moe-prefill] |
 
 ## Sources
@@ -313,3 +384,39 @@ Dest moved `f22c794a` → [`ba9b43bc`](https://github.com/opengfx1030/vllm-rdna/
 [^d4-old-split]: *Historical* `csrc/rocm/inkling2_dspark_rdna2.cu` @ `f22c794a` L681-L685 (`dp`, `gq`, `o[6][2]`), L711 (K from `cache + koff[kk]`), L753-L770 (PV from cache). <https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_dspark_rdna2.cu#L681-L770>
 [^d4-old-combine]: *Historical* `csrc/rocm/inkling2_dspark_rdna2.cu` @ `f22c794a` L788-L822 (`attn_combine_kernel` with the `qi` loop), L1726 (grid `num_reqs * kv_heads`). <https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_dspark_rdna2.cu#L788-L822>
 [^d4-old-xor]: *Historical* `csrc/rocm/inkling2_dspark_rdna2.cu` @ `f22c794a` L155-L165. <https://github.com/opengfx1030/vllm-rdna/blob/f22c794a00e609fc8c03f35d374c5258f8e5187c/csrc/rocm/inkling2_dspark_rdna2.cu#L155-L165>
+
+[^e5-tip]: opengfx1030/vllm-rdna merge [`ea8aa241`](https://github.com/opengfx1030/vllm-rdna/commit/ea8aa2418e6373de1537fa56e4ae0911ef6162a6) (2026-11-25 08:24 Paris): "Merge pull request #211 from opengfx1030/feat/inkling2-tp1-moe-offload". The grep for `waves_per_eu` was run over `inkling2_attn_rdna2.cu`, `inkling2_glue_rdna2.cu`, `inkling2_dspark_rdna2.cu` and `moe_lowp_dot2_rdna2.cu` at this SHA, with 0 hits. `git diff --stat 1fdcb3a6 ea8aa241 -- CMakeLists.txt cmake` is empty, and `git diff --stat ba9b43bc 1fdcb3a6` lists no `csrc/` path.
+[^e5-cmp]: Compare [`1fdcb3a6...ea8aa241`](https://github.com/opengfx1030/vllm-rdna/compare/1fdcb3a66e82b1c0b9ebe3ce1da1e0b25fc3c4fa...ea8aa2418e6373de1537fa56e4ae0911ef6162a6) (17 commits; merges #209 `d7c44a94`, #210 `41ef6ba1`, #211 `ea8aa241`).
+[^e5-gqa-lds]: `csrc/rocm/inkling2_attn_rdna2.cu` @ `ea8aa241` L72-L78 (`kI2FusedWaves`, `kI2FusedWavesShort = 8`, `kI2FusedMaxQ = 8`), L1197-L1203 (`__launch_bounds__(NW * 32)`, `static_assert(NW >= G)`, LDS arrays). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/inkling2_attn_rdna2.cu#L1197-L1203>
+[^e5-gqa-head]: `csrc/rocm/inkling2_attn_rdna2.cu` @ `ea8aa241` L1098-L1109 (GQA KV-sharing comment: grid, `I2FdHalf` "34 VGPRs instead of 68", "zero spills up to G = 4"). Kernel added in [`97e70270`](https://github.com/opengfx1030/vllm-rdna/commit/97e70270d045ecd80e65c18a6de99d603b5a35fb). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/inkling2_attn_rdna2.cu#L1098-L1109>
+[^e5-nh]: `csrc/rocm/inkling2_attn_rdna2.cu` @ `ea8aa241` L774-L800 (nh-grid comment), L959-L973 (`i2_decode_fused_nh_kernel`, LDS, `q_len > a.fused_max_q` return), L3050 (`grid_f_nh(nh, fused_max_q, R)`). *Historical:* `i2_decode_fused_kernel` @ `1fdcb3a6` L948-L960 (`qsl[r+1]-qs != 1` return). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/inkling2_attn_rdna2.cu#L959-L973> / <https://github.com/opengfx1030/vllm-rdna/blob/1fdcb3a66e82b1c0b9ebe3ce1da1e0b25fc3c4fa/csrc/rocm/inkling2_attn_rdna2.cu#L948-L960>
+[^e5-sconv-vgpr]: `csrc/rocm/inkling2_glue_rdna2.cu` @ `ea8aa241` L70 (`kMaxStates = 64`), L264-L286 (`GlueConvMeta`, `AttnResSconvArgs`: conv weight `[H, 1, 4]` fp32, `conv_inv` = 1/sqrt(5)), L560-L570 (`SCONV_MODE` 1 / 2, "~104 VGPRs vs 164 VGPRs"); added in [`56587204`](https://github.com/opengfx1030/vllm-rdna/commit/56587204cc664ecb75957e46ab42368789852029). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/inkling2_glue_rdna2.cu#L560-L570>
+[^e5-sconv-lb]: `csrc/rocm/inkling2_glue_rdna2.cu` @ `ea8aa241` L723-L729 (`__launch_bounds__(256) attn_res_sconv_kernel`), L2223-L2232 (`row_launch_shape`: iter 1..4, block rounded to a wave). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/inkling2_glue_rdna2.cu#L2223-L2232>
+[^e5-indexed]: `csrc/rocm/inkling2_dspark_rdna2.cu` @ `ea8aa241` L607-L626 (indexed GEMM comment, `__launch_bounds__(P::T)`, `lds[P::LDS_BYTES]`), L1894-L1903 (`IdxD1..IdxD6`), L1920-L1935 (`launch_indexed_gemm`, `kBks`). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/inkling2_dspark_rdna2.cu#L607-L626>
+[^e5-loopcd]: `csrc/rocm/inkling2_glue_rdna2.cu` @ `ea8aa241` L1913-L2160 (LoopCD kernels, `__launch_bounds__(256)`, `s_m[8]` / `s_l[8]`), L3641-L3643 (`S`). Added in [`3aee7f0a`](https://github.com/opengfx1030/vllm-rdna/commit/3aee7f0a76337e56e460077535cc5336a45ffaea). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/inkling2_glue_rdna2.cu#L1913-L2160>
+[^e5-policy]: `csrc/rocm/inkling2_attn_rdna2.cu` @ `ea8aa241` L3020-L3044 (`VLLM_INKLING2_DECODE_FUSED` = `nh`, `VLLM_INKLING2_FUSED_WAVES` 8/16, `total_gqa_ctas < 24` nh rule with the "fills all 36 WGPs" comment, NW = 8 when `> 36` and `short_window`), L3049-L3072 (grids, launch macro). The `< 24` rule landed in [`fae1b90d`](https://github.com/opengfx1030/vllm-rdna/commit/fae1b90d22168965dea32f8c8138e348e553cdf7). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/inkling2_attn_rdna2.cu#L3020-L3072>
+[^e5-fusedall]: `csrc/rocm/inkling2_attn_rdna2.cu` @ `ea8aa241` L2932-L2944 (`fused_all`, `max_query_len <= kI2FusedMaxQ` check). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/inkling2_attn_rdna2.cu#L2932-L2944>
+[^e5-tileimpl]: `csrc/rocm/inkling2_attn_rdna2.cu` @ `ea8aa241` L2945-L2959 (`tile_impl` bits, `skip_decode`). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/inkling2_attn_rdna2.cu#L2945-L2959>
+[^e5-py-splits]: `vllm/models/inkling2_loop/amd/attention.py` @ `ea8aa241` L469-L471 (`_FUSED_MAX_QUERY_LEN = 8`, `_FUSED_MAX_KEYS = 1024`, `_TILE_SKIP_DECODE = 2`), L518-L559 (`attention_splits_hip`). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/vllm/models/inkling2_loop/amd/attention.py#L518-L559>
+[^e5-guard]: `csrc/rocm/inkling2_attn_rdna2.cu` @ `ea8aa241` L68-L132 (global constants, shared structs, guarded `kI2BC` / `kI2SubTile` and wave32 `#error`); change is [`e3190664`](https://github.com/opengfx1030/vllm-rdna/commit/e31906640fb3d3e5f0403af6868b553d17789d18). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/inkling2_attn_rdna2.cu#L66-L132>
+[^e5-convwr]: `vllm/models/inkling2_loop/amd/attention.py` @ `ea8aa241` L474-L496 (`conv_writes_in_op`, `max_in_op`). *Historical:* `@ 1fdcb3a6` returned `md.max_query_len == 1 and not _tracing_piecewise_graph()`. <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/vllm/models/inkling2_loop/amd/attention.py#L474-L496>
+[^e5-lowp-kernel]: `csrc/rocm/moe_lowp_dot2_rdna2.cu` @ `ea8aa241` L43-L44 (`BLOCK_KN_SIZE`, `THREADS_X` 256), L159-L187 (`load_activations<T, BM, TX, BK>`), L193-L226 (kernel, `static_assert(BK % 32 == 0)`, `block_a[BM][BK + 8]`). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/moe_lowp_dot2_rdna2.cu#L159-L226>
+[^e5-variant]: `csrc/rocm/moe_lowp_dot2_rdna2.cu` @ `ea8aa241` L331-L345 (`moe_nvfp4_set_variant_rdna2`, `VLLM_INKLING2_NVFP4_VARIANT`), L368-L392 (`if constexpr (BLOCK_SIZE_M <= 4)`, variant 1 = `<T, BM, 128, 256>`), L394-L406 (dispatch). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/moe_lowp_dot2_rdna2.cu#L331-L406>
+[^e5-bk384]: [`fae1b90d`](https://github.com/opengfx1030/vllm-rdna/commit/fae1b90d22168965dea32f8c8138e348e553cdf7) removes `if (variant == 2) launch_moe_nvfp4_cfg<T, BLOCK_SIZE_M, 256, 384>` from `launch_moe_nvfp4`.
+[^e5-bm]: `vllm/models/inkling2_loop/amd/moe.py` @ `ea8aa241` L710-L719 (`_BLOCK_M_BY_TOKENS_SPEC`, `VLLM_INKLING2_SPEC_BM4_MIN`), L1088-L1103 (`_default_block_size_m`, NVFP4 `max_query_len >= 6 and num_tokens >= 8`). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/vllm/models/inkling2_loop/amd/moe.py#L1088-L1103>
+[^e5-bm-old]: *Historical* `vllm/models/inkling2_loop/amd/moe.py` @ `1fdcb3a6` L620-L623 (`"mxfp8": ((4, 1), (48, 2))` in `_BLOCK_M_BY_TOKENS_SPEC`). <https://github.com/opengfx1030/vllm-rdna/blob/1fdcb3a66e82b1c0b9ebe3ce1da1e0b25fc3c4fa/vllm/models/inkling2_loop/amd/moe.py#L620-L623>
+[^e5-mix]: `csrc/rocm/inkling2_glue_rdna2.cu` @ `ea8aa241` L2814-L2817 (`T <= 16`, `tb = gate_tb(T, 4)`); change in [`56587204`](https://github.com/opengfx1030/vllm-rdna/commit/56587204cc664ecb75957e46ab42368789852029). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/inkling2_glue_rdna2.cu#L2814-L2817>
+[^e5-py-sconv]: `vllm/models/inkling2_loop/amd/glue.py` @ `ea8aa241` L41-L48 (`VLLM_INKLING2_FUSE_SCONV_ATTN_RES`, default on). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/vllm/models/inkling2_loop/amd/glue.py#L41-L48>
+[^e5-model-sconv]: `vllm/models/inkling2_loop/amd/model.py` @ `ea8aa241` L106-L110 (`_SCONV_FUSE_MAX_TOKENS = 64`), L424-L431 (`sconv_fuse` needs `tp.size == 1`). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/vllm/models/inkling2_loop/amd/model.py#L106-L110>
+[^e5-gemv]: `csrc/rocm/inkling2_dspark_rdna2.cu` @ `ea8aa241` L507 (`kGemvWaves = 8`), L509-L565 (`gemv_kernel` with `IntVec w_row_ids`, `wr[NR]`, `dot8`). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/inkling2_dspark_rdna2.cu#L507-L565>
+[^e5-argmax]: `csrc/rocm/inkling2_dspark_rdna2.cu` @ `ea8aa241` L1350-L1416 (`argmax_rows_kernel`, `token_map`, `out_stride`). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/inkling2_dspark_rdna2.cu#L1350-L1416>
+[^e5-offload]: `csrc/rocm/rdna_expert_cache.cu` @ `ea8aa241` L48-L70 (`kMaxPayloads = 8`, `gfx103` check), L134-L145 (`hipMemcpyBatchAsync`); `tools/rdna/recipes/inkling2-mini-tp1-offload.env` @ `ea8aa241` L38-L44. Added in [`1850737d`](https://github.com/opengfx1030/vllm-rdna/commit/1850737d284c54160487479857d38581900ea29c). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/csrc/rocm/rdna_expert_cache.cu#L48-L70>
+[^e5-envs]: `vllm/envs.py` @ `ea8aa241` L204-L207, L1687-L1700 (`VLLM_INKLING2_MOE_OFFLOAD_*` defaults). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/vllm/envs.py#L1687-L1700>
+[^e5-loopcd-env]: `vllm/models/inkling2_loop/amd/loopcd.py` @ `ea8aa241` L158-L190 (`read_loopcd_env_defaults`: alpha 0.0, mode `hidden`, beta 0.1). <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/vllm/models/inkling2_loop/amd/loopcd.py#L158-L190>
+[^c-97e70270]: opengfx1030/vllm-rdna commit [`97e70270`](https://github.com/opengfx1030/vllm-rdna/commit/97e70270d045ecd80e65c18a6de99d603b5a35fb) (2026-11-24 20:49 Paris): "perf(inkling2/rocm): TP=1 GQA KV-sharing, 1-launch SWA verify & in-op conv state".
+[^c-fae1b90d]: opengfx1030/vllm-rdna commit [`fae1b90d`](https://github.com/opengfx1030/vllm-rdna/commit/fae1b90d22168965dea32f8c8138e348e553cdf7) (2026-11-24 21:48 Paris): "perf(inkling2/rocm): lock in V620 microbench winners (q=1 nh-grid, spec NVFP4 bm=4, drop BK=384)".
+[^c-e3190664]: opengfx1030/vllm-rdna commit [`e3190664`](https://github.com/opengfx1030/vllm-rdna/commit/e31906640fb3d3e5f0403af6868b553d17789d18) (2026-11-25 00:15 Paris): "fix(inkling2/rocm): guard gfx1030-only tile constants on non-RDNA2 device passes".
+[^c-56587204]: opengfx1030/vllm-rdna commit [`56587204`](https://github.com/opengfx1030/vllm-rdna/commit/56587204cc664ecb75957e46ab42368789852029) (2026-11-24 21:03 Paris): "perf(inkling2): fuse TP=1 glue sconv/taps, reclaim workspace, fix MoE/gate cliffs".
+[^c-6e0dbd58]: opengfx1030/vllm-rdna commit [`6e0dbd58`](https://github.com/opengfx1030/vllm-rdna/commit/6e0dbd586bdba484b761e65cb6cf4b279b22fe0e) (2026-11-24 20:42 Paris): "perf(rdna2/inkling2): reclaim 342 MiB DSpark VRAM, fuse strided argmax & per-batch Markov steps".
+[^c-3aee7f0a]: opengfx1030/vllm-rdna commit [`3aee7f0a`](https://github.com/opengfx1030/vllm-rdna/commit/3aee7f0a76337e56e460077535cc5336a45ffaea) (2026-11-25 01:25 Paris): "feat(rdna2): implement LoopCD hidden and logits contrastive decoding for Inkling2Loop".
+[^c-1850737d]: opengfx1030/vllm-rdna commit [`1850737d`](https://github.com/opengfx1030/vllm-rdna/commit/1850737d284c54160487479857d38581900ea29c) (2026-11-25 08:13 Paris): "feat(rdna2): add TP=1 MoE expert offloading and unified 16/32 GiB recipe for Inkling-2-Mini".
