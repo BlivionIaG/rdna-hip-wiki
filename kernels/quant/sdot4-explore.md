@@ -7,6 +7,7 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0
   - https://github.com/opengfx1030/vllm-rdna/blob/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0/csrc/rocm/w4a8_sdot4_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0/csrc/rocm/fa_rdna2.cu
+  - https://github.com/stew675/llama-cpp-rdna-boosts/commit/ffdf416993a51f4abb883b67b70fb1c457dcaddd
 ---
 # sdot4 explore — which kernels actually use it
 
@@ -47,6 +48,8 @@ epilogue: C *= a_scale * w_scale
 
 Pack W K-contiguous, `K % 8 == 0` (two sdot4 per dword of W). Same LDS seed as W8A8 after the unpack. No `sdot8` unless someone later ships integer W4A4 and accepts the numerics — that is [w4a4.md](../../engine/quant-formats/w4a4.md), not this sketch.[^c-3a0786ea]
 
+See also: [ternary-tq.md](ternary-tq.md). llama.cpp TQ1_0 / TQ2_0 feeds unsigned 0..2 trits into `sdot4` and subtracts the Q8 lane sum, and the gfx1030 codegen is `v_dot4c_i32_i8` (CE run, stew675 block 17 @ `ffdf4169`). It is a GGUF reference, not an extras candidate.[^c-ffdf4169]
+
 ## Cards
 
 Reuse the existing W8A8 INT8 and Sage cards (spec / Todo). W4A8 `sdot4` **landed** opt-in on `rdna_extras` @ `3a0786ea` — see [w4a8.md](w4a8.md). Do not reopen an explore card for dense/MoE W4A8. Add **one** explore card: W4A4 integer `sdot8` ([w4a4.md](../../engine/quant-formats/w4a4.md)). Do not clone a card per “no” row. Do not use the W4A4 card for MXFP4/NVFP4 A4.[^c-3a0786ea]
@@ -63,3 +66,4 @@ Reuse the existing W8A8 INT8 and Sage cards (spec / Todo). W4A8 `sdot4` **landed
 [^c-3a0786ea]: opengfx1030/vllm-rdna commit [`3a0786ea`](https://github.com/opengfx1030/vllm-rdna/commit/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0) (2026-09-30) — "merge(rdna2): land w4a8-wiring onto rdna_extras (W4A8 opt-in; W4A16 default unchanged)".
 [^f-3a0786ea-w4a8-sdot4-rdna2-cu]: opengfx1030/vllm-rdna `csrc/rocm/w4a8_sdot4_rdna2.cu` @ [`3a0786ea`](https://github.com/opengfx1030/vllm-rdna/blob/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0/csrc/rocm/w4a8_sdot4_rdna2.cu).
 [^f-3a0786ea-fa-rdna2-cu]: opengfx1030/vllm-rdna `csrc/rocm/fa_rdna2.cu` @ [`3a0786ea`](https://github.com/opengfx1030/vllm-rdna/blob/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0/csrc/rocm/fa_rdna2.cu).
+[^c-ffdf4169]: stew675/llama-cpp-rdna-boosts commit [`ffdf4169`](https://github.com/stew675/llama-cpp-rdna-boosts/commit/ffdf416993a51f4abb883b67b70fb1c457dcaddd) (2026-11-24) — block 17, TQ1_0 / TQ2_0 on the GPU; codegen per the CE run on [ternary-tq.md](ternary-tq.md).
