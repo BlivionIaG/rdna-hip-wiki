@@ -1,9 +1,15 @@
 ---
 title: Fork branches
 owner: VLLM_FORK_Manager
-pinned_tip: 64d59b8942d3b982f1d91f0f3e625dfda4418106
-verified: 2026-10-11
+pinned_tip: ea8aa2418e6373de1537fa56e4ae0911ef6162a6
+verified: 2026-11-25
 sources:
+  - https://github.com/opengfx1030/vllm-rdna/commit/ea8aa2418e6373de1537fa56e4ae0911ef6162a6
+  - https://github.com/opengfx1030/vllm-rdna/pull/211
+  - https://github.com/opengfx1030/vllm-rdna/commit/2bf779784d938e2981c56405f2586c3623e20b7e
+  - https://github.com/vllm-project/vllm/releases/tag/v0.34.0
+  - https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/tools/rdna/serve_rdna.sh
+  - https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/tools/rdna/recipes/inkling2-mini-tp2.env
   - https://github.com/opengfx1030/vllm-rdna
   - https://github.com/opengfx1030/vllm-rdna/pull/47
   - https://github.com/opengfx1030/vllm-rdna/commit/7813953b6f1c7c111ea9080bed08c21d1d703206
@@ -30,10 +36,21 @@ sources:
 
 [← fork/](README.md)
 
-## Dest: `rdna_extras`
+## Dest: `rdna_extras` (current)
 
 - `rdna_extras` on `opengfx1030/vllm-rdna` is the dest branch and the repo's default branch[^repo].
-- Since 2026-10-11 it is the **v0.31 RDNA line**. PR #47 first reset `rdna_extras` to upstream `v0.31.0` (`db9527a4`), then merged `rdna_extra/v0.31.0` on top. That branch is `v0.31.0` plus 170 topic commits[^pr47]. The merge commit is `7813953b`, parents `db9527a4` and `20edef53`[^m47]. `db9527a4` is the upstream `v0.31.0` tag[^v031].
+- Tip **`ea8aa241`** is the merge of PR #211, TP=1 MoE expert offloading and a unified 16/32 GiB recipe for Inkling-2-Mini (merged 2026-11-25 08:24 Europe/Paris)[^tip211].
+- The line is now based on **vLLM v0.34.0**. Merge `2bf77978` (2026-11-18) has parents `1e1cac53` (the previous fork tip) and `62d4bc3c`, which is the upstream `v0.34.0` tag[^m034][^v034]. `ea8aa241` is 131 commits ahead of `2bf77978` and 0 behind (GitHub compare, 2026-11-25).
+- Prefix caching: `serve_rdna.sh` defaults `ENABLE_PREFIX_CACHING=1` and passes `--enable-prefix-caching` only when a recipe lists the `prefix-caching` feature[^apc]. The Inkling-2-Mini recipes list it (`FEATURES="prefix-caching prompt-tokens-details"`)[^apcrecipe]. That it stays off for other recipes under a global lock is per VLLM_FORK_Manager, 2026-11-25 (unsourced in the repo).
+- Pins held by VLLM_FORK_Manager as of 2026-11-25 (unsourced in the repo; Linear is the live board): W4A16 ISA lock `f263172a`, EXL3 produce `mul1`, occupancy pin closed, live ROCm 7.14.
+- Bots never edit `rdna_extras` or `rdna2_extras`; bot patches go only on `perf/rdna2_w4a16_bot`; no upstream PRs (per VLLM_FORK_Manager, unsourced as a rule). `perf/rdna2_w4a16_bot` does not exist on `opengfx1030/vllm-rdna` (GitHub API 404, 2026-11-25). Still nothing enforces the PR rule: `rdna_extras` has `"protected": false` and the repo has no rulesets (GitHub API, 2026-11-25)[^ghprot].
+- `rdna_extras_wip_20260910` (head `7e37923f`) also exists on the repo; its role is unsourced[^repo].
+
+## History: the v0.31 line (2026-10, historical)
+
+Everything in this section describes the branch as of 2026-10-12 and is kept as history.
+
+- From 2026-10-11 it is the **v0.31 RDNA line**. PR #47 first reset `rdna_extras` to upstream `v0.31.0` (`db9527a4`), then merged `rdna_extra/v0.31.0` on top. That branch is `v0.31.0` plus 170 topic commits[^pr47]. The merge commit is `7813953b`, parents `db9527a4` and `20edef53`[^m47]. `db9527a4` is the upstream `v0.31.0` tag[^v031].
 - Tip **`64d59b89`** (2026-10-12 00:44 Europe/Paris) is the merge of PR #84: the native RDNA2 MoE path declines asymmetric compressed-tensors checkpoints and falls back to the generic WNA16 MoE method[^tip][^pr84].
 - Previous tip `fbe84e94` (2026-10-11 14:05 Europe/Paris) is the merge of PR #52, the INT4 PLE table served from disk through the CPU sidecar. The launcher knob is `PLE=bf16|int4|int4-disk`; `int4-disk` exports `VLLM_PLE_QUANT_DIR` and `VLLM_PLE_CPU_OFFLOAD=1`[^tip][^pr52][^plelaunch]. #52 changed only Python, `tools/` and tests (no `csrc/`, no `CMakeLists.txt`)[^pr52].
 - Tip history since the port (first-parent, `git log --first-parent 7813953b..64d59b89`):
@@ -46,7 +63,7 @@ sources:
   - `c057ee54` (2026-10-11 23:19): PR #81, TunableOp rows for 8192-token prefill chunks, 1601 → 1766 rows per rank[^pr81].
   - `6956c105` (2026-10-12 00:22): PR #83, `P2P=0` launcher knob and `LD_LIBRARY_PATH` fix[^pr83].
   - `64d59b89` (2026-10-12 00:44): PR #84, native MoE declines asymmetric checkpoints[^tip][^pr84].
-- Policy: on CUDA, CDNA, CPU and every other platform the branch behaves like upstream v0.31. Fork behavior in shared code runs only on ROCm RDNA, behind `on_rdna_family()` (see [dispatch.md](dispatch.md))[^gating].
+- Policy at the time: on CUDA, CDNA, CPU and every other platform the branch behaved like upstream v0.31. Fork behavior in shared code runs only on ROCm RDNA, behind `on_rdna_family()` (see [dispatch.md](dispatch.md))[^gating].
 
 ## The 0.28 line: `rdna_extra/v0.28.0`
 
@@ -65,6 +82,8 @@ Branches are named `rdna_extra/vX.Y.Z` (no `s`) because git cannot hold both `re
 | `rdna_extra/v0.30.0` | `12cc662b` | earlier version branch (role unsourced) |
 | `rdna_extra/v0.31.0` | `20edef53` | the v0.31 port merged by #47 |
 
+All four heads are unchanged as of 2026-11-25 (GitHub API). No `rdna_extra/v0.34.0` branch exists; v0.34.0 was merged straight into `rdna_extras` by `2bf77978`[^m034].
+
 The roles of v0.29/v0.30 come only from the port notes ("like `rdna_extra/v0.29.0` and `rdna_extra/v0.30.0`")[^portnotes]. Whether they are dead is unsourced.
 
 ## Branch flow
@@ -81,7 +100,11 @@ flowchart LR
   d2 -->|PR #49, merge 1dc3bac4| d3["1dc3bac4"]
   d3 -->|PR #52, merge fbe84e94| d4["fbe84e94<br/>PLE=int4-disk"]
   d4 -->|"#79, #65, #81, #83"| d5["6956c105"]
-  d5 -->|PR #84, merge 64d59b89| tip["tip 64d59b89"]
+  d5 -->|PR #84, merge 64d59b89| d6["64d59b89"]
+  d6 -.->|"… 1e1cac53"| d7["1e1cac53"]
+  up34["upstream tag v0.34.0<br/>62d4bc3c"] --> m34["merge 2bf77978"]
+  d7 --> m34
+  m34 -->|"131 commits, … PR #211"| tip["tip ea8aa241"]
   topic["topic branches<br/>cursor/*, claude/*, feat/*, fix/*"] -.->|draft PR| dest
   dest -. never .-> vllm["vllm-project/vllm"]
 ```
@@ -94,6 +117,11 @@ flowchart LR
 
 ## Sources
 
+[^tip211]: Tip `ea8aa2418e6373de1537fa56e4ae0911ef6162a6`, "Merge pull request #211 from opengfx1030/feat/inkling2-tp1-moe-offload": <https://github.com/opengfx1030/vllm-rdna/commit/ea8aa2418e6373de1537fa56e4ae0911ef6162a6> · PR <https://github.com/opengfx1030/vllm-rdna/pull/211>
+[^m034]: `2bf779784d938e2981c56405f2586c3623e20b7e` "Merge upstream vLLM v0.34.0 into RDNA integration branch": <https://github.com/opengfx1030/vllm-rdna/commit/2bf779784d938e2981c56405f2586c3623e20b7e>
+[^v034]: Upstream `v0.34.0` (tag → `62d4bc3c7e33b1b6c906e233e6af2d3506c482ca`): <https://github.com/vllm-project/vllm/releases/tag/v0.34.0>
+[^apc]: `serve_rdna.sh` default and `prefix-caching` feature case: <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/tools/rdna/serve_rdna.sh#L219> · <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/tools/rdna/serve_rdna.sh#L450-L458>
+[^apcrecipe]: Inkling-2-Mini TP=2 recipe, `FEATURES`: <https://github.com/opengfx1030/vllm-rdna/blob/ea8aa2418e6373de1537fa56e4ae0911ef6162a6/tools/rdna/recipes/inkling2-mini-tp2.env#L30>
 [^repo]: Repo, default branch and branch list: <https://github.com/opengfx1030/vllm-rdna>
 [^tip]: Tip `64d59b89`, "Merge fix/rdna2-moe-asymmetric: native MoE path declines asymmetric checkpoints (#84)": <https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106>
 [^pr79]: PR #79 "docs(rdna): tuning guide for fork knobs, modes and TunableOp", merge `69a166dc`: <https://github.com/opengfx1030/vllm-rdna/pull/79>
