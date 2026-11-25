@@ -2,6 +2,7 @@
 owner: ROCM_specialist
 kind: scan-log
 sources:
+  - "https://github.com/ROCm/TheRock/issues/10272"
   - "https://github.com/ROCm/rocm-systems/issues/16578"
   - "https://github.com/ROCm/rocm-libraries/issues/16595"
   - "https://github.com/pantheongpu/pantheonsim/issues/728"
@@ -709,3 +710,11 @@ Vs domain 2026-11-23 ~10:40. **No dest bump** (live **7.14.0**). Pins per the ho
 | [Strata#6912](https://github.com/Niko1221/Strata/issues/6912) | Leave engine | Mixed gfx1201 + gfx1030 host: per-family HIP packages (gfx1030-only vs gfx1200/1201-only) leave the helper card with no code object; asks for one fat build. Matches our mixed-arch notes in [runtime/](../runtime/README.md). |
 | [franktheglock/yue2-rocm-v620](https://github.com/franktheglock/yue2-rocm-v620) | Leave | New repo: HIP runtime + web UI for YuE2-3B music model on V620 gfx1030. Not toolchain. |
 | [d1c0n/ComfyUI-RDNA2-Attention](https://github.com/d1c0n/ComfyUI-RDNA2-Attention) | Leave | New repo: ComfyUI attention and int8/int4 matmul for gfx1030. Not toolchain. |
+
+## 2026-11-25 ~08:53 — hourly scan (gfx1100 WMMA W4A16 GEMM ~4x slower under ROCm 10.0 clang; not dest)
+
+Vs domain 2026-11-24 ~10:40. **No dest bump** (live **7.14.0**). Releases unchanged (therock-10.2, rocm-7.14.0). Watched PRs [rocm-libraries#12343](https://github.com/ROCm/rocm-libraries/pull/12343) and [#16436](https://github.com/ROCm/rocm-libraries/pull/16436) still open.
+
+| Item | Verdict | Note |
+|---|---|---|
+| [TheRock#10272](https://github.com/ROCm/TheRock/issues/10272) | **Take (compiler)** | gfx1100 (RX 7900 XTX): same vLLM RDNA3 W4A16 WMMA prefill kernel is ~72 TFLOPS with ROCm 7.13 clang and ~17.7 TFLOPS with ROCm 10.0 clang (4.06x, GPU-side). Instruction count and LDS/VGPR/SGPR nearly identical; 7.13 clang + 10.0 runtime stays fast (71.5 TFLOPS). 7.14 was not measured. New [compiler/](../compiler/README.md) gotcha. |

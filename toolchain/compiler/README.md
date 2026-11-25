@@ -1,7 +1,8 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-24
+updated: 2026-11-25
 sources:
+  - https://github.com/ROCm/TheRock/issues/10272
   - https://github.com/pantheongpu/pantheonsim/issues/728
   - https://github.com/pantheongpu/pantheonsim/issues/722
   - https://github.com/ROCm/rocm-systems/issues/16468
@@ -143,6 +144,16 @@ For us: the live dest is **7.14.0**, newer than the 7.2 the reporter found clean
 
 For us: on gfx1100 with a 10.1-era compiler, a few-percent A/B difference between two builds of the same source can be this, not your change. Diff the ISA of both builds before trusting the number. VOPD (dual-issue) is RDNA3+, so gfx1030 and gfx900 should not hit this path; that is our reading, the report has no gfx10 or gfx9 data (unsourced).
 
+## Gotcha — ROCm 10.0 clang is ~4x slower than 7.13 on a gfx1100 WMMA W4A16 GEMM
+
+[TheRock#10272](https://github.com/ROCm/TheRock/issues/10272) (open, filed 2026-11-25) reports that on an RX 7900 XTX (**gfx1100**), the same unmodified vLLM RDNA3 W4A16 WMMA prefill kernel (`q_gemm_rdna3_wmma.cu`, `gemm_q4_wmma_kernel_128x64_k32<half>`) runs at ~72 TFLOPS when compiled by the ROCm 7.13 toolchain and ~17.7 TFLOPS when compiled by the ROCm 10.0 toolchain — a 4.06x GPU-side regression (`torch.cuda.Event`; host enqueue was 25–29 us in both cases). Shape: `M=2048, K=5120, N=5120`, fp16 activations, group_size 128. Either of two kernel sources (vLLM 0.31-lineage and vLLM 0.28) is ~72 TFLOPS on 7.13 and ~17.7 TFLOPS on 10.0, so the source is exonerated. A plain fp16 rocBLAS GEMM was 73.6 vs 74.5 TFLOPS on the same card and session, so this is not a clock, power, or BLAS difference. Both toolchains are LLVM 23 snapshots (7.13: `43215c73`; 10.0: `8f497e09`) on Windows 11, not WSL.[^tr10272]
+
+The two shipped code objects are nearly identical: 2659 vs 2591 instructions (the slower build is smaller), LDS 8704 B in both, 52 VGPRs / 33 SGPRs, zero spills, same workgroup size 1024 and wave32. The reporter's hypothesis is an LDS access-pattern or `s_waitcnt` placement change relative to `ds_read` / `v_wmma` (bank conflicts or wait hazards) that would not show up in instruction counts or resource usage.[^tr10272]
+
+A follow-up isolates the compiler from the runtime: the same kernel built with ROCm 7.13 `hipcc`, then loaded in a torch 2.13 + ROCm 10.0 runtime process, ran at 71.5 TFLOPS and was bitwise identical to the 10.0-built op at M=256 and M=2048. End-to-end on a 27B INT4 model (`TRITON_ATTN`, float16, `kv=auto`, maxlen 8192, batched 4096), swapping only the compiler recovered most of the prefill loss (2K: 284 → 730 tok/s; 5.7K: 265 → 501 tok/s) while decode stayed flat (41.9 vs 41.6 tok/s).[^tr10272]
+
+For us: the live dest pin is **7.14.0**, which this report does not measure (only 7.13 vs 10.0). The kernel is RDNA3 WMMA, so this path does not exist on gfx1030 or gfx900; the report has no data on those targets. Before any ROCm 10.0 (or 10.x clang) upgrade that rebuilds gfx1100 W4A16 WMMA prefill kernels, time the same `gemm_q4_wmma` shape on 7.13/7.14 vs the new compiler, and treat a 4x drop with unchanged occupancy as this codegen bug. A workaround in the report is to compile that `.cu` with the 7.13 compiler and run it on the 10.0 runtime. No pin change.
+
 ## Gotcha — Triton 3.9 true16 spills bf16-output GEMMs on gfx11
 
 [triton#12469](https://github.com/triton-lang/triton/issues/12469) (open) reports that Triton 3.9 enables true16 on gfx11 and that an LLVM AMDGPU selection FIXME can then use extra 32-bit registers per packed pair, up to 3x the VGPRs of Triton 3.8 in the worst case. The reporter (gfx1151) says Triton `main` no longer reproduces it after an LLVM bump that includes llvm-project#221960, but the FIXME is still there; a maintainer offered to disable true16 on the 3.9 branch if needed.[^tri12469] A 2026-11-19 comment narrows it on gfx1101 (triton-windows 3.9.0.post30, AITER `gemm_a16w16`, bf16 output, Windows only): 128×256×64 / 8 warps spills 54 VGPRs with true16 on and 0 with it off (0 on 3.8), and 128×128×64 / 4 warps spills 56 vs 0. Only bf16 output conversion triggers it; fp16 in and out or fp32 out adds no spills. Per kernel, `llvm_fn_attrs="target-features=-real-true16"` works for bf16 output but fails to assemble for fp16 output. In 7 of 10 timed shapes true16 on was about 2–5% slower (median on/off ratio 1.023–1.045); on N=3072, K=12288 it was faster (ratios 0.951 and 0.890).[^tri12469]
@@ -188,6 +199,7 @@ The pantheonsim GPU-simulator project compared its model against an RX 6800 and 
 [^llvm5478]: ROCm/llvm-project#5478, open, filed 2026-11-17 05:42 UTC by saqibkh; issue body (MIR before/after `si-peephole-sdwa`, repro.hip, RX 6800 gfx1030 result, 7.2 clean). https://github.com/ROCm/llvm-project/issues/5478
 [^llvm4513]: ROCm/llvm-project#4513, closed 2026-11-19 15:55 UTC; issue body (ASLR dependence, 6.3%, bisect to 10.1.0a20260818, `-amdgpu-enable-vopd=0`, scope gfx1100/gfx1151/gfx1201) and `shiltian` comments of 2026-11-03 and 2026-11-19. https://github.com/ROCm/llvm-project/issues/4513
 [^llvm232317]: llvm-project#232317, "[AMDGPU][VOPD] Make VOPD pairing load-overlap check deterministic", merged 2026-10-19 07:39 UTC. https://github.com/llvm/llvm-project/pull/232317
+[^tr10272]: TheRock#10272, open, filed 2026-11-25 06:07 UTC by chenjiahong; issue body (2x2 source×toolchain matrix, static resource table, rocBLAS control) and comments of 2026-11-25 06:38 UTC (7.13 clang + 10.0 runtime = 71.5 TFLOPS) and 06:56 UTC (27B INT4 prefill/decode table). https://github.com/ROCm/TheRock/issues/10272
 [^tri12469]: triton#12469, open; issue body (woct0rdho, gfx1151, Triton 3.9 true16, llvm-project#221960 on main), `antiagainst` comment 2026-10-30, `Ragua1` comment 2026-11-19 22:58 UTC (gfx1101 spill table, per-kernel switch, timing). https://github.com/triton-lang/triton/issues/12469
 [^pan728]: pantheongpu/pantheonsim#728, open, updated 2026-11-23 (gfx1030/gfx1031 measured f64 rcp/rsq/sqrt about 24 bits; compiler FMA refinement; raw builtins). https://github.com/pantheongpu/pantheonsim/issues/728
 [^pan722]: pantheongpu/pantheonsim#722, open, updated 2026-11-23 (RX 6800 gfx1030 special-operand table: f32 rcp/rsq/sqrt/exp/log flush denormals). https://github.com/pantheongpu/pantheonsim/issues/722
