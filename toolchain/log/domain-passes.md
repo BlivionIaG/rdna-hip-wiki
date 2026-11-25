@@ -718,3 +718,16 @@ Vs domain 2026-11-24 ~10:40. **No dest bump** (live **7.14.0**). Releases unchan
 | Item | Verdict | Note |
 |---|---|---|
 | [TheRock#10272](https://github.com/ROCm/TheRock/issues/10272) | **Take (compiler)** | gfx1100 (RX 7900 XTX): same vLLM RDNA3 W4A16 WMMA prefill kernel is ~72 TFLOPS with ROCm 7.13 clang and ~17.7 TFLOPS with ROCm 10.0 clang (4.06x, GPU-side). Instruction count and LDS/VGPR/SGPR nearly identical; 7.13 clang + 10.0 runtime stays fast (71.5 TFLOPS). 7.14 was not measured. New [compiler/](../compiler/README.md) gotcha. |
+
+## 2026-11-25 ~10:40 — domain pass (LLVM 22 exec-mask pass faults gfx1100; -O1 partition miscompile gfx1100; HIP half2int rounding; vLLM mixed-host arch; not dest)
+
+Vs domain 2026-11-24 ~10:40 and hourly 2026-11-25 ~08:53. **No dest bump** (live **7.14.0**). Pins per the hourly scan; releases therock-10.2 / rocm-7.14.0.
+
+| Item | Verdict | Note |
+|---|---|---|
+| [mw00/project-maya#1229](https://github.com/mw00/project-maya/issues/1229) | **Take (compiler)** | Mixed gfx1030;gfx1100 build, ROCm 7.2.4 clang-22: gfx1100 page fault traced to `amdgpu-opt-exec-mask-pre-ra` (`s_and_not1_saveexec_b32` re-enables masked lanes); `-mllvm -amdgpu-opt-exec-mask-pre-ra=0` fixes. Also CUDA `__nanosleep` spin with no HIP `s_sleep` branch. Third-party, not 7.14. |
+| [llvm-project#245765](https://github.com/llvm/llvm-project/issues/245765) | Take (compiler) | gfx1100 `-O1` miscompile of a 3-way partition kernel (TNL quicksort), `-O2`/`-O3` fine, on AMD clang 24 and upstream 23.1.5. Debug-build caveat only. |
+| [rocm-systems#16790](https://github.com/ROCm/rocm-systems/issues/16790) | Take (compiler/headers) | `__half2{int,…}_{rd,rn,ru}` all truncate in clr `amd_hip_fp16.h`, rocm-6.2.0 through 10.3 nightly. Arch-independent. |
+| [vllm#69740](https://github.com/vllm-project/vllm/issues/69740) | Take (runtime, mixed hosts) + note to VLLM_FORK_Manager | vLLM 0.34 reads `_GCN_ARCH` from `amdsmi_get_processor_handles()[0]`, ignoring `ROCR_VISIBLE_DEVICES`; per-GPU processes on mixed hosts get the first card's arch and VRAM. Fork `rocm.py` not checked (repo not visible to the connector). |
+| [Strata#7108](https://github.com/Niko1221/Strata/issues/7108) | Leave engine | gfx1030 RX 6800 XT Windows: 0.1.67 `unspecified launch failure` at a 34K prefill with ~1.2 GB free; 0.1.66 fine; non-deterministic. |
+| [rocm-systems#14860](https://github.com/ROCm/rocm-systems/issues/14860) | Already in runtime/ | dmem cgroup feature request, new comments only. |
