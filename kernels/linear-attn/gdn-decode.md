@@ -12,7 +12,13 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/7779514b449c358c14cb58c739cc33cd7efca3b4/csrc/rocm/gdn_decode_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/commit/f93619500c3e55daee5f60ae7f6d4279cdeb3f0d
   - https://github.com/opengfx1030/vllm-rdna/blob/50120e13b46895fc5d074e88fc493f1eef69da9f/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py
+  - https://github.com/opengfx1030/vllm-rdna/commit/3e2743351c97bd3f4367a23248b0e88495a249dd
+
 ---
+## Opt-in LeapQuant INT8 state at dest `rdna_extras` @ `3e274335` (checked 2026-11-15)
+
+PR #168 adds a default-off INT8 residual layout for the GDN recurrent state (`VLLM_RDNA_GDN_LEAPQUANT=1`). The default FP32 decode tile on this page is unchanged. Silicon lock: [gdn-leapquant.md](gdn-leapquant.md).[^gdnd-3e274335]
+
 # GDN packed decode — extras HIP (`69d2efe` / tip `47d92b6`)
 
 ## Spec-verify strided inputs at dest `rdna_extras` @ `13fbe2f9` (checked 2026-11-02)

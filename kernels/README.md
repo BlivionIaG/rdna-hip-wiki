@@ -31,7 +31,7 @@ Pages are grouped by topic. Each folder has its own README index; this page is t
 | [quant/](quant/README.md) | Weight/activation format contracts: pack, dequant, which DOT. | 15 |
 | [gemm-moe/](gemm-moe/README.md) | Dense skinny GEMM / GEMV and fused-MoE GEMM contracts, stock and extras. | 5 |
 | [attention/](attention/README.md) | Attention-side kernels: stock Triton baseline, KV INT8, Sage QK, sparse MLA, indexer. | 5 |
-| [linear-attn/](linear-attn/README.md) | Linear-attention / recurrent kernels: GDN decode + prefill, causal conv1d, FlashKDA. | 4 |
+| [linear-attn/](linear-attn/README.md) | Linear-attention / recurrent kernels: GDN decode + prefill, opt-in LeapQuant INT8 GDN state, causal conv1d, FlashKDA. | 5 |
 | [aot-glue/](aot-glue/README.md) | Small HIP glue that replaces Triton JIT: RMSNorm, AOT list. | 2 |
 | [models/](models/README.md) | Model-specific HIP glue (one page per model family). | 3 |
 | [persistent/](persistent/README.md) | Persistent single-launch decode kernels (MonoKernel class): gfx1030 port plan. | 1 |
@@ -123,6 +123,7 @@ Do not conflate W8A16 / W8A16-FP8 / W8A8-FP8 (`fdot2`) with spec W8A8 INT8 (`sdo
 | [linear-attn/causal-conv1d.md](linear-attn/causal-conv1d.md) | scalar fp32 FMA (depthwise FIR) | Live HIP (still default on at `1dc3bac4`). UPDATE wire order fixed at `1dc3bac4` (HIP before Triton) |
 | [linear-attn/gdn-decode.md](linear-attn/gdn-decode.md) | fp32 FMA + shfl K-reduce | Decode HIP Live (`69d2efe`); default on at `1dc3bac4` |
 | [linear-attn/gdn-prefill.md](linear-attn/gdn-prefill.md) | kkt `v_dot2c_f32_f16` (fp16-rounded beta*k); wy/delta_h/o `fdot2` | Prefill HIP **default on** at `30d6e82d` (`VLLM_GDN_HIP_PREFILL` default 1). delta_h `(4, 8)` = 2 WG/CU @ 37120 B LDS; o BV 64. *(`1dc3bac4`: opt-in, all `(2,4)`, o BV 32 — historical)* |
+| [linear-attn/gdn-leapquant.md](linear-attn/gdn-leapquant.md) | scalar FP32 FMA after INT8 dequant (no packed DOT) | Opt-in at `3e274335` (`VLLM_RDNA_GDN_LEAPQUANT=1`, default off). gfx1030 HIP only |
 
 ### AOT glue — [aot-glue/](aot-glue/README.md)
 
