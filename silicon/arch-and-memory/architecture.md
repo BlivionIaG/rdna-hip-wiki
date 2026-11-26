@@ -210,6 +210,8 @@ From the RDNA architecture deck (RDNA 1 WGP; RDNA 2 ISA does not change the SIMD
 
 HIP’s generic “issue arbiter can issue five instructions per cycle (VALU + VMEM + SALU/SMEM + LDS + branch)” paragraph is written against a **CDNA CU** diagram. Do not treat “5-issue” as an RDNA 2 WGP fact; the RDNA deck only guarantees **1 VALU/cycle/SIMD32** plus SALU/VMEM/LDS as separate pipes. Exact RDNA 2 issue-group width beyond “VALU every cycle, SALU independent, VMEM independent” is **not quantified in the ISA**.[^rdna-arch]
 
+Occupancy framing for independent issue pipes (not a PIX MaxWaves row; sibling-wave / ILP fill of waitcnt parks): [issue-pipe-occupancy.md](../occupancy/issue-pipe-occupancy.md).
+
 ### 2.3 Wavefront size
 
 | Mode | Lanes | How it runs | Compiler control |
