@@ -1,7 +1,8 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-18
+updated: 2026-11-26
 sources:
+  - https://github.com/ROCm/rocm-systems/pull/16815
   - https://github.com/ROCm/rocm-systems/blob/65575fbbe6f73b9d9d96bfbcb523c856709e664c/emulation/rocjitsu/README.md
   - https://github.com/ROCm/rocm-systems/tree/65575fbbe6f73b9d9d96bfbcb523c856709e664c/emulation/rocjitsu/configs
   - https://github.com/ROCm/rocm-systems/blob/65575fbbe6f73b9d9d96bfbcb523c856709e664c/shared/machine-readable-isa/isa/amdgpu_isa_rdna2.xml
@@ -82,6 +83,12 @@ llama.cpp's spill job (`.github/workflows/hip-quality-check.yml` on master, read
 - **HIP binding.** `libhrx/src/binding/hip/amdhip64.map` is a `libamdhip64` symbol version script "generated from TheRock nightly libamdhip64.so exports".[^hrxhip] The binding's device-info code maps `gfx1030` to compute capability 10.3,[^hrxinit] but loading hipcc-built gfx1030 code objects through it is untested here (unsourced as working).
 - **Reference docs.** `docs/reference/amd/gpu/` documents PM4, SDMA, queues and counters with footnotes to driver and kernel sources.[^hrxdocs] Cache-policy and silicon claims from it belong on the [silicon/](../../silicon/) pages, not here.
 
+## rocprofiler-compute counters on gfx1100 (open fix)
+
+[rocm-systems#16815](https://github.com/ROCm/rocm-systems/pull/16815) (open, filed 2026-11-25) says that during gfx1250 enablement [rocm-systems 9d29a1d](https://github.com/ROCm/rocm-systems/commit/9d29a1da312470ebfb1cc3d862e607d9a1960559) (#9541) dropped entries from Compute Profiler's own counter override, and gfx1100 still lacks the historical set. Because Compute supplies its YAML through `ROCPROFILER_METRICS_PATH`, the installed SDK definitions cannot fill the gap. The PR restores 84 gfx1100 definitions (41 raw selectors, 43 derived metrics/constants).[^sys16815]
+
+For us: if `rocprof-compute` on a W7800 or 7900 XTX reports missing counters, this is the first suspect; plain `rocprofv3` counter collection uses the SDK definitions and is the fallback. Whether the 7.14.0 tree predates #9541 was not checked. gfx1030 is not part of the PR.
+
 ## Sources
 
 TheRock main now pins rocm-systems `16ad3db` ([TheRock#9822](https://github.com/ROCm/TheRock/pull/9822), merged 2026-11-09), which brings in rocjitsu's RDNA comparison, conversion, register/lane-routing and graphics-arithmetic handlers routed through its `rj-arith` library ([#13955](https://github.com/ROCm/rocm-systems/pull/13955), [#13957](https://github.com/ROCm/rocm-systems/pull/13957), [#13958](https://github.com/ROCm/rocm-systems/pull/13958), [#13959](https://github.com/ROCm/rocm-systems/pull/13959)). The PRs say "RDNA" without naming a gfx103x target, and the configs list still has no gfx1030 JSON, so treat this as tip-only emulator progress, not a gfx1030 path.[^tr9822]
@@ -101,3 +108,4 @@ TheRock main now pins rocm-systems `16ad3db` ([TheRock#9822](https://github.com/
 [^hrxhip]: `amdhip64.map` header at `39d683333c2b`. https://github.com/ROCm/hrx-system/blob/39d683333c2b5d393ddd51aef1eb3c1d01e9a07e/libhrx/src/binding/hip/amdhip64.map
 [^hrxinit]: `libhrx/src/binding/common/init.c` device-info comment at `39d683333c2b` (line 78). https://github.com/ROCm/hrx-system/blob/39d683333c2b5d393ddd51aef1eb3c1d01e9a07e/libhrx/src/binding/common/init.c
 [^hrxdocs]: `docs/reference/amd/gpu/` at `39d683333c2b`. https://github.com/ROCm/hrx-system/tree/39d683333c2b5d393ddd51aef1eb3c1d01e9a07e/docs/reference/amd/gpu
+[^sys16815]: rocm-systems#16815, open, filed 2026-11-25 15:57 UTC; PR body (cause in #9541, override via ROCPROFILER_METRICS_PATH, 84 restored definitions). https://github.com/ROCm/rocm-systems/pull/16815

@@ -2,6 +2,7 @@
 owner: ROCM_specialist
 updated: 2026-11-26
 sources:
+  - https://github.com/mw00/project-maya/issues/1281
   - https://github.com/ROCm/TheRock/issues/10295
   - https://github.com/ROCm/TheRock/issues/10272
   - https://github.com/ROCm/TheRock/issues/9564
@@ -198,6 +199,12 @@ The reporter then edited real library headers with the original probe already ca
 
 For us: this was not measured on Linux, on ROCm 7.14.0, or on gfx1030 / gfx900. The live dest pin does not change. If a HIP rebuild with ccache or sccache ignores a device-only header edit, compile that translation unit without the launcher (or clear the cache) and compare the code object. dest `tools/rdna/archdiff.sh` can pass `-DCMAKE_HIP_COMPILER_LAUNCHER=ccache` when `CCACHE=1`; the script's default is 0.[^archdiffccache]
 
+## Gotcha — default FP contraction breaks bit-exact checks between fused and unfused kernels (gfx1100)
+
+[mw00/project-maya#1281](https://github.com/mw00/project-maya/issues/1281) (open, filed 2026-11-26) reports one failure in 397 kernel checks on an RX 7900 XTX (gfx1100): a fused MoE-combine kernel no longer matches the unfused pair bit for bit. The reporter attributes it to clang's default `-ffp-contract=fast`, which can fuse multiply-adds differently in the two kernels; building with `-ffp-contract=on` (what that project already uses for gfx942/gfx950) passed all 397. Decode speed was the same (90.8/90.5 vs 90.5/90.4 tok/s), but logits moved (top-1 agreed 64/64, max |d| 15.6 on one token).[^maya1281]
+
+For us: a bit-exact parity test between a fused kernel and its reference on gfx1030 or gfx1100 needs either the same `-ffp-contract` setting on both sides or an FMA-sized tolerance. Record the contraction flag next to the compiler version in any parity report. Not tested here on 7.14.0.
+
 ## `-O0` integer divide, and wave64
 
 [TheRock#7751](https://github.com/ROCm/TheRock/issues/7751) is **closed**. The issue body reports that ROCm 7.2.4 and 7.14 miscompile i32 `udiv` / `urem` at `-O0` on gfx1034 (float reciprocal instead of the integer path). The same kernels were correct at `-O1`/`-O2`/`-O3`, and correct at `-O0` on ROCm 6.4.3. `schung-amd` commented that they reproduced it on gfx1100, and later that it should be fixed in current nightlies via llvm-project#201186 and llvm-project#202753.[^tr7751] Live extras stay `-O3` on 7.14.0.
@@ -243,3 +250,4 @@ For us: this was not measured on Linux, on ROCm 7.14.0, or on gfx1030 / gfx900. 
 [^maya1229]: mw00/project-maya#1229, open, filed 2026-11-24 15:50 UTC; issue body (ROCm 7.2.4 clang-22, `-amdgpu-opt-exec-mask-pre-ra=0`, `s_sleep` branch, 2× W6800 + RX 7900 XTX). https://github.com/mw00/project-maya/issues/1229
 [^llvm245765]: llvm-project#245765, open, filed 2026-11-24 21:01 UTC; issue body (toolchain table, TNL workaround) and `lahwaacz` bisect comment of 2026-11-24. https://github.com/llvm/llvm-project/issues/245765
 [^sys16790]: rocm-systems#16790, open, filed 2026-11-25 08:24 UTC; issue body (header lines 493-586, versions checked, MI210). https://github.com/ROCm/rocm-systems/issues/16790
+[^maya1281]: mw00/project-maya#1281, open, filed 2026-11-26; issue body (1.1.81 4a0ce6e, `MAYA_HIP_FP_CONTRACT_ON`, speed and logit deltas). https://github.com/mw00/project-maya/issues/1281

@@ -2,6 +2,14 @@
 owner: ROCM_specialist
 kind: scan-log
 sources:
+  - https://github.com/freriadoc/Avalon/issues/77
+  - https://github.com/ROCm/rocm-systems/issues/16886
+  - https://github.com/mw00/project-maya/issues/1281
+  - https://github.com/ROCm/rocm-systems/pull/16815
+  - https://github.com/ROCm/TheRock/issues/10281
+  - https://github.com/ROCm/aiter/pull/8605
+  - https://github.com/vllm-project/vllm/pull/69877
+  - https://github.com/ROCm/rocm-libraries/pull/9164
   - "https://github.com/ROCm/TheRock/issues/10295"
   - "https://github.com/ROCm/TheRock/issues/10272"
   - "https://github.com/ROCm/TheRock/issues/9564"
@@ -743,3 +751,17 @@ Vs domain 2026-11-25 ~10:40 and hourly 2026-11-25 ~08:53. **No dest bump** (live
 | [TheRock#10272](https://github.com/ROCm/TheRock/issues/10272) | **Take (compiler, correction)** | Reporter narrowed the gfx1100 W4A16 WMMA ~4x regression to Windows clang-cl; Linux ROCm 10.0 wheel is fast (1217 vs 321 tok/s). AMD pointed at closed [TheRock#9564](https://github.com/ROCm/TheRock/issues/9564) (Windows opt flags dropped; fix claimed in nightlies ≥10.3.0a20261112); match unconfirmed (#9564's 10.0.0 stock was already fast on gfx1151; forced -O3 in #10272 did not help). Updated [compiler/](../compiler/README.md) gotcha. |
 | [TheRock#10295](https://github.com/ROCm/TheRock/issues/10295) | **Take (compiler)** | ccache and sccache can reuse stale HIP objects after a `__HIP_DEVICE_COMPILE__`-only header change. Measured on Windows, pip ROCm 10.3 nightly, gfx1100; 19/25 real-header edits stale; switching caches or disabling direct mode is not a workaround. Not measured on Linux or 7.14. New [compiler/](../compiler/README.md) gotcha. |
 
+## 2026-11-26 ~10:30 — domain pass (ROCm 10.2 hosted-MoE hang on gfx1030; HIP IPC across host-network containers; fp-contract parity; rocprof-compute gfx1100 counters; not dest)
+
+Vs domain 2026-11-25 ~10:40 and hourly 2026-11-26 ~08:53. **No dest bump** (live **7.14.0**). Releases unchanged (therock-10.2, rocm-7.14.0).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [Avalon#77](https://github.com/freriadoc/Avalon/issues/77) | **Take (runtime)** | gfx1030 RX 6800 XT, TheRock 10.2.0 gfx103X: second agent request hangs in `hipStreamQuery` (hosted-MoE wait) 4/4; SDMA/HW-queue switches do not clear it; 7.14.1 passes; 10.2 also slower. gfx1101 Windows commenter matches. Added to [runtime/](../runtime/README.md) stall section. |
+| [rocm-systems#16886](https://github.com/ROCm/rocm-systems/issues/16886) | **Take (runtime)** | 7.14.0 wheels, W7900 gfx1100: `hipIpcGetMemHandle` fails when two host-network containers have equal namespaced PIDs (RCCL init fails in one of two). New [runtime/](../runtime/README.md) section. |
+| [project-maya#1281](https://github.com/mw00/project-maya/issues/1281) | Take (compiler) | gfx1100: default `-ffp-contract=fast` breaks one fused-vs-unfused bit-exact check; `-ffp-contract=on` passes, same speed, logits move. New [compiler/](../compiler/README.md) gotcha. |
+| [rocm-systems#16815](https://github.com/ROCm/rocm-systems/pull/16815) | Take (tools) | Open fix restoring 84 gfx1100 counter definitions dropped from rocprofiler-compute's override by #9541. New [tools/](../tools/README.md) section. |
+| [TheRock#9484](https://github.com/ROCm/TheRock/issues/9484) | Update (runtime) | Independent confirmation with MES `0x86` + TheRock 10.0.0; gfx1151 commenter. Runtime note extended. |
+| [TheRock#10281](https://github.com/ROCm/TheRock/issues/10281) | Leave (watch for CK SDPA trial) | New PyTorch nightly test `test_flash_attention_ck_head_dims_gradients` fails bf16 causal dq/dk on gfx110X/gfx1151/gfx94X; AMD (jeffdaily) says new test with fixed 1e-2 tolerance vs fp32 reference, not a kernel regression. Backward only. |
+| [aiter#8605](https://github.com/ROCm/aiter/pull/8605), [vllm#69877](https://github.com/vllm-project/vllm/pull/69877) | Leave engine | ROCM_RDNA_ATTN port to aiter (gfx115x/gfx120x only, draft) and an upstream gfx1100 table for it; engine side, no gfx1030. |
+| [rocm-libraries#9164](https://github.com/ROCm/rocm-libraries/pull/9164) | Leave | fp64 split-K for consumer RDNA DD fallback (gfx1100 6-37x on tiny-MN huge-K dgemm); not an inference path. |
