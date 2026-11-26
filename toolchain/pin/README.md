@@ -66,7 +66,7 @@ TheRock `SUPPORTED_GPUS.md` at `74744339975d50c76a942aad3e090c4d95116af6` (main,
 Two open upstream threads describe ROCm-era userspace failing on older in-tree amdgpu, and both clear on a kernel whose amdgpu is **DRM 3.64**.
 
 - Silent RCCL `all_gather` / `reduce_scatter` corruption, and gfxhub page faults, on the Ubuntu 24.04 stock **6.8** kernel (`6.8.0-139`). The same host on HWE **7.0.0-34** (in-tree amdgpu **3.64.0**) ran the rccl-tests clean and 10 of 10 vLLM TP=8 starts clean. `HSA_DISABLE_CACHE=1` is the stopgap named in the report. AMD (`lucbruni-amd`) attributes the 6.8 failure to the kernel driver and asks for `uname -r` and `modinfo -n amdgpu`.[^rccl12145][^rccl6565] Write-up: [comms/](../comms/README.md).
-- `hipMemAddressReserve` → `hipMemCreate` → `hipMemMap` → `hipMemSetAccess` blocks in `DRM_IOCTL_SYNCOBJ_TIMELINE_WAIT` when 7.14 userspace runs on DRM **3.61**, because libhsakmt asks for GEM_VA timeline output that older amdgpu ignores. The open fix gates that path on DRM ≥ 3.64.[^vmm9820][^vmm9821] Write-up: [runtime/](../runtime/README.md).
+- `hipMemAddressReserve` → `hipMemCreate` → `hipMemMap` → `hipMemSetAccess` blocks in `DRM_IOCTL_SYNCOBJ_TIMELINE_WAIT` when 7.14 userspace runs on DRM **3.61**, because libhsakmt asks for GEM_VA timeline output that older amdgpu ignores. The fix, merged to `develop` on 2026-10-29 but not yet in a tagged release, gates that path on DRM ≥ 3.64; ROCm 7.14.0 itself still has the hang.[^vmm9820][^vmm9821] Write-up: [runtime/](../runtime/README.md).
 
 Record the kernel release and the amdgpu DRM version next to the ROCm version in any bring-up note. The previous page's `dmesg | grep "Initialized amdgpu"` one-liner was not in the issues opened this pass (unsourced).
 
@@ -82,4 +82,4 @@ Record the kernel release and the amdgpu DRM version next to the ROCm version in
 [^rccl12145]: rocm-systems#12145, including the 2026-10 follow-up that 7.0.0-34 / amdgpu 3.64.0 clears the 8×V620 failure. https://github.com/ROCm/rocm-systems/issues/12145
 [^rccl6565]: legacy-rocm-build#6565, comment by `lucbruni-amd` on 2026-10-06 attributing the failure to Ubuntu's 6.8 amdgpu. https://github.com/ROCm/legacy-rocm-build/issues/6565
 [^vmm9820]: rocm-systems#9820. https://github.com/ROCm/rocm-systems/issues/9820
-[^vmm9821]: rocm-systems#9821, open. https://github.com/ROCm/rocm-systems/pull/9821
+[^vmm9821]: rocm-systems#9821, merged 2026-10-29T21:53Z into develop. https://github.com/ROCm/rocm-systems/pull/9821
