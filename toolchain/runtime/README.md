@@ -1,7 +1,11 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-16
+updated: 2026-10-26
 sources:
+  - https://github.com/ROCm/TheRock/issues/9484
+  - https://github.com/ROCm/TheRock/issues/9141
+  - https://github.com/ROCm/TheRock/issues/9475
+  - https://github.com/ROCm/rocm-systems/issues/14234
   - https://github.com/ROCm/rocm-systems/issues/10943
   - https://github.com/OpenNMT/CTranslate2/issues/2090
   - https://github.com/ROCm/rocm-systems/issues/9820
@@ -18,7 +22,9 @@ sources:
   - https://github.com/torvalds/linux/commit/b89d58b6595d79dc3fe75e213e1f4c5efd0251d4
   - https://github.com/ROCm/legacy-rocm-build/issues/6003
   - https://github.com/ROCm/rocm-systems/blob/2d8b4d61b89499019698982be71926a4f9c4907e/projects/rocr-runtime/libhsakmt/src/openclose.c
-  - https://github.com/ROCm/legacy-rocm-build/issues/6698
+  - https://github.com/ROCm/TheRock/issues/9306
+  - https://github.com/ROCm/TheRock/pull/9432
+  - https://github.com/ROCm/TheRock/pull/9440
   - https://github.com/Niko1221/Strata/issues/2245
   - https://github.com/Niko1221/Strata/issues/2305
   - https://github.com/ROCm/rocm-systems/blob/e6527207c5057d6d5c992203e7970b3170e581b7/projects/clr/rocclr/device/rocm/rocdevice.cpp
@@ -58,7 +64,7 @@ flowchart TD
   async --> asyncbad["reported: buffer reads back as zeros, hipSuccess"]
   async --> thr["hipMemPoolAttrReleaseThreshold = UINT64_MAX: 0 of 600"]
   vmm --> hang["DRM 3.61: hipMemSetAccess waits in DRM_IOCTL_SYNCOBJ_TIMELINE_WAIT"]
-  vmm --> vmmok["DRM 3.64: open fix keeps the timeline wait"]
+  vmm --> vmmok["DRM 3.64: fix keeps the timeline wait"]
 ```
 
 ### `hipMallocAsync` default pool
@@ -75,7 +81,7 @@ The reports are on HIP 7.2.53211. This page has no 7.14.0 repro. Treat the bug a
 
 [rocm-systems#9820](https://github.com/ROCm/rocm-systems/issues/9820) (open): with ROCm 7.14 userspace on amdgpu DRM 3.61, `hipMemSetAccess` blocks forever in `DRM_IOCTL_SYNCOBJ_TIMELINE_WAIT`. libhsakmt puts GEM_VA timeline output in the ioctl; DRM 3.64 added that output, and older amdgpu accepts the larger struct and ignores the extra fields, so the wait never completes. PyTorch reaches it through `PYTORCH_HIP_ALLOC_CONF=expandable_segments:True`. Turning expandable segments off avoids the path.[^vmm9820]
 
-[rocm-systems#9821](https://github.com/ROCm/rocm-systems/pull/9821) (open) gates the timeline syncobj on DRM ≥ 3.64 and uses the synchronous VA op below that. The PR's test notes say a physical DRM 3.61 host reproduced the hang, and DRM 3.64 completed the timeline waits.[^vmm9821] Host kernel versions for the RCCL symptom on the same DRM boundary are [comms/](../comms/README.md).
+[rocm-systems#9821](https://github.com/ROCm/rocm-systems/pull/9821) (merged to `develop` on 2026-10-29; not in a tagged ROCm release yet) gates the timeline syncobj on DRM ≥ 3.64 and uses the synchronous VA op below that. The PR's test notes say a physical DRM 3.61 host reproduced the hang, and DRM 3.64 completed the timeline waits.[^vmm9821] Host kernel versions for the RCCL symptom on the same DRM boundary are [comms/](../comms/README.md).
 
 [pytorch#200608](https://github.com/pytorch/pytorch/issues/200608) (open) is a second expandable-segments failure, in PyTorch's allocator rather than the kernel interface. On WSL2 (RX 7800 XT, ROCm 7.2.4, torch 2.12.1+rocm7.2) the allocator hits `TORCH_INTERNAL_ASSERT(!handles_.at(i))` in `ExpandableSegment::map()` with 4 to 5 GiB still free. A 2026-10-15 comment from bare-metal Linux (RX 7900 XT gfx1100, kernel 7.0, torch 2.14.1+rocm7.2, HIP 7.2.53211) saw no assert. Instead the same seed gave a different output every run and the next prompt hit `hipErrorIllegalAddress`, with an amdgpu page fault at a 2 MiB-aligned address no longer mapped in the process. `AMD_SERIALIZE_KERNEL=3 AMD_SERIALIZE_COPY=3` did not help. With expandable segments off: 0 faults and 5 of 5 runs bit-identical.[^pt200608] [pytorch#200774](https://github.com/pytorch/pytorch/pull/200774) (open) says the cause is `map()` recording new handles before `hipMemMap` / `hipMemSetAccess` succeed, so a failed map leaves slots occupied, and makes the mapping roll back on failure.[^pt200774] The comment does not give the DRM version, so whether its failed map is the DRM 3.64 hang above is not known. Until #200774 is in a wheel we use, leave `expandable_segments` off on ROCm.
 
@@ -113,11 +119,17 @@ Stream priority changed between releases. In `therock-7.14.1` and `therock-10.0`
 
 ### gfx1030 cross-queue stall (V620)
 
-[legacy-rocm-build#6698](https://github.com/ROCm/legacy-rocm-build/issues/6698) (open, filed 2026-10-13) reports a silent hang on 2× Radeon Pro V620 (gfx1030, Linux 7.0 in-tree amdgpu, TheRock wheels 7.14.0a20260612 and 7.13.0a20260515). Two hardware queues hold valid pending AQL packets, the MEC pipes that own them are idle, no waves exist, and no error is raised anywhere; the process has to be killed. `amdgpu.cwsr_enable=0` did not help.[^q-6698] The workload is Strata's two-GPU layer split with an MTP drafter and two overlapped verify windows.[^q-2245]
+[TheRock#9306](https://github.com/ROCm/TheRock/issues/9306) (open, filed 2026-10-13 as legacy-rocm-build#6698, whose URL now redirects here; labelled `status: triage` and assigned to an AMD engineer, no AMD reply yet as of 2026-10-23) reports a silent hang on 2× Radeon Pro V620 (gfx1030, Linux 7.0 in-tree amdgpu, TheRock wheels 7.14.0a20260612 and 7.13.0a20260515). Two hardware queues hold valid pending AQL packets, the MEC pipes that own them are idle, no waves exist, and no error is raised anywhere; the process has to be killed. `amdgpu.cwsr_enable=0` did not help.[^q-6698] The workload is Strata's two-GPU layer split with an MTP drafter and two overlapped verify windows.[^q-2245]
 
 The reporter's 2026-10-13 update: `GPU_MAX_HW_QUEUES=2` avoided the stall in 116 of 116 requests, while 4 (default) and 6 stalled. 8 did not stall but decoded about 40% slower, and 16 about 95% slower. With 2 queues, the drafter stream and the stage-1 verify stream share one hardware queue, so their per-window event hand-off never crosses queues or pipes. The reporter reads the trigger as that cross-queue hand-off; AMD had not replied when we read it.[^q-6698] In the Strata thread, one specific drafter attention kernel (8 cells per step with DPP lane exchanges) made the hang near-certain, and every variant without it ran clean; the reporter calls it a timing trigger, not a math bug. A gfx1100 user on Windows reported the same hang where that kernel does not run.[^q-2245] A separate R9700 (gfx1201) report found the drafter fast or slow depending on the engine start, and `GPU_MAX_HW_QUEUES=2` made every start fast. That is a throughput effect, not a hang.[^q-2305]
 
 For our HIP code: if two streams hand work back and forth through events every step, assume their queue placement can differ from run to run. When a multi-stream engine on gfx1030 hangs with an idle GPU and no fault, try `GPU_MAX_HW_QUEUES=2` before blaming a kernel, then measure decode against the default. Putting both stages on one stream does not depend on clr's mapping. No 7.14.0 pin change.
+
+### gfx1100 idle power with a pending barrier (MES)
+
+[TheRock#9484](https://github.com/ROCm/TheRock/issues/9484) (open, filed 2026-10-26 01:39 UTC, no AMD reply yet) reports that on an RX 7900 XTX (gfx1100, MES firmware 0x80), a single HSA queue holding one unsatisfied AQL `BARRIER_AND` packet raises idle board power from 9–10 W to 92–94 W at 100% GFX activity, with no compute wave resident. Drained queues idle normally. The reporter reproduced it on ROCm 7.2.4, 7.14 and 10.1, and says `sched_policy=2` and the August gfx11 MES timer correction did not fix it.[^q-9484] The reporter links it to [TheRock#9141](https://github.com/ROCm/TheRock/issues/9141), an older 100%-utilisation report where an AMD contributor reproduced stuck 100% GPU use on gfx1100 with three or more llama.cpp instances and suggested `GPU_MAX_HW_QUEUES=1` as a partial workaround.[^q-9141]
+
+Our reading, not tested here: a HIP stream that waits on an event that is not yet recorded (`hipStreamWaitEvent` ahead of the producer) leaves exactly this kind of barrier packet in the queue, so a server that parks streams on cross-stream events between requests may burn power on gfx1100 while idle. Check board power on the W7800 and 7900 XTX boxes with an idle engine before treating it as a load problem. No gfx1030 report so far. No 7.14.0 pin change.
 
 ### `multiProcessorCount` counts WGPs on RDNA
 
@@ -128,6 +140,10 @@ clr reads the agent's CU count and halves it when WGP mode is on. `GPU_ENABLE_WG
 Device `printf` and `assert` reach the host through a hostcall buffer. The device side (ockl in device-libs) and the host side (clr) must speak the same protocol. TheRock [#8259](https://github.com/ROCm/TheRock/pull/8259) (merged 2026-10-02) turned the new hostcall implementation on by default by setting `THEROCK_USE_NEW_HOSTCALL_IMPL` to ON, which TheRock passes to both device-libs and clr; the old path stayed selectable with `=OFF`.[^tr8259] [#9021](https://github.com/ROCm/TheRock/pull/9021) (merged 2026-10-15 20:07 UTC) reverts it because it "breaks HSA and ROCGDB" (two internal P1 tickets). A reviewer wrote that it broke things on 110X and gfx90a, and that `rocgdb-gpu` tests were clean on 110X, gfx90a and gfx1151 with the revert.[^tr9021] A related TheRock PR, [#8833](https://github.com/ROCm/TheRock/pull/8833) (closed 2026-10-15 without merge), was about Triton wheels shipping an OCKL that did not match the SDK, so device-side hostcalls in Triton kernels hung.[^tr8833]
 
 Our reading, not checked against nightly contents: TheRock nightlies built between those two merges carry the new hostcall default. If device `printf`, `assert`, or rocgdb misbehaves on a gfx1100 box with such a nightly, that is the first suspect, not the kernel. The 7.14.0 dest predates #8259.
+
+[#9432](https://github.com/ROCm/TheRock/pull/9432) (merged 2026-10-22 22:31 UTC) relands it: it reverts #9021 and sets `THEROCK_USE_NEW_HOSTCALL_IMPL` back to ON for device-libs and clr. Its description says "Land this after 10.2 snaps" and does not say what fixed the HSA and ROCgdb breakage.[^tr9432] About two and a half hours earlier, [#9440](https://github.com/ROCm/TheRock/pull/9440) raised the main-branch version to 10.3.0.[^tr9440] Our reading: TheRock main nightlies from 2026-10-23 on carry the new hostcall again, and a 10.2 release cut from before #9432 would not. The same triage as above applies to those nightlies, and `-DTHEROCK_USE_NEW_HOSTCALL_IMPL=OFF` is the switch for a source build. The 7.14.0 dest is unaffected.
+
+[TheRock#9475](https://github.com/ROCm/TheRock/issues/9475) (open, filed 2026-10-25) is a Windows report on an RX 6800 (gfx1030, TheRock `rocm-sdk` 10.1.0 wheels): each hostcall takes seconds because the device's mailbox interrupt never seems to reach the host listener, which only wakes on its 4–16 s timeout under the default `USE_NEW_HOSTCALL_IMPL=OFF` in that build. One `printf` per thread takes 12–16 s; two per thread get the kernel killed after about 20 s, `hipDeviceSynchronize` still returns success, and the next `hipMemcpy` fails with `hipErrorLaunchFailure`. Building with `-mprintf-kind=buffered` avoids it.[^hc9475] It is Windows-only so far; on Linux gfx1030 this page has no such report. `-mprintf-kind=buffered` is also the low-risk choice for debug builds of our own kernels.
 
 [rocm-systems#11277](https://github.com/ROCm/rocm-systems/pull/11277) (open) covers a separate hostcall failure. A kernel whose metadata declares `hidden_hostcall_buffer` cannot be dispatched on a device without PCIe AtomicOps to the host, and today clr refuses at dispatch with `hipErrorIllegalState` and only a debug-level log line. The PR says any kernel that links `printf` or `assert` declares the buffer whether or not it runs a hostcall, and that RCCL 2.30.4 declares it on thirteen kernels; it cites RCCL reports on gfx1100 and gfx1201 that reach this failure. The PR names the refused kernel and adds an opt-in to proceed.[^clr11277] For our kernels: keep `printf` and `assert` out of release builds, so a host without PCIe atomics can still launch them. Whether the V620 host's PCIe path exposes AtomicOps was not checked here.
 
@@ -146,12 +162,14 @@ Until both land: build every binary for every arch in the box, and run one proce
 
 [rocm-systems#13234](https://github.com/ROCm/rocm-systems/issues/13234) (open, filed 2026-10-10) reports that `hipGraphLaunch` never returns when one graph segment holds at least `2 * ROC_AQL_QUEUE_SIZE` AQL packets: the host spins at 100% CPU and the GPU sits idle. The issue traces it to `VirtualGPU::ReserveAqlSlots` in clr publishing the whole packet count before writing bodies, with no cap at the ring size. With a 16384-slot ring, 32767 launches completed and 32768 hung; the report notes that a batch just above one ring passes. Reproduced on gfx1151 with ROCm 7.2.1 and 10.0.0.[^graph13234] The code it names is in clr's ROCm device path, not arch-specific code, but this page has no gfx1030 or gfx1100 repro. Keep captured decode graphs well under two rings per segment, or raise `ROC_AQL_QUEUE_SIZE`.
 
+[rocm-systems#14234](https://github.com/ROCm/rocm-systems/issues/14234) (open, filed 2026-10-26) reports a SIGSEGV inside `libamdhip64` 7.2.4 (`hip-runtime-amd 7.2.53211.70204`) on an RX 7900 XTX (gfx1100): an internal kernarg arena allocator returns NULL and the caller writes to address 0 with no check. The backtrace runs through llama.cpp's CUDA-graph capture path during MTP speculative decoding. The reporter's core analysis shows the arena alive with a fresh, never-used 4 MiB chunk and a zero cursor, and does not name a root cause.[^graph14234] Watch it if a captured decode graph crashes in `libamdhip64` with a NULL destination; it is not reported on 7.14.0.
+
 ## Sources
 
 [^malloc10943]: rocm-systems#10943, open, including the gfx1100 follow-up comment. https://github.com/ROCm/rocm-systems/issues/10943
 [^ct2090]: CTranslate2#2090, open. https://github.com/OpenNMT/CTranslate2/issues/2090
 [^vmm9820]: rocm-systems#9820, open. https://github.com/ROCm/rocm-systems/issues/9820
-[^vmm9821]: rocm-systems#9821, open. https://github.com/ROCm/rocm-systems/pull/9821
+[^vmm9821]: rocm-systems#9821, merged 2026-10-29T21:53Z into develop. https://github.com/ROCm/rocm-systems/pull/9821
 [^graph12638]: rocm-systems#12638, open. https://github.com/ROCm/rocm-systems/issues/12638
 [^rn7140]: ROCm Core SDK 7.14.0 release notes, dated 2026-07-15. https://rocm.docs.amd.com/en/docs-7.14.0/about/release-notes.html
 [^pin12528]: rocm-systems#12528, open, issue body (gfx1200 measurements, staging workaround). https://github.com/ROCm/rocm-systems/issues/12528
@@ -170,7 +188,7 @@ Until both land: build every binary for every arch in the box, and run one proce
 [^q-flags714]: clr `flags.hpp` at tag `therock-7.14.1`: `GPU_MAX_HW_QUEUES` 4, `DEBUG_HIP_IGNORE_STREAM_PRIORITY` false ("Ignore priority streams"); `therock-10.0` also false (read 2026-10-14). https://github.com/ROCm/rocm-systems/blob/therock-7.14.1/projects/clr/rocclr/utils/flags.hpp
 [^q-pool]: clr `rocdevice.cpp` at `e6527207`, `Device::getQueueFromPool` and `Device::acquireQueue` (reuse only at the limit; unshared first; mode 1+ load metric, mode 0 refCount). Same functions present at tag `therock-7.14`. https://github.com/ROCm/rocm-systems/blob/e6527207c5057d6d5c992203e7970b3170e581b7/projects/clr/rocclr/device/rocm/rocdevice.cpp
 [^q-8485]: rocm-systems#8485, "Disable Stream priorities in HIP to reflect KFD functionality", merged 2026-08-06. https://github.com/ROCm/rocm-systems/pull/8485
-[^q-6698]: legacy-rocm-build#6698, open, issue body and `metzenwest` comment 2026-10-13 22:04 UTC (`GPU_MAX_HW_QUEUES` table). https://github.com/ROCm/legacy-rocm-build/issues/6698
+[^q-6698]: TheRock#9306 (formerly legacy-rocm-build#6698), open, issue body and `metzenwest` comment 2026-10-13 22:04 UTC (`GPU_MAX_HW_QUEUES` table); labels and assignee read 2026-10-23. https://github.com/ROCm/TheRock/issues/9306
 [^q-2245]: Strata#2245, open, issue body (bisect to 6126f8d, kernel variant table) `bcrawford-cpm` comment 2026-10-13 16:17 UTC (gfx1100), and `metzenwest` comment 2026-10-13 17:46 UTC. https://github.com/Niko1221/Strata/issues/2245
 [^q-2305]: Strata#2305, open (R9700 gfx1201, `GPU_MAX_HW_QUEUES` table). https://github.com/Niko1221/Strata/issues/2305
 [^q-wgp]: clr `rocdevice.cpp` at `e6527207` (`maxComputeUnits_ / 2` when `enableWgpMode_`) and `rocsettings.cpp` at `1ec2a772` (WGP mode for gfx10+, off for gfx1250+). https://github.com/ROCm/rocm-systems/blob/1ec2a772e4febc55079ad51ddb2398cf4e4ed230/projects/clr/rocclr/device/rocm/rocsettings.cpp
@@ -182,6 +200,12 @@ Until both land: build every binary for every arch in the box, and run one proce
 [^tr8259]: TheRock#8259, merged 2026-10-02 20:22 UTC. https://github.com/ROCm/TheRock/pull/8259
 [^tr9021]: TheRock#9021, merged 2026-10-15 20:07 UTC; description, and `lumachad` comments 2026-10-15 07:42 and 15:03 UTC. https://github.com/ROCm/TheRock/pull/9021
 [^tr8833]: TheRock#8833, "Fix Triton hostcalls by packaging SDK-matched OCKL", closed 2026-10-15 without merge. https://github.com/ROCm/TheRock/pull/8833
+[^tr9432]: TheRock#9432, "feat(hostcall): Reland: enable the new hostcall implementation by default", merged 2026-10-22 22:31 UTC; description read 2026-10-23. https://github.com/ROCm/TheRock/pull/9432
+[^tr9440]: TheRock#9440, "Raise version to 10.3.0", merged 2026-10-22 20:02 UTC. https://github.com/ROCm/TheRock/pull/9440
 [^clr11277]: rocm-systems#11277, open. https://github.com/ROCm/rocm-systems/pull/11277
 [^lt13639]: rocm-libraries#13639, open, "fix(hipblaslt): load kernels per GPU architecture on mixed-architecture systems". https://github.com/ROCm/rocm-libraries/pull/13639
 [^clr5792]: rocm-systems#5792, open, "[clr] Fix hipGetFuncBySymbol failure in heterogeneous multi-GPU systems". https://github.com/ROCm/rocm-systems/pull/5792
+[^q-9484]: TheRock#9484, "[gfx1100][MES] Pending AQL BARRIER_AND forces 100% GFX / ~95W idle power on RX 7900 XTX", open, read 2026-10-26. https://github.com/ROCm/TheRock/issues/9484
+[^q-9141]: TheRock#9141, "100% GPU usage for multiple models with pipeline parallel", open; comments by zichguan-amd 2025-08-14 to 2025-12-10. https://github.com/ROCm/TheRock/issues/9141
+[^hc9475]: TheRock#9475, "gfx1030 on Windows: each hostcall takes seconds, so a kernel calling printf twice times out", open, read 2026-10-26. https://github.com/ROCm/TheRock/issues/9475
+[^graph14234]: rocm-systems#14234, open, read 2026-10-26 with two reporter follow-ups. https://github.com/ROCm/rocm-systems/issues/14234
