@@ -48,6 +48,7 @@ Companions: [vgpr-occupancy.md](vgpr-occupancy.md), [lds-occupancy.md](../lds-an
 | **Leave** | Do not put waitcnt / scoreboard depth into the theoretical min — memory-wait parks are effective occupancy only ([waitcnt-occupancy.md](waitcnt-occupancy.md)). |
 | **Leave** | Do not put EXEC / active-lane density into the theoretical min — lane-idle NOPs are effective utilization only ([exec-divergence-occupancy.md](exec-divergence-occupancy.md)). |
 | **Leave** | Do not put transcendental / SFU rate into the theoretical min — TRANS throughput starve is effective occupancy only ([trans-occupancy.md](trans-occupancy.md)). |
+| **Leave** | Do not put packed-DOT / VALU dependency-chain shape (accumulator count, 5-cycle exposed latency) into the theoretical min — it sets how many *ready* waves keep the SIMD issuing, inside held slots ([dot-issue-occupancy.md](dot-issue-occupancy.md)). |
 | **Leave** | Do not put VGPR/SGPR operand-bank conflicts into the theoretical min — extra operand-read cycles inside a filled slot; LLVM ≥ 13 does not model them ([vgpr-bank-occupancy.md](vgpr-bank-occupancy.md)). |
 | **Leave** | Do not put wave priority (`S_SETPRIO`) or `S_SLEEP` time into the theoretical min — arbiter bias / voluntary park inside a reserved slot ([wave-priority-occupancy.md](wave-priority-occupancy.md)). |
 | **Leave** | Do not put atomics / CAS retries into the theoretical min — gfx1030 global fp `atomicAdd` is a CAS loop of `vmcnt(0)` parks inside a held slot ([atomic-occupancy.md](atomic-occupancy.md)). |
@@ -66,6 +67,7 @@ flowchart TB
   FV --> MIN(("min"))
   FS --> MIN
   FW --> MIN
+  D["packed DOT / VALU dependency chain<br/>(ready waves × accumulators vs 5-cycle latency)"] -. "effective only" .-> M
   MIN --> T["theoretical waves/EU (EU = SIMD32)"]
   T --> M["measured occupancy ≤ theory"]
   X["scratch, I$, K$, L0/GL1/L2/IC, waitcnt, clauses,<br/>EXEC, TRANS, banks, priority, atomics,<br/>cross-lane, hazards, SPI/ACE fill"] -. "effective occupancy only,<br/>not in the min" .-> M
@@ -92,6 +94,7 @@ flowchart TB
 | *(out of min)* Waitcnt / scoreboard | [waitcnt-occupancy.md](waitcnt-occupancy.md) | not a PIX MaxWaves row; `s_waitcnt` park / weaker latency hiding while VGPR∩LDS looks full |
 | *(out of min)* EXEC / lane divergence | [exec-divergence-occupancy.md](exec-divergence-occupancy.md) | not a PIX MaxWaves row; inactive lanes NOP / weak SIMD util while VGPR∩LDS looks full |
 | *(out of min)* Transcendental / SFU | [trans-occupancy.md](trans-occupancy.md) | not a PIX MaxWaves row; ¼-rate / 8-wide TRANS starve while VGPR∩LDS looks full |
+| *(out of min)* Packed DOT / VALU dependency chain | [dot-issue-occupancy.md](dot-issue-occupancy.md) | not a PIX MaxWaves row; 1 VALU/cycle/SIMD + 5 exposed → one accumulator per wave needs ~5 ready waves; ALU-saturated beyond that |
 | *(out of min)* VGPR / SGPR operand banks | [vgpr-bank-occupancy.md](vgpr-bank-occupancy.md) | not a PIX MaxWaves row; `vN mod 4` / SGPR-pair bank collision → extra operand-read cycle; no compiler pass since LLVM 13 |
 | *(out of min)* Wave priority / sleep | [wave-priority-occupancy.md](wave-priority-occupancy.md) | not a PIX MaxWaves row; `S_SETPRIO` biases arbiter (`{SPI+USER prio, age}`), `S_SLEEP` parks ~64·N clocks; slot stays reserved |
 | *(out of min)* Atomics / CAS loops | [atomic-occupancy.md](atomic-occupancy.md) | not a PIX MaxWaves row; no global FP add on gfx1030 → `global_atomic_cmpswap` loop, trips ≥ same-address lanes; LDS `ds_add_f32` native |
