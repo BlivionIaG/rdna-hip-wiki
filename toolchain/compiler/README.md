@@ -1,8 +1,10 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-25
+updated: 2026-11-26
 sources:
+  - https://github.com/ROCm/TheRock/issues/10295
   - https://github.com/ROCm/TheRock/issues/10272
+  - https://github.com/ROCm/TheRock/issues/9564
   - https://github.com/pantheongpu/pantheonsim/issues/728
   - https://github.com/pantheongpu/pantheonsim/issues/722
   - https://github.com/ROCm/rocm-systems/issues/16468
@@ -144,15 +146,19 @@ For us: the live dest is **7.14.0**, newer than the 7.2 the reporter found clean
 
 For us: on gfx1100 with a 10.1-era compiler, a few-percent A/B difference between two builds of the same source can be this, not your change. Diff the ISA of both builds before trusting the number. VOPD (dual-issue) is RDNA3+, so gfx1030 and gfx900 should not hit this path; that is our reading, the report has no gfx10 or gfx9 data (unsourced).
 
-## Gotcha — ROCm 10.0 clang is ~4x slower than 7.13 on a gfx1100 WMMA W4A16 GEMM
+## Gotcha — Windows clang-cl ROCm 10.0 is ~4x slower than 7.13 on a gfx1100 WMMA W4A16 GEMM
 
 [TheRock#10272](https://github.com/ROCm/TheRock/issues/10272) (open, filed 2026-11-25) reports that on an RX 7900 XTX (**gfx1100**), the same unmodified vLLM RDNA3 W4A16 WMMA prefill kernel (`q_gemm_rdna3_wmma.cu`, `gemm_q4_wmma_kernel_128x64_k32<half>`) runs at ~72 TFLOPS when compiled by the ROCm 7.13 toolchain and ~17.7 TFLOPS when compiled by the ROCm 10.0 toolchain — a 4.06x GPU-side regression (`torch.cuda.Event`; host enqueue was 25–29 us in both cases). Shape: `M=2048, K=5120, N=5120`, fp16 activations, group_size 128. Either of two kernel sources (vLLM 0.31-lineage and vLLM 0.28) is ~72 TFLOPS on 7.13 and ~17.7 TFLOPS on 10.0, so the source is exonerated. A plain fp16 rocBLAS GEMM was 73.6 vs 74.5 TFLOPS on the same card and session, so this is not a clock, power, or BLAS difference. Both toolchains are LLVM 23 snapshots (7.13: `43215c73`; 10.0: `8f497e09`) on Windows 11, not WSL.[^tr10272]
 
-The two shipped code objects are nearly identical: 2659 vs 2591 instructions (the slower build is smaller), LDS 8704 B in both, 52 VGPRs / 33 SGPRs, zero spills, same workgroup size 1024 and wave32. The reporter's hypothesis is an LDS access-pattern or `s_waitcnt` placement change relative to `ds_read` / `v_wmma` (bank conflicts or wait hazards) that would not show up in instruction counts or resource usage.[^tr10272]
+The two shipped code objects are nearly identical: 2659 vs 2591 instructions (the slower build is smaller), LDS 8704 B in both, 52 VGPRs / 33 SGPRs, zero spills, same workgroup size 1024 and wave32.[^tr10272]
 
 A follow-up isolates the compiler from the runtime: the same kernel built with ROCm 7.13 `hipcc`, then loaded in a torch 2.13 + ROCm 10.0 runtime process, ran at 71.5 TFLOPS and was bitwise identical to the 10.0-built op at M=256 and M=2048. End-to-end on a 27B INT4 model (`TRITON_ATTN`, float16, `kv=auto`, maxlen 8192, batched 4096), swapping only the compiler recovered most of the prefill loss (2K: 284 → 730 tok/s; 5.7K: 265 → 501 tok/s) while decode stayed flat (41.9 vs 41.6 tok/s).[^tr10272]
 
-For us: the live dest pin is **7.14.0**, which this report does not measure (only 7.13 vs 10.0). The kernel is RDNA3 WMMA, so this path does not exist on gfx1030 or gfx900; the report has no data on those targets. Before any ROCm 10.0 (or 10.x clang) upgrade that rebuilds gfx1100 W4A16 WMMA prefill kernels, time the same `gemm_q4_wmma` shape on 7.13/7.14 vs the new compiler, and treat a 4x drop with unchanged occupancy as this codegen bug. A workaround in the report is to compile that `.cu` with the 7.13 compiler and run it on the 10.0 runtime. No pin change.
+A later comment narrows the report: the same kernel built with ROCm 10.0 is slow on Windows clang-cl and fast on Linux. End-to-end prefill on that 27B INT4 model: Windows 11 native ROCm 10.0 clang-cl 321 tok/s (kernel 17.8 TFLOPS); Windows 11 native ROCm 7.13 clang 1248 tok/s (kernel 72 TFLOPS); WSL2 / Linux with the prebuilt `vllm-0.34.0+rocm100` wheel 1217 tok/s. The reporter now treats this as a Windows codegen path issue (`clang-cl` / MSVC compatibility mode), not a general ROCm 10 codegen regression.[^tr10272]
+
+An AMD engineer pointed at [TheRock#9564](https://github.com/ROCm/TheRock/issues/9564) (closed 2026-11-12), where Windows TheRock builds dropped compiler optimization flags so device compiles ran near `-O0`; they said the fix is in TheRock Windows nightlies ≥ `10.3.0a20261112`. That issue's stock 10.0.0 Windows build was already fast on **gfx1151**; #10272's slow case is Windows 10.0 clang-cl on gfx1100, and forcing `-DCMAKE_HIP_FLAGS_RELWITHDEBINFO=-O3` (present in `build.ninja`) moved the kernel only from 17.43 to 17.56 TFLOPS. Treat the #9564 match as unconfirmed until the #10272 reporter rebuilds on a ≥10.3 nightly. As of 2026-11-25 23:27 UTC the reporter had not found a Windows 10.x nightly index.[^tr10272][^tr9564]
+
+For us: the live dest pin is **7.14.0** on Linux, which this report does not measure as slow — the Linux ROCm 10.0 wheel was fast. The kernel is RDNA3 WMMA, so this path does not exist on gfx1030 or gfx900. No pin change.
 
 ## Gotcha — Triton 3.9 true16 spills bf16-output GEMMs on gfx11
 
@@ -181,6 +187,16 @@ For us: we build at `-O3`, so production is not on this path. Debug or sanitizer
 [rocm-systems#16790](https://github.com/ROCm/rocm-systems/issues/16790) (open, filed 2026-11-25) reports that in clr `amd_hip_fp16.h` all 24 `__half2{int,uint,short,ushort,ll,ull}_{rd,rn,ru,rz}` have the same body, a plain conversion that rounds toward zero, so the 18 `_rd`, `_rn` and `_ru` variants return wrong results for non-integral inputs. CUDA rounds as the suffix says, so ported code differs with no warning. The reporter found the same bodies from clr `rocm-6.2.0` through 10.1.0, 10.2.0rc2 and the 10.3.0a20261124 nightly (measured on MI210 gfx90a; it is header code, not arch-specific).[^sys16790]
 
 For us: the 7.14.0 header was not checked here, but the reporter's range brackets it, so assume it is affected on every target including gfx1030, gfx1100 and gfx900 (our reading, unsourced for 7.14 specifically). In HIP kernels that quantize from fp16, use `__float2int_rn(__half2float(x))` or `__builtin_rintf` style explicit rounding instead of `__half2int_rn`.
+
+## Gotcha — ccache / sccache can reuse stale GPU code after a device-only header change
+
+[TheRock#10295](https://github.com/ROCm/TheRock/issues/10295) (open, filed 2026-11-26) reports that both ccache and sccache can return an old HIP object after a header change that is visible only under `#if defined(__HIP_DEVICE_COMPILE__)`. A direct ROCm Clang compilation produces the new GPU code, or correctly rejects the change if it is an error; the cached compilation succeeds with the original GPU code.[^tr10295]
+
+The report was measured on Windows x86-64 with pip ROCm `10.3.0a20261125` and AMD Clang 24.0.0git (`d196b6e0`), `--offload-arch=gfx1100`, sccache 0.19.0 and 0.20.1, and ccache 4.12 and 4.14.3. Ordinary HIP files that include the header on the host path invalidate correctly. The broken case wraps the include in `__HIP_DEVICE_COMPILE__`, so the cache key comes from a host preprocessor run (`clang++ --offload-arch=gfx1100 -E`) that never sees the device-only header.[^tr10295]
+
+The reporter then edited real library headers with the original probe already cached: 19 of 25 edits came back stale from both sccache 0.20.1 and ccache 4.14.3 (eight valid numerical edits kept the old GPU instructions; eleven error edits were incorrectly accepted). That set includes rocPRIM, rocRAND, rocThrust, rocWMMA, MIOpen, and Composable Kernel. Two concrete probes: changing rocRAND `box_muller` to `__sincosf(v * 2.0f)` under `__HIP_DEVICE_COMPILE__`, and changing CK `get_warp_size()` from 32 to 16 on non-GFX9; uncached compiles showed the new code, both caches returned the old object. Switching between ccache and sccache, or disabling ccache direct mode, is not a workaround. Bypassing only `-DCMAKE_HIP_COMPILER_LAUNCHER` is also insufficient if the same HIP command is later launched as a C++ compile.[^tr10295]
+
+For us: this was not measured on Linux, on ROCm 7.14.0, or on gfx1030 / gfx900. The live dest pin does not change. If a HIP rebuild with ccache or sccache ignores a device-only header edit, compile that translation unit without the launcher (or clear the cache) and compare the code object. dest `tools/rdna/archdiff.sh` can pass `-DCMAKE_HIP_COMPILER_LAUNCHER=ccache` when `CCACHE=1`; the script's default is 0.[^archdiffccache]
 
 ## `-O0` integer divide, and wave64
 
@@ -217,7 +233,10 @@ For us: the 7.14.0 header was not checked here, but the reporter's range bracket
 [^llvm5478]: ROCm/llvm-project#5478, open, filed 2026-11-17 05:42 UTC by saqibkh; issue body (MIR before/after `si-peephole-sdwa`, repro.hip, RX 6800 gfx1030 result, 7.2 clean). https://github.com/ROCm/llvm-project/issues/5478
 [^llvm4513]: ROCm/llvm-project#4513, closed 2026-11-19 15:55 UTC; issue body (ASLR dependence, 6.3%, bisect to 10.1.0a20260818, `-amdgpu-enable-vopd=0`, scope gfx1100/gfx1151/gfx1201) and `shiltian` comments of 2026-11-03 and 2026-11-19. https://github.com/ROCm/llvm-project/issues/4513
 [^llvm232317]: llvm-project#232317, "[AMDGPU][VOPD] Make VOPD pairing load-overlap check deterministic", merged 2026-10-19 07:39 UTC. https://github.com/llvm/llvm-project/pull/232317
-[^tr10272]: TheRock#10272, open, filed 2026-11-25 06:07 UTC by chenjiahong; issue body (2x2 source×toolchain matrix, static resource table, rocBLAS control) and comments of 2026-11-25 06:38 UTC (7.13 clang + 10.0 runtime = 71.5 TFLOPS) and 06:56 UTC (27B INT4 prefill/decode table). https://github.com/ROCm/TheRock/issues/10272
+[^tr10272]: TheRock#10272, open, filed 2026-11-25 06:07 UTC by chenjiahong; issue body (2x2 source×toolchain matrix, static resource table, rocBLAS control) and comments of 2026-11-25 06:38 UTC (7.13 clang + 10.0 runtime = 71.5 TFLOPS), 06:56 UTC (27B INT4 prefill/decode table), 18:08 UTC (Windows clang-cl vs WSL2/Linux 10.0 wheel), 22:07 UTC (harkgill-amd, pointer to #9564) and 23:27 UTC (forced -O3 still ~17.5 TFLOPS; no Windows 10.x nightly index found). https://github.com/ROCm/TheRock/issues/10272
+[^tr9564]: TheRock#9564, closed 2026-11-12; title and harkgill-amd comments of 2026-11-02 (Windows opt flags ignored, llvm-project#228096) and 2026-11-12 (fix claimed in 10.3.0a20261112 nightly; gfx1151, stock 10.0.0 already fast). https://github.com/ROCm/TheRock/issues/9564
+[^tr10295]: TheRock#10295, open, filed 2026-11-26 00:04 UTC by ScottTodd; issue body (Windows x86-64, pip ROCm 10.3.0a20261125, AMD Clang 24.0.0git d196b6e0, gfx1100, ccache 4.12/4.14.3, sccache 0.19.0/0.20.1, device-only include repro, 19/25 stale library-header edits, rocRAND and CK probes, preprocessor-key log, workaround note). https://github.com/ROCm/TheRock/issues/10295
+[^archdiffccache]: dest `tools/rdna/archdiff.sh` at `93c59de2`, CCACHE default 0 (lines 81–82) and `-DCMAKE_HIP_COMPILER_LAUNCHER=ccache` when CCACHE=1 (lines 407–410). https://github.com/opengfx1030/vllm-rdna/blob/93c59de2b50ccea1b26f299e2ac5713861ffb2e3/tools/rdna/archdiff.sh
 [^tri12469]: triton#12469, open; issue body (woct0rdho, gfx1151, Triton 3.9 true16, llvm-project#221960 on main), `antiagainst` comment 2026-10-30, `Ragua1` comment 2026-11-19 22:58 UTC (gfx1101 spill table, per-kernel switch, timing). https://github.com/triton-lang/triton/issues/12469
 [^pan728]: pantheongpu/pantheonsim#728, open, updated 2026-11-23 (gfx1030/gfx1031 measured f64 rcp/rsq/sqrt about 24 bits; compiler FMA refinement; raw builtins). https://github.com/pantheongpu/pantheonsim/issues/728
 [^pan722]: pantheongpu/pantheonsim#722, open, updated 2026-11-23 (RX 6800 gfx1030 special-operand table: f32 rcp/rsq/sqrt/exp/log flush denormals). https://github.com/pantheongpu/pantheonsim/issues/722

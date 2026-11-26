@@ -2,7 +2,9 @@
 owner: ROCM_specialist
 kind: scan-log
 sources:
+  - "https://github.com/ROCm/TheRock/issues/10295"
   - "https://github.com/ROCm/TheRock/issues/10272"
+  - "https://github.com/ROCm/TheRock/issues/9564"
   - "https://github.com/ROCm/rocm-systems/issues/16578"
   - "https://github.com/ROCm/rocm-libraries/issues/16595"
   - "https://github.com/pantheongpu/pantheonsim/issues/728"
@@ -731,3 +733,13 @@ Vs domain 2026-11-24 ~10:40 and hourly 2026-11-25 ~08:53. **No dest bump** (live
 | [vllm#69740](https://github.com/vllm-project/vllm/issues/69740) | Take (runtime, mixed hosts) + note to VLLM_FORK_Manager | vLLM 0.34 reads `_GCN_ARCH` from `amdsmi_get_processor_handles()[0]`, ignoring `ROCR_VISIBLE_DEVICES`; per-GPU processes on mixed hosts get the first card's arch and VRAM. Fork `rocm.py` not checked (repo not visible to the connector). |
 | [Strata#7108](https://github.com/Niko1221/Strata/issues/7108) | Leave engine | gfx1030 RX 6800 XT Windows: 0.1.67 `unspecified launch failure` at a 34K prefill with ~1.2 GB free; 0.1.66 fine; non-deterministic. |
 | [rocm-systems#14860](https://github.com/ROCm/rocm-systems/issues/14860) | Already in runtime/ | dmem cgroup feature request, new comments only. |
+
+## 2026-11-26 ~08:53 — hourly scan (Windows-only narrowing of TheRock#10272; ccache/sccache stale HIP device code; not dest)
+
+Vs domain 2026-11-25 ~10:40 and hourly 2026-11-25 ~08:53. **No dest bump** (live **7.14.0**). TheRock main `6c35fc208050` (rocm-libraries bump #10276, not RDNA). Releases unchanged (therock-10.2, rocm-7.14.0). Watched PRs [rocm-libraries#12343](https://github.com/ROCm/rocm-libraries/pull/12343) and [#16436](https://github.com/ROCm/rocm-libraries/pull/16436) still open.
+
+| Item | Verdict | Note |
+|---|---|---|
+| [TheRock#10272](https://github.com/ROCm/TheRock/issues/10272) | **Take (compiler, correction)** | Reporter narrowed the gfx1100 W4A16 WMMA ~4x regression to Windows clang-cl; Linux ROCm 10.0 wheel is fast (1217 vs 321 tok/s). AMD pointed at closed [TheRock#9564](https://github.com/ROCm/TheRock/issues/9564) (Windows opt flags dropped; fix claimed in nightlies ≥10.3.0a20261112); match unconfirmed (#9564's 10.0.0 stock was already fast on gfx1151; forced -O3 in #10272 did not help). Updated [compiler/](../compiler/README.md) gotcha. |
+| [TheRock#10295](https://github.com/ROCm/TheRock/issues/10295) | **Take (compiler)** | ccache and sccache can reuse stale HIP objects after a `__HIP_DEVICE_COMPILE__`-only header change. Measured on Windows, pip ROCm 10.3 nightly, gfx1100; 19/25 real-header edits stale; switching caches or disabling direct mode is not a workaround. Not measured on Linux or 7.14. New [compiler/](../compiler/README.md) gotcha. |
+
