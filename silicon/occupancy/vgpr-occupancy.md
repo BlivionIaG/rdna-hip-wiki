@@ -17,7 +17,7 @@ Lock: **VGPR pressure is the per-SIMD waves/EU term.** On gfx1030 HIP default (*
 
 Does **not** change extras HIP or tickets. No tok/s. Do not restate the FA pin.
 
-Companions: [occupancy-dump.md](occupancy-dump.md), [lds-occupancy.md](../lds-and-tiles/lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [hip-craft.md](../hip-craft/hip-craft.md) §1.3 / §6, [architecture.md](../arch-and-memory/architecture.md) §2.4 / §3.3, [fa-occupancy.md](../attention/fa-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [wave-size-occupancy.md](wave-size-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md), [vgpr-bank-occupancy.md](vgpr-bank-occupancy.md) (operand banks — out of min), [occupancy-composite.md](occupancy-composite.md).
+Companions: [occupancy-dump.md](occupancy-dump.md), [lds-occupancy.md](../lds-and-tiles/lds-occupancy.md), [barrier-occupancy.md](barrier-occupancy.md), [scratch-occupancy.md](scratch-occupancy.md), [hip-craft.md](../hip-craft/hip-craft.md) §1.3 / §6, [architecture.md](../arch-and-memory/architecture.md) §2.4 / §3.3, [fa-occupancy.md](../attention/fa-occupancy.md), [wg-size-occupancy.md](wg-size-occupancy.md), [wave-size-occupancy.md](wave-size-occupancy.md), [sgpr-occupancy.md](sgpr-occupancy.md), [vgpr-bank-occupancy.md](vgpr-bank-occupancy.md) (operand banks — out of min), [occupancy-composite.md](occupancy-composite.md). See also [runtime-branch-vgpr-variants.md](../hip-craft/runtime-branch-vgpr-variants.md): a runtime-branch tile variant still sets `.vgpr_count` when it is off, so put variants in templates.
 
 ## Take / Leave
 
@@ -68,12 +68,19 @@ GPUOpen Occupancy explained: RDNA2/3 have **16** slots per SIMD; SGPRs are fixed
 |---|---|---|---|
 | 1–15 | — | **16** | 64 |
 | 16–64 | 16…64 | **16** | 64 |
-| 65–128 | 80…128 | **8** | 128 |
-| 129–170 | 144…160 | **6** | 160 |
-| 171–256 | 176…256 | **4** | 256 |
+| 65–80 | 80 | **12** | 80 |
+| 81–96 | 96 | **10** | 96 |
+| 97–112 | 112 | **9** | 112 |
+| 113–128 | 128 | **8** | 128 |
+| 129–144 | 144 | **7** | 144 |
+| 145–160 | 160 | **6** | 160 |
+| 161–192 | 176…192 | **5** | 192 |
+| 193–256 | 208…256 | **4** | 256 |
 | 257–341 | 272…336 | **3** | 336 |
 | 342–512 | 352…512 | **2** | 512 |
 | 513–1024 | 528…1024 | **1** | 1024 (addressable still 256 unless you spill) |
+
+*Correction 2026-11-26:* earlier versions of this table jumped from 16 to 8, then 6, then 4 (shown as "65–128 → 8", "129–170 → 6", "171–256 → 4"). The formula in §1 also gives the **12 / 10 / 9 / 7 / 5** rungs above. Arithmetic: 1024 / 80 = 12, / 96 = 10, / 112 = 9, / 144 = 7, / 192 = 5.[^llvm-wave-formula-pin] A ROCm 7.14.0 gfx1030 compile prints `; Occupancy: 9` at 99 VGPR and `; Occupancy: 7` at 133 VGPR ([runtime-branch-vgpr-variants.md](../hip-craft/runtime-branch-vgpr-variants.md) §3).
 
 Practical rungs for extras shapes:
 
@@ -91,9 +98,14 @@ flowchart LR
   V["raw .vgpr_count"] --> R["align up to granule 16"]
   R --> W["waves/SIMD = min(16, floor(1024 / aligned))"]
   W --> R16["≤ 64 → 16"]
-  W --> R8["65–128 → 8"]
-  W --> R6["129–170 → 6"]
-  W --> R4["171–256 → 4"]
+  W --> R12["65–80 → 12"]
+  W --> R10["81–96 → 10"]
+  W --> R9["97–112 → 9"]
+  W --> R8["113–128 → 8"]
+  W --> R7["129–144 → 7"]
+  W --> R6["145–160 → 6"]
+  W --> R5["161–192 → 5"]
+  W --> R4["193–256 → 4"]
 ```
 
 *Diagram: VGPR ladder for wave32 from the table above (1024-entry file per SIMD32, allocation granule 16, MaxWaves 16). The 3/2/1-wave rungs above 256 are in the table but past the 256 VGPRs one lane can address, so they are omitted here.*[^llvm-baseinfo][^llvm-amdgpuusage]
@@ -151,7 +163,8 @@ For a **128-thread** WG (N=4 → ~1 wave/SIMD): the per-SIMD budget is simply `a
 5. Clang `amdgpu_waves_per_eu` — https://clang.llvm.org/docs/AttributeReference.html#amdgpu-waves-per-eu
 6. HIP `__launch_bounds__` — https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/hip_cpp_language_extensions.html
 7. llama.cpp #24672 / #23310 — 203 VGPR occupancy-0 class
-8. Wiki priors: [architecture.md](../arch-and-memory/architecture.md), [hip-craft.md](../hip-craft/hip-craft.md), [occupancy-dump.md](occupancy-dump.md), [lds-occupancy.md](../lds-and-tiles/lds-occupancy.md)
+8. LLVM `getNumWavesPerEUWithNumVGPRs` pinned lines (ladder correction 2026-11-26) — https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp#L1346-L1363
+9. Wiki priors: [architecture.md](../arch-and-memory/architecture.md), [hip-craft.md](../hip-craft/hip-craft.md), [occupancy-dump.md](occupancy-dump.md), [lds-occupancy.md](../lds-and-tiles/lds-occupancy.md)
 
 Idle pass 2026-09-08.
 
@@ -165,4 +178,4 @@ Footnotes:
 [^gpuopen-occupancy]: GPUOpen, "Occupancy explained". https://gpuopen.com/learn/occupancy-explained/ (checked 2026-10-11)
 [^hip-hw-impl]: ROCm HIP docs, "Hardware implementation". https://rocm.docs.amd.com/projects/HIP/en/latest/understand/hardware_implementation.html (checked 2026-10-11)
 [^isa70648]: AMD "RDNA 2" Instruction Set Architecture Reference Guide, doc 70648, 2020-11-30. https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture (checked 2026-10-11)
-
+[^llvm-wave-formula-pin]: LLVM `AMDGPUBaseInfo.cpp` @ `eb61ef62` L1346-L1363 (`getNumWavesPerEUWithNumVGPRs` = `min(max(Total / alignTo(N, Granule), 1), MaxWaves)`). https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/Utils/AMDGPUBaseInfo.cpp#L1346-L1363
