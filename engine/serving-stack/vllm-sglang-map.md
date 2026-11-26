@@ -332,7 +332,7 @@ Quoted from files/issues that were opened. This is the "where a custom kernel is
 | **WMMA 16×16×16** | gfx11+. | same |
 | **BF16 as a first-class matrix type** | GPUOpen: BF16 `N/A` on RX 6950 XT. vLLM still *accepts* bf16 via capability 10.3 ≥ 8.0. | GPUOpen; `rocm.py` `check_if_supports_dtype`; issue #38107 |
 | **FP8 dispatch** | `supports_fp8() = on_cdna() or on_rdna4()`. | `rocm.py` |
-| **buffer→LDS async copy** | AITER PR #3336: `vmem-to-lds-load-insts` is gfx940/941/942/950. RDNA 10/11/12 fall back to load-VGPR-then-LDS or fail to compile. | https://github.com/ROCm/aiter/pull/3336 |
+| **buffer→LDS async copy (16-byte)** | AITER PR #3336 guards `vmem-to-lds-load-insts` paths to gfx940/941/942/950, and RDNA falls back to load-VGPR-then-LDS. Correction 2026-10-14: gfx11/gfx12 lack the feature, but gfx1030 (GFX10) has dword-and-narrower `lds`-bit loads; only the 16-byte CDNA width is missing. Details in `silicon/occupancy/lds-dma-occupancy.md`. | https://github.com/ROCm/aiter/pull/3336 ; https://github.com/llvm/llvm-project/blob/eb61ef62df4fd5151c4c379302f636ac430bc32d/llvm/lib/Target/AMDGPU/AMDGPU.td#L1804-L1838 |
 | **AITER `fmha_v3` ASM** | Gated `gfx942`/`gfx950`. | https://github.com/ROCm/aiter/pull/3330 |
 | **hipBLASLt extops / default build** | gfx10xx excluded; extops use `.amdhsa_accum_offset` (gfx90a+). | TheRock #1062; hipBLASLt #648 |
 
