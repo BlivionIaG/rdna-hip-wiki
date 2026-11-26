@@ -34,6 +34,7 @@ Up: [silicon/](../README.md)
 | [spin-hwq-occupancy.md](spin-hwq-occupancy.md) | Device-side spins vs `GPU_MAX_HW_QUEUES=2`: MonoKernel barrier/peer, `rdna_ar` arrive/peer, HC/GDN/QSA tickets — **safe** for same-GPU hwq deadlock at extras `5bda4c24`; `=2` vs `=4` is skew / TheRock#9306, not these spins; not a PIX MaxWaves row |
 | [constant-bus-occupancy.md](constant-bus-occupancy.md) | VALU constant bus: gfx1030 reads **2** scalar values per VALU op (SGPR/VCC/EXEC/literal; 1 for 64-bit shifts; implicit VCC counts), **1** literal max, VOP3 literal legal on GFX10 (96-bit); over-limit operands become VGPR copies; inline constants free; not a PIX MaxWaves row |
 | [vmem-addressing-occupancy.md](vmem-addressing-occupancy.md) | VMEM addressing: global SADDR (uniform SGPR base + 32-bit VGPR offset, 1 VGPR per pointer vs 2) needs zext/non-negative i32 index on gfx1030; offsets global/scratch 12-bit signed, flat non-negative, MUBUF 12-bit unsigned; gfx101x flat-offset bugs absent on gfx1030; not a PIX MaxWaves row |
+| [fwd-progress-occupancy.md](fwd-progress-occupancy.md) | Kernel descriptor RSRC1 `FWD_PROGRESS` (oldest-first vs forward-progress wave pick) / `MEM_ORDERED` (in-order `vmcnt`): ROCm ≤ 6.4 emits `forward_progress 0`, 7.0.1+ (incl. dest 7.14) emits 1 for gfx1030; LLVM #128367, opt-out attr `amdgpu-no-fwd-progress`; not a PIX MaxWaves row |
 
 ## Sources
 
