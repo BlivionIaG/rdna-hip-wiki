@@ -12,6 +12,7 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/0835e3cbf57de062b09fbf6a4a804abaf6db71cb
   - https://github.com/opengfx1030/vllm-rdna/commit/f419d8d6c037003cc21c64e9a105f3fe9d06abe2
   - https://github.com/opengfx1030/vllm-rdna/commit/b74028935393d1e21f73f80f65f506c9ea4639af
+  - https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e
 ---
 # Quant formats
 
@@ -24,7 +25,7 @@ Weight/activation format contracts: pack, dequant, which DOT. Back to the [kerne
 | [w8a16.md](w8a16.md) | i8 → fp16 → `fdot2` | Incomplete. MoE in-tree; dense `.cu` absent at tip |
 | [w8a16-fp8.md](w8a16-fp8.md) | E4M3 bit-trick → `fdot2` (LUT historical) | Dense built; MoE `.cu` excluded from build at `1dc3bac4` |
 | [w8a8-fp8.md](w8a8-fp8.md) | both sides E4M3 → fp16 → `fdot2` | Incomplete. **Not** `sdot4` |
-| [w8a8.md](w8a8.md) | extras vs contract: live FP8-`fdot2` / W8A16-`fdot2`; INT8 `sdot4` **absent** | **Spec / not on branch** @ `83de31cf` [^c-83de31cf] |
+| [w8a8.md](w8a8.md) | extras vs contract; dest native INT8 `sdot4` dense + HC prefill (D1/D4/D6/D7, act quant, `hc_up_mix`) | **On dest, opt-in** @ `8d141bdc` (env default 0) [^c-8d141bdc]; *historical:* spec / not on branch @ `83de31cf` [^c-83de31cf] |
 | [mxfp4.md](mxfp4.md) | E2M1 + E8M0 → `fdot2` | Incomplete [^ocp-mx] |
 | [int2.md](int2.md) | i2 unpack → `fdot2` (later `sdot4`) | Spec. Mixed INT2/INT4 MoE = two unpackers, one DOT |
 | [w4a4.md](w4a4.md) | i4×i4 `sdot8` | Explore. After W8A8. Not E2M1 |
@@ -50,3 +51,4 @@ Index rows summarise the linked pages; each page carries its own footnoted prima
 [^qtip]: Tseng, Chee, Sun, Kuleshov, De Sa, *QTIP: Quantization with Trellises and Incoherence Processing*, arXiv:2406.11235 (CC BY 4.0) — bitshift trellis, computed codes 1MAD / 3INST, incoherence processing. <https://arxiv.org/abs/2406.11235>
 [^c-c2cbf004]: opengfx1030/vllm-rdna commit [`c2cbf004`](https://github.com/opengfx1030/vllm-rdna/commit/c2cbf004772c2fa10f71e9858f98080e102107af) (2026-10-09) — "perf(rdna2): EXL3 decode-once GEMM for decode and MTP verify batches"; bits 6 added in [`0835e3cb`](https://github.com/opengfx1030/vllm-rdna/commit/0835e3cbf57de062b09fbf6a4a804abaf6db71cb), tile-word prefetch in [`f419d8d6`](https://github.com/opengfx1030/vllm-rdna/commit/f419d8d6c037003cc21c64e9a105f3fe9d06abe2).
 [^c-b740-hf]: dest tip [`b7402893`](https://github.com/opengfx1030/vllm-rdna/commit/b74028935393d1e21f73f80f65f506c9ea4639af); new file `csrc/rocm/rdna_hint_flex_rdna2.cu` in [`8015ea48...b7402893`](https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af).
+[^c-8d141bdc]: opengfx1030/vllm-rdna merge [`8d141bdc`](https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e) (2026-11-27 08:45 Paris), merge of #229; range [`93c59de2...8d141bdc`](https://github.com/opengfx1030/vllm-rdna/compare/93c59de2b50ccea1b26f299e2ac5713861ffb2e3...8d141bdc80b3124315a4a1e52ab4485cb6974f5e) merges #221, #222, #224, #225, #228, #229. HIP changes are in `9a706f6a` + `cda6ef6e` (#221) and `750bbc8e` (#222). Launch bounds, LDS arithmetic and per-line permalinks are on the linked pages.

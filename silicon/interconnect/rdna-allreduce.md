@@ -1,5 +1,5 @@
 ---
-title: "gfx1030 push one-shot all-reduce (`rdna_ar`) — silicon lock"
+title: "gfx1030 push all-reduce (`rdna_ar`: one-shot, hier, two-shot mesh) — silicon lock"
 sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/38ab87ed3a854fbd9ecd79b503491b1c97e8dea0/csrc/rocm/rdna_allreduce_hier.cuh
   - https://github.com/opengfx1030/vllm-rdna/blob/38ab87ed3a854fbd9ecd79b503491b1c97e8dea0/csrc/rocm/rdna_allreduce.cu
@@ -38,11 +38,43 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/47c426fb43bfadf161d97536262408afb442924a/docs/rdna2/tuning.md
   - https://github.com/opengfx1030/vllm-rdna/blob/47c426fb43bfadf161d97536262408afb442924a/vllm/models/qwen4_exp/common/ngram_embedding.py
   - https://github.com/opengfx1030/vllm-rdna/compare/c8727ec4a8101f1e7ef607e2ea02c7098dc23e62...47c426fb43bfadf161d97536262408afb442924a
+  - https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e
+  - https://github.com/opengfx1030/vllm-rdna/compare/93c59de2b50ccea1b26f299e2ac5713861ffb2e3...8d141bdc80b3124315a4a1e52ab4485cb6974f5e
+  - https://github.com/opengfx1030/vllm-rdna/commit/750bbc8ebe6f4af61cf0aa1a2d0dd2478066bab8
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/rdna_allreduce_twoshot.cuh
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/rdna_allreduce.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/rdna_allreduce.cuh
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/vllm/distributed/device_communicators/rdna_all_reduce.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/vllm/distributed/device_communicators/cuda_communicator.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/rdna_allreduce_hier.cuh
+  - https://github.com/opengfx1030/vllm-rdna/blob/93c59de2b50ccea1b26f299e2ac5713861ffb2e3/vllm/distributed/device_communicators/rdna_all_reduce.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/93c59de2b50ccea1b26f299e2ac5713861ffb2e3/csrc/rocm/rdna_allreduce.cu
 ---
 
-# gfx1030 push one-shot all-reduce (`rdna_ar`) — silicon lock
+# gfx1030 push all-reduce (`rdna_ar`: one-shot, hier, two-shot mesh) — silicon lock
 
-## Current state at dest tip `38ab87ed` (checked 2026-11-06 ~17:47 Europe/Paris)
+## Current state at dest tip `8d141bdc`: opt-in two-shot mesh is back, uint4 one-shot push (checked 2026-11-27 ~09:50 Europe/Paris)
+
+Dest `rdna_extras` @ [`8d141bdc`](https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e) (merge of #229, 2026-11-27 08:45 Paris). The all-reduce change in `93c59de2...8d141bdc` is `750bbc8e` (#222, "Wave-7 BAR1 P2P uint4/2shot AllReduce"). It adds `rdna_allreduce_twoshot.cuh` (+285) and changes `rdna_allreduce.cu`, `rdna_allreduce.cuh` and `resolve_gate_kb()`. `rdna_allreduce_hier.cuh` and the AR knobs in `vllm/envs.py` are not in the diff. The backend is still opt-in (`VLLM_RDNA_AR=1` and `on_gfx10x()`), so PYNCCL stays the live-safe pin.[^t8d-tip][^t8d-c222][^t8d-comm]
+
+**This section supersedes "two-shot removed", "One-shot push only" and "Two-shot no longer exists" in the sections below. Those statements are historical @ `93c59de2`.** A new two-shot kernel exists (a different design from the `rdna_ar_twoshot` removed in `611063c6`).
+
+| Item | At `8d141bdc` |
+| --- | --- |
+| Dispatch | `rdna_ar_pick_algo`: with hier off, `world > 2`, `bytes > oneshot_max` and `gate_bytes > oneshot_max`, it selects `RDNA_AR_ALGO_TWOSHOT` (= 3); otherwise the flat one-shot. World = 2 stays one-shot at every size (source comment: one copy per rank). With hier on, the dispatch is unchanged. The group gate `rdna_ar_gate` is now `min(gate_bytes, max_bytes)`; it was `min(gate_bytes, oneshot_max)`.[^t8d-cu-pick] |
+| Host gate | `resolve_gate_kb()` = `max(VLLM_RDNA_AR_MAX_KB, VLLM_RDNA_AR_ONESHOT_KB)`, raised to `VLLM_RDNA_AR_TWOSHOT_KB` when that is set and larger. The defaults are 64 / 64, so with default env two-shot is never chosen. It now returns no warning: a `MAX_KB` above `ONESHOT_KB` silently arms two-shot. *Historical @ `93c59de2`:* gate = `min(MAX_KB, ONESHOT_KB)`, and such requests were dropped with one warning.[^t8d-py-gate][^t8d-py-gate-old] |
+| Two-shot launch | `rdna_ar_twoshot_mesh<T><<<nblocks, 256>>>`, no `__launch_bounds__`. LDS is 2 ints (`s_seq`, `s_ok`). `nblocks` = 8 (≤ 128 KiB), 16 (≤ 512 KiB), else 32, capped by `blocks_cap`, by `RDNA_AR_2S_MAX_BLOCKS` = 32 and by bytes / 16. No DOT; fp32 adds only.[^t8d-cu-blocks][^t8d-2s-kernel] |
+| Two-shot protocol | Each block owns a contiguous range of 16-B chunks, split into `world` shards. **RS:** push peer d's shard of `in` into `peers.stage[d]` slot (parity, rank), as `uint4` when both sides are 16-B aligned. Then `__syncthreads`, thread 0 runs `__threadfence_system()`, and it release-stores `seq` to `peers.flags[d][16 + (phase·32 + b)·8 + rank]` (system scope) for every peer. It then polls the same block index's flags from all peers (system-scope acquire, `s_sleep` pause, wall-clock bound, abort record phase 3). **Reduce:** fp32 sum over ranks 0..W−1, taking its own term from `in` (the same order as the one-shot finisher), written to `out`. **AG:** push the reduced shard into each peer's slot (parity, rank) at its own range, which is disjoint from the RS ranges in that slot. Flags phase 1, wait (abort phase 4). Then copy the other shards from local staging to `out`. The last block (`atomicAdd(arrive[p])`) clears both parity counters and release-stores `seqbuf` (agent scope).[^t8d-2s-kernel] |
+| Grid barrier | None. A block waits only on the same block index on its peers, never on local sibling blocks, so there is no local co-residency requirement. All ranks must pick the same `nblocks`: it is a function of bytes and `blocks_cap`, so a per-rank `blocks_req` override would desync the flag slots (inference from the code).[^t8d-2s-kernel][^t8d-cu-blocks] |
+| Flag page | `RDNA_AR_2S_FLAG_BASE` = 16, with 2 phases × 32 blocks × `RDNA_AR_MAX_WORLD` (8). A `static_assert` checks it fits `RDNA_AR_FLAG_PAGE`. It starts at the same word as hier's `RDNA_AR_HFLAG_BASE` = 16. The two never run in one group because two-shot is picked only with hier off, and flags compare by `seq` anyway (inference).[^t8d-2s-flags][^t8d-hier-flags] |
+| Abort path | On a timeout or a pre-set timeout word, each block copies `in` → `out` (unreduced) for its stride and advances `seqbuf`. The existing abort record / wedge marker handles the host side.[^t8d-2s-kernel] |
+| Memory scopes | Data pushes are plain stores into IPC-mapped peer staging allocated `hipDeviceMallocUncached`. Visibility relies on `__syncthreads` plus a thread-0 `__threadfence_system()` before the system-scope release flag store, the same pattern as the one-shot exchange. Local staging is read after a system-scope acquire.[^t8d-2s-kernel][^t8d-cu-alloc] |
+| One-shot `uint4` push (gfx1030 device pass only) | In `rdna_ar_exchange`, when `pace == 0`, `n ≥ 16 / sizeof(T)` and the peer `dst` is 16-B aligned, pushes become 16-B `uint4` stores. They copy straight from `in` when it is 16-B aligned (`RdnaArDirectPtr`), else pack 8 elements through `load()`; the tail stays scalar. Otherwise, and on non-gfx1030 device passes, the scalar path with pace sleeps is kept.[^t8d-cuh-push] |
+| One-shot single-block | gfx1030 only: when `nblocks == 1`, the `arrive` counter and its spin are skipped, and thread 0 release-stores `seq` and announces directly.[^t8d-cuh-bar] |
+| Finisher blocks (vector path) | `rdna_ar_reduce_blocks`: 4 (≤ 8 KiB) / 6 (≤ 32 KiB) / 8 (≤ 48 KiB) / 12 (≤ 96 KiB) / 16 (≤ 192 KiB) / 32. *Historical @ `93c59de2`:* 4 / 6 / 32.[^t8d-cu-blocks][^t8d-cu-blocks-old] |
+| Arch guard hazard | The `rdna_ar_twoshot_mesh` body is under `#if defined(__gfx1030__) \|\| !defined(__HIP_DEVICE_COMPILE__)`, so it is empty on other device passes. The Python gate is `on_gfx10x()`, which is also true on gfx1031/1032, so there a two-shot call would leave `out` unwritten. This is latent: `HIP_SUPPORTED_ARCHS` has no gfx1031/1032 at this tip.[^t8d-2s-kernel][^t8d-comm] |
+
+## Hier state at dest tip `38ab87ed` (checked 2026-11-06 ~17:47 Europe/Paris; hier header not in the `93c59de2...8d141bdc` diff)
 
 Dest: `opengfx1030/vllm-rdna` `rdna_extras` @ `38ab87ed3a854fbd9ecd79b503491b1c97e8dea0` (+11 from watch tip `80059a362c1bd9811e08e90977668a4e18e6652e`). Occupancy still first (FA prefill leftover; this page is interconnect, not FA). Do **not** copy tok/s or µs tables from dest docs.[^38ab-tip][^38ab-cmp]
 
@@ -277,3 +309,17 @@ Primary sources for this page, cited inline as footnotes:
 [^38ab-py-doc]: Hierarchical mode docstring (`auto` world=8 silent elsewhere; `1` forces; `0` flat; MIN_KB / MAX_KB defaults), `vllm/distributed/device_communicators/rdna_all_reduce.py` L52-L72 @ `38ab87ed`. https://github.com/opengfx1030/vllm-rdna/blob/38ab87ed3a854fbd9ecd79b503491b1c97e8dea0/vllm/distributed/device_communicators/rdna_all_reduce.py#L52-L72
 [^38ab-py-hier]: `resolve_hier_config()` defaults `_HIER_DEFAULT_MIN_KB=20`, `_HIER_DEFAULT_MAX_KB=1024`, knobs `ISLANDS`/`ALGO`/`X`/`BLOCKS`, `rdna_all_reduce.py` L98-L197 @ `38ab87ed`. https://github.com/opengfx1030/vllm-rdna/blob/38ab87ed3a854fbd9ecd79b503491b1c97e8dea0/vllm/distributed/device_communicators/rdna_all_reduce.py#L98-L197
 [^38ab-cmake]: `CMakeLists.txt` lists `"csrc/rocm/rdna_allreduce.cu"` once under base `VLLM_ROCM_EXT_SRC` @ tip `38ab87ed` (no separate hier `.cu`; header is included from the `.cu`). https://github.com/opengfx1030/vllm-rdna/blob/38ab87ed3a854fbd9ecd79b503491b1c97e8dea0/CMakeLists.txt#L1560-L1580
+[^t8d-tip]: opengfx1030/vllm-rdna `rdna_extras` head [`8d141bdc`](https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e) (merge of #229, committed 2026-11-27 08:45 Europe/Paris); range [`93c59de2...8d141bdc`](https://github.com/opengfx1030/vllm-rdna/compare/93c59de2b50ccea1b26f299e2ac5713861ffb2e3...8d141bdc80b3124315a4a1e52ab4485cb6974f5e).
+[^t8d-c222]: commit [`750bbc8e`](https://github.com/opengfx1030/vllm-rdna/commit/750bbc8ebe6f4af61cf0aa1a2d0dd2478066bab8) "perf(rocm,rdna2): Wave-7 BAR1 P2P uint4/2shot AllReduce, MXFP8 BK=192, opt-in MoE offload HIP" (PR #222).
+[^t8d-comm]: `cuda_communicator.py` gate (`VLLM_RDNA_AR == "1"`, `on_gfx10x()`): https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/vllm/distributed/device_communicators/cuda_communicator.py#LL199-L215
+[^t8d-cu-pick]: `rdna_ar_gate` / `rdna_ar_pick_algo` / launch: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/rdna_allreduce.cu#LL284-L313, https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/rdna_allreduce.cu#LL360-L367
+[^t8d-cu-blocks]: `rdna_ar_reduce_blocks` / `rdna_ar_twoshot_blocks` / algo-dependent block pick: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/rdna_allreduce.cu#LL264-L281, https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/rdna_allreduce.cu#LL385-L399
+[^t8d-cu-blocks-old]: `rdna_ar_reduce_blocks` @ `93c59de2`: https://github.com/opengfx1030/vllm-rdna/blob/93c59de2b50ccea1b26f299e2ac5713861ffb2e3/csrc/rocm/rdna_allreduce.cu#L261-L266
+[^t8d-cu-alloc]: Uncached staging allocation: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/rdna_allreduce.cu#LL150-L153
+[^t8d-py-gate]: `resolve_gate_kb()` @ `8d141bdc`: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/vllm/distributed/device_communicators/rdna_all_reduce.py#LL123-L140
+[^t8d-py-gate-old]: `resolve_gate_kb()` @ `93c59de2` (historical): https://github.com/opengfx1030/vllm-rdna/blob/93c59de2b50ccea1b26f299e2ac5713861ffb2e3/vllm/distributed/device_communicators/rdna_all_reduce.py#L123-L148
+[^t8d-2s-kernel]: `rdna_ar_twoshot_mesh` and helpers: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/rdna_allreduce_twoshot.cuh#LL22-L285
+[^t8d-2s-flags]: two-shot flag layout: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/rdna_allreduce_twoshot.cuh#LL9-L20
+[^t8d-hier-flags]: hier flag base: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/rdna_allreduce_hier.cuh#LL53-L54
+[^t8d-cuh-push]: `RdnaArDirectPtr` and uint4 push: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/rdna_allreduce.cuh#LL234-L252, https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/rdna_allreduce.cuh#LL309-L346
+[^t8d-cuh-bar]: single-block skip: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/rdna_allreduce.cuh#LL352-L390

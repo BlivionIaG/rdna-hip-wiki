@@ -75,8 +75,31 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/csrc/rocm/qsa_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/docs/rdna2/tuning.md
   - https://github.com/opengfx1030/vllm-rdna/blob/3c2708585cf78dca851867d38140a4a28faa7a4c/tools/rdna/recipes/flashnext-mtp2.env
+  - https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e
+  - https://github.com/opengfx1030/vllm-rdna/compare/93c59de2b50ccea1b26f299e2ac5713861ffb2e3...8d141bdc80b3124315a4a1e52ab4485cb6974f5e
+  - https://github.com/opengfx1030/vllm-rdna/commit/9a706f6a48120f00a3a80df731834fb900c0ca64
+  - https://github.com/opengfx1030/vllm-rdna/pull/221
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/qsa_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/93c59de2b50ccea1b26f299e2ac5713861ffb2e3/csrc/rocm/qsa_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/gemm_w8a8_i8_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/moe_unquantized_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/tools/rdna/recipes/flashnext-w8a8-mtp2.env
+  - https://github.com/opengfx1030/vllm-rdna/commit/33ae1ac8b2cb7134f152285bc056a9a930e734b7
 ---
 # Qwen3.8-Flash-Next / Qwen4Exp HIP — tip `8960a3bc`
+
+## Update at dest `rdna_extras` @ `8d141bdc` (checked 2026-11-27)
+
+Range `93c59de2` → `8d141bdc` (14 commits, merges #221, #222, #224, #225, #228, #229). For Flash-Next, the HIP changes are all in PR #221 (`9a706f6a` + `cda6ef6e`). #225 (`33ae1ac8`, PP = 3 MTP fix) touches only `mtp.py` and the eagle utils (Python). #228 adds a recipe and eval tools, and #224/#229 are CI and docs.[^t8d-tip][^t8d-c221][^t8d-c225]
+
+| Surface | State at `8d141bdc` |
+|---|---|
+| QSA pipelined kernel `qsa_sparse_paged_gqa_pipe_kernel` | `s_off[i]` (LDS `int32_t s_off[QSA_PIPE_MAX_KEYS]`, unchanged size) now stores the KV element offset `>> 3`, i.e. in 16-B `uint4` units. The loads rebuild a 64-bit base, `((int64_t)off << 3) + 8·j`. `pipe_ok` adds `k_cache.stride(0/1/2) % 8 == 0` and `(max_elem >> 3) < INT_MAX`. *Historical @ `93c59de2`:* `pipe_ok` needed `max_elem < INT_MAX` (fp16 elements), so pools past that fell back to the non-pipelined kernel.[^t8d-q-soff][^t8d-q-load][^t8d-q-gate][^t8d-q-gate-old] |
+| QSA address reach (arithmetic) | Old: 2³¹ fp16 elements × 2 B ≈ 4.29 GB (4 GiB). New: 2³¹ × 16 B ≈ 34.36 GB (= **32 GiB**). The source comment and PR say "34.36 GiB"; the figure is GB. |
+| QSA occupancy | `__launch_bounds__(QSA_MAX_THREADS)` = 8 × 32 = 256 and the LDS arrays are unchanged. No DOT, tile or KV-quant format change. The PR's ISA line reports the pipe kernel at group = 4 with spills "reduced 35v → 32v", so that instantiation still spills on the author's ROCm 10.0 build. Not re-checked on 7.14.[^t8d-q-lb][^t8d-pr221] |
+| Dense / HC prefill W8A8 (new, opt-in) | `gemm_w8a8_i8_rdna2` (D1/D4/D6/D7 `sdot4`) and `rdna_hc_up_gate_mix_prefill_i8`. Occupancy table and guards are in [quant/w8a8.md § Update @ `8d141bdc`](../quant/w8a8.md). Env `VLLM_RDNA_DENSE_W8A8_PREFILL`, `VLLM_RDNA_HC_W8A8_DOWN`, `VLLM_RDNA_HC_W8A8_UP` all default `0`; recipe `flashnext-w8a8-mtp2.env` (#228) sets them to 1 and says not to promote before quality and exactness gating.[^t8d-c221][^t8d-recipe] |
+| MTP unquantized MoE prefill (new, **default on**) | `moe_gemm_unquantized_prefill_kernel` (64 thr, 11,648 B LDS, fdot2) for `num_tokens ≥ 64`, with no env gate. Details are in [gemm-moe/fp16-moe.md § Dest kernel @ `8d141bdc`](../gemm-moe/fp16-moe.md). Not bit-identical to the GEMV path (PR relL2 0.000618).[^t8d-c221][^t8d-pr221] |
+| CMake | `gemm_w8a8_i8_rdna2.cu` and `moe_lowp_offload_rdna2.cu` join the gfx1030-only list. `gemm_w8a8_i8_rdna2.hip` and `moe_unquantized_rdna2.hip` join the per-file `-O3` list. No `HIP_SUPPORTED_ARCHS` change.[^t8d-cmake] |
 
 ## Update at dest `rdna_extras` @ `34e2ebc5` (checked 2026-11-16)
 
@@ -418,3 +441,14 @@ FA prefill leftover still first (`__launch_bounds__(*, 1)`). ticket-26 EXL3 `-cb
 [^3e2e-docs]: `VLLM_RDNA_EPLB_STATS_DIR` row, `docs/rdna2/tuning.md` @ `34e2ebc5`: https://github.com/opengfx1030/vllm-rdna/blob/34e2ebc52ade9dd314aa77f65fdcc792f133cb8c/docs/rdna2/tuning.md#L418
 [^3e2e-py]: `_rdna2_fused_moe` route selection @ `34e2ebc5`: https://github.com/opengfx1030/vllm-rdna/blob/34e2ebc52ade9dd314aa77f65fdcc792f133cb8c/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_wna16_rdna2.py
 [^3e2e-cmp]: compare `7f939b76`...`34e2ebc5` (PR #176, merge commit [`34e2ebc5`](https://github.com/opengfx1030/vllm-rdna/commit/34e2ebc52ade9dd314aa77f65fdcc792f133cb8c)): https://github.com/opengfx1030/vllm-rdna/compare/7f939b76d9acd0741122a642798cb488bfb64c09...34e2ebc52ade9dd314aa77f65fdcc792f133cb8c
+[^t8d-tip]: opengfx1030/vllm-rdna `rdna_extras` head [`8d141bdc`](https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e) (merge of #229, committed 2026-11-27 08:45 Europe/Paris); range [`93c59de2...8d141bdc`](https://github.com/opengfx1030/vllm-rdna/compare/93c59de2b50ccea1b26f299e2ac5713861ffb2e3...8d141bdc80b3124315a4a1e52ab4485cb6974f5e) (read 2026-11-27 ~09:50 Paris).
+[^t8d-c221]: commits [`9a706f6a`](https://github.com/opengfx1030/vllm-rdna/commit/9a706f6a48120f00a3a80df731834fb900c0ca64) and [`cda6ef6e`](https://github.com/opengfx1030/vllm-rdna/commit/cda6ef6e5ec8fc38424ef512dd288a0565af8414) (PR #221).
+[^t8d-c225]: commit [`33ae1ac8`](https://github.com/opengfx1030/vllm-rdna/commit/33ae1ac8b2cb7134f152285bc056a9a930e734b7) "fix(rdna2): restore PP=3 Qwen4Exp MTP serving after v0.34 rebase" (files: `vllm/models/qwen4_exp/amd/mtp.py`, `vllm/v1/worker/gpu/spec_decode/eagle/utils.py`, one test).
+[^t8d-pr221]: PR #221 body, <https://github.com/opengfx1030/vllm-rdna/pull/221> (read 2026-11-27): ISA line from `llvm-readobj --notes` on a `cda6ef6e5e` build, ROCm 10.0 (`/opt/rocm/core-10.0`): "`qsa_sparse_paged_gqa_pipe_kernel<4/6/8>` (group=4 spills reduced `35v -> 32v`, group=6/8 `-3 VGPR`)"; MoE prefill "relL2 = 0.000618". Author-reported.
+[^t8d-q-soff]: `s_off` LDS and the `>> 3` store: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/qsa_rdna2.cu#LL1445, https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/qsa_rdna2.cu#LL1484-L1491
+[^t8d-q-load]: 64-bit base on load: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/qsa_rdna2.cu#LL1505-L1520
+[^t8d-q-gate]: `pipe_ok` @ `8d141bdc`: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/qsa_rdna2.cu#LL1917-L1930
+[^t8d-q-gate-old]: `pipe_ok` @ `93c59de2` (historical): https://github.com/opengfx1030/vllm-rdna/blob/93c59de2b50ccea1b26f299e2ac5713861ffb2e3/csrc/rocm/qsa_rdna2.cu#L1917-L1923
+[^t8d-q-lb]: `QSA_MAX_GROUP` / `QSA_MAX_THREADS` and the pipe kernel's launch bounds: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/qsa_rdna2.cu#LL940-L941, https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/qsa_rdna2.cu#LL1398-L1400
+[^t8d-recipe]: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/tools/rdna/recipes/flashnext-w8a8-mtp2.env
+[^t8d-cmake]: `CMakeLists.txt` @ `8d141bdc`: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/CMakeLists.txt#LL1780-L1815, https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/CMakeLists.txt#LL1883-L1894

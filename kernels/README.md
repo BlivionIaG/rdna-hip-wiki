@@ -17,6 +17,7 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/00f106c5b035bd6d562267bfee9e4ac020b7055d
   - https://github.com/opengfx1030/vllm-rdna/commit/2bf779784d938e2981c56405f2586c3623e20b7e
   - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/CMakeLists.txt
+  - https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e
 ---
 # Kernels
 
@@ -84,7 +85,7 @@ flowchart TD
 | [quant/w8a16.md](quant/w8a16.md) | i8 → fp16 → `fdot2` | Incomplete. MoE in-tree; dense `.cu` absent at tip |
 | [quant/w8a16-fp8.md](quant/w8a16-fp8.md) | E4M3 bit-trick → `fdot2` (LUT historical) | Dense built; MoE `.cu` excluded from build at `1dc3bac4` |
 | [quant/w8a8-fp8.md](quant/w8a8-fp8.md) | both sides E4M3 → fp16 → `fdot2` | Incomplete. **Not** `sdot4` |
-| [quant/w8a8.md](quant/w8a8.md) | extras vs contract: live FP8-`fdot2` / W8A16-`fdot2`; INT8 `sdot4` **absent** | **Spec / not on branch** @ `83de31cf` |
+| [quant/w8a8.md](quant/w8a8.md) | extras vs contract; dest native INT8 `sdot4` dense + HC prefill | **On dest, opt-in** @ `8d141bdc` [^c-8d141bdc]; *historical:* spec @ `83de31cf` |
 | [quant/mxfp4.md](quant/mxfp4.md) | E2M1 + E8M0 → `fdot2` | Incomplete |
 | [quant/int2.md](quant/int2.md) | i2 unpack → `fdot2` (later `sdot4`) | Spec. Mixed INT2/INT4 MoE = two unpackers, one DOT |
 | [quant/w4a4.md](quant/w4a4.md) | i4×i4 `sdot8` | Explore. After W8A8. Not E2M1 |
@@ -100,7 +101,7 @@ Do not conflate W8A16 / W8A16-FP8 / W8A8-FP8 (`fdot2`) with spec W8A8 INT8 (`sdo
 
 | Page | Inner loop | Completeness |
 |---|---|---|
-| [gemm-moe/fp16-moe.md](gemm-moe/fp16-moe.md) | native fp16 `fdot2`, fp32 accum | Spec: tiny-M GEMM + grouped prefill |
+| [gemm-moe/fp16-moe.md](gemm-moe/fp16-moe.md) | native fp16 `fdot2`, fp32 accum | Spec: tiny-M GEMM + grouped prefill; dest grouped prefill default on @ `8d141bdc` [^c-8d141bdc] |
 | [gemm-moe/int8-moe.md](gemm-moe/int8-moe.md) | W8A16 `fdot2` / W8A8 `sdot4` | Spec: dual route by expert rows/shape/scales |
 | [gemm-moe/triton-skinny-gemm.md](gemm-moe/triton-skinny-gemm.md) | stock dispatch baseline | Stock gfx1030 = BLAS; LLMM1/wvSplitK gate excludes gfx10 |
 | [gemm-moe/skinny-gemm.md](gemm-moe/skinny-gemm.md) | no MFMA; gemv_f16 decode @ `3b59ee16`; MoE int4 `fdot2` @ `5c3c0c6f`; resident MoE @ `e1315629` | gfx1030 dense decode = gemv; resident MoE opt-in M=1..4; `(1,1)` leftover open |
@@ -166,4 +167,4 @@ Index rows summarise the linked pages; each page carries its own footnoted prima
 [^c-00f106c5]: opengfx1030/vllm-rdna commit [`00f106c5`](https://github.com/opengfx1030/vllm-rdna/commit/00f106c5b035bd6d562267bfee9e4ac020b7055d) (2026-11-23 03:44 Paris): "Inkling-2-Mini: faster prefill attention at depth, DSpark recipes and adaptive K (#196)". Range: [compare `1e1cac53...00f106c5`](https://github.com/opengfx1030/vllm-rdna/compare/1e1cac5340a9c9af8c9df3db331978548d709b42...00f106c5b035bd6d562267bfee9e4ac020b7055d).
 [^c-2bf77978]: opengfx1030/vllm-rdna commit [`2bf77978`](https://github.com/opengfx1030/vllm-rdna/commit/2bf779784d938e2981c56405f2586c3623e20b7e) (2026-11-18 14:11 Paris): "Merge upstream vLLM v0.34.0 into RDNA integration branch".
 [^f-00f106c5-cmake]: `CMakeLists.txt` @ `00f106c5` L55 (`HIP_SUPPORTED_ARCHS`, identical line at `1e1cac53`), L1620-L1645 (`VLLM_SKINNY_SRC`), L1780-L1831 (gfx1030 list). <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/CMakeLists.txt#L55>
-
+[^c-8d141bdc]: opengfx1030/vllm-rdna merge [`8d141bdc`](https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e) (2026-11-27 08:45 Paris), merge of #229; range [`93c59de2...8d141bdc`](https://github.com/opengfx1030/vllm-rdna/compare/93c59de2b50ccea1b26f299e2ac5713861ffb2e3...8d141bdc80b3124315a4a1e52ab4485cb6974f5e) merges #221, #222, #224, #225, #228, #229. HIP changes are in `9a706f6a` + `cda6ef6e` (#221) and `750bbc8e` (#222). Launch bounds, LDS arithmetic and per-line permalinks are on the linked pages.

@@ -1,6 +1,6 @@
 ---
 title: "RDNA HIP wiki"
-updated: 2026-11-25
+updated: 2026-11-27
 sources:
   - engine/README.md
   - silicon/README.md
@@ -22,6 +22,7 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/2bf779784d938e2981c56405f2586c3623e20b7e
   - https://github.com/opengfx1030/vllm-rdna/commit/ea8aa2418e6373de1537fa56e4ae0911ef6162a6
   - https://github.com/users/BlivionIaG/projects/4
+  - https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e
 ---
 
 # RDNA HIP wiki
@@ -31,7 +32,7 @@ Notes for writing HIP kernels and serving LLMs on **gfx1030** (RDNA 2, Radeon PR
 ## Live pins
 
 - **ROCm:** the live dest pin is ROCm **7.14.0**. The tag `rocm-7.14.0` on `ROCm/ROCm` is commit `830cc1b5`.[^pin][^tag7140] Newer ROCm docs (7.14.1, 10.1.0) are tracked on that page and do not move the pin.[^pin]
-- **Fork dest:** branch `rdna_extras` on [`opengfx1030/vllm-rdna`](https://github.com/opengfx1030/vllm-rdna), the repo's default branch. It is on upstream vLLM **v0.34.0** since merge [`2bf77978`](https://github.com/opengfx1030/vllm-rdna/commit/2bf779784d938e2981c56405f2586c3623e20b7e) (2026-11-18), and the live tip read on 2026-11-25 is [`ea8aa241`](https://github.com/opengfx1030/vllm-rdna/commit/ea8aa2418e6373de1537fa56e4ae0911ef6162a6), the merge of PR #211.[^repo][^v034merge][^livetip2] Kernel pages carry their own per-page tip (for example [kernels/models/inkling2-mini-hip.md](kernels/models/inkling2-mini-hip.md) is read at `ea8aa241`).[^livetip2]
+- **Fork dest:** branch `rdna_extras` on [`opengfx1030/vllm-rdna`](https://github.com/opengfx1030/vllm-rdna), the repo's default branch. It is on upstream vLLM **v0.34.0** since merge [`2bf77978`](https://github.com/opengfx1030/vllm-rdna/commit/2bf779784d938e2981c56405f2586c3623e20b7e) (2026-11-18), and the live tip read on 2026-11-27 is [`8d141bdc`](https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e), the merge of PR #229.[^repo][^v034merge][^livetip3] *(Historical: the 2026-11-25 read was `ea8aa241`, the merge of PR #211.[^livetip2])* Kernel pages carry their own per-page tip (for example [kernels/models/inkling2-mini-hip.md](kernels/models/inkling2-mini-hip.md) has sections read at `ea8aa241`, `93c59de2` and `8d141bdc`).[^livetip3]
   - *Historical (2026-10-12):* the branch was on upstream **v0.31.0** since PR #47, and the fork pages were pinned to tip [`64d59b89`](https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106), the merge of PR #84. [fork/branches.md](fork/branches.md) is still written at `64d59b89`.[^branches][^pr47][^v031][^livetip]
 - **Silicon contract:** gfx1030 has packed DOT only (`fdot2` / `sdot4`), with no WMMA, MFMA or FP8. gfx1100 has WMMA, and the two ship as separate fatbins.[^engine]
 - **Tickets:** GitHub Project 4 "GFX1030 inference" (private) and the Linear project **V620 inference** in team UNC.[^prlife]
@@ -165,6 +166,7 @@ The arrows are reading order, not ownership: hardware facts in `silicon/` feed t
 [^pr47]: PR #47 "[RDNA2] Port rdna_extras onto vLLM v0.31.0": <https://github.com/opengfx1030/vllm-rdna/pull/47>
 [^v031]: Upstream release `v0.31.0`: <https://github.com/vllm-project/vllm/releases/tag/v0.31.0>
 [^v034merge]: opengfx1030/vllm-rdna commit `2bf779784d938e2981c56405f2586c3623e20b7e`, "Merge upstream vLLM v0.34.0 into RDNA integration branch" (2026-11-18 14:11 Paris). Its second parent `62d4bc3c7e33b1b6c906e233e6af2d3506c482ca` is the commit the upstream tag `v0.34.0` points to (tag object `0c57b419`, GitHub API, read 2026-11-25). No later upstream merge appears in `2bf77978..ea8aa241` (`git log --merges`, read 2026-11-25): <https://github.com/opengfx1030/vllm-rdna/commit/2bf779784d938e2981c56405f2586c3623e20b7e>, <https://github.com/vllm-project/vllm/releases/tag/v0.34.0>
+[^livetip3]: `rdna_extras` head `8d141bdc80b3124315a4a1e52ab4485cb6974f5e`, "Merge pull request #229 from opengfx1030/ci/enforce-longctx-pr-contract", committed 2026-11-27 08:45 Europe/Paris (`git fetch`, read 2026-11-27 ~09:50 Paris): <https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e>
 [^livetip2]: `rdna_extras` head `ea8aa2418e6373de1537fa56e4ae0911ef6162a6`, "Merge pull request #211 from opengfx1030/feat/inkling2-tp1-moe-offload", committed 2026-11-25 08:24 Europe/Paris (`git fetch`, read 2026-11-25 ~09:50 Paris): <https://github.com/opengfx1030/vllm-rdna/commit/ea8aa2418e6373de1537fa56e4ae0911ef6162a6>
 [^livetip]: *Historical:* `rdna_extras` head `64d59b89`, "Merge fix/rdna2-moe-asymmetric: native MoE path declines asymmetric checkpoints (#84)", committed 2026-10-12 00:44 Europe/Paris (git, read 2026-10-12): <https://github.com/opengfx1030/vllm-rdna/commit/64d59b8942d3b982f1d91f0f3e625dfda4418106>
 [^prlife]: In-repo: [fork/pr-lifecycle.md § Tracking](fork/pr-lifecycle.md#tracking); Project 4: <https://github.com/users/BlivionIaG/projects/4>
