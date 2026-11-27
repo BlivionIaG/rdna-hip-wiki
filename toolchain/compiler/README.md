@@ -1,7 +1,15 @@
 ---
 owner: ROCM_specialist
-updated: 2026-10-23
+updated: 2026-11-26
 sources:
+  - https://github.com/mw00/project-maya/issues/1281
+  - https://github.com/ROCm/TheRock/issues/10295
+  - https://github.com/ROCm/TheRock/issues/10272
+  - https://github.com/ROCm/TheRock/issues/9564
+  - https://github.com/pantheongpu/pantheonsim/issues/728
+  - https://github.com/pantheongpu/pantheonsim/issues/722
+  - https://github.com/ROCm/rocm-systems/issues/16468
+  - https://github.com/ROCm/TheRock/issues/9865
   - https://rocm.docs.amd.com/projects/llvm-project/en/docs-7.14.0/reference/rocmcc.html
   - https://rocm.docs.amd.com/projects/HIP/en/docs-7.14.0/how-to/hip_cpp_language_extensions.html
   - https://clang.llvm.org/docs/AttributeReference.html#amdgpu-waves-per-eu
@@ -21,6 +29,12 @@ sources:
   - https://github.com/pytorch/pytorch/pull/198208
   - https://github.com/triton-lang/triton/pull/10906
   - https://github.com/ROCm/TheRock/issues/9294
+  - https://github.com/ROCm/rocm-examples/issues/566
+  - https://github.com/ROCm/llvm-project/issues/5478
+  - https://github.com/ROCm/TheRock/pull/8585
+  - https://github.com/ROCm/llvm-project/issues/4513
+  - https://github.com/llvm/llvm-project/pull/232317
+  - https://github.com/triton-lang/triton/issues/12469
 ---
 
 # Compiler
@@ -40,6 +54,8 @@ hipcc --offload-arch=gfx1030 -O3
 ```
 
 Pass `gfx1100` as its own `--offload-arch` when that translation unit is in the bundle. RCCL's device-compile parser rejects the generic ids `gfx10-3-generic` and `gfx11-generic` (it divides the digits after `gfx` and then misses the SGPR-limit table).[^rccl10701] Use the specific ids.
+
+**hipcc is on its way out.** An AMD engineer opened rocm-examples#566 on 2026-10-30 saying ROCm is "migrating away from `hipcc` and `hipconfig` across the ROCm organization": projects should call `amdclang++` directly and use CMake's HIP language support in place of `hipconfig`.[^hipccmig] The issue lists what a straight swap loses. `HIPCC_COMPILE_FLAGS_APPEND` is read only by hipcc, so with `amdclang++` an `--offload-arch` passed that way is silently dropped and the build falls back to the default target. The issue also calls `hipcc --genco` a hipcc-only option. hipcc's machine auto-detection becomes `--offload-arch=native`. The issue's replacement line is `amdclang++ --hip-path=${ROCM_PATH} --hip-device-lib-path=${ROCM_PATH}/lib/llvm/amdgcn/bitcode -x hip --offload-arch=gfx1100 ...`, and `hipcc --hipcc-verbose=7 <args>` prints the clang command hipcc builds today.[^hipccmig] For our builds: keep the `hipcc` line above while ROCm ships it, but write new build files so `--offload-arch=gfx1030` (and `gfx1100` / `gfx900` where needed) is passed explicitly on the compile line, never only through `HIPCC_COMPILE_FLAGS_APPEND` or auto-detection. As of 2026-11-04 we found no ROCm release note that removes hipcc; the issue is the only source here.
 
 ```mermaid
 flowchart LR
@@ -107,6 +123,88 @@ For our forks: if a kernel calls through a function pointer, read `.uses_dynamic
 
 [TheRock#9294](https://github.com/ROCm/TheRock/issues/9294) (open) reports a gfx1100 kernel (W7900, ROCm 7.1.1, AMD clang 20) that hits `HIP error 700` (illegal memory access) when built with `-g` at `-O1`, `-O2` or `-O3`, and runs correctly from the same source without `-g`.[^tr9294] An AMD LLVM developer replied that `-g` currently does change codegen, that internal bugs track it, and named spilling `exec` to describe its unwinding as one cause.[^tr9294] For our forks: do correctness parity and performance runs on the same flags you ship, and treat a crash that only appears with `-g` as a possible compiler difference before you blame the kernel. This page has no gfx1030 repro.
 
+## Gotcha — `llvm-mc` misprints the K of `v_fmamk` / `v_fmaak`
+
+[llvm-project#237158](https://github.com/llvm/llvm-project/issues/237158) (open): the AMDGPU disassembler decodes the 32-bit K constant that follows `v_fmamk_*` / `v_fmaak_*` as if it were a 9-bit source-operand code. K = `0xff` crashes it in the `_f16` forms; K = `0x80` to `0xf8` prints an inline constant's value instead of K, so the printed text reassembles to a different word. The reporter saw it with LLVM 22.1.8 on gfx1151, gfx1100, gfx1200 and, for the f32 forms, gfx1030; a commenter reproduced it on LLVM main. The assembler encodes correctly.[^llvm237158] For ISA reviews: when a disassembled `v_fmamk`/`v_fmaak` shows a small K, check the raw dword before trusting it, and do not round-trip disassembly back through the assembler.
+
+## Gotcha — `mulhs` on 24-bit types returns the wrong bits
+
+[llvm-project#237718](https://github.com/llvm/llvm-project/issues/237718) (open, filed 2026-11-01) reports that the AMDGPU `performMulhsCombine` has no width check, so a signed high multiply on a non-i32 type (for example `_BitInt(24)`, also i7/i8/i16/i64 of sign-extended 24-bit values) lowers to `v_mul_hi_i32_i24`, which returns bits 32..47 of the product instead of bits N..2N-1. The reporter's `h24(2^22, 2^22)` returns 4096 instead of 1048576 on `-mcpu=gfx900` trunk and lists every target with 24-bit multiplies, including gfx1100.[^llvm237718] The report scopes the bug to `mulhs` of types other than i32. Avoid `_BitInt` high-multiply idioms in our kernels until a fix lands.
+
+## Gotcha — the first kernel launch reseeds `rand()`
+
+[TheRock#9865](https://github.com/ROCm/TheRock/issues/9865) (open, filed 2026-11-10) reports that with the TheRock pip SDK on Linux (HIP 7.16.26385, gfx1100) the first kernel launch in a process calls `srand()` with a random seed, so an app that seeded `rand()` for reproducible runs gets a different stream every run. The backtrace in the report goes `hipLaunchKernel` → `amd_comgr_do_action` → `llvm::sys::fs::createUniqueDirectory` → `llvm::sys::Process::GetRandomNumber()` → glibc `srandom`; the SDK's `libLLVM.so.24.0git` imports `srand` and not `arc4random`, which the reporter attributes to building against a glibc older than 2.36. Ubuntu 24.04's distro comgr (`libLLVM-17.so.1`) imports `arc4random` and is not affected.[^tr9865] The issue names only gfx1100, but the path is comgr on the host, so it should not depend on the GPU target (inferred, not measured on gfx1030). For our test harnesses: seed `rand()` after the first kernel launch, or use a C++ `<random>` engine you own, until the SDK's LLVM stops using `srand`.
+
+## Gotcha — ROCm 7.1 `__half2float` returns the negated value (SDWA peephole)
+
+[ROCm/llvm-project#5478](https://github.com/ROCm/llvm-project/issues/5478) (open, filed 2026-11-17, no replies yet) reports that the ROCm 7.1 compiler (AMD clang 20.0.0git, roc-7.1.0 25425) miscompiles an fp16 → fp32 cast in a grid-stride loop at `-O2` and `-O3`: `__half2float(0x3C00)` returns -1.0 instead of 1.0, and 63,490 of the 65,536 half bit patterns come out wrong. The `si-peephole-sdwa` pass folds a `V_BFE_I32` + `V_CVT_F32_F16_e64` pair into `v_cvt_f32_f16_sdwa ... -v9`, setting the NEG source modifier that the source never asked for. The reporter ran the reproducer on an **RX 6800 (gfx1030)** and got the wrong values; inline asm with the same encoded instruction confirmed the hardware applies the NEG bit. Results are correct at `-O1`, with `-mllvm -amdgpu-sdwa-peephole=0`, and with ROCm 7.2 (clang 22). Which commit fixed it was not checked.[^llvm5478]
+
+For us: the live dest is **7.14.0**, newer than the 7.2 the reporter found clean, so no dest action (not re-run on 7.14 here). If a gfx1030 or gfx900 build still uses a ROCm 7.1 compiler and fp16 → fp32 casts look sign-flipped, rebuild with ≥ 7.2 or add `-mllvm -amdgpu-sdwa-peephole=0` and rerun parity. The report does not test gfx900 or gfx1100.
+
+## Gotcha — gfx11 codegen can differ run to run (VOPD post-RA scheduling)
+
+[ROCm/llvm-project#4513](https://github.com/ROCm/llvm-project/issues/4513) reports that compiling the same LLVM IR twice with the same compiler and flags gave different machine code. The post-RA machine scheduler got byte-identical MIR and picked a different order depending on the addresses the compiler process received (stable with ASLR off), and `s_waitcnt` placement followed. For one production kernel the two schedules differed by 6.3% in wall-clock time. The reporter bisected the first appearance to ROCm nightly 10.1.0a20260818 and saw 2 variants at `-O2`/`-O3` (1 at `-O1`) on gfx1100, gfx1151 and gfx1201. `-mllvm -amdgpu-enable-vopd=0` removed the variation, but the reporter says that may only hide the cause.[^llvm4513] An AMD developer pointed to [llvm-project#232317](https://github.com/llvm/llvm-project/pull/232317) ("[AMDGPU][VOPD] Make VOPD pairing load-overlap check deterministic", merged 2026-10-19), then closed the issue on 2026-11-19 saying it has been fixed.[^llvm4513][^llvm232317] Which ROCm nightly first carries the fix was not checked.
+
+For us: on gfx1100 with a 10.1-era compiler, a few-percent A/B difference between two builds of the same source can be this, not your change. Diff the ISA of both builds before trusting the number. VOPD (dual-issue) is RDNA3+, so gfx1030 and gfx900 should not hit this path; that is our reading, the report has no gfx10 or gfx9 data (unsourced).
+
+## Gotcha — Windows clang-cl ROCm 10.0 is ~4x slower than 7.13 on a gfx1100 WMMA W4A16 GEMM
+
+[TheRock#10272](https://github.com/ROCm/TheRock/issues/10272) (open, filed 2026-11-25) reports that on an RX 7900 XTX (**gfx1100**), the same unmodified vLLM RDNA3 W4A16 WMMA prefill kernel (`q_gemm_rdna3_wmma.cu`, `gemm_q4_wmma_kernel_128x64_k32<half>`) runs at ~72 TFLOPS when compiled by the ROCm 7.13 toolchain and ~17.7 TFLOPS when compiled by the ROCm 10.0 toolchain — a 4.06x GPU-side regression (`torch.cuda.Event`; host enqueue was 25–29 us in both cases). Shape: `M=2048, K=5120, N=5120`, fp16 activations, group_size 128. Either of two kernel sources (vLLM 0.31-lineage and vLLM 0.28) is ~72 TFLOPS on 7.13 and ~17.7 TFLOPS on 10.0, so the source is exonerated. A plain fp16 rocBLAS GEMM was 73.6 vs 74.5 TFLOPS on the same card and session, so this is not a clock, power, or BLAS difference. Both toolchains are LLVM 23 snapshots (7.13: `43215c73`; 10.0: `8f497e09`) on Windows 11, not WSL.[^tr10272]
+
+The two shipped code objects are nearly identical: 2659 vs 2591 instructions (the slower build is smaller), LDS 8704 B in both, 52 VGPRs / 33 SGPRs, zero spills, same workgroup size 1024 and wave32.[^tr10272]
+
+A follow-up isolates the compiler from the runtime: the same kernel built with ROCm 7.13 `hipcc`, then loaded in a torch 2.13 + ROCm 10.0 runtime process, ran at 71.5 TFLOPS and was bitwise identical to the 10.0-built op at M=256 and M=2048. End-to-end on a 27B INT4 model (`TRITON_ATTN`, float16, `kv=auto`, maxlen 8192, batched 4096), swapping only the compiler recovered most of the prefill loss (2K: 284 → 730 tok/s; 5.7K: 265 → 501 tok/s) while decode stayed flat (41.9 vs 41.6 tok/s).[^tr10272]
+
+A later comment narrows the report: the same kernel built with ROCm 10.0 is slow on Windows clang-cl and fast on Linux. End-to-end prefill on that 27B INT4 model: Windows 11 native ROCm 10.0 clang-cl 321 tok/s (kernel 17.8 TFLOPS); Windows 11 native ROCm 7.13 clang 1248 tok/s (kernel 72 TFLOPS); WSL2 / Linux with the prebuilt `vllm-0.34.0+rocm100` wheel 1217 tok/s. The reporter now treats this as a Windows codegen path issue (`clang-cl` / MSVC compatibility mode), not a general ROCm 10 codegen regression.[^tr10272]
+
+An AMD engineer pointed at [TheRock#9564](https://github.com/ROCm/TheRock/issues/9564) (closed 2026-11-12), where Windows TheRock builds dropped compiler optimization flags so device compiles ran near `-O0`; they said the fix is in TheRock Windows nightlies ≥ `10.3.0a20261112`. That issue's stock 10.0.0 Windows build was already fast on **gfx1151**; #10272's slow case is Windows 10.0 clang-cl on gfx1100, and forcing `-DCMAKE_HIP_FLAGS_RELWITHDEBINFO=-O3` (present in `build.ninja`) moved the kernel only from 17.43 to 17.56 TFLOPS. Treat the #9564 match as unconfirmed until the #10272 reporter rebuilds on a ≥10.3 nightly. As of 2026-11-25 23:27 UTC the reporter had not found a Windows 10.x nightly index.[^tr10272][^tr9564]
+
+For us: the live dest pin is **7.14.0** on Linux, which this report does not measure as slow — the Linux ROCm 10.0 wheel was fast. The kernel is RDNA3 WMMA, so this path does not exist on gfx1030 or gfx900. No pin change.
+
+## Gotcha — Triton 3.9 true16 spills bf16-output GEMMs on gfx11
+
+[triton#12469](https://github.com/triton-lang/triton/issues/12469) (open) reports that Triton 3.9 enables true16 on gfx11 and that an LLVM AMDGPU selection FIXME can then use extra 32-bit registers per packed pair, up to 3x the VGPRs of Triton 3.8 in the worst case. The reporter (gfx1151) says Triton `main` no longer reproduces it after an LLVM bump that includes llvm-project#221960, but the FIXME is still there; a maintainer offered to disable true16 on the 3.9 branch if needed.[^tri12469] A 2026-11-19 comment narrows it on gfx1101 (triton-windows 3.9.0.post30, AITER `gemm_a16w16`, bf16 output, Windows only): 128×256×64 / 8 warps spills 54 VGPRs with true16 on and 0 with it off (0 on 3.8), and 128×128×64 / 4 warps spills 56 vs 0. Only bf16 output conversion triggers it; fp16 in and out or fp32 out adds no spills. Per kernel, `llvm_fn_attrs="target-features=-real-true16"` works for bf16 output but fails to assemble for fp16 output. In 7 of 10 timed shapes true16 on was about 2–5% slower (median on/off ratio 1.023–1.045); on N=3072, K=12288 it was faster (ratios 0.951 and 0.890).[^tri12469]
+
+For us: on gfx1100 with Triton 3.9, check the spill count in the AMDGPU metadata of bf16-output GEMM tiles that sit at 256 VGPRs before blaming the kernel. The report has no gfx1100 or Linux data, and Triton does not target gfx900 here.
+
+## Gotcha — raw `rcp` / `rsq` / `sqrt` builtins on gfx1030 are not IEEE
+
+The pantheonsim GPU-simulator project compared its model against an RX 6800 and RX 6700 XT (gfx1030/gfx1031) and filed what differs. Measured on those cards, `v_rcp_f64`, `v_rsq_f64` and `v_sqrt_f64` return about 24 significant bits (22 to 26 over 2^27 random operands; `v_sqrt_f64(1.0)` is 1 + 2^-24), not a correctly rounded double. Compiled `sqrt()` / `1.0/x` agree because the compiler refines the result with FMAs, but code that calls `__builtin_amdgcn_rcp` / `__builtin_amdgcn_rsq` on doubles, or hand assembly, gets the raw bits.[^pan728] On the same card, `v_rcp_f32`, `v_rsq_f32`, `v_sqrt_f32`, `v_exp_f32` and `v_log_f32` flush denormal operands and results (for example `v_rcp_f32` of a denormal gives +inf).[^pan722] A separate rocjitsu report on gfx1036, [rocm-systems#16468](https://github.com/ROCm/rocm-systems/issues/16468), also says the f64 forms are not correctly rounded but describes the precision differently (see the [2026-11-23 domain pass](../log/domain-passes.md)), so treat the exact bit count as unsettled. For gfx1030 kernels: use the raw builtins only where about 24 bits and denormal flush are acceptable (softmax `exp`, norm `rsq` in f32), and use the library `sqrt` / `rsqrt` or add a Newton step for f64 and for reference kernels. No other RDNA target was measured.
+
+## Gotcha — LLVM 22 `amdgpu-opt-exec-mask-pre-ra` can re-enable masked lanes on gfx1100
+
+[mw00/project-maya#1229](https://github.com/mw00/project-maya/issues/1229) (open, filed 2026-11-24) reports a mixed `gfx1030;gfx1100` HIP build (2× W6800 + RX 7900 XTX, ROCm 7.2.4, clang-22, Linux 6.8) where the gfx1100 (wave32) code object took an immediate `gfxhub` page fault at `0x7000`. The reporter traced it in the disassembly to the `amdgpu-opt-exec-mask-pre-ra` pass lowering `SI_ELSE` inside nested conditionals to `s_and_not1_saveexec_b32`, which re-enabled lanes an outer guard had masked off. Adding `-mllvm -amdgpu-opt-exec-mask-pre-ra=0` to the HIP compile options fixed it, with 20,480/20,480 outputs bit-identical in their check.[^maya1229] The same report notes that a CUDA `__nanosleep(200)` polling loop on host-mapped memory had no HIP branch, so it compiled to an unthrottled spin; they added `__builtin_amdgcn_s_sleep(4)` under `__HIP_DEVICE_COMPILE__`.[^maya1229]
+
+For us: this is a single third-party report, not an upstream LLVM issue, and it is on 7.2.4, not the live dest **7.14.0** (not re-run here). The report shows the fault on gfx1100 only; it gives no gfx1030 failure. If a gfx1100 kernel with nested divergent branches faults or reads out of bounds after a compiler bump, rebuild with `-mllvm -amdgpu-opt-exec-mask-pre-ra=0` as a bisect step before blaming the kernel. When porting CUDA spin-waits, add the `s_sleep` branch.
+
+## Gotcha — `-O1` miscompiles a 3-way partition kernel on gfx1100 (`-O2` is fine)
+
+[llvm-project#245765](https://github.com/llvm/llvm-project/issues/245765) (open, filed 2026-11-24) reports that clang at `-O1` miscompiles a fused 3-way partition kernel (register-cached tile, packed 64-bit block scan, LDS staging, two atomics) for **gfx1100** (RX 7900 GRE): wrong values and multiplicities, and `HSA_STATUS_ERROR_EXCEPTION` (`0x1016`) on larger inputs in TNL's GPU quicksort. `-O2` and `-O3` are correct. It fails 5/5 at `-O1` on three toolchains: the `rocm/dev-ubuntu-24.04:latest` AMD clang 24.0.0git (HIP 7.17), Arch `rocm-llvm` 10.1 (AMD clang 24.0.0git, HIP 7.16.0) and upstream clang 23.1.5. TNL ships `#pragma clang optimize off` around the function in HIP debug builds as a workaround. A reporter comment bisects with `-mllvm -opt-bisect-limit`.[^llvm245765]
+
+For us: we build at `-O3`, so production is not on this path. Debug or sanitizer builds at `-O1` on gfx1100 can give wrong results that release builds do not; compare against `-O2` before chasing a kernel bug. The report has no gfx1030, gfx900 or ROCm 7.14 data.
+
+## Gotcha — HIP `__half2int_rd/_rn/_ru` (and the other integer widths) truncate
+
+[rocm-systems#16790](https://github.com/ROCm/rocm-systems/issues/16790) (open, filed 2026-11-25) reports that in clr `amd_hip_fp16.h` all 24 `__half2{int,uint,short,ushort,ll,ull}_{rd,rn,ru,rz}` have the same body, a plain conversion that rounds toward zero, so the 18 `_rd`, `_rn` and `_ru` variants return wrong results for non-integral inputs. CUDA rounds as the suffix says, so ported code differs with no warning. The reporter found the same bodies from clr `rocm-6.2.0` through 10.1.0, 10.2.0rc2 and the 10.3.0a20261124 nightly (measured on MI210 gfx90a; it is header code, not arch-specific).[^sys16790]
+
+For us: the 7.14.0 header was not checked here, but the reporter's range brackets it, so assume it is affected on every target including gfx1030, gfx1100 and gfx900 (our reading, unsourced for 7.14 specifically). In HIP kernels that quantize from fp16, use `__float2int_rn(__half2float(x))` or `__builtin_rintf` style explicit rounding instead of `__half2int_rn`.
+
+## Gotcha — ccache / sccache can reuse stale GPU code after a device-only header change
+
+[TheRock#10295](https://github.com/ROCm/TheRock/issues/10295) (open, filed 2026-11-26) reports that both ccache and sccache can return an old HIP object after a header change that is visible only under `#if defined(__HIP_DEVICE_COMPILE__)`. A direct ROCm Clang compilation produces the new GPU code, or correctly rejects the change if it is an error; the cached compilation succeeds with the original GPU code.[^tr10295]
+
+The report was measured on Windows x86-64 with pip ROCm `10.3.0a20261125` and AMD Clang 24.0.0git (`d196b6e0`), `--offload-arch=gfx1100`, sccache 0.19.0 and 0.20.1, and ccache 4.12 and 4.14.3. Ordinary HIP files that include the header on the host path invalidate correctly. The broken case wraps the include in `__HIP_DEVICE_COMPILE__`, so the cache key comes from a host preprocessor run (`clang++ --offload-arch=gfx1100 -E`) that never sees the device-only header.[^tr10295]
+
+The reporter then edited real library headers with the original probe already cached: 19 of 25 edits came back stale from both sccache 0.20.1 and ccache 4.14.3 (eight valid numerical edits kept the old GPU instructions; eleven error edits were incorrectly accepted). That set includes rocPRIM, rocRAND, rocThrust, rocWMMA, MIOpen, and Composable Kernel. Two concrete probes: changing rocRAND `box_muller` to `__sincosf(v * 2.0f)` under `__HIP_DEVICE_COMPILE__`, and changing CK `get_warp_size()` from 32 to 16 on non-GFX9; uncached compiles showed the new code, both caches returned the old object. Switching between ccache and sccache, or disabling ccache direct mode, is not a workaround. Bypassing only `-DCMAKE_HIP_COMPILER_LAUNCHER` is also insufficient if the same HIP command is later launched as a C++ compile.[^tr10295]
+
+For us: this was not measured on Linux, on ROCm 7.14.0, or on gfx1030 / gfx900. The live dest pin does not change. If a HIP rebuild with ccache or sccache ignores a device-only header edit, compile that translation unit without the launcher (or clear the cache) and compare the code object. dest `tools/rdna/archdiff.sh` can pass `-DCMAKE_HIP_COMPILER_LAUNCHER=ccache` when `CCACHE=1`; the script's default is 0.[^archdiffccache]
+
+## Gotcha — default FP contraction breaks bit-exact checks between fused and unfused kernels (gfx1100)
+
+[mw00/project-maya#1281](https://github.com/mw00/project-maya/issues/1281) (open, filed 2026-11-26) reports one failure in 397 kernel checks on an RX 7900 XTX (gfx1100): a fused MoE-combine kernel no longer matches the unfused pair bit for bit. The reporter attributes it to clang's default `-ffp-contract=fast`, which can fuse multiply-adds differently in the two kernels; building with `-ffp-contract=on` (what that project already uses for gfx942/gfx950) passed all 397. Decode speed was the same (90.8/90.5 vs 90.5/90.4 tok/s), but logits moved (top-1 agreed 64/64, max |d| 15.6 on one token).[^maya1281]
+
+For us: a bit-exact parity test between a fused kernel and its reference on gfx1030 or gfx1100 needs either the same `-ffp-contract` setting on both sides or an FMA-sized tolerance. Record the contraction flag next to the compiler version in any parity report. Not tested here on 7.14.0.
+
 ## `-O0` integer divide, and wave64
 
 [TheRock#7751](https://github.com/ROCm/TheRock/issues/7751) is **closed**. The issue body reports that ROCm 7.2.4 and 7.14 miscompile i32 `udiv` / `urem` at `-O0` on gfx1034 (float reciprocal instead of the integer path). The same kernels were correct at `-O1`/`-O2`/`-O3`, and correct at `-O0` on ROCm 6.4.3. `schung-amd` commented that they reproduced it on gfx1100, and later that it should be fixed in current nightlies via llvm-project#201186 and llvm-project#202753.[^tr7751] Live extras stay `-O3` on 7.14.0.
@@ -135,3 +233,21 @@ For our forks: if a kernel calls through a function pointer, read `.uses_dynamic
 [^ht12473]: rocm-libraries#12473, closed, issue body (metadata excerpts, 1024-byte default, MI350 field report). https://github.com/ROCm/rocm-libraries/issues/12473
 [^tr9294]: TheRock#9294, open; issue body (flag table) and `slinder1` comment of 2026-09-23 on `-g` codegen changes. https://github.com/ROCm/TheRock/issues/9294
 [^ht12638]: rocm-libraries#12638, merged 2026-10-12, docs only. https://github.com/ROCm/rocm-libraries/pull/12638
+[^llvm237158]: llvm-project#237158, open, issue body and `dcwire` comment (reproduced on LLVM 24.0.0git main). https://github.com/llvm/llvm-project/issues/237158
+[^llvm237718]: llvm-project#237718, open, issue body (reproducer, gfx900 asm, affected targets). https://github.com/llvm/llvm-project/issues/237718
+[^hipccmig]: ROCm/rocm-examples#566, "Migrate examples off hipcc (hipcc → amdclang++)", opened 2026-10-30 by david-salinas (AMD), open on 2026-11-04. https://github.com/ROCm/rocm-examples/issues/566
+[^tr9865]: TheRock#9865, open, filed 2026-11-10 16:29 UTC; issue body (reproducer, gdb backtrace, `nm -D` output, distro comgr comparison). https://github.com/ROCm/TheRock/issues/9865
+[^llvm5478]: ROCm/llvm-project#5478, open, filed 2026-11-17 05:42 UTC by saqibkh; issue body (MIR before/after `si-peephole-sdwa`, repro.hip, RX 6800 gfx1030 result, 7.2 clean). https://github.com/ROCm/llvm-project/issues/5478
+[^llvm4513]: ROCm/llvm-project#4513, closed 2026-11-19 15:55 UTC; issue body (ASLR dependence, 6.3%, bisect to 10.1.0a20260818, `-amdgpu-enable-vopd=0`, scope gfx1100/gfx1151/gfx1201) and `shiltian` comments of 2026-11-03 and 2026-11-19. https://github.com/ROCm/llvm-project/issues/4513
+[^llvm232317]: llvm-project#232317, "[AMDGPU][VOPD] Make VOPD pairing load-overlap check deterministic", merged 2026-10-19 07:39 UTC. https://github.com/llvm/llvm-project/pull/232317
+[^tr10272]: TheRock#10272, open, filed 2026-11-25 06:07 UTC by chenjiahong; issue body (2x2 source×toolchain matrix, static resource table, rocBLAS control) and comments of 2026-11-25 06:38 UTC (7.13 clang + 10.0 runtime = 71.5 TFLOPS), 06:56 UTC (27B INT4 prefill/decode table), 18:08 UTC (Windows clang-cl vs WSL2/Linux 10.0 wheel), 22:07 UTC (harkgill-amd, pointer to #9564) and 23:27 UTC (forced -O3 still ~17.5 TFLOPS; no Windows 10.x nightly index found). https://github.com/ROCm/TheRock/issues/10272
+[^tr9564]: TheRock#9564, closed 2026-11-12; title and harkgill-amd comments of 2026-11-02 (Windows opt flags ignored, llvm-project#228096) and 2026-11-12 (fix claimed in 10.3.0a20261112 nightly; gfx1151, stock 10.0.0 already fast). https://github.com/ROCm/TheRock/issues/9564
+[^tr10295]: TheRock#10295, open, filed 2026-11-26 00:04 UTC by ScottTodd; issue body (Windows x86-64, pip ROCm 10.3.0a20261125, AMD Clang 24.0.0git d196b6e0, gfx1100, ccache 4.12/4.14.3, sccache 0.19.0/0.20.1, device-only include repro, 19/25 stale library-header edits, rocRAND and CK probes, preprocessor-key log, workaround note). https://github.com/ROCm/TheRock/issues/10295
+[^archdiffccache]: dest `tools/rdna/archdiff.sh` at `93c59de2`, CCACHE default 0 (lines 81–82) and `-DCMAKE_HIP_COMPILER_LAUNCHER=ccache` when CCACHE=1 (lines 407–410). https://github.com/opengfx1030/vllm-rdna/blob/93c59de2b50ccea1b26f299e2ac5713861ffb2e3/tools/rdna/archdiff.sh
+[^tri12469]: triton#12469, open; issue body (woct0rdho, gfx1151, Triton 3.9 true16, llvm-project#221960 on main), `antiagainst` comment 2026-10-30, `Ragua1` comment 2026-11-19 22:58 UTC (gfx1101 spill table, per-kernel switch, timing). https://github.com/triton-lang/triton/issues/12469
+[^pan728]: pantheongpu/pantheonsim#728, open, updated 2026-11-23 (gfx1030/gfx1031 measured f64 rcp/rsq/sqrt about 24 bits; compiler FMA refinement; raw builtins). https://github.com/pantheongpu/pantheonsim/issues/728
+[^pan722]: pantheongpu/pantheonsim#722, open, updated 2026-11-23 (RX 6800 gfx1030 special-operand table: f32 rcp/rsq/sqrt/exp/log flush denormals). https://github.com/pantheongpu/pantheonsim/issues/722
+[^maya1229]: mw00/project-maya#1229, open, filed 2026-11-24 15:50 UTC; issue body (ROCm 7.2.4 clang-22, `-amdgpu-opt-exec-mask-pre-ra=0`, `s_sleep` branch, 2× W6800 + RX 7900 XTX). https://github.com/mw00/project-maya/issues/1229
+[^llvm245765]: llvm-project#245765, open, filed 2026-11-24 21:01 UTC; issue body (toolchain table, TNL workaround) and `lahwaacz` bisect comment of 2026-11-24. https://github.com/llvm/llvm-project/issues/245765
+[^sys16790]: rocm-systems#16790, open, filed 2026-11-25 08:24 UTC; issue body (header lines 493-586, versions checked, MI210). https://github.com/ROCm/rocm-systems/issues/16790
+[^maya1281]: mw00/project-maya#1281, open, filed 2026-11-26; issue body (1.1.81 4a0ce6e, `MAYA_HIP_FP_CONTRACT_ON`, speed and logit deltas). https://github.com/mw00/project-maya/issues/1281
