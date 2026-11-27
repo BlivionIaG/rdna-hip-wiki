@@ -1,7 +1,10 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-26
+updated: 2026-11-27
 sources:
+  - https://github.com/Niko1221/Strata/issues/5162
+  - https://github.com/ROCm/rocm-systems/issues/10021
+  - https://github.com/ROCm/rocm-systems/issues/10713
   - https://github.com/freriadoc/Avalon/issues/77
   - https://github.com/ROCm/rocm-systems/issues/16886
   - https://github.com/ROCm/rocm-systems/issues/16578
@@ -160,6 +163,8 @@ For the V620 host: check whether the amdgpu module in use is Linux 7.2 or later,
 
 clr does not give every HIP stream its own hardware queue. Per priority level it creates new HSA queues until it holds `GPU_MAX_HW_QUEUES` of them (default 4, same in `therock-7.14.1` and `therock-10.1`). After that, a new stream reuses an existing queue: an unshared queue first, then the lowest load. Under `DEBUG_HIP_DYNAMIC_QUEUES=1` (the default) "load" is a metric built from queue depth and user count; under `0` it is the user count only.[^q-flags][^q-pool] So which streams share a queue depends on creation order and on how busy each queue is at that moment. It is not fixed by the code alone.
 
+**Do not turn dynamic queue selection off on gfx1030 without measuring.** In [Strata#5162](https://github.com/Niko1221/Strata/issues/5162) (open), an RX 9070 (gfx1201) read prompts 10-25% slower after a decode request until `DEBUG_HIP_DYNAMIC_QUEUES=0` was set, and Strata then made `0` its default (commit 53f59c064). A comment on 2026-11-26 measured the opposite on Linux with two RX 6900 XT (**gfx1030**, layer split): a 32K-token prompt read at 1,774 / 1,760 tok/s on v0.2.19 and 1,274 / 1,268 tok/s on v0.2.20, about 28% slower, and `STRATA_HIP_DYNAMIC_QUEUES=1` brought the speed back.[^q-5162] This is one engine and one report per arch. Treat `DEBUG_HIP_DYNAMIC_QUEUES` as a per-arch setting and keep the clr default (`1`) on gfx1030 unless a local A/B says otherwise.
+
 Stream priority changed between releases. In `therock-7.14.1` and `therock-10.0`, `DEBUG_HIP_IGNORE_STREAM_PRIORITY` defaults to `false`, so a high-priority stream gets a queue from a separate high-priority pool. In `therock-10.1` it defaults to `true` ("Treat all streams as normal priority").[^q-flags][^q-flags714] The change is [rocm-systems#8485](https://github.com/ROCm/rocm-systems/pull/8485) (merged 2026-08-06). Its description says KFD does not create queues with different hardware priority, only an extra queue that competes for the same pipe, and that apps should raise `GPU_MAX_HW_QUEUES` if they need more queues.[^q-8485] An engine that relies on a high-priority side stream gets plain normal-priority streams on a 10.1 runtime unless it sets `DEBUG_HIP_IGNORE_STREAM_PRIORITY=0`.
 
 ### gfx1030 cross-queue stall (V620)
@@ -287,6 +292,8 @@ Two launcher pitfalls were found while validating dest scripts on a V620 host (g
 
 [rocm-systems#14234](https://github.com/ROCm/rocm-systems/issues/14234) (open, filed 2026-10-26) reports a SIGSEGV inside `libamdhip64` 7.2.4 (`hip-runtime-amd 7.2.53211.70204`) on an RX 7900 XTX (gfx1100): an internal kernarg arena allocator returns NULL and the caller writes to address 0 with no check. The backtrace runs through llama.cpp's CUDA-graph capture path during MTP speculative decoding. The reporter's core analysis shows the arena alive with a fresh, never-used 4 MiB chunk and a zero cursor, and does not name a root cause.[^graph14234] Watch it if a captured decode graph crashes in `libamdhip64` with a NULL destination; it is not reported on 7.14.0.
 
+[rocm-systems#10021](https://github.com/ROCm/rocm-systems/issues/10021) (open, filed 2026-08-11) is the same crash family with a root cause. With device memory nearly exhausted, `hipGraphExecUpdate` stages kernel arguments into an allocation whose result is not checked, and clr SIGSEGVs in `nontemporalMemcpy` with a NULL destination instead of returning an error. The report is 2x RX 7900 XTX (gfx1100) on ROCm 7.2.3 under llama.cpp with `GGML_HIP_GRAPHS=ON`.[^graph10021] A commenter reproduced it on gfx1201 with stock **ROCm 7.14.0** using a standalone HIP reproducer (512-node graph, exhaust memory with `hipMalloc`, call `hipGraphExecUpdate` in a loop).[^graph10021] Another commenter reports a second defect behind the first fix (`HSA_STATUS_ERROR_INVALID_PACKET_FORMAT` after about 120k updates at 0 B free) and names kernarg slots never being reclaimed within an exec's lifetime as the root cause ([rocm-systems#10713](https://github.com/ROCm/rocm-systems/issues/10713), open). The fix PRs [#10022](https://github.com/ROCm/rocm-systems/pull/10022) and [#10714](https://github.com/ROCm/rocm-systems/pull/10714) were closed without merge.[^graph10021] On 2026-11-27 a ggml maintainer wrote that it is still a problem as of `8d41325441a5` and that ggml hits it often.[^graph10021] For us: the code is not arch-specific and 7.14.0 is confirmed affected, so an engine that updates HIP graphs must not run at the VRAM floor. Leave headroom in the memory budget rather than tuning it to the last MiB.
+
 
 ### cgroup `dmem.max` VRAM limits are not reported
 
@@ -374,3 +381,5 @@ Since Linux 6.14 the `dmem` cgroup controller can cap a container's VRAM on amdg
 [^avalon77]: freriadoc/Avalon#77, open, filed 2026-11-25; issue body (setup, gdb stack, settings table, 10.2 vs 7.14.1 speed) and `andymarriner` comment of 2026-11-25 20:10 UTC (gfx1101 Windows, 10.2.0a20260930). https://github.com/freriadoc/Avalon/issues/77
 [^sys16886]: rocm-systems#16886, open, filed 2026-11-26; issue body (log signature, W7900, ROCm 7.14.0 wheels, Docker repro). https://github.com/ROCm/rocm-systems/issues/16886
 [^q-9484b]: TheRock#9484 comments by `HayatoShimada` (2026-11-09, MES `0x86`, TheRock 10.0.0, reproducer) and `pbadeer` (2026-11-25, gfx1151 umr wave reading). https://github.com/ROCm/TheRock/issues/9484
+[^q-5162]: Strata#5162, open; issue body (RX 9070 gfx1201, DEBUG_HIP_DYNAMIC_QUEUES=0 fix) and comment by Vop3p 2026-11-26 21:50 UTC (2x RX 6900 XT gfx1030 Linux, 32K prompt table v0.2.17-v0.2.22, STRATA_HIP_DYNAMIC_QUEUES=1 restores speed). https://github.com/Niko1221/Strata/issues/5162
+[^graph10021]: rocm-systems#10021, open, read 2026-11-27: body (gfx1100, ROCm 7.2.3, unchecked kernarg allocation), comments by nycdubliner 2026-08-11 (residual INVALID_PACKET_FORMAT), Kaden-Schutt 2026-08-23 (gfx1201, ROCm 7.14.0 reproducer), Ohgur 2026-08-25 (#10713 root cause, #10714), IMbackK 2026-11-27 08:16 UTC (still present at 8d41325441a5). PRs #10022 and #10714 closed unmerged; #10713 open. https://github.com/ROCm/rocm-systems/issues/10021

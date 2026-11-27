@@ -2,6 +2,14 @@
 owner: ROCM_specialist
 kind: scan-log
 sources:
+  - https://github.com/Niko1221/Strata/issues/5162
+  - https://github.com/ROCm/rocm-systems/issues/10021
+  - https://github.com/ROCm/rocm-libraries/pull/16831
+  - https://github.com/ahrefs/ocannl/issues/2509
+  - https://github.com/triton-lang/triton/issues/12966
+  - https://github.com/RustingStudio/RustingStrata/issues/126
+  - https://github.com/ROCm/rocm-libraries/issues/16803
+  - https://github.com/ROCm/rocm-libraries/issues/16807
   - https://github.com/freriadoc/Avalon/issues/77
   - https://github.com/ROCm/rocm-systems/issues/16886
   - https://github.com/mw00/project-maya/issues/1281
@@ -765,3 +773,19 @@ Vs domain 2026-11-25 ~10:40 and hourly 2026-11-26 ~08:53. **No dest bump** (live
 | [TheRock#10281](https://github.com/ROCm/TheRock/issues/10281) | Leave (watch for CK SDPA trial) | New PyTorch nightly test `test_flash_attention_ck_head_dims_gradients` fails bf16 causal dq/dk on gfx110X/gfx1151/gfx94X; AMD (jeffdaily) says new test with fixed 1e-2 tolerance vs fp32 reference, not a kernel regression. Backward only. |
 | [aiter#8605](https://github.com/ROCm/aiter/pull/8605), [vllm#69877](https://github.com/vllm-project/vllm/pull/69877) | Leave engine | ROCM_RDNA_ATTN port to aiter (gfx115x/gfx120x only, draft) and an upstream gfx1100 table for it; engine side, no gfx1030. |
 | [rocm-libraries#9164](https://github.com/ROCm/rocm-libraries/pull/9164) | Leave | fp64 split-K for consumer RDNA DD fallback (gfx1100 6-37x on tiny-MN huge-K dgemm); not an inference path. |
+
+## 2026-11-27 ~10:30 — domain pass (DEBUG_HIP_DYNAMIC_QUEUES=0 slows gfx1030; hipGraphExecUpdate NULL kernarg at VRAM floor on 7.14.0; rocPRIM gfx1031-1036 compile; autotune phase bias; not dest)
+
+Vs domain 2026-11-26 ~10:30. **No dest bump** (live **7.14.0**). Releases unchanged (therock-10.2, rocm-7.14.0).
+
+| Item | Verdict | Note |
+|---|---|---|
+| [Strata#5162](https://github.com/Niko1221/Strata/issues/5162) | **Take (runtime)** | `DEBUG_HIP_DYNAMIC_QUEUES=0` helps gfx1201 but costs ~28% prompt read on 2x RX 6900 XT gfx1030 (1,774 → 1,274 tok/s at 32K). Added to [runtime/](../runtime/README.md) queue section. |
+| [rocm-systems#10021](https://github.com/ROCm/rocm-systems/issues/10021) | **Take (runtime)** | `hipGraphExecUpdate` kernarg staging SIGSEGV (NULL) at VRAM exhaustion; gfx1100 7.2.3, gfx1201 7.14.0 confirmed; still present at 8d41325441a5 per ggml maintainer 2026-11-27; fix PRs closed unmerged, #10713 open. Added to [runtime/](../runtime/README.md) Graphs. |
+| [rocm-libraries#16831](https://github.com/ROCm/rocm-libraries/pull/16831) | Take (libraries) | Merged 2026-11-27: rocPRIM lists gfx1031-1036 as rdna2, ending ~5x radix-sort compile since #13311; #16649 approach broke gfx10-3-generic on gfx1030. New [libraries/](../libraries/README.md) section. |
+| [ocannl#2509](https://github.com/ahrefs/ocannl/issues/2509) | Watch (tools) | gfx1102 per-HQD SIMD-pair phase biases sequential autotune timings 20-43%. New [tools/](../tools/README.md) watch section. |
+| [triton#12966](https://github.com/triton-lang/triton/issues/12966) | Watch (compiler) | AMD lowering drops `eviction_policy` (`evict_first`/`evict_last`) on buffer and global load/store paths, all AMD targets; open, no fix. |
+| [RustingStrata#126](https://github.com/RustingStudio/RustingStrata/issues/126) | Leave | hiprtc 10.1 compile failure (undefined names, float4 load) fixed in 70ee521; engine-local. |
+| [rocm-libraries#16803](https://github.com/ROCm/rocm-libraries/issues/16803), [#16807](https://github.com/ROCm/rocm-libraries/issues/16807) | Leave | Nightly CI: hipDNN BatchnormPointwise test-order state leak; TensileLite snapshot key count. Not kernels. |
+| [ROCm/vllm#1452](https://github.com/ROCm/vllm/pull/1452), CK fmha RDNA PRs #16691/#16799 | Leave engine | RDNA prefill / fmha tuning, gfx11/12. |
+

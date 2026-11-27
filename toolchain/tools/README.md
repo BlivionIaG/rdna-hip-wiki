@@ -1,7 +1,8 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-26
+updated: 2026-11-27
 sources:
+  - https://github.com/ahrefs/ocannl/issues/2509
   - https://github.com/ROCm/rocm-systems/pull/16815
   - https://github.com/ROCm/rocm-systems/blob/65575fbbe6f73b9d9d96bfbcb523c856709e664c/emulation/rocjitsu/README.md
   - https://github.com/ROCm/rocm-systems/tree/65575fbbe6f73b9d9d96bfbcb523c856709e664c/emulation/rocjitsu/configs
@@ -89,6 +90,10 @@ llama.cpp's spill job (`.github/workflows/hip-quality-check.yml` on master, read
 
 For us: if `rocprof-compute` on a W7800 or 7900 XTX reports missing counters, this is the first suspect; plain `rocprofv3` counter collection uses the SDK definitions and is the fallback. Whether the 7.14.0 tree predates #9541 was not checked. gfx1030 is not part of the PR.
 
+## Autotune timing order bias on RDNA3 (watch)
+
+[ocannl#2509](https://github.com/ahrefs/ocannl/issues/2509) (open, filed 2026-11-26) reports that on a discrete gfx1102 each hardware queue keeps a persistent starting-SIMD-pair phase with a period of 32 workgroups. An autotuner that times candidates one after another on one HIP stream can read a candidate whose grid is a multiple of 32 workgroups 20-43% slower than at phase 0 (8.12 vs 11.5 us in its example), which is larger than the real gaps between candidates. The report says recreating the stream does not reset the queue, because live streams are capped by `GPU_MAX_HW_QUEUES`.[^ocannl2509] This is one report on gfx1102; gfx1030 and gfx1100 are untested. For our tuning runs (`tune_rocblas`, TunableOp, kernel sweeps): randomize or reverse candidate order and re-time the winner in a fresh process before trusting a small win.
+
 ## Sources
 
 TheRock main now pins rocm-systems `16ad3db` ([TheRock#9822](https://github.com/ROCm/TheRock/pull/9822), merged 2026-11-09), which brings in rocjitsu's RDNA comparison, conversion, register/lane-routing and graphics-arithmetic handlers routed through its `rj-arith` library ([#13955](https://github.com/ROCm/rocm-systems/pull/13955), [#13957](https://github.com/ROCm/rocm-systems/pull/13957), [#13958](https://github.com/ROCm/rocm-systems/pull/13958), [#13959](https://github.com/ROCm/rocm-systems/pull/13959)). The PRs say "RDNA" without naming a gfx103x target, and the configs list still has no gfx1030 JSON, so treat this as tip-only emulator progress, not a gfx1030 path.[^tr9822]
@@ -109,3 +114,4 @@ TheRock main now pins rocm-systems `16ad3db` ([TheRock#9822](https://github.com/
 [^hrxinit]: `libhrx/src/binding/common/init.c` device-info comment at `39d683333c2b` (line 78). https://github.com/ROCm/hrx-system/blob/39d683333c2b5d393ddd51aef1eb3c1d01e9a07e/libhrx/src/binding/common/init.c
 [^hrxdocs]: `docs/reference/amd/gpu/` at `39d683333c2b`. https://github.com/ROCm/hrx-system/tree/39d683333c2b5d393ddd51aef1eb3c1d01e9a07e/docs/reference/amd/gpu
 [^sys16815]: rocm-systems#16815, open, filed 2026-11-25 15:57 UTC; PR body (cause in #9541, override via ROCPROFILER_METRICS_PATH, 84 restored definitions). https://github.com/ROCm/rocm-systems/pull/16815
+[^ocannl2509]: ahrefs/ocannl#2509, open, filed 2026-11-26 20:45 UTC; issue body (gfx1102 per-HQD phase, 32-workgroup period, 20-43% bias, 8.12 vs 11.5 us). https://github.com/ahrefs/ocannl/issues/2509

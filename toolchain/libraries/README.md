@@ -1,7 +1,10 @@
 ---
 owner: ROCM_specialist
-updated: 2026-11-24
+updated: 2026-11-27
 sources:
+  - https://github.com/ROCm/rocm-libraries/pull/16831
+  - https://github.com/ROCm/rocm-libraries/pull/16649
+  - https://github.com/ROCm/rocm-libraries/pull/13311
   - https://github.com/ROCm/rocm-libraries/issues/16595
   - https://github.com/ROCm/rocm-libraries/issues/16488
   - https://github.com/ROCm/TheRock/pull/10071
@@ -103,6 +106,10 @@ hipBLASLt is the Linux MIOpen GEMM backend in the gfx1030 triage above, and the 
 ### hipCUB scan temp-storage alignment
 
 [rocPRIM#778](https://github.com/ROCm/rocPRIM/issues/778) (open) reports that `hipcub::DeviceScan::ExclusiveScan` returns `hipSuccess` and silently wrong sums when `d_temp_storage` is misaligned. On a Radeon Pro W7800 (gfx1100) with ROCm 7.2.0, a pointer offset by 4 bytes failed 14 to 18 of 200 iterations; the same storage rounded up to 256 bytes failed 0 of 200. Every wrong region started on a 1024-element tile boundary, with a whole tile lost or counted twice. The issue notes that CUB on CUDA does not require an aligned temp pointer.[^prim778] If a kernel carves scan scratch out of a larger arena, round the offset to 256 bytes. gfx1030 was not tested in the report.
+
+### rocPRIM / hipCUB compile time on gfx1031-gfx1036
+
+[rocm-libraries#13311](https://github.com/ROCm/rocm-libraries/pull/13311) (merged to `develop` 2026-10-20) changed how rocPRIM drops unused kernel configs. Since then, a device pass for an amdgcn arch that `get_target_arch_from_name` does not list builds **every** config. gfx1031 to gfx1036 were not listed, so hipCUB/rocPRIM radix sort compiled about 5x slower for them, and XLA's sort kernel hit a 900 s compile limit in the JAX nightly on TheRock 10.3 nightlies.[^prim16831] [rocm-libraries#16831](https://github.com/ROCm/rocm-libraries/pull/16831) (merged 2026-11-27 03:49 UTC) adds gfx1031-gfx1036 to the arch enum and maps them to `gen::rdna2`. It supersedes [#16649](https://github.com/ROCm/rocm-libraries/pull/16649), whose fallback-only approach made a `gfx10-3-generic` build abort at run time on a gfx1030 device.[^prim16831] For us: gfx1030 itself was already listed. The change matters for RDNA2 variants (RX 6700/6600-class gfx1031/gfx1032) and for fat builds that list them. rocm-7.14.0 (2026-07-16) predates #13311; which TheRock releases carry #13311 without #16831 was not checked.
 
 ### XLA on gfx1030
 
@@ -232,3 +239,4 @@ Two open ComfyUI PRs filed 2026-11-11 say that models whose `supported_inference
 [^cf17686]: ComfyUI#17686, open, filed 2026-11-11 (Qwen Image 2.1 FP16, gfx1030 timings and numerics, `--fp16-unet` note). https://github.com/Comfy-Org/ComfyUI/pull/17686
 [^sys16097]: rocm-systems#16097, open, filed 2026-11-18 04:43 UTC by saman-amd (default-level silence in clr hip_fatbin.cpp, debug switches, flat-directory trace from llama.cpp#27557 on ROCm 10.1). https://github.com/ROCm/rocm-systems/issues/16097
 [^mi16595]: rocm-libraries#16595, open, filed 2026-11-23 (PyTorch repro, gfx1100 W7800 solver table at 16000/30000/40000, gfx950 forced-Winograd table, TheRock 10.2.0a20261022). https://github.com/ROCm/rocm-libraries/issues/16595
+[^prim16831]: rocm-libraries#16831, merged 2026-11-27 03:49 UTC (merge 962bf21ec6c7), PR body (regression since #13311, ~5x radix-sort compile, XLA 900 s limit on TheRock 10.3 nightlies, supersedes #16649, gfx10-3-generic abort on gfx1030); #13311 merged 2026-10-20 15:24 UTC. https://github.com/ROCm/rocm-libraries/pull/16831
