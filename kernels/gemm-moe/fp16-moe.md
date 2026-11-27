@@ -4,6 +4,12 @@ sources:
   - https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture
   - https://github.com/vllm-project/vllm/blob/49fb2ee3481246ce88224220442c6ef30f88b209/csrc/rocm/moe_q_gemm_rdna3.cu
   - https://github.com/BlivionIaG/vllm/blob/83de31cf8c55ac2e63f538c2d08dd8f1668a52bb/csrc/rocm/fa_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e
+  - https://github.com/opengfx1030/vllm-rdna/commit/9a706f6a48120f00a3a80df731834fb900c0ca64
+  - https://github.com/opengfx1030/vllm-rdna/pull/221
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/moe_unquantized_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/vllm/model_executor/layers/fused_moe/experts/rdna2_unquantized_moe.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/CMakeLists.txt
 ---
 # Native HIP FP16 MoE on gfx1030 — silicon / kernel contract
 
@@ -80,6 +86,27 @@ Required sweep after the seed works:
 
 Do not start at 128x128: 64 fp32 outputs/thread at WG256 consumes 64 accumulator VGPR before addresses and staging.[^isa][^f-49fb2ee-moe-q-gemm-rdna3-cu]
 
+## Dest kernel @ `8d141bdc`: grouped FP16 MoE prefill `moe_gemm_unquantized_prefill_kernel` (2026-11-27)
+
+PR #221 (`9a706f6a`) adds a grouped fp16 prefill GEMM for unquantized MoE experts (the Flash-Next MTP layer) to `moe_unquantized_rdna2.cu`. It is a much smaller tile than the 64 × 64 × 32 / WG 256 seed above.[^t8d-tip][^t8d-c221]
+
+**Occupancy first.** The VGPR count is the PR author's (ROCm 10.0 build of `cda6ef6e`), not from the 7.14.0 pin. Everything else is read from the source; the WG/WGP figures are arithmetic.[^t8d-m-kernel][^t8d-pr221]
+
+| Item | At `8d141bdc` |
+|---|---|
+| Tile | BM 16 (sorted slots) × BN 64 × BK 32, TM 4 × TN 4 = 16 fp32 accumulators per thread |
+| Block | 64 threads = 2 wave32 (TX 16 × TY 4); `__launch_bounds__(64)`, no `waves_per_eu` |
+| Static LDS | `As[2][16][36]` + `Bs[2][64][36]` fp16 + `sh_slot[16]` + `sh_arow[16]` = 2,304 + 9,216 + 128 = **11,648 B** |
+| WG/WGP (arith.) | LDS: floor(131,072 / 11,648) = **11** (22 waves). VGPR 61 → 64 → 16 waves/SIMD allows 32 such WGs. So LDS-bound at 11; any per-WGP workgroup-slot cap is not checked here (unsourced) |
+| DOT | `__builtin_amdgcn_fdot2` only (fp16 × fp16 → fp32, no clamp), 2 per (i, j) per 4-K step, `#pragma unroll 1` over BK. No `sdot4` / `sdot8` / WMMA |
+| Pipeline | double-buffered LDS, global loads for tile k+1 issued before compute on tile k, one barrier per K tile. A: 1 uint4 per thread, B: 4 uint4 per thread (rows clamped to `N_out − 1`) |
+| Grid / output | `(num_blocks from moe_align_block_size(…, 16), ceil(N_out / 64))`. Every (slot, column) is written once, with no atomics. The down pass writes `slot_out[num_pairs, K]` (topk weight in the epilogue) and `ops.moe_sum` reduces it. `silu_and_mul` runs between the two GEMMs |
+
+- **LDS row stride.** LD = BK + 4 = 36 halves = 72 B. Odd rows start at 8 mod 16 B, so the `uint4` stores into `As` / `Bs` are 8-B aligned, not 16-B aligned (arithmetic). This relies on gfx10 accepting unaligned 16-B LDS access. Whether hipcc emits `ds_write_b128` here or splits it, and the runtime's LDS alignment mode, are not checked (unsourced). The b64 fragment reads are 8-B aligned. Under the 64-bank formula, the `Bs` b64 read (16 distinct rows × 18-dword stride) is conflict-free, and `As` reads are 2-address broadcasts (arithmetic).[^t8d-m-kernel]
+- **Default on, no env gate.** `Rdna2UnquantizedExperts` takes this path whenever `num_tokens ≥ 64`, K % 32 == 0, `n_dim` % 32 == 0 and the op is present. Below 64 tokens the pair-blocked GEMV stays. The PR reports relL2 = 0.000618 vs its reference, so it is not bit-identical to the old path (author's figure, not re-run here).[^t8d-m-py][^t8d-pr221]
+- **No arch guard.** The file has no `#if __gfx…__` block. It is only in the gfx1030-only CMake list, but in a multi-arch build every listed arch's device pass compiles it. Every arch in `HIP_SUPPORTED_ARCHS` at this tip has a packed fp16 dot instruction, so this is not a build break today. Since `cda6ef6e`, the sibling W8A8 file has a gfx103x guard.[^t8d-m-kernel][^t8d-cmake][^t8d-cmake-archs]
+- **Per-file `-O3`.** `moe_unquantized_rdna2.hip` is now in the `-O3` list (CMakeLists L1891), so the existing decode `gate_up_silu_kernel` / `down_kernel` in the same file are built at `-O3` too (RelWithDebInfo would give `-O2`). Their register use was not re-checked after this change.[^t8d-cmake]
+
 ## LDS / 64-bank rules
 
 gfx1030 WGP LDS has **64 banks**, 4 B/bank. Consume LDS as aligned `half2`/dword, never scalar half. Bank is `(byte_addr/4) mod 64`.[^isa]
@@ -120,3 +147,10 @@ This card remains after the current `fa_rdna2` occupancy fix.[^f-83de31cf-fa-rdn
 [^isa]: AMD, *"RDNA 2" Instruction Set Architecture Reference Guide* (doc 70648): "Feature Changes in RDNA2 Devices" dot-product list; VOP2 opcodes 2 `V_DOT2C_F32_F16` / 13 `V_DOT4C_I32_I8`; VOP3P opcodes 19–25 `V_DOT2_F32_F16` … `V_DOT8_U32_U4`; LDS "128kB memory per workgroup processor split up into 64 banks of dword-wide RAMs"; "a single workgroup may allocate up to 64kB of LDS". <https://docs.amd.com/v/u/en-US/rdna2-shader-instruction-set-architecture>
 [^f-49fb2ee-moe-q-gemm-rdna3-cu]: vllm-project/vllm `csrc/rocm/moe_q_gemm_rdna3.cu` @ [`49fb2ee`](https://github.com/vllm-project/vllm/blob/49fb2ee3481246ce88224220442c6ef30f88b209/csrc/rocm/moe_q_gemm_rdna3.cu).
 [^f-83de31cf-fa-rdna2-cu]: BlivionIaG/vllm `csrc/rocm/fa_rdna2.cu` @ [`83de31cf`](https://github.com/BlivionIaG/vllm/blob/83de31cf8c55ac2e63f538c2d08dd8f1668a52bb/csrc/rocm/fa_rdna2.cu).
+[^t8d-tip]: opengfx1030/vllm-rdna `rdna_extras` head [`8d141bdc`](https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e) (merge of #229, committed 2026-11-27 08:45 Europe/Paris; read 2026-11-27 ~09:50 Paris).
+[^t8d-c221]: commit [`9a706f6a`](https://github.com/opengfx1030/vllm-rdna/commit/9a706f6a48120f00a3a80df731834fb900c0ca64) (PR #221), in dest @ `8d141bdc`.
+[^t8d-pr221]: PR #221 body, <https://github.com/opengfx1030/vllm-rdna/pull/221> (read 2026-11-27): `moe_gemm_unquantized_prefill_kernel` "61 VGPR, 30 SGPR, 11648 B LDS, 0 spills" from `llvm-readobj --notes` on a `cda6ef6e5e` build with ROCm 10.0; "relL2 = 0.000618". Author-reported.
+[^t8d-m-kernel]: `moe_gemm_unquantized_prefill_kernel` and host wrapper: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/moe_unquantized_rdna2.cu#LL229-L405
+[^t8d-m-py]: dispatch: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/vllm/model_executor/layers/fused_moe/experts/rdna2_unquantized_moe.py#LL179-L231
+[^t8d-cmake]: `CMakeLists.txt` @ `8d141bdc`: gfx1030 list https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/CMakeLists.txt#LL1780-L1815; `-O3` list https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/CMakeLists.txt#LL1883-L1894
+[^t8d-cmake-archs]: `HIP_SUPPORTED_ARCHS`: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/CMakeLists.txt#LL55

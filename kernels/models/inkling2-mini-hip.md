@@ -91,6 +91,14 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/93c59de2b50ccea1b26f299e2ac5713861ffb2e3/vllm/models/inkling2_loop/amd/model.py
   - https://github.com/opengfx1030/vllm-rdna/blob/93c59de2b50ccea1b26f299e2ac5713861ffb2e3/tools/rdna/recipes/inkling2-mini-tp1-offload.env
   - https://github.com/opengfx1030/vllm-rdna/blob/93c59de2b50ccea1b26f299e2ac5713861ffb2e3/tests/kernels/core/test_inkling2_glue_rdna2.py
+  - https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e
+  - https://github.com/opengfx1030/vllm-rdna/compare/93c59de2b50ccea1b26f299e2ac5713861ffb2e3...8d141bdc80b3124315a4a1e52ab4485cb6974f5e
+  - https://github.com/opengfx1030/vllm-rdna/commit/750bbc8ebe6f4af61cf0aa1a2d0dd2478066bab8
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/moe_lowp_offload_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/moe_lowp_dot2_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/vllm/models/inkling2_loop/amd/moe.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/vllm/envs.py
+  - https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/CMakeLists.txt
 ---
 
 # Inkling-2-Mini HIP kernels on gfx1030 — tip `00f106c5`
@@ -306,6 +314,22 @@ Dest moved `f6ed68b4` → [`93c59de2`](https://github.com/opengfx1030/vllm-rdna/
 
 **Unchanged on the HIP side.** #215 (KV margin, amdsmi guard), #216 (LoopCD idle path) and #217 (27b-awq recipe, `rdna_hint_flex_moe.py` ids/`silu_and_mul` cleanup) touch no `csrc/` file.[^t9-cmp]
 
+## Update @ `8d141bdc`: zero-copy hybrid offload expert GEMMs, MXFP8 BK 192 (2026-11-27)
+
+Dest moved `93c59de2` → [`8d141bdc`](https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e) (merge of #229, 2026-11-27 08:45 Paris). For Inkling-2, the HIP change is `750bbc8e` (#222). It adds the new `moe_lowp_offload_rdna2.cu` (gfx1030-only CMake list) and an MXFP8 K-tail in `moe_lowp_dot2_rdna2.cu`. The same commit's all-reduce work is on [rdna-allreduce.md](../../silicon/interconnect/rdna-allreduce.md).[^t8d-tip][^t8d-c222][^t8d-cmake]
+
+**Occupancy first: `moe_gemm_{nvfp4,mxfp8}_hybrid_kernel_rdna2` (new).**
+- The tile is the same as the existing decode/verify expert GEMMs. Block = TX threads (256, or 64 for the NVFP4 TX 64 tail), each owning 4 N columns. There is no `__launch_bounds__` and no `waves_per_eu`. LDS = `block_a[BM][BK + 8]` fp16 = 2·BM·(BK + 8) B: 528 / 1,056 / 2,112 / 4,224 B for BM 1 / 2 / 4 / 8 at BK 256, and 400 B at BK 192 (arithmetic). LDS is not the limiter. No VGPR receipt exists, so waves/SIMD is not recorded.[^t8d-o-nv][^t8d-o-mx][^t8d-o-launch]
+- The NVFP4 hybrid launcher repeats the `93c59de2` tail selection (BK 192 when BM = 1, ≤ 8 token blocks, K % 192 = 0 and K % 256 ≠ 0; TX 64 for the w13 N-tails). The MXFP8 hybrid launcher only has the BK 192 tail. `block_size_m` must be 1, 2, 4 or 8.[^t8d-o-launch]
+- DOT: `dequant_e2m1_8_fp16_fast` / `deq_e4m3_4` with `__builtin_amdgcn_perm`, then `__builtin_amdgcn_fdot2` (`dot22_8_f`, `dot2_8_regs`). No `sdot4` / `sdot8` / WMMA. Output goes through `atomic_add_pk4_f16` (split-K over grid z, so `c` must be pre-zeroed).[^t8d-o-dot][^t8d-o-nv]
+- Residency per CTA: `slot = resident_map[expert]`. If `0 ≤ slot < slot_count`, the CTA reads the VRAM slot; otherwise it reads the expert's weights, scales and (NVFP4) `global` straight from pinned host memory through `hipHostGetDevicePointer`, i.e. zero-copy over PCIe. Host-path 16-B weight loads use `__builtin_nontemporal_load`. The 4-B scale loads and the `global` load are plain loads.[^t8d-o-nv][^t8d-o-pin]
+- Silicon caveat (inference from the grid, not measured): the grid is `(token_blocks, N-tiles, K-tiles)`, so every token block routed to a non-resident expert re-reads that expert's weight columns from host memory. The non-temporal hint does not help L2 keep them between blocks. The host path costs PCIe traffic per token block, not per expert.
+- Guard: device bodies only under `__gfx1030__` (stubs elsewhere). That is narrower than `gemm_w8a8_i8_rdna2.cu`'s gfx103x guard.[^t8d-o-guard]
+
+**MXFP8 decode K-tail BK 192 (`moe_lowp_dot2_rdna2.cu`).** `moe_gemm_mxfp8_kernel_rdna2` is now templated on TX and BK. The MXFP8 launcher picks `<T, 1, 256, 192>` under the same rule as the NVFP4 BK 192 tail (BM = 1, ≤ 8 token blocks, K % 192 = 0, K % 256 ≠ 0). LDS is `block_a[1][200]` = 400 B. The row stride of 400 B keeps the `uint4` activation reads 16-B aligned. At K = 1152 this gives 6 full K-CTAs instead of 5 with the last one half full (arithmetic). Both NVFP4 and MXFP8 launchers now call `C10_CUDA_KERNEL_LAUNCH_CHECK()`. *Historical @ `93c59de2`:* MXFP8 always ran TX 256 × BK 256.[^t8d-d-mx][^t8d-d-mx-launch]
+
+**Env gates (both default off).** `VLLM_INKLING2_MOE_OFFLOAD_HYBRID=1` uses the hybrid kernels once the slot cache is full (`len(_expert_slots) ≥ slot_count`) and the op exists; while hybrid is ready, the layer-ahead prefetch is skipped. `VLLM_INKLING2_MOE_OFFLOAD_PINGPONG=1` is host-only: during prefill, with ≥ 16 slots and more than one pass, it splits the experts into half-slot banks loaded on the copy stream. It adds no device kernel.[^t8d-envs][^t8d-moe-hyb][^t8d-moe-pp]
+
 ## Env defaults that gate HIP kernels
 
 | Variable | Default | Selects | Read |
@@ -313,10 +337,11 @@ Dest moved `f6ed68b4` → [`93c59de2`](https://github.com/opengfx1030/vllm-rdna/
 | `VLLM_INKLING2_DECODE_FUSED` | `1` | fused sliding-window decode; `2` also fuses full layers for a single request (opt-in); `0` uses split-K + combine. Since `ea8aa241`: any value other than `""`/`0`/`nh` sends 1 ≤ q ≤ 8 batches with short keys to the one-launch GQA path; `nh` forces the per-q-head grid (C++ host reads it once) | once at import (baked into graphs) [^ops-env][^e5-py-splits][^e5-policy] |
 | `VLLM_INKLING2_FUSED_WAVES` (new) | unset | `8` or `16` forces the GQA fused-decode CTA wave count; other values ignored | C++ host, once (static) [^e5-policy] |
 | `VLLM_INKLING2_FUSE_SCONV_ATTN_RES` (new) | on | fuses post-attention / post-MLP 4-tap static convs into `attn_res_sconv_kernel` at TP = 1 for steps of ≤ 64 tokens | Python module import [^e5-py-sconv][^e5-model-sconv] |
-| `VLLM_INKLING2_NVFP4_VARIANT` | `0` | NVFP4 decode expert tile: `0` = 256 thr × BK 256, plus (since `93c59de2`) automatic BK 192 K-tail and TX 64 N-tail tiles for `block_size_m` ≤ 4; `1` = 128 thr × BK 256 for `block_size_m` ≤ 4. *Historical @ `f6ed68b4`:* `0` had no tail tiles | C++ host, once (static) [^e5-variant][^t9-lowp-k192][^t9-lowp-tx64] |
+| `VLLM_INKLING2_NVFP4_VARIANT` | `0` | NVFP4 decode expert tile (since `8d141bdc` the MXFP8 decode tile also takes the BK 192 K-tail, without a knob): `0` = 256 thr × BK 256, plus (since `93c59de2`) automatic BK 192 K-tail and TX 64 N-tail tiles for `block_size_m` ≤ 4; `1` = 128 thr × BK 256 for `block_size_m` ≤ 4. *Historical @ `f6ed68b4`:* `0` had no tail tiles | C++ host, once (static) [^e5-variant][^t9-lowp-k192][^t9-lowp-tx64] |
 | `VLLM_INKLING2_SPEC_BM4_MIN` (new) | `0` (off) | forces `block_size_m` ≥ 4 from that token count under FUSE_GLUE (A/B knob) | Python [^e5-bm] |
 | `VLLM_INKLING2_MOE_OFFLOAD_SLOTS` / `_COPY` / `_POLICY` / `_DECAY` | `0` / `tensor` / `lfu_lru` / `128` | TP = 1 expert offload (`0` = off). Host copies only, no new device kernel | `vllm/envs.py` + `moe.py` [^e5-envs][^e5-offload]; the `inkling2-mini-tp1-offload` recipe sets `_COPY=native` since `93c59de2` (*historical @ `f6ed68b4`:* `tensor`) [^t9-recipe] |
 | `VLLM_INKLING2_MOE_OFFLOAD_PREFETCH` / `_TOPK` / `_MAX` (new @ `93c59de2`) | `1` / `4` / `4` | layer-ahead expert prefetch on a side copy stream (only acts when offload slots > 0); `_TOPK=0` uses all routed top-k | `vllm/envs.py` + `moe.py` [^t9-envs][^t9-moe-pref] |
+| `VLLM_INKLING2_MOE_OFFLOAD_HYBRID` / `_PINGPONG` (new @ `8d141bdc`) | `0` / `0` | `HYBRID=1`: zero-copy hybrid NVFP4/MXFP8 expert GEMMs (VRAM slot or mapped pinned host per expert) once the slot cache is full; `PINGPONG=1`: host-only half-slot banked prefill loads | `vllm/envs.py` + `moe.py` [^t8d-envs][^t8d-moe-hyb][^t8d-moe-pp] |
 | `VLLM_INKLING2_LOOPCD_*` (new) | `ALPHA` 0.0 (off), `MODE` hidden, `BETA` 0.1 | LoopCD blend / readout / logits kernels (only run when alpha ≠ 0) | Python [^e5-loopcd-env] |
 | `VLLM_INKLING2_PREFILL_ATTN_TILE` | `1` | `i2_tile_pipe_kernel`, except sliding layers with ≤ 32 query tokens, which keep `i2_tile_kernel` | once at import [^ops-env][^ops-tile] |
 | `VLLM_INKLING2_FUSE_ATTN_CHAIN` | on | `attn_res_fused_kernel` / one-launch messages for batches ≤ 16 tokens | Python module import [^py-fuse] |
@@ -477,3 +502,17 @@ Dest moved `f6ed68b4` → [`93c59de2`](https://github.com/opengfx1030/vllm-rdna/
 [^t9-envs]: `vllm/envs.py` @ `93c59de2` L1692-L1709 (`_COPY` default `tensor`; `_PREFETCH` `1`, `_PREFETCH_TOPK` `4`, `_PREFETCH_MAX` `4`). <https://github.com/opengfx1030/vllm-rdna/blob/93c59de2b50ccea1b26f299e2ac5713861ffb2e3/vllm/envs.py#L1692-L1709>
 [^t9-recipe]: `tools/rdna/recipes/inkling2-mini-tp1-offload.env` @ `93c59de2` L44 (`_COPY` `native`), L46 (`_PREFETCH` `1`). <https://github.com/opengfx1030/vllm-rdna/blob/93c59de2b50ccea1b26f299e2ac5713861ffb2e3/tools/rdna/recipes/inkling2-mini-tp1-offload.env#L44-L46>
 [^t9-moe-pref]: `vllm/models/inkling2_loop/amd/moe.py` @ `93c59de2` L121-L141 (`moe_offload_prefetch_config`), `_forward_hip_offload` next-layer route and `copy_stream` queue. Added in [`ac4bb2b`](https://github.com/opengfx1030/vllm-rdna/commit/ac4bb2b913176d0693454b74561d713a0d82b9ca) (#214). <https://github.com/opengfx1030/vllm-rdna/blob/93c59de2b50ccea1b26f299e2ac5713861ffb2e3/vllm/models/inkling2_loop/amd/moe.py#L121-L141>
+[^t8d-tip]: opengfx1030/vllm-rdna `rdna_extras` head [`8d141bdc`](https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e) (merge of #229, committed 2026-11-27 08:45 Europe/Paris); range [`93c59de2...8d141bdc`](https://github.com/opengfx1030/vllm-rdna/compare/93c59de2b50ccea1b26f299e2ac5713861ffb2e3...8d141bdc80b3124315a4a1e52ab4485cb6974f5e) (read 2026-11-27 ~09:50 Paris).
+[^t8d-c222]: commit [`750bbc8e`](https://github.com/opengfx1030/vllm-rdna/commit/750bbc8ebe6f4af61cf0aa1a2d0dd2478066bab8) "perf(rocm,rdna2): Wave-7 BAR1 P2P uint4/2shot AllReduce, MXFP8 BK=192, opt-in MoE offload HIP" (PR #222), in dest @ `8d141bdc`.
+[^t8d-cmake]: gfx1030 list @ `8d141bdc`: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/CMakeLists.txt#LL1780-L1815
+[^t8d-o-nv]: NVFP4 hybrid kernel (residency select, host pointers, LDS, nontemporal loads, write-out): https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/moe_lowp_offload_rdna2.cu#LL104-L293
+[^t8d-o-mx]: MXFP8 hybrid kernel: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/moe_lowp_offload_rdna2.cu#LL295-L394
+[^t8d-o-launch]: launchers and tail selection: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/moe_lowp_offload_rdna2.cu#LL437-L507, https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/moe_lowp_offload_rdna2.cu#LL560-L598, https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/moe_lowp_offload_rdna2.cu#LL640-L686
+[^t8d-o-dot]: decode and fdot2 helpers: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/moe_lowp_offload_rdna2.cu#LL60-L103
+[^t8d-o-pin]: `pinned_host_dev_ptr` (`hipHostGetDevicePointer`): https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/moe_lowp_offload_rdna2.cu#LL424-L435
+[^t8d-o-guard]: `__gfx1030__` guard and stubs: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/moe_lowp_offload_rdna2.cu#LL29-L36, https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/moe_lowp_offload_rdna2.cu#LL398-L422
+[^t8d-d-mx]: `moe_gemm_mxfp8_kernel_rdna2<T, BM, TX, BK>`: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/moe_lowp_dot2_rdna2.cu#LL606-L645
+[^t8d-d-mx-launch]: `launch_moe_mxfp8_cfg` / `launch_moe_mxfp8`: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/csrc/rocm/moe_lowp_dot2_rdna2.cu#LL719-L767
+[^t8d-envs]: `vllm/envs.py` @ `8d141bdc`: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/vllm/envs.py#LL1712-L1717
+[^t8d-moe-hyb]: hybrid gate: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/vllm/models/inkling2_loop/amd/moe.py#LL1627-L1639
+[^t8d-moe-pp]: ping-pong path: https://github.com/opengfx1030/vllm-rdna/blob/8d141bdc80b3124315a4a1e52ab4485cb6974f5e/vllm/models/inkling2_loop/amd/moe.py#LL1760-L1785
