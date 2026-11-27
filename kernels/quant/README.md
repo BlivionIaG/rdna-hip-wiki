@@ -13,6 +13,7 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/f419d8d6c037003cc21c64e9a105f3fe9d06abe2
   - https://github.com/opengfx1030/vllm-rdna/commit/b74028935393d1e21f73f80f65f506c9ea4639af
   - https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e
+  - https://github.com/stew675/llama-cpp-rdna-boosts/commit/d829586b6d404d2549e980eadeedf004f476f079
 ---
 # Quant formats
 
@@ -33,6 +34,7 @@ Weight/activation format contracts: pack, dequant, which DOT. Back to the [kerne
 | [w8a8-mxfp4.md](w8a8-mxfp4.md) | W8A8 INT8 = `sdot4` | **Spec / not added** |
 | [nvfp4.md](nvfp4.md) | E2M1 + E4M3 mul → `fdot2` | Spec (no RDNA NVFP4 kernel at `1dc3bac4`) |
 | [rocmfpx.md](rocmfpx.md) | codebook10 `perm` → i8 → `sdot4` | Later. llama.cpp GGUF, not a vLLM port |
+| [q5k-dense-vdr4.md](q5k-dense-vdr4.md) | Q5_K nibble + `qh` bit → i8 → `sdot4` (`v_dot4c_i32_i8`), one integer chain per sub-block | Read (2026-11-27): llama-cpp-rdna-boosts r368 dense VDR-4 is RDNA3_0 / RDNA4-flag only, so it is **not reachable on gfx1030**. Idea Take **Later**, for the GGUF plugin GEMV, not extras. Probe: +0–20 VGPR, 0–1 rung [^c-d829586b] |
 | [rdna-hint-flex.md](rdna-hint-flex.md) | per-row INT2/4/8 + block (lo, step) → `fdot2` (F16) or `sdot4` (I8) | **Live, opt-in format** @ `b7402893`: F16 GEMV decode, dequant + rocBLAS prefill default, fused GEMM and I8 prefill opt-in / op-only, routed experts [^c-b740-hf] |
 | [exl3.md](exl3.md) | trellis state → 3-inst → `fdot2` | Later. mul1 + K=1..8 + `exl3_project_rdna2` @ `30b0bd4e`; cb 0/1/2 all dispatch at `1dc3bac4`; decode-once v3 GEMM (`__launch_bounds__(128)`, gfx103x, bits 3/4/6, M ≤ 64) @ `c2cbf004` / `0835e3cb` / `f419d8d6`, unchanged at `64d59b89`. Occupancy + W4 first [^c-30b0bd4e][^f-30b0bd4e-exl3-dot2-dense-cu][^qtip][^c-c2cbf004] |
 
@@ -52,3 +54,4 @@ Index rows summarise the linked pages; each page carries its own footnoted prima
 [^c-c2cbf004]: opengfx1030/vllm-rdna commit [`c2cbf004`](https://github.com/opengfx1030/vllm-rdna/commit/c2cbf004772c2fa10f71e9858f98080e102107af) (2026-10-09) — "perf(rdna2): EXL3 decode-once GEMM for decode and MTP verify batches"; bits 6 added in [`0835e3cb`](https://github.com/opengfx1030/vllm-rdna/commit/0835e3cbf57de062b09fbf6a4a804abaf6db71cb), tile-word prefetch in [`f419d8d6`](https://github.com/opengfx1030/vllm-rdna/commit/f419d8d6c037003cc21c64e9a105f3fe9d06abe2).
 [^c-b740-hf]: dest tip [`b7402893`](https://github.com/opengfx1030/vllm-rdna/commit/b74028935393d1e21f73f80f65f506c9ea4639af); new file `csrc/rocm/rdna_hint_flex_rdna2.cu` in [`8015ea48...b7402893`](https://github.com/opengfx1030/vllm-rdna/compare/8015ea485b7f6c0298d8f98ce6e824ce1c444c45...b74028935393d1e21f73f80f65f506c9ea4639af).
 [^c-8d141bdc]: opengfx1030/vllm-rdna merge [`8d141bdc`](https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e) (2026-11-27 08:45 Paris), merge of #229; range [`93c59de2...8d141bdc`](https://github.com/opengfx1030/vllm-rdna/compare/93c59de2b50ccea1b26f299e2ac5713861ffb2e3...8d141bdc80b3124315a4a1e52ab4485cb6974f5e) merges #221, #222, #224, #225, #228, #229. HIP changes are in `9a706f6a` + `cda6ef6e` (#221) and `750bbc8e` (#222). Launch bounds, LDS arithmetic and per-line permalinks are on the linked pages.
+[^c-d829586b]: stew675/llama-cpp-rdna-boosts commit [`d829586b`](https://github.com/stew675/llama-cpp-rdna-boosts/commit/d829586b6d404d2549e980eadeedf004f476f079) (2026-11-27 03:30 Paris) — "r368: issue #374 -- the dense Q5_K VDR-4 mmvq dot product (blocks 07/08/10), and RDNA3_0's Q6_K prefill band". gfx1030 reachability and probe numbers are on [q5k-dense-vdr4.md](q5k-dense-vdr4.md).

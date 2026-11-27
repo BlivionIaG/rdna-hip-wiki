@@ -29,7 +29,7 @@ Pages are grouped by topic. Each folder has its own README index; this page is t
 
 | Folder | What lives there | Pages |
 |---|---|---|
-| [quant/](quant/README.md) | Weight/activation format contracts: pack, dequant, which DOT. | 15 |
+| [quant/](quant/README.md) | Weight/activation format contracts: pack, dequant, which DOT. | 16 |
 | [gemm-moe/](gemm-moe/README.md) | Dense skinny GEMM / GEMV and fused-MoE GEMM contracts, stock and extras. | 5 |
 | [attention/](attention/README.md) | Attention-side kernels: stock Triton baseline, KV INT8, Sage QK, sparse MLA, indexer. | 5 |
 | [linear-attn/](linear-attn/README.md) | Linear-attention / recurrent kernels: GDN decode + prefill, causal conv1d, FlashKDA. | 4 |

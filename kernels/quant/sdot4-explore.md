@@ -7,6 +7,7 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0
   - https://github.com/opengfx1030/vllm-rdna/blob/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0/csrc/rocm/w4a8_sdot4_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/blob/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0/csrc/rocm/fa_rdna2.cu
+  - https://github.com/stew675/llama-cpp-rdna-boosts/commit/d829586b6d404d2549e980eadeedf004f476f079
 ---
 # sdot4 explore — which kernels actually use it
 
@@ -36,6 +37,10 @@ Explore list, not a land-now ticket. Occupancy leftover is **FA prefill `(N, 1)`
 | HIP MLA decode | Gather + FP8 unpack is the sink. Scalar FMA → later `fdot2`, not `sdot4`. [^isa][^gpuopen] |
 | Skinny GEMM | Occupancy trap. No MFMA on gfx1030. Not an INT8 kernel. [^isa][^gpuopen] |
 
+## See also
+
+- [q5k-dense-vdr4.md](q5k-dense-vdr4.md): llama.cpp Q5_K mmvq. Both the stock VDR-2 and the r368 dense VDR-4 dot products compile to `v_dot4c_i32_i8` on gfx1030. The dense form only cuts the per-element scale and convert work. GGUF plugin GEMV, Later.[^c-d829586b]
+
 ## W4A8 sketch (superseded by land @ `3a0786ea`)
 
 ```
@@ -63,3 +68,4 @@ Reuse the existing W8A8 INT8 and Sage cards (spec / Todo). W4A8 `sdot4` **landed
 [^c-3a0786ea]: opengfx1030/vllm-rdna commit [`3a0786ea`](https://github.com/opengfx1030/vllm-rdna/commit/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0) (2026-09-30) — "merge(rdna2): land w4a8-wiring onto rdna_extras (W4A8 opt-in; W4A16 default unchanged)".
 [^f-3a0786ea-w4a8-sdot4-rdna2-cu]: opengfx1030/vllm-rdna `csrc/rocm/w4a8_sdot4_rdna2.cu` @ [`3a0786ea`](https://github.com/opengfx1030/vllm-rdna/blob/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0/csrc/rocm/w4a8_sdot4_rdna2.cu).
 [^f-3a0786ea-fa-rdna2-cu]: opengfx1030/vllm-rdna `csrc/rocm/fa_rdna2.cu` @ [`3a0786ea`](https://github.com/opengfx1030/vllm-rdna/blob/3a0786eaa70f37890b729ff4943e5cc9a0cb68c0/csrc/rocm/fa_rdna2.cu).
+[^c-d829586b]: stew675/llama-cpp-rdna-boosts commit [`d829586b`](https://github.com/stew675/llama-cpp-rdna-boosts/commit/d829586b6d404d2549e980eadeedf004f476f079) (2026-11-27 03:30 Paris), r368 dense Q5_K VDR-4 mmvq. The gfx1030 ISA and probe are on [q5k-dense-vdr4.md](q5k-dense-vdr4.md).
