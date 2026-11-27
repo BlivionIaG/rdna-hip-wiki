@@ -42,6 +42,10 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/vllm/envs.py
   - https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/vllm/model_executor/layers/utils.py
   - https://github.com/opengfx1030/vllm-rdna/blob/1e1cac5340a9c9af8c9df3db331978548d709b42/csrc/rocm/skinny_gemms_int4.cu
+  - https://github.com/opengfx1030/vllm-rdna/commit/53f157410b1ef2768ec59d74ac83a0ff4456b9cf
+  - https://github.com/opengfx1030/vllm-rdna/blob/53f157410b1ef2768ec59d74ac83a0ff4456b9cf/csrc/rocm/skinny_gemms_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/71299d56b2526dc4df8c74d261d0c57c39865dd2/csrc/rocm/skinny_gemms_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/commit/1155c85e4ffffc47ad83415b9c9b521cc1c496de
 ---
 # Skinny GEMM — silicon / HIP contract
 
@@ -145,6 +149,17 @@ The upstream vLLM v0.34.0 merge `2bf77978` is in the range `1e1cac53` → `00f10
 
 No change to the gfx1030 arch list (`HIP_SUPPORTED_ARCHS` is the same line as at `1e1cac53`). No new DOT path in the skinny kernels.[^f-00f106c5-sk-cmake]
 
+## Dest @ `53f15741`: `gemv_i8_rdna2` to M = 32 (2026-11-27)
+
+| Item | State |
+|---|---|
+| M range | `gemv_i8_rdna2` accepts M 1..32. M 1..8 keep exact MT; 9..12, 13..16, 17..24 and 25..32 run MT = 12 / 16 / 24 / 32 with `GUARD = true`, which skips rows `m >= M` (wave-uniform, `M` is a kernel argument). *Historical @ `71299d56`:* `TORCH_CHECK(M <= 8)`, and M = 8 was the `default:` case.[^sk53-chk][^sk53-old][^sk53-tip] |
+| Unroll vs VGPR | `constexpr int UNROLL = (MT > 8) ? 1 : 4`: above MT 8 each lane holds one `uint4` of weights per K step instead of four. Commit `1155c85e` says this frees 12 VGPRs/thread at MT 12..32 (author's figure).[^sk53-unroll][^sk53-c1155] *Historical @ `71299d56`:* fixed unroll 4.[^sk53-old] |
+| Launch / LDS | Unchanged: `__launch_bounds__(WAVES * 32)`, 8/4/2/1 waves (256/128/64/32 threads) at N ≥ 1152/576/288/below, one wave per output row, no LDS, wave32 `__shfl_xor` reduce over offsets 16..1.[^sk53-launch] |
+| ISA | Only `v_dot2c_f32_f16` (928 in the 5 instances compiled); int8 → fp16 by `__floats2half2_rn`, no `sdot4`.[^sk53-cc] |
+| VGPRs (hipcc **5.7.1**, 8-wave) | MT 8: 110; MT 12/16/24/32: 59/69/95/59, no scratch. Not the dest 7.14 compiler.[^sk53-cc] |
+| Dispatch | `rdna_ops._rdna_dense_gemm` sends int8-shadow decode with M ≤ `VLLM_RDNA_DECODE_I8_MAX` (default 32) here; it only exists with `VLLM_RDNA_DENSE_INT8=1`. Setting the env to 8 restores the old cap. A value above 32 fails the `M <= 32` check at run time (no clamp).[^sk53-ops][^sk53-chk] |
+
 ## Sources
 
 [^f-3b59ee16-skinny-gemms-cu]: opengfx1030/vllm-rdna `csrc/rocm/skinny_gemms.cu` @ [`3b59ee16`](https://github.com/opengfx1030/vllm-rdna/blob/3b59ee16e553168b1e3809c9a141088662171448/csrc/rocm/skinny_gemms.cu).
@@ -193,3 +208,11 @@ No change to the gfx1030 arch list (`HIP_SUPPORTED_ARCHS` is the same line as at
 [^f-00f106c5-sk-wvsplitk]: `csrc/rocm/skinny_gemms_wvsplitk.cu` @ `00f106c5` L33-L34; `on_gfx10()` at `skinny_gemms.cuh` L92. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/csrc/rocm/skinny_gemms_wvsplitk.cu#L33-L34>
 [^f-00f106c5-sk-envs]: `vllm/envs.py` @ `00f106c5` L729-L738. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/vllm/envs.py#L729-L738>
 [^f-00f106c5-sk-utils]: `vllm/model_executor/layers/utils.py` @ `00f106c5` L486-L503. <https://github.com/opengfx1030/vllm-rdna/blob/00f106c5b035bd6d562267bfee9e4ac020b7055d/vllm/model_executor/layers/utils.py#L486-L503>
+[^sk53-tip]: opengfx1030/vllm-rdna `rdna_extras` head [`53f15741`](https://github.com/opengfx1030/vllm-rdna/commit/53f157410b1ef2768ec59d74ac83a0ff4456b9cf), "Merge pull request #227 from wsantos/perf/rdna2-hip-decode", committed 2026-11-27 16:59 Europe/Paris; range [`71299d56...53f15741`](https://github.com/opengfx1030/vllm-rdna/compare/71299d56b2526dc4df8c74d261d0c57c39865dd2...53f157410b1ef2768ec59d74ac83a0ff4456b9cf) (7 commits: `bbdf2415`, `dc0b4d03`, `bb7adb0e`, `f6ef3eee`, `1155c85e`, `8f36c75d`, merge). Read 2026-11-27 ~17:50 Paris.
+[^sk53-cc]: VGPR counts compiled on the box with **Debian hipcc 5.7.1 (clang 17.0.6)**, `--offload-arch=gfx1030 -O3`, `-Rpass-analysis=kernel-resource-usage`, kernels extracted standalone from the files at `53f15741` (and `71299d56` for the before column), 8-wave instances. This is **not** the dest ROCm 7.14 compiler; 7.14 was not available on the box. Treat the counts as indicative and re-check on 7.14.
+[^sk53-chk]: `TORCH_CHECK(M >= 1 && M <= 32)` and the guarded MT switch @ `53f15741`: https://github.com/opengfx1030/vllm-rdna/blob/53f157410b1ef2768ec59d74ac83a0ff4456b9cf/csrc/rocm/skinny_gemms_rdna2.cu#L476 ; https://github.com/opengfx1030/vllm-rdna/blob/53f157410b1ef2768ec59d74ac83a0ff4456b9cf/csrc/rocm/skinny_gemms_rdna2.cu#L498-L533
+[^sk53-unroll]: `UNROLL = (MT > 8) ? 1 : 4` @ `53f15741`: https://github.com/opengfx1030/vllm-rdna/blob/53f157410b1ef2768ec59d74ac83a0ff4456b9cf/csrc/rocm/skinny_gemms_rdna2.cu#L379-L452
+[^sk53-launch]: `gemv_i8_rdna2_launch` waves by N @ `53f15741`: https://github.com/opengfx1030/vllm-rdna/blob/53f157410b1ef2768ec59d74ac83a0ff4456b9cf/csrc/rocm/skinny_gemms_rdna2.cu#L455-L472
+[^sk53-old]: fixed unroll 4 and `M must be 1..8` @ `71299d56`: https://github.com/opengfx1030/vllm-rdna/blob/71299d56b2526dc4df8c74d261d0c57c39865dd2/csrc/rocm/skinny_gemms_rdna2.cu#L395 ; https://github.com/opengfx1030/vllm-rdna/blob/71299d56b2526dc4df8c74d261d0c57c39865dd2/csrc/rocm/skinny_gemms_rdna2.cu#L468
+[^sk53-c1155]: commit [`1155c85e`](https://github.com/opengfx1030/vllm-rdna/commit/1155c85e4ffffc47ad83415b9c9b521cc1c496de) "perf(rdna2): use UNROLL=1 for MT > 8 in gemv_i8_rdna2 to cut VGPR pressure" (in `53f15741`).
+[^sk53-ops]: `_DECODE_I8_MAX` and `_rdna_dense_gemm` @ `53f15741`: https://github.com/opengfx1030/vllm-rdna/blob/53f157410b1ef2768ec59d74ac83a0ff4456b9cf/vllm/model_executor/layers/rdna_ops.py#L31 ; https://github.com/opengfx1030/vllm-rdna/blob/53f157410b1ef2768ec59d74ac83a0ff4456b9cf/vllm/model_executor/layers/rdna_ops.py#L87-L100
