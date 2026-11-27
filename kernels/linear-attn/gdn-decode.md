@@ -12,6 +12,9 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/blob/7779514b449c358c14cb58c739cc33cd7efca3b4/csrc/rocm/gdn_decode_rdna2.cu
   - https://github.com/opengfx1030/vllm-rdna/commit/f93619500c3e55daee5f60ae7f6d4279cdeb3f0d
   - https://github.com/opengfx1030/vllm-rdna/blob/50120e13b46895fc5d074e88fc493f1eef69da9f/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py
+  - https://github.com/opengfx1030/vllm-rdna/commit/53f157410b1ef2768ec59d74ac83a0ff4456b9cf
+  - https://github.com/opengfx1030/vllm-rdna/blob/53f157410b1ef2768ec59d74ac83a0ff4456b9cf/csrc/rocm/gdn_decode_rdna2.cu
+  - https://github.com/opengfx1030/vllm-rdna/blob/71299d56b2526dc4df8c74d261d0c57c39865dd2/csrc/rocm/gdn_decode_rdna2.cu
 ---
 # GDN packed decode — extras HIP (`69d2efe` / tip `47d92b6`)
 
@@ -22,6 +25,17 @@ Occupancy unchanged: `gdn_spec_verify_rdna2_kernel` keeps `__launch_bounds__(GDN
 Contract change: the host wrapper no longer requires contiguous q/k/v/a/b. It now checks only that each token's `[heads, dim]` block is dense (`stride(3) == 1`, `stride(2) == size(3)`), that a/b are unit-stride on the head axis, and that `out` is contiguous. The kernel already took a per-tensor token stride, so q/k/v and a/b can be views into the packed conv output and the ba projection.[^gdnd-13fb-chk] *Historical:* the `requires contiguous q/k/v/a/b/out` check held up to `b30757c2`.[^gdnd-b307-chk]
 
 Gate: new env `VLLM_GDN_STRIDED_INPUTS` (default `1`). It applies only when the whole GDN layer is the opaque eager op (`VLLM_RDNA_GDN_OPAQUE` on), on RDNA2 HIP, with `VLLM_GDN_DECODE_RDNA2` on; `0` restores the packing copies.[^gdnd-13fb-env] The fork docs say mixed prefill+decode batches and non-dense layouts still take the copies, and that results are bitwise identical to the copy path per its tests (fork claim, not re-run here).[^gdnd-13fb-doc] The gated RMSNorm half of this change is in [layernorm.md](../aot-glue/layernorm.md).
+
+## Spec-verify vector loads at dest `rdna_extras` @ `53f15741` (checked 2026-11-27)
+
+Occupancy unchanged: `__launch_bounds__(GDN_THREADS)` + `amdgpu_waves_per_eu(2, 4)`, 256 threads (32 v-rows × 8 k-slices of 16), no LDS.[^gdnd-53-lb] What changed in `gdn_spec_verify_rdna2_kernel`:
+
+- **State and q/k loads are 16-byte vectors** when two new host flags allow it: fp32 state as 4 × `float4`, fp16 state as 2 × `uint4`, q/k as 2 × `uint4` each. The scalar loops stay as the fallback.[^gdnd-53-vec]
+- **Alignment guard (`8f36c75d`).** `vec16_qk` needs 16-B aligned `q`/`k` base pointers and `stride(1) % 8 == 0`; `vec16_st` needs a 16-B aligned state base and a 16-B multiple block stride. A new check requires `initial_state` contiguous across `[HV, V, K]`. Per-lane offsets (`i_h·128 + ks·16`) stay 16-B multiples, so the per-thread vectors are aligned whenever the flags are true (arithmetic from the index math).[^gdnd-53-flags][^gdnd-53-chk]
+- **`out` stored once.** Only `ks == 0` writes `out` (all 8 k-slices hold the same `gdn_ksum` result), on both the normal and the NULL-block path.[^gdnd-53-out]
+- **Per-head `-exp(A_log)` and `dt_bias` hoisted** out of the token loop.[^gdnd-53-vec]
+
+*Historical @ `71299d56`:* scalar `for j < 16` loads and every k-slice wrote `out`.[^gdnd-53-old]
 
 ## Current state at dest `rdna_extras` @ `1dc3bac4` (checked 2026-10-11)
 
@@ -79,3 +93,10 @@ Python only (`qwen_gdn_linear_attn.py`): removed the one-shot `conv_state.zero_(
 [^gdnd-b307-chk]: Contiguity check in `gdn_spec_verify_rdna2` at b30757c2. https://github.com/opengfx1030/vllm-rdna/blob/b30757c257c25c737d671179025bbc5c2ec1ee50/csrc/rocm/gdn_decode_rdna2.cu
 [^gdnd-13fb-env]: `vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py` L827-L838, dest at 13fbe2f9. https://github.com/opengfx1030/vllm-rdna/blob/13fbe2f9160027e71ab6c915ecbcb95d42373a2e/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py#L827-L838
 [^gdnd-13fb-doc]: `docs/rdna2/tuning.md` (`VLLM_GDN_STRIDED_INPUTS` row) and `docs/rdna2/gdn-decode-investigation.md` section "2026-11-02: the glue around the kernel", dest at 13fbe2f9. https://github.com/opengfx1030/vllm-rdna/blob/13fbe2f9160027e71ab6c915ecbcb95d42373a2e/docs/rdna2/tuning.md ; https://github.com/opengfx1030/vllm-rdna/blob/13fbe2f9160027e71ab6c915ecbcb95d42373a2e/docs/rdna2/gdn-decode-investigation.md
+[^gdnd-53-tip]: opengfx1030/vllm-rdna `rdna_extras` head [`53f15741`](https://github.com/opengfx1030/vllm-rdna/commit/53f157410b1ef2768ec59d74ac83a0ff4456b9cf), "Merge pull request #227 from wsantos/perf/rdna2-hip-decode", committed 2026-11-27 16:59 Europe/Paris; range [`71299d56...53f15741`](https://github.com/opengfx1030/vllm-rdna/compare/71299d56b2526dc4df8c74d261d0c57c39865dd2...53f157410b1ef2768ec59d74ac83a0ff4456b9cf) (7 commits: `bbdf2415`, `dc0b4d03`, `bb7adb0e`, `f6ef3eee`, `1155c85e`, `8f36c75d`, merge). Read 2026-11-27 ~17:50 Paris.
+[^gdnd-53-lb]: `GDN_THREADS = 256` and the spec-verify kernel attributes @ `53f15741`: https://github.com/opengfx1030/vllm-rdna/blob/53f157410b1ef2768ec59d74ac83a0ff4456b9cf/csrc/rocm/gdn_decode_rdna2.cu#L24 ; https://github.com/opengfx1030/vllm-rdna/blob/53f157410b1ef2768ec59d74ac83a0ff4456b9cf/csrc/rocm/gdn_decode_rdna2.cu#L323-L340
+[^gdnd-53-vec]: hoisted constants and vector state / q-k loads @ `53f15741`: https://github.com/opengfx1030/vllm-rdna/blob/53f157410b1ef2768ec59d74ac83a0ff4456b9cf/csrc/rocm/gdn_decode_rdna2.cu#L380-L460
+[^gdnd-53-out]: `v_ok && ks == 0` stores @ `53f15741`: https://github.com/opengfx1030/vllm-rdna/blob/53f157410b1ef2768ec59d74ac83a0ff4456b9cf/csrc/rocm/gdn_decode_rdna2.cu#L370 ; https://github.com/opengfx1030/vllm-rdna/blob/53f157410b1ef2768ec59d74ac83a0ff4456b9cf/csrc/rocm/gdn_decode_rdna2.cu#L504
+[^gdnd-53-flags]: `vec16_qk` / `vec16_st` host flags @ `53f15741`: https://github.com/opengfx1030/vllm-rdna/blob/53f157410b1ef2768ec59d74ac83a0ff4456b9cf/csrc/rocm/gdn_decode_rdna2.cu#L643-L649
+[^gdnd-53-chk]: `initial_state` contiguity check @ `53f15741`: https://github.com/opengfx1030/vllm-rdna/blob/53f157410b1ef2768ec59d74ac83a0ff4456b9cf/csrc/rocm/gdn_decode_rdna2.cu#L614-L615
+[^gdnd-53-old]: scalar state load @ `71299d56`: https://github.com/opengfx1030/vllm-rdna/blob/71299d56b2526dc4df8c74d261d0c57c39865dd2/csrc/rocm/gdn_decode_rdna2.cu#L384

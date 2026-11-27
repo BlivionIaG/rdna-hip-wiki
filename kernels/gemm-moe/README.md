@@ -14,6 +14,7 @@ sources:
   - https://github.com/opengfx1030/vllm-rdna/commit/2436df23358ef8b9397076c0663707ec3dce69bf
   - https://github.com/opengfx1030/vllm-rdna/commit/b56907c4339779d2076f0886532833689aec93ec
   - https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e
+  - https://github.com/opengfx1030/vllm-rdna/commit/53f157410b1ef2768ec59d74ac83a0ff4456b9cf
 ---
 # GEMM and MoE
 
@@ -24,7 +25,7 @@ Dense skinny GEMM / GEMV and fused-MoE GEMM contracts, stock and extras. Back to
 | [fp16-moe.md](fp16-moe.md) | native fp16 `fdot2`, fp32 accum | Spec: tiny-M GEMM + grouped prefill; dest grouped prefill kernel (BM 16 × BN 64 × BK 32, 64 thr, 11,648 B LDS) **default on** at ≥ 64 tokens @ `8d141bdc` [^c-8d141bdc] |
 | [int8-moe.md](int8-moe.md) | W8A16 `fdot2` / W8A8 `sdot4` | Spec: dual route by expert rows/shape/scales |
 | [triton-skinny-gemm.md](triton-skinny-gemm.md) | stock dispatch baseline | Stock gfx1030 = BLAS; LLMM1/wvSplitK gate excludes gfx10 [^f-c6d99ca3-skinny-gemms-cu] |
-| [skinny-gemm.md](skinny-gemm.md) | no MFMA; gemv_f16 decode @ `3b59ee16`; MoE int4 `fdot2` @ `5c3c0c6f`; resident MoE @ `e1315629` | gfx1030 dense decode = gemv; resident MoE opt-in M=1..4; `(1,1)` leftover open [^c-3b59ee16][^c-5c3c0c6f][^c-e1315629] |
+| [skinny-gemm.md](skinny-gemm.md) | no MFMA; gemv_f16 decode @ `3b59ee16`; MoE int4 `fdot2` @ `5c3c0c6f`; resident MoE @ `e1315629` | gfx1030 dense decode = gemv; resident MoE opt-in M=1..4; `(1,1)` leftover open [^c-3b59ee16][^c-5c3c0c6f][^c-e1315629] `gemv_i8_rdna2` M ≤ 32 (guarded MT 12–32, unroll 1 above MT 8) @ `53f15741`. [^c-53f15741] |
 | [rdna2-moe-offload-q32.md](rdna2-moe-offload-q32.md) | unchanged `fdot2`; new Q32 int64 epilogue | MoE expert offload (graph-safe passes, one rounding), deterministic dense W4A16 opt-in, native expert-cache copy opt-in @ `b7402893` [^c-b740-moe] |
 | [gguf-plugin-moe.md](gguf-plugin-moe.md) | out-of-tree GGUF MMQ `moe_q*` (plugin fork, ROCm tile 64×128, 8 warps) | `qwen4exp_gguf` load format; image builds plugin fork for gfx1030 only; 3 kernel defects fixed/worked around @ `b56907c4` [^c-b569-gguf] |
 
@@ -70,3 +71,4 @@ Index rows summarise the linked pages; each page carries its own footnoted prima
 [^c-7773-moe]: `csrc/rocm/moe_w4a8_rdna2.cu` @ `7773dc6230f91fae56c50d69bb9c1e4ebdacdf83` L641-L792. https://github.com/opengfx1030/vllm-rdna/blob/7773dc6230f91fae56c50d69bb9c1e4ebdacdf83/csrc/rocm/moe_w4a8_rdna2.cu#L641-L792
 [^c-b569-gguf]: opengfx1030/vllm-rdna commit [`b56907c4`](https://github.com/opengfx1030/vllm-rdna/commit/b56907c4339779d2076f0886532833689aec93ec) (2026-11-16) — "Merge pull request #189: Image: build the GGUF plugin fork; flashnext-gguf-mtp0 recipe; README and serving docs".
 [^c-8d141bdc]: opengfx1030/vllm-rdna merge [`8d141bdc`](https://github.com/opengfx1030/vllm-rdna/commit/8d141bdc80b3124315a4a1e52ab4485cb6974f5e) (2026-11-27 08:45 Paris), merge of #229; range [`93c59de2...8d141bdc`](https://github.com/opengfx1030/vllm-rdna/compare/93c59de2b50ccea1b26f299e2ac5713861ffb2e3...8d141bdc80b3124315a4a1e52ab4485cb6974f5e) merges #221, #222, #224, #225, #228, #229. HIP changes are in `9a706f6a` + `cda6ef6e` (#221) and `750bbc8e` (#222). Launch bounds, LDS arithmetic and per-line permalinks are on the linked pages.
+[^c-53f15741]: opengfx1030/vllm-rdna merge [`53f15741`](https://github.com/opengfx1030/vllm-rdna/commit/53f157410b1ef2768ec59d74ac83a0ff4456b9cf) (2026-11-27 16:59 Paris), merge of #227; range [`71299d56...53f15741`](https://github.com/opengfx1030/vllm-rdna/compare/71299d56b2526dc4df8c74d261d0c57c39865dd2...53f157410b1ef2768ec59d74ac83a0ff4456b9cf).
